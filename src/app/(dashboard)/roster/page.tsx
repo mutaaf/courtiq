@@ -1,0 +1,198 @@
+'use client';
+
+import { useState, useMemo } from 'react';
+import { useActiveTeam } from '@/hooks/use-active-team';
+import { useQuery } from '@tanstack/react-query';
+import { createClient } from '@/lib/supabase/client';
+import { queryKeys } from '@/lib/query/keys';
+import { CACHE_PROFILES } from '@/lib/query/config';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { PlayerCard } from '@/components/roster/player-card';
+import { Plus, Upload, Search, Users } from 'lucide-react';
+import Link from 'next/link';
+import type { Player } from '@/types/database';
+
+export default function RosterPage() {
+  const { activeTeam } = useActiveTeam();
+  const [search, setSearch] = useState('');
+  const [positionFilter, setPositionFilter] = useState<string>('all');
+
+  const { data: players = [], isLoading } = useQuery({
+    queryKey: queryKeys.players.all(activeTeam?.id ?? ''),
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('players')
+        .select('*')
+        .eq('team_id', activeTeam!.id)
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+      if (error) throw error;
+      return (data || []) as Player[];
+    },
+    enabled: !!activeTeam,
+    ...CACHE_PROFILES.roster,
+  });
+
+  // Fetch observation counts per player
+  const { data: obsCounts = {} } = useQuery({
+    queryKey: [...queryKeys.observations.all(activeTeam?.id ?? ''), 'counts'],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('observations')
+        .select('player_id')
+        .eq('team_id', activeTeam!.id)
+        .not('player_id', 'is', null);
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      for (const obs of data || []) {
+        if (obs.player_id) {
+          counts[obs.player_id] = (counts[obs.player_id] || 0) + 1;
+        }
+      }
+      return counts;
+    },
+    enabled: !!activeTeam,
+    ...CACHE_PROFILES.observations,
+  });
+
+  const positions = useMemo(() => {
+    const set = new Set(players.map((p) => p.position));
+    return Array.from(set).sort();
+  }, [players]);
+
+  const filtered = useMemo(() => {
+    let result = players;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.nickname?.toLowerCase().includes(q) ||
+          p.jersey_number?.toString() === q
+      );
+    }
+    if (positionFilter !== 'all') {
+      result = result.filter((p) => p.position === positionFilter);
+    }
+    return result;
+  }, [players, search, positionFilter]);
+
+  if (!activeTeam) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 text-center">
+        <Users className="mb-4 h-12 w-12 text-zinc-600" />
+        <h2 className="text-lg font-semibold text-zinc-300">No Active Team</h2>
+        <p className="mt-1 text-sm text-zinc-500">Select or create a team to manage your roster.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 lg:p-8 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-zinc-100">Roster</h1>
+          <p className="text-sm text-zinc-400">
+            {players.length} player{players.length !== 1 ? 's' : ''} on {activeTeam.name}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link href="/roster/import">
+            <Button variant="outline" size="sm">
+              <Upload className="h-4 w-4" />
+              Import
+            </Button>
+          </Link>
+          <Link href="/roster/add">
+            <Button size="sm">
+              <Plus className="h-4 w-4" />
+              Add Player
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Search & Filter */}
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+          <Input
+            placeholder="Search players..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <select
+          value={positionFilter}
+          onChange={(e) => setPositionFilter(e.target.value)}
+          className="h-10 rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-sm text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+        >
+          <option value="all">All Positions</option>
+          {positions.map((pos) => (
+            <option key={pos} value={pos}>
+              {pos}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Player Grid */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-20 rounded-xl" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-700 p-12 text-center">
+          <Users className="mb-4 h-16 w-16 text-zinc-700" />
+          {players.length === 0 ? (
+            <>
+              <h3 className="text-lg font-semibold text-zinc-300">No players yet</h3>
+              <p className="mt-1 max-w-sm text-sm text-zinc-500">
+                Add players to your roster to start tracking observations and progress.
+              </p>
+              <div className="mt-6 flex gap-3">
+                <Link href="/roster/import">
+                  <Button variant="outline">
+                    <Upload className="h-4 w-4" />
+                    Import Roster
+                  </Button>
+                </Link>
+                <Link href="/roster/add">
+                  <Button>
+                    <Plus className="h-4 w-4" />
+                    Add Player
+                  </Button>
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <h3 className="text-lg font-semibold text-zinc-300">No players match</h3>
+              <p className="mt-1 text-sm text-zinc-500">
+                Try adjusting your search or filter criteria.
+              </p>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((player) => (
+            <PlayerCard
+              key={player.id}
+              player={player}
+              observationCount={obsCounts[player.id] || 0}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
