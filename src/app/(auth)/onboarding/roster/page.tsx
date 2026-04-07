@@ -2,16 +2,16 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, X, Loader2 } from 'lucide-react';
+import { Plus, X, Loader2, AlertCircle } from 'lucide-react';
 
 export default function RosterSetupPage() {
   const router = useRouter();
   const [players, setPlayers] = useState<string[]>(['', '', '']);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   function addRow() { setPlayers([...players, '']); }
   function removeRow(i: number) { setPlayers(players.filter((_, j) => j !== i)); }
@@ -20,23 +20,29 @@ export default function RosterSetupPage() {
   async function handleSave() {
     const names = players.filter((p) => p.trim());
     setLoading(true);
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    setError('');
 
-    const { data: teamCoach } = await supabase.from('team_coaches').select('team_id, teams(age_group)').eq('coach_id', user.id).limit(1).single();
-    if (!teamCoach) { router.push('/onboarding/tutorial'); return; }
+    try {
+      if (names.length > 0) {
+        const res = await fetch('/api/auth/add-players', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playerNames: names }),
+        });
 
-    if (names.length > 0) {
-      await supabase.from('players').insert(
-        names.map((name) => ({
-          team_id: teamCoach.team_id,
-          name,
-          age_group: (teamCoach as any).teams?.age_group || '8-10',
-        }))
-      );
+        if (!res.ok) {
+          const data = await res.json();
+          setError(data.error || 'Failed to add players');
+          setLoading(false);
+          return;
+        }
+      }
+
+      router.push('/onboarding/tutorial');
+    } catch {
+      setError('Something went wrong');
+      setLoading(false);
     }
-    router.push('/onboarding/tutorial');
   }
 
   return (
@@ -47,6 +53,12 @@ export default function RosterSetupPage() {
           <p className="text-sm text-zinc-400">You can always add more later</p>
         </CardHeader>
         <CardContent className="space-y-3">
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg bg-red-500/10 p-3 text-sm text-red-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {error}
+            </div>
+          )}
           {players.map((name, i) => (
             <div key={i} className="flex gap-2">
               <Input value={name} onChange={(e) => updateRow(i, e.target.value)} placeholder={`Player ${i + 1}`} />

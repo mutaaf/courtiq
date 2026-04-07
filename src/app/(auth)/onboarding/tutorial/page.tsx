@@ -2,14 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Mic, Users, ClipboardList, Share2, ChevronRight } from 'lucide-react';
+import { Mic, Users, ClipboardList, Share2, ChevronRight, Loader2 } from 'lucide-react';
 
 const slides = [
   { icon: Mic, title: 'Capture observations', description: 'Record voice notes during practice. AI segments them into individual player observations.' },
-  { icon: Users, title: 'Track player progress', description: 'See each player\'s skill progression over time with curriculum-aligned report cards.' },
+  { icon: Users, title: 'Track player progress', description: "See each player's skill progression over time with curriculum-aligned report cards." },
   { icon: ClipboardList, title: 'Generate AI plans', description: 'Get curriculum-aware practice plans, game day sheets, and development cards.' },
   { icon: Share2, title: 'Share with parents', description: 'Send beautiful, interactive progress reports to parents with one tap.' },
 ];
@@ -17,15 +16,19 @@ const slides = [
 export default function TutorialPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
+  const [loading, setLoading] = useState(false);
 
   async function handleFinish() {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from('coaches').update({ onboarding_complete: true }).eq('id', user.id);
+    setLoading(true);
+    try {
+      await fetch('/api/auth/complete-onboarding', { method: 'POST' });
+      router.push('/home');
+      router.refresh();
+    } catch {
+      // Still redirect even if the API call fails
+      router.push('/home');
+      router.refresh();
     }
-    router.push('/home');
-    router.refresh();
   }
 
   const slide = slides[step];
@@ -49,7 +52,10 @@ export default function TutorialPage() {
           <div className="mt-8 flex w-full gap-3">
             {step > 0 && <Button variant="ghost" onClick={() => setStep(step - 1)} className="flex-1">Back</Button>}
             {isLast ? (
-              <Button onClick={handleFinish} className="flex-1" size="lg">Get Started</Button>
+              <Button onClick={handleFinish} className="flex-1" size="lg" disabled={loading}>
+                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                Get Started
+              </Button>
             ) : (
               <Button onClick={() => setStep(step + 1)} className="flex-1" size="lg">
                 Next <ChevronRight className="h-4 w-4" />

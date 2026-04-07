@@ -2,11 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 
 export default function TeamSetupPage() {
   const router = useRouter();
@@ -14,40 +13,32 @@ export default function TeamSetupPage() {
   const [ageGroup, setAgeGroup] = useState('8-10');
   const [season, setSeason] = useState('Spring 2026');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   async function handleCreate() {
     if (!teamName.trim()) return;
     setLoading(true);
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    setError('');
 
-    const { data: coach } = await supabase.from('coaches').select('org_id').eq('id', user.id).single();
-    if (!coach) return;
-
-    const { data: sport } = await supabase.from('sports').select('id').eq('slug', 'basketball').single();
-
-    // Get default curriculum
-    const { data: curriculum } = await supabase.from('curricula').select('id').eq('is_default', true).single();
-
-    const { data: team } = await supabase.from('teams').insert({
-      org_id: coach.org_id,
-      sport_id: sport?.id,
-      curriculum_id: curriculum?.id,
-      name: teamName,
-      age_group: ageGroup,
-      season,
-    }).select().single();
-
-    if (team) {
-      await supabase.from('team_coaches').insert({
-        team_id: team.id,
-        coach_id: user.id,
-        role: 'head_coach',
+    try {
+      const res = await fetch('/api/auth/create-team', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamName: teamName.trim(), ageGroup, season }),
       });
-    }
 
-    router.push('/onboarding/roster');
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || 'Failed to create team');
+        setLoading(false);
+        return;
+      }
+
+      router.push('/onboarding/roster');
+    } catch {
+      setError('Something went wrong');
+      setLoading(false);
+    }
   }
 
   return (
@@ -57,6 +48,12 @@ export default function TeamSetupPage() {
           <CardTitle>Create your team</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg bg-red-500/10 p-3 text-sm text-red-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {error}
+            </div>
+          )}
           <div className="space-y-2">
             <label className="text-sm text-zinc-400">Team Name</label>
             <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Blue Tigers" />
