@@ -29,7 +29,7 @@ export function computeProficiency(
   const levels = skillConfig.progression_levels;
 
   // Filter by session type if specified (for game_ready evaluation)
-  let filtered = observations;
+  const filtered = observations;
 
   // Sort by created_at desc and take window
   const sorted = [...filtered]
