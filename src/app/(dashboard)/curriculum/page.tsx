@@ -2,7 +2,7 @@
 
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery } from '@tanstack/react-query';
-import { createClient } from '@/lib/supabase/client';
+import { query } from '@/lib/api';
 import { CACHE_PROFILES } from '@/lib/query/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -81,13 +81,12 @@ export default function CurriculumPage() {
     queryKey: ['curriculum-skills', activeTeam?.curriculum_id],
     queryFn: async () => {
       if (!activeTeam?.curriculum_id) return [];
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('curriculum_skills')
-        .select('*')
-        .eq('curriculum_id', activeTeam.curriculum_id)
-        .order('sort_order', { ascending: true });
-      if (error) throw error;
+      const data = await query<CurriculumSkill[]>({
+        table: 'curriculum_skills',
+        select: '*',
+        filters: { curriculum_id: activeTeam.curriculum_id },
+        order: { column: 'sort_order', ascending: true },
+      });
       return data || [];
     },
     enabled: !!activeTeam?.curriculum_id,
@@ -98,22 +97,20 @@ export default function CurriculumPage() {
     queryKey: ['team-proficiency', activeTeam?.id],
     queryFn: async () => {
       if (!activeTeam) return [];
-      const supabase = createClient();
-      const { data: players } = await supabase
-        .from('players')
-        .select('id')
-        .eq('team_id', activeTeam.id)
-        .eq('is_active', true);
+      const players = await query<{ id: string }[]>({
+        table: 'players',
+        select: 'id',
+        filters: { team_id: activeTeam.id, is_active: true },
+      });
 
       if (!players?.length) return [];
 
       const playerIds = players.map((p) => p.id);
-      const { data, error } = await supabase
-        .from('player_skill_proficiency')
-        .select('*')
-        .in('player_id', playerIds);
-
-      if (error) throw error;
+      const data = await query<any[]>({
+        table: 'player_skill_proficiency',
+        select: '*',
+        filters: { player_id: { op: 'in', value: playerIds } },
+      });
       return data || [];
     },
     enabled: !!activeTeam,

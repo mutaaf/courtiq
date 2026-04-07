@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQueryClient } from '@tanstack/react-query';
-import { createClient } from '@/lib/supabase/client';
+import { mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ const SESSION_TYPES: { value: SessionType; label: string; description: string; i
 
 export default function NewSessionPage() {
   const router = useRouter();
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, coach } = useActiveTeam();
   const queryClient = useQueryClient();
 
   const [type, setType] = useState<SessionType>('practice');
@@ -42,32 +42,29 @@ export default function NewSessionPage() {
     setSaving(true);
 
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      if (!coach) throw new Error('Not authenticated');
 
-      const { data, error: insertError } = await supabase
-        .from('sessions')
-        .insert({
+      const data = await mutate<any[]>({
+        table: 'sessions',
+        operation: 'insert',
+        data: {
           team_id: activeTeam.id,
-          coach_id: user.id,
+          coach_id: coach.id,
           type,
           date,
           start_time: startTime || null,
           location: location || null,
           opponent: type === 'game' ? opponent || null : null,
           curriculum_week: curriculumWeek ? parseInt(curriculumWeek) : null,
-        })
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
+        },
+        select: '*',
+      });
 
       queryClient.invalidateQueries({
         queryKey: queryKeys.sessions.all(activeTeam.id),
       });
 
-      router.push(`/sessions/${data.id}`);
+      router.push(`/sessions/${data[0].id}`);
     } catch (err: any) {
       setError(err.message || 'Failed to create session');
       setSaving(false);

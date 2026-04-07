@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createClient } from '@/lib/supabase/client';
+import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { CACHE_PROFILES } from '@/lib/query/config';
 import { resolveConfigWithSource, type EffectiveConfig } from '@/lib/config/resolver';
@@ -95,7 +95,7 @@ function StringArrayEditor({ label, items, onChange, source, placeholder }: Stri
 }
 
 export default function SportConfigPage() {
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, coach } = useActiveTeam();
   const queryClient = useQueryClient();
 
   const [positions, setPositions] = useState<string[]>([]);
@@ -113,14 +113,13 @@ export default function SportConfigPage() {
       : ['config-none'],
     queryFn: async () => {
       if (!activeTeam) return null;
-      const supabase = createClient();
 
       // Fetch org overrides
-      const { data: orgOverrides } = await supabase
-        .from('config_overrides')
-        .select('domain, key, value')
-        .eq('org_id', activeTeam.org_id)
-        .is('team_id', null);
+      const orgOverrides = await query<{ domain: string; key: string; value: unknown }[]>({
+        table: 'config_overrides',
+        select: 'domain, key, value',
+        filters: { org_id: activeTeam.org_id, team_id: null },
+      });
 
       const orgMap: Record<string, unknown> = {};
       (orgOverrides || []).forEach((o: any) => {
@@ -128,10 +127,11 @@ export default function SportConfigPage() {
       });
 
       // Fetch team overrides
-      const { data: teamOverrides } = await supabase
-        .from('config_overrides')
-        .select('domain, key, value')
-        .eq('team_id', activeTeam.id);
+      const teamOverrides = await query<{ domain: string; key: string; value: unknown }[]>({
+        table: 'config_overrides',
+        select: 'domain, key, value',
+        filters: { team_id: activeTeam.id },
+      });
 
       const teamMap: Record<string, unknown> = {};
       (teamOverrides || []).forEach((o: any) => {
@@ -170,9 +170,7 @@ export default function SportConfigPage() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!activeTeam) throw new Error('No team');
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      if (!coach) throw new Error('Not authenticated');
 
       const overrides = [
         { domain: 'sport', key: 'positions', value: positions },
@@ -181,32 +179,41 @@ export default function SportConfigPage() {
       ];
 
       for (const override of overrides) {
-        // Upsert config override
-        const { data: existing } = await supabase
-          .from('config_overrides')
-          .select('id')
-          .eq('org_id', activeTeam.org_id)
-          .eq('domain', override.domain)
-          .eq('key', override.key)
-          .is('team_id', null)
-          .maybeSingle();
-
-        if (existing) {
-          await supabase
-            .from('config_overrides')
-            .update({
-              value: override.value as any,
-              changed_by: user.id,
-            })
-            .eq('id', existing.id);
-        } else {
-          await supabase.from('config_overrides').insert({
+        // Check if override already exists
+        const existing = await query<{ id: string }[]>({
+          table: 'config_overrides',
+          select: 'id',
+          filters: {
             org_id: activeTeam.org_id,
-            scope: 'org' as const,
             domain: override.domain,
             key: override.key,
-            value: override.value as any,
-            changed_by: user.id,
+            team_id: null,
+          },
+          limit: 1,
+        });
+
+        if (existing && existing.length > 0) {
+          await mutate({
+            table: 'config_overrides',
+            operation: 'update',
+            data: {
+              value: override.value as any,
+              changed_by: coach.id,
+            },
+            filters: { id: existing[0].id },
+          });
+        } else {
+          await mutate({
+            table: 'config_overrides',
+            operation: 'insert',
+            data: {
+              org_id: activeTeam.org_id,
+              scope: 'org' as const,
+              domain: override.domain,
+              key: override.key,
+              value: override.value as any,
+              changed_by: coach.id,
+            },
           });
         }
       }

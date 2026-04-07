@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { createClient } from '@/lib/supabase/client';
+import { mutate } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +16,7 @@ type CaptureState = 'idle' | 'recording' | 'processing' | 'error';
 
 export default function CapturePage() {
   const router = useRouter();
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, coach } = useActiveTeam();
 
   const [captureState, setCaptureState] = useState<CaptureState>('idle');
   const [transcript, setTranscript] = useState('');
@@ -149,14 +150,13 @@ export default function CapturePage() {
     if (!activeTeam) return;
 
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      if (!coach) throw new Error('Not authenticated');
 
       const recordingId = generateId();
       const storagePath = `recordings/${activeTeam.id}/${recordingId}.webm`;
 
-      // Upload audio
+      // Upload audio via storage (requires supabase client)
+      const supabase = createClient();
       const { error: uploadError } = await supabase.storage
         .from('recordings')
         .upload(storagePath, audioBlob, { contentType: mimeType });
@@ -167,18 +167,20 @@ export default function CapturePage() {
       }
 
       // Create recording record
-      const { error: recordError } = await supabase.from('recordings').insert({
-        id: recordingId,
-        team_id: activeTeam.id,
-        coach_id: user.id,
-        storage_path: uploadError ? null : storagePath,
-        mime_type: mimeType,
-        file_size_bytes: audioBlob.size,
-        status: 'uploaded' as const,
-        raw_transcript: liveTranscript || null,
+      await mutate({
+        table: 'recordings',
+        operation: 'insert',
+        data: {
+          id: recordingId,
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          storage_path: uploadError ? null : storagePath,
+          mime_type: mimeType,
+          file_size_bytes: audioBlob.size,
+          status: 'uploaded' as const,
+          raw_transcript: liveTranscript || null,
+        },
       });
-
-      if (recordError) throw recordError;
 
       // Send for transcription + parsing via API
       const response = await fetch('/api/ai/transcribe', {

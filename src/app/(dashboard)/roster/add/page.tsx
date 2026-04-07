@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQueryClient } from '@tanstack/react-query';
-import { createClient } from '@/lib/supabase/client';
+import { mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -47,23 +47,21 @@ export default function AddPlayerPage() {
     setError(null);
 
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { error: insertError } = await supabase.from('players').insert({
-        team_id: activeTeam.id,
-        name: form.name.trim(),
-        nickname: form.nickname.trim() || null,
-        position: form.position,
-        jersey_number: form.jersey_number ? parseInt(form.jersey_number, 10) : null,
-        age_group: form.age_group,
-        parent_name: form.parent_name.trim() || null,
-        parent_email: form.parent_email.trim() || null,
-        is_active: true,
+      await mutate({
+        table: 'players',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          name: form.name.trim(),
+          nickname: form.nickname.trim() || null,
+          position: form.position,
+          jersey_number: form.jersey_number ? parseInt(form.jersey_number, 10) : null,
+          age_group: form.age_group,
+          parent_name: form.parent_name.trim() || null,
+          parent_email: form.parent_email.trim() || null,
+          is_active: true,
+        },
       });
-
-      if (insertError) throw insertError;
 
       await queryClient.invalidateQueries({
         queryKey: queryKeys.players.all(activeTeam.id),

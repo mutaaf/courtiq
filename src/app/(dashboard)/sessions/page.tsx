@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery } from '@tanstack/react-query';
-import { createClient } from '@/lib/supabase/client';
+import { query } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { CACHE_PROFILES } from '@/lib/query/config';
 import { Card, CardContent } from '@/components/ui/card';
@@ -39,19 +39,16 @@ export default function SessionsPage() {
     queryKey: [...queryKeys.sessions.all(activeTeam?.id || ''), typeFilter],
     queryFn: async () => {
       if (!activeTeam) return [];
-      const supabase = createClient();
-      let query = supabase
-        .from('sessions')
-        .select('*, observations:observations(count)')
-        .eq('team_id', activeTeam.id)
-        .order('date', { ascending: false });
-
+      const filters: Record<string, unknown> = { team_id: activeTeam.id };
       if (typeFilter !== 'all') {
-        query = query.eq('type', typeFilter);
+        filters.type = typeFilter;
       }
-
-      const { data, error } = await query;
-      if (error) throw error;
+      const data = await query<any[]>({
+        table: 'sessions',
+        select: '*, observations:observations(count)',
+        filters,
+        order: { column: 'date', ascending: false },
+      });
       return data || [];
     },
     enabled: !!activeTeam,

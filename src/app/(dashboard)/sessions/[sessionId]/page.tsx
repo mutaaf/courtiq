@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createClient } from '@/lib/supabase/client';
+import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { CACHE_PROFILES } from '@/lib/query/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -54,18 +54,17 @@ export default function SessionDetailPage() {
   const { data: session, isLoading: sessionLoading } = useQuery({
     queryKey: ['session', sessionId],
     queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('sessions')
-        .select('*')
-        .eq('id', sessionId)
-        .single();
-      if (error) throw error;
+      const data = await query<Session>({
+        table: 'sessions',
+        select: '*',
+        filters: { id: sessionId },
+        single: true,
+      });
       if (!debriefInitialized && data) {
         setDebrief(data.coach_debrief_text || '');
         setDebriefInitialized(true);
       }
-      return data as Session;
+      return data;
     },
     ...CACHE_PROFILES.sessions,
   });
@@ -73,13 +72,12 @@ export default function SessionDetailPage() {
   const { data: observations, isLoading: obsLoading } = useQuery({
     queryKey: queryKeys.observations.session(sessionId),
     queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('observations')
-        .select('*, players:player_id(name)')
-        .eq('session_id', sessionId)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
+      const data = await query<any[]>({
+        table: 'observations',
+        select: '*, players:player_id(name)',
+        filters: { session_id: sessionId },
+        order: { column: 'created_at', ascending: false },
+      });
       return data || [];
     },
     ...CACHE_PROFILES.observations,
@@ -87,12 +85,12 @@ export default function SessionDetailPage() {
 
   const debriefMutation = useMutation({
     mutationFn: async (text: string) => {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from('sessions')
-        .update({ coach_debrief_text: text })
-        .eq('id', sessionId);
-      if (error) throw error;
+      await mutate({
+        table: 'sessions',
+        operation: 'update',
+        data: { coach_debrief_text: text },
+        filters: { id: sessionId },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['session', sessionId] });

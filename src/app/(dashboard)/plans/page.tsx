@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createClient } from '@/lib/supabase/client';
+import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { CACHE_PROFILES } from '@/lib/query/config';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -37,7 +37,7 @@ const PLAN_TYPE_CONFIG: Record<
 };
 
 export default function PlansPage() {
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, coach } = useActiveTeam();
   const queryClient = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [generating, setGenerating] = useState<PlanType | null>(null);
@@ -46,14 +46,13 @@ export default function PlansPage() {
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
     queryFn: async () => {
       if (!activeTeam) return [];
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('plans')
-        .select('*')
-        .eq('team_id', activeTeam.id)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return (data || []) as Plan[];
+      const data = await query<Plan[]>({
+        table: 'plans',
+        select: '*',
+        filters: { team_id: activeTeam.id },
+        order: { column: 'created_at', ascending: false },
+      });
+      return data || [];
     },
     enabled: !!activeTeam,
     ...CACHE_PROFILES.plans,
@@ -64,30 +63,27 @@ export default function PlansPage() {
     setGenerating(type);
 
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      if (!coach) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase
-        .from('plans')
-        .insert({
+      const data = await mutate<Plan[]>({
+        table: 'plans',
+        operation: 'insert',
+        data: {
           team_id: activeTeam.id,
-          coach_id: user.id,
+          coach_id: coach.id,
           type,
           title: `${PLAN_TYPE_CONFIG[type]?.label || type} - ${new Date().toLocaleDateString()}`,
           content: `Generating ${type} plan... This will be populated by the AI pipeline.`,
           curriculum_week: activeTeam.current_week,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
+        },
+        select: '*',
+      });
 
       queryClient.invalidateQueries({
         queryKey: queryKeys.plans.all(activeTeam.id),
       });
 
-      if (data) setSelectedPlan(data as Plan);
+      if (data?.[0]) setSelectedPlan(data[0]);
     } catch (err) {
       console.error('Failed to generate plan:', err);
     } finally {

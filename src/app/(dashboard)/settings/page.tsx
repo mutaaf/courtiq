@@ -1,7 +1,6 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { createClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/query/keys';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -52,15 +51,10 @@ export default function SettingsPage() {
   const { data: coach } = useQuery({
     queryKey: queryKeys.coach.current(),
     queryFn: async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-      const { data } = await supabase
-        .from('coaches')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-      return data;
+      const res = await fetch('/api/me');
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.coach;
     },
   });
 

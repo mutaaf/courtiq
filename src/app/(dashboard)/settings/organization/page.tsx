@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createClient } from '@/lib/supabase/client';
+import { mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,15 +22,10 @@ export default function OrganizationSettingsPage() {
   const { data: coachWithOrg, isLoading } = useQuery({
     queryKey: [...queryKeys.coach.current(), 'with-org'],
     queryFn: async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-      const { data } = await supabase
-        .from('coaches')
-        .select('*, organizations(*)')
-        .eq('id', user.id)
-        .single();
-      return data;
+      const res = await fetch('/api/me');
+      if (!res.ok) return null;
+      const meData = await res.json();
+      return meData.coach;
     },
   });
 
@@ -49,15 +44,15 @@ export default function OrganizationSettingsPage() {
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!org) throw new Error('No organization');
-      const supabase = createClient();
-      const { error } = await supabase
-        .from('organizations')
-        .update({
+      await mutate({
+        table: 'organizations',
+        operation: 'update',
+        data: {
           name: orgName,
           slug: orgSlug,
-        })
-        .eq('id', org.id);
-      if (error) throw error;
+        },
+        filters: { id: org.id },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.coach.current() });

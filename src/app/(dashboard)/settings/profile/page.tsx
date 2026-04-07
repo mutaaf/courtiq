@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
+import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,20 +22,16 @@ export default function ProfileSettingsPage() {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [initialized, setInitialized] = useState(false);
 
-  const { data: coach, isLoading } = useQuery({
+  const { data: meData, isLoading } = useQuery({
     queryKey: queryKeys.coach.current(),
     queryFn: async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-      const { data } = await supabase
-        .from('coaches')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-      return data;
+      const res = await fetch('/api/me');
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.coach;
     },
   });
+  const coach = meData;
 
   useEffect(() => {
     if (coach && !initialized) {
@@ -47,19 +44,17 @@ export default function ProfileSettingsPage() {
 
   const updateMutation = useMutation({
     mutationFn: async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      if (!coach) throw new Error('Not authenticated');
 
-      const { error } = await supabase
-        .from('coaches')
-        .update({
+      await mutate({
+        table: 'coaches',
+        operation: 'update',
+        data: {
           full_name: fullName,
           avatar_url: avatarUrl || null,
-        })
-        .eq('id', user.id);
-
-      if (error) throw error;
+        },
+        filters: { id: coach.id },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.coach.current() });

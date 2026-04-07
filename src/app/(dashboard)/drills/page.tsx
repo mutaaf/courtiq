@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery } from '@tanstack/react-query';
-import { createClient } from '@/lib/supabase/client';
+import { query } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { CACHE_PROFILES } from '@/lib/query/config';
 import { Card, CardContent } from '@/components/ui/card';
@@ -24,14 +24,13 @@ export default function DrillsPage() {
     queryKey: queryKeys.drills.all(activeTeam?.sport_id || ''),
     queryFn: async () => {
       if (!activeTeam) return [];
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('drills')
-        .select('*')
-        .eq('sport_id', activeTeam.sport_id)
-        .order('name', { ascending: true });
-      if (error) throw error;
-      return (data || []) as Drill[];
+      const data = await query<Drill[]>({
+        table: 'drills',
+        select: '*',
+        filters: { sport_id: activeTeam.sport_id },
+        order: { column: 'name', ascending: true },
+      });
+      return data || [];
     },
     enabled: !!activeTeam,
     ...CACHE_PROFILES.drills,

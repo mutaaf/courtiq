@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery } from '@tanstack/react-query';
-import { createClient } from '@/lib/supabase/client';
+import { query } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { CACHE_PROFILES } from '@/lib/query/config';
 import { Button } from '@/components/ui/button';
@@ -22,15 +22,13 @@ export default function RosterPage() {
   const { data: players = [], isLoading } = useQuery({
     queryKey: queryKeys.players.all(activeTeam?.id ?? ''),
     queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('players')
-        .select('*')
-        .eq('team_id', activeTeam!.id)
-        .eq('is_active', true)
-        .order('name', { ascending: true });
-      if (error) throw error;
-      return (data || []) as Player[];
+      const data = await query<Player[]>({
+        table: 'players',
+        select: '*',
+        filters: { team_id: activeTeam!.id, is_active: true },
+        order: { column: 'name', ascending: true },
+      });
+      return data || [];
     },
     enabled: !!activeTeam,
     ...CACHE_PROFILES.roster,
@@ -40,13 +38,11 @@ export default function RosterPage() {
   const { data: obsCounts = {} } = useQuery({
     queryKey: [...queryKeys.observations.all(activeTeam?.id ?? ''), 'counts'],
     queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('observations')
-        .select('player_id')
-        .eq('team_id', activeTeam!.id)
-        .not('player_id', 'is', null);
-      if (error) throw error;
+      const data = await query<{ player_id: string }[]>({
+        table: 'observations',
+        select: 'player_id',
+        filters: { team_id: activeTeam!.id, player_id: { op: 'neq', value: null } },
+      });
       const counts: Record<string, number> = {};
       for (const obs of data || []) {
         if (obs.player_id) {

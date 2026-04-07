@@ -2,7 +2,7 @@
 
 import { use, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { createClient } from '@/lib/supabase/client';
+import { query } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { CACHE_PROFILES } from '@/lib/query/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,14 +48,13 @@ export default function PlayerDetailPage({
   const { data: player, isLoading: playerLoading } = useQuery({
     queryKey: queryKeys.players.detail(playerId),
     queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('players')
-        .select('*')
-        .eq('id', playerId)
-        .single();
-      if (error) throw error;
-      return data as Player;
+      const data = await query<Player>({
+        table: 'players',
+        select: '*',
+        filters: { id: playerId },
+        single: true,
+      });
+      return data;
     },
     ...CACHE_PROFILES.roster,
   });
@@ -63,15 +62,14 @@ export default function PlayerDetailPage({
   const { data: observations = [] } = useQuery({
     queryKey: queryKeys.observations.player(playerId),
     queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('observations')
-        .select('*')
-        .eq('player_id', playerId)
-        .order('created_at', { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return (data || []) as Observation[];
+      const data = await query<Observation[]>({
+        table: 'observations',
+        select: '*',
+        filters: { player_id: playerId },
+        order: { column: 'created_at', ascending: false },
+        limit: 50,
+      });
+      return data || [];
     },
     ...CACHE_PROFILES.observations,
   });
@@ -79,16 +77,15 @@ export default function PlayerDetailPage({
   const { data: proficiencies = [] } = useQuery({
     queryKey: queryKeys.players.proficiency(playerId),
     queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('player_skill_proficiency')
-        .select('*, curriculum_skills(name, category)')
-        .eq('player_id', playerId)
-        .order('computed_at', { ascending: false });
-      if (error) throw error;
-      return (data || []) as (PlayerSkillProficiency & {
+      const data = await query<(PlayerSkillProficiency & {
         curriculum_skills: { name: string; category: string } | null;
-      })[];
+      })[]>({
+        table: 'player_skill_proficiency',
+        select: '*, curriculum_skills(name, category)',
+        filters: { player_id: playerId },
+        order: { column: 'computed_at', ascending: false },
+      });
+      return data || [];
     },
     ...CACHE_PROFILES.proficiency,
   });

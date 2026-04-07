@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQueryClient } from '@tanstack/react-query';
-import { createClient } from '@/lib/supabase/client';
+import { mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -168,8 +168,6 @@ export default function ImportRosterPage() {
     setError(null);
 
     try {
-      const supabase = createClient();
-
       const rows = toSave.map((p) => ({
         team_id: activeTeam.id,
         name: p.name.trim(),
@@ -179,8 +177,11 @@ export default function ImportRosterPage() {
         is_active: true,
       }));
 
-      const { error: insertError } = await supabase.from('players').insert(rows);
-      if (insertError) throw insertError;
+      await mutate({
+        table: 'players',
+        operation: 'insert',
+        data: rows,
+      });
 
       setSavedCount(toSave.length);
       await queryClient.invalidateQueries({

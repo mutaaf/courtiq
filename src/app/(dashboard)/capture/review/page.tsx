@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQueryClient } from '@tanstack/react-query';
-import { createClient } from '@/lib/supabase/client';
+import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -50,7 +50,7 @@ const sentimentLabel: Record<Sentiment, string> = {
 
 export default function ReviewPage() {
   const router = useRouter();
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, coach } = useActiveTeam();
   const queryClient = useQueryClient();
 
   const [observations, setObservations] = useState<ParsedObservation[]>([]);
@@ -165,16 +165,14 @@ export default function ReviewPage() {
     setError(null);
 
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      if (!coach) throw new Error('Not authenticated');
 
       // Resolve player names to player IDs
-      const { data: players } = await supabase
-        .from('players')
-        .select('id, name, nickname, name_variants')
-        .eq('team_id', activeTeam.id)
-        .eq('is_active', true);
+      const players = await query<{ id: string; name: string; nickname: string | null; name_variants: string[] | null }[]>({
+        table: 'players',
+        select: 'id, name, nickname, name_variants',
+        filters: { team_id: activeTeam.id, is_active: true },
+      });
 
       const findPlayerId = (name: string): string | null => {
         if (!players) return null;
@@ -192,7 +190,7 @@ export default function ReviewPage() {
 
       const rows = toSave.map((obs) => ({
         team_id: activeTeam.id,
-        coach_id: user.id,
+        coach_id: coach.id,
         player_id: findPlayerId(obs.player_name),
         recording_id: recordingId,
         category: obs.category,
@@ -206,15 +204,20 @@ export default function ReviewPage() {
         is_synced: true,
       }));
 
-      const { error: insertError } = await supabase.from('observations').insert(rows);
-      if (insertError) throw insertError;
+      await mutate({
+        table: 'observations',
+        operation: 'insert',
+        data: rows,
+      });
 
       // Update recording status if applicable
       if (recordingId) {
-        await supabase
-          .from('recordings')
-          .update({ status: 'reviewed' })
-          .eq('id', recordingId);
+        await mutate({
+          table: 'recordings',
+          operation: 'update',
+          data: { status: 'reviewed' },
+          filters: { id: recordingId },
+        });
       }
 
       // Invalidate relevant queries

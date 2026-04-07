@@ -2,7 +2,7 @@
 
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery } from '@tanstack/react-query';
-import { createClient } from '@/lib/supabase/client';
+import { query } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Mic, Users, ClipboardList, TrendingUp, Calendar, Plus } from 'lucide-react';
@@ -15,16 +15,15 @@ export default function HomePage() {
     queryKey: ['home-stats', activeTeam?.id],
     queryFn: async () => {
       if (!activeTeam) return null;
-      const supabase = createClient();
       const [players, observations, sessions] = await Promise.all([
-        supabase.from('players').select('id', { count: 'exact' }).eq('team_id', activeTeam.id).eq('is_active', true),
-        supabase.from('observations').select('id', { count: 'exact' }).eq('team_id', activeTeam.id),
-        supabase.from('sessions').select('id', { count: 'exact' }).eq('team_id', activeTeam.id),
+        query<any[]>({ table: 'players', select: 'id', filters: { team_id: activeTeam.id, is_active: true } }),
+        query<any[]>({ table: 'observations', select: 'id', filters: { team_id: activeTeam.id } }),
+        query<any[]>({ table: 'sessions', select: 'id', filters: { team_id: activeTeam.id } }),
       ]);
       return {
-        players: players.count || 0,
-        observations: observations.count || 0,
-        sessions: sessions.count || 0,
+        players: players.length,
+        observations: observations.length,
+        sessions: sessions.length,
       };
     },
     enabled: !!activeTeam,

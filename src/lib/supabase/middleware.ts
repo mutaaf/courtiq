@@ -40,8 +40,9 @@ export async function updateSession(request: NextRequest) {
     '/login',
     '/signup',
     '/onboarding',
+    '/demo',
   ];
-  if (publicPaths.some((p) => pathname.startsWith(p))) {
+  if (pathname === '/' || publicPaths.some((p) => pathname.startsWith(p))) {
     return supabaseResponse;
   }
 
