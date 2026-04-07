@@ -8,7 +8,7 @@ interface PromptParams {
   playerCount?: number;
   seasonWeek?: number;
   practiceDuration?: number;
-  roster?: Pick<Player, 'name' | 'nickname' | 'position' | 'jersey_number'>[];
+  roster?: Pick<Player, 'name' | 'nickname' | 'position' | 'jersey_number' | 'name_variants'>[];
   skills?: Pick<CurriculumSkill, 'skill_id' | 'name' | 'category'>[];
   categories?: string[];
   positions?: string[];
@@ -32,18 +32,34 @@ export const PROMPT_REGISTRY = {
     system: [
       buildSystemPreamble(params),
       'You segment coaching voice transcripts into individual player observations.',
+      '',
+      'CRITICAL: This transcript comes from speech-to-text recognition and WILL contain errors.',
+      '- Player names are frequently misrecognized by speech-to-text. For example:',
+      '  - "Amin" may appear as "I mean", "a mean", "ah mean"',
+      '  - "Jamal" may appear as "jam all" or "ja mall"',
+      '  - "DeAndre" may appear as "the Andre" or "de Andre"',
+      '- ALWAYS check for PHONETIC matches between words in the transcript and names on the roster.',
+      '- When you see a word or phrase that SOUNDS LIKE a player name when spoken aloud, match it to the closest roster name.',
+      '- Be aggressive about matching — it is MUCH better to create an observation with your best phonetic guess than to miss a player entirely.',
+      '- Only use unmatched_names when you genuinely cannot find any phonetic match on the roster.',
+      '',
       'Rules:',
       '- Each observation should be about ONE player and ONE topic.',
-      '- Match player names to the roster provided (handle nicknames, partial matches).',
       `- Categories: ${(params.categories || ['Offense', 'Defense', 'IQ', 'Effort', 'Coachability']).join(', ')}`,
       '- Sentiment: positive, needs-work, or neutral.',
       '- If a skill_id can be matched from the curriculum skills list, include it.',
-      '- If a name cannot be matched, add it to unmatched_names.',
       '- Team-level observations (not about specific players) go in team_observations.',
+      '- Even if the transcript is short or unclear, try to extract at least one observation.',
     ].join('\n'),
     user: [
-      'Roster:',
-      (params.roster || []).map((p) => `- ${p.name}${p.nickname ? ` ("${p.nickname}")` : ''} #${p.jersey_number || '?'} ${p.position}`).join('\n'),
+      'Roster (match transcript words phonetically to these names):',
+      (params.roster || []).map((p) => {
+        let line = `- ${p.name}`;
+        if (p.nickname) line += ` ("${p.nickname}")`;
+        if (p.name_variants?.length) line += ` [also sounds like: ${p.name_variants.join(', ')}]`;
+        line += ` #${p.jersey_number || '?'} ${p.position}`;
+        return line;
+      }).join('\n'),
       params.skills ? '\nCurriculum Skills:\n' + params.skills.map((s) => `- ${s.skill_id}: ${s.name} (${s.category})`).join('\n') : '',
       '\nTranscript:',
       params.transcript,

@@ -7,7 +7,7 @@ export interface AIContext {
   playerCount: number;
   seasonWeek: number;
   practiceDuration: number;
-  roster: Pick<Player, 'name' | 'nickname' | 'position' | 'jersey_number'>[];
+  roster: Pick<Player, 'name' | 'nickname' | 'position' | 'jersey_number' | 'name_variants'>[];
   skills: Pick<CurriculumSkill, 'skill_id' | 'name' | 'category'>[];
   categories: string[];
   positions: string[];
@@ -26,7 +26,7 @@ export async function buildAIContext(
 
   const { data: players } = await supabase
     .from('players')
-    .select('name, nickname, position, jersey_number')
+    .select('name, nickname, position, jersey_number, name_variants')
     .eq('team_id', teamId)
     .eq('is_active', true);
 

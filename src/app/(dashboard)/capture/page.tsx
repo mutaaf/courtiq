@@ -9,8 +9,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RecordingButton } from '@/components/capture/recording-button';
-import { Loader2, Send, Keyboard, Mic, AlertCircle } from 'lucide-react';
+import { Loader2, Send, Keyboard, Mic, AlertCircle, Sparkles } from 'lucide-react';
 import { generateId } from '@/lib/utils';
+import Link from 'next/link';
 
 type CaptureState = 'idle' | 'recording' | 'processing' | 'error';
 
@@ -22,6 +23,7 @@ export default function CapturePage() {
   const [transcript, setTranscript] = useState('');
   const [liveTranscript, setLiveTranscript] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isApiKeyError, setIsApiKeyError] = useState(false);
   const [showQuickNote, setShowQuickNote] = useState(false);
   const [quickNote, setQuickNote] = useState('');
   const [quickNoteSending, setQuickNoteSending] = useState(false);
@@ -42,6 +44,7 @@ export default function CapturePage() {
   const startRecording = useCallback(async () => {
     if (!activeTeam) return;
     setErrorMessage(null);
+    setIsApiKeyError(false);
     setTranscript('');
     setLiveTranscript('');
     audioChunksRef.current = [];
@@ -146,11 +149,23 @@ export default function CapturePage() {
     }
   }, [captureState, startRecording, stopRecording]);
 
+  const checkApiKeyError = (errorText: string): boolean => {
+    const lower = errorText.toLowerCase();
+    return lower.includes('api key') || lower.includes('not configured') || lower.includes('no api');
+  };
+
   const processRecording = async (audioBlob: Blob, mimeType: string) => {
     if (!activeTeam) return;
 
     try {
       if (!coach) throw new Error('Not authenticated');
+
+      // Guard: empty transcript
+      if (!liveTranscript || !liveTranscript.trim()) {
+        setErrorMessage('No speech was detected. Please try recording again and speak clearly.');
+        setCaptureState('error');
+        return;
+      }
 
       const recordingId = generateId();
       const storagePath = `recordings/${activeTeam.id}/${recordingId}.webm`;
@@ -182,17 +197,24 @@ export default function CapturePage() {
         },
       });
 
-      // Send for transcription + parsing via API
-      const response = await fetch('/api/ai/transcribe', {
+      // Send for AI segmentation
+      const response = await fetch('/api/ai/segment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recording_id: recordingId,
-          team_id: activeTeam.id,
-        }),
+        body: JSON.stringify({ transcript: liveTranscript, teamId: activeTeam.id }),
       });
 
       if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const errMsg = errData.error || 'AI processing failed';
+
+        if (checkApiKeyError(errMsg)) {
+          setIsApiKeyError(true);
+          setErrorMessage(errMsg);
+          setCaptureState('error');
+          return;
+        }
+
         // If API isn't ready yet, redirect to review with recording_id
         router.push(`/capture/review?recording_id=${recordingId}`);
         return;
@@ -201,21 +223,33 @@ export default function CapturePage() {
       const result = await response.json();
       setTranscript(result.transcript || liveTranscript);
 
-      // Store parsed observations in sessionStorage for review page
-      if (result.observations) {
-        sessionStorage.setItem(
-          'pending_observations',
-          JSON.stringify({
-            recording_id: recordingId,
-            observations: result.observations,
-            transcript: result.transcript,
-          })
-        );
+      // Check for API key error in response
+      if (result.error && checkApiKeyError(result.error)) {
+        setIsApiKeyError(true);
+        setErrorMessage(result.error);
+        setCaptureState('error');
+        return;
       }
+
+      // Store parsed observations in sessionStorage for review page
+      sessionStorage.setItem(
+        'pending_observations',
+        JSON.stringify({
+          recording_id: recordingId,
+          observations: result.observations || [],
+          transcript: result.transcript || liveTranscript,
+          unmatched_names: result.unmatched_names || [],
+          error: result.error || null,
+        })
+      );
 
       router.push(`/capture/review?recording_id=${recordingId}`);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to process recording.');
+      const msg = err.message || 'Failed to process recording.';
+      if (checkApiKeyError(msg)) {
+        setIsApiKeyError(true);
+      }
+      setErrorMessage(msg);
       setCaptureState('error');
     }
   };
@@ -224,30 +258,49 @@ export default function CapturePage() {
     if (!activeTeam || !quickNote.trim()) return;
     setQuickNoteSending(true);
     setErrorMessage(null);
+    setIsApiKeyError(false);
 
     try {
-      // Send quick note for AI parsing
-      const response = await fetch('/api/ai/parse-note', {
+      // Send quick note for AI segmentation
+      const response = await fetch('/api/ai/segment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: quickNote.trim(),
-          team_id: activeTeam.id,
-        }),
+        body: JSON.stringify({ transcript: quickNote.trim(), teamId: activeTeam.id }),
       });
 
       if (response.ok) {
         const result = await response.json();
+
+        // Check for API key error in response
+        if (result.error && checkApiKeyError(result.error)) {
+          setIsApiKeyError(true);
+          setErrorMessage(result.error);
+          setQuickNoteSending(false);
+          return;
+        }
+
         sessionStorage.setItem(
           'pending_observations',
           JSON.stringify({
             recording_id: null,
             observations: result.observations || [],
             transcript: quickNote.trim(),
+            unmatched_names: result.unmatched_names || [],
+            error: result.error || null,
             source: 'typed',
           })
         );
       } else {
+        const errData = await response.json().catch(() => ({}));
+        const errMsg = errData.error || '';
+
+        if (checkApiKeyError(errMsg)) {
+          setIsApiKeyError(true);
+          setErrorMessage(errMsg);
+          setQuickNoteSending(false);
+          return;
+        }
+
         // If API not available, pass raw text
         sessionStorage.setItem(
           'pending_observations',
@@ -255,6 +308,8 @@ export default function CapturePage() {
             recording_id: null,
             observations: [],
             transcript: quickNote.trim(),
+            unmatched_names: [],
+            error: errMsg || null,
             source: 'typed',
           })
         );
@@ -269,6 +324,8 @@ export default function CapturePage() {
           recording_id: null,
           observations: [],
           transcript: quickNote.trim(),
+          unmatched_names: [],
+          error: null,
           source: 'typed',
         })
       );
@@ -341,16 +398,29 @@ export default function CapturePage() {
           <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
             <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-400" />
             <div>
-              <p className="text-sm font-medium text-red-400">Recording Error</p>
+              <p className="text-sm font-medium text-red-400">
+                {isApiKeyError ? 'AI Not Configured' : 'Recording Error'}
+              </p>
               <p className="mt-1 text-sm text-red-400/80">{errorMessage}</p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3"
-                onClick={() => { setCaptureState('idle'); setErrorMessage(null); }}
-              >
-                Try Again
-              </Button>
+              {isApiKeyError && (
+                <Link
+                  href="/settings/ai"
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-orange-500/20 border border-orange-500/30 px-3 py-1.5 text-sm font-medium text-orange-400 hover:bg-orange-500/30 transition-colors"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Configure AI Provider
+                </Link>
+              )}
+              {!isApiKeyError && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => { setCaptureState('idle'); setErrorMessage(null); setIsApiKeyError(false); }}
+                >
+                  Try Again
+                </Button>
+              )}
             </div>
           </div>
         )}

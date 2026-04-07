@@ -21,6 +21,9 @@ import {
   CheckCircle2,
   Mic,
   Keyboard,
+  AlertCircle,
+  AlertTriangle,
+  Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Sentiment, ObservationSource } from '@/types/database';
@@ -60,7 +63,14 @@ export default function ReviewPage() {
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const isApiKeyError = (msg: string): boolean => {
+    const lower = msg.toLowerCase();
+    return lower.includes('api key') || lower.includes('not configured') || lower.includes('no api');
+  };
 
   useEffect(() => {
     // Load pending observations from sessionStorage
@@ -71,6 +81,16 @@ export default function ReviewPage() {
         setRecordingId(data.recording_id || null);
         setTranscript(data.transcript || '');
         setSource(data.source === 'typed' ? 'typed' : 'voice');
+
+        // Read error field
+        if (data.error) {
+          setAiError(data.error);
+        }
+
+        // Read unmatched_names field
+        if (data.unmatched_names && Array.isArray(data.unmatched_names) && data.unmatched_names.length > 0) {
+          setUnmatchedNames(data.unmatched_names);
+        }
 
         const parsed: ParsedObservation[] = (data.observations || []).map(
           (obs: any, i: number) => ({
@@ -286,6 +306,48 @@ export default function ReviewPage() {
         <ArrowLeft className="h-4 w-4" />
         Capture
       </Link>
+
+      {/* AI Error Banner */}
+      {aiError && (
+        <Card className="border-red-500/30 bg-red-500/5">
+          <CardContent className="flex items-start gap-3 p-4">
+            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-400" />
+            <div>
+              <p className="text-sm font-medium text-red-400">AI Processing Error</p>
+              <p className="mt-1 text-sm text-red-400/80">{aiError}</p>
+              {isApiKeyError(aiError) && (
+                <Link
+                  href="/settings/ai"
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-orange-500/20 border border-orange-500/30 px-3 py-1.5 text-sm font-medium text-orange-400 hover:bg-orange-500/30 transition-colors"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Configure AI Provider
+                </Link>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Unmatched Names Warning */}
+      {unmatchedNames.length > 0 && (
+        <Card className="border-yellow-500/30 bg-yellow-500/5">
+          <CardContent className="flex items-start gap-3 p-4">
+            <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-400" />
+            <div>
+              <p className="text-sm font-medium text-yellow-400">Unmatched Player Names</p>
+              <p className="mt-1 text-sm text-yellow-400/80">
+                These names weren&apos;t matched to your roster:{' '}
+                <span className="font-medium">{unmatchedNames.join(', ')}</span>.
+                You can add them as players in{' '}
+                <Link href="/settings/sport" className="underline hover:text-yellow-300">
+                  Settings &rarr; Roster
+                </Link>.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between">

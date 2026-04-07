@@ -10,6 +10,7 @@ import {
   Shield,
   ChevronRight,
   Dumbbell,
+  Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -23,6 +24,13 @@ interface SettingCard {
 }
 
 const SETTING_CARDS: SettingCard[] = [
+  {
+    href: '/settings/ai',
+    label: 'AI & API Keys',
+    description: 'Configure your AI provider and API keys',
+    icon: Sparkles,
+    iconColor: 'text-orange-400 bg-orange-500/20',
+  },
   {
     href: '/settings/profile',
     label: 'Profile',
