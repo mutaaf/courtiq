@@ -44,21 +44,12 @@ export default function SignupPage() {
       return;
     }
 
-    // Auto-confirmed — create coach record and redirect
+    // Auto-confirmed — create coach record via API (bypasses RLS)
     if (data.user && data.session) {
-      await supabase.from('organizations').insert({
-        name: `${fullName}'s Organization`,
-        slug: fullName.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now().toString(36),
-      }).select().single().then(async ({ data: org }) => {
-        if (org) {
-          await supabase.from('coaches').insert({
-            id: data.user!.id,
-            org_id: org.id,
-            full_name: fullName,
-            email,
-            role: 'admin',
-          });
-        }
+      await fetch('/api/auth/setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fullName }),
       });
       router.push('/onboarding/sport');
       router.refresh();

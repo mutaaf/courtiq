@@ -1,4 +1,4 @@
-import { createServerSupabase } from '@/lib/supabase/server';
+import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
@@ -11,8 +11,11 @@ export async function GET(request: Request) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error && data.user) {
+      // Use service role to bypass RLS for initial setup
+      const adminSupabase = await createServiceSupabase();
+
       // Check if coach record exists
-      const { data: coach } = await supabase
+      const { data: coach } = await adminSupabase
         .from('coaches')
         .select('id')
         .eq('id', data.user.id)
@@ -21,17 +24,17 @@ export async function GET(request: Request) {
       if (!coach) {
         // Create org + coach for new OAuth user
         const name = data.user.user_metadata.full_name || data.user.email?.split('@')[0] || 'Coach';
-        const { data: org } = await supabase
+        const { data: org, error: orgError } = await adminSupabase
           .from('organizations')
           .insert({
             name: `${name}'s Organization`,
-            slug: name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now().toString(36),
+            slug: name.toLowerCase().replace(/[^\w-]/g, '-').replace(/-+/g, '-') + '-' + Date.now().toString(36),
           })
           .select()
           .single();
 
-        if (org) {
-          await supabase.from('coaches').insert({
+        if (org && !orgError) {
+          await adminSupabase.from('coaches').insert({
             id: data.user.id,
             org_id: org.id,
             full_name: name,
