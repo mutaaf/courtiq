@@ -2,13 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 
 const sports = [
   { slug: 'basketball', name: 'Basketball', icon: '🏀' },
+  { slug: 'flag_football', name: 'Flag Football', icon: '🏈' },
   { slug: 'soccer', name: 'Soccer', icon: '⚽' },
 ];
 
@@ -16,33 +16,45 @@ export default function SportSelectionPage() {
   const router = useRouter();
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   async function handleContinue() {
     if (!selected) return;
     setLoading(true);
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    setError('');
 
-    const { data: coach } = await supabase.from('coaches').select('org_id').eq('id', user.id).single();
-    if (!coach) return;
+    try {
+      const res = await fetch('/api/auth/select-sport', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sportSlug: selected }),
+      });
 
-    const { data: sport } = await supabase.from('sports').select('id').eq('slug', selected).single();
-    if (sport) {
-      await supabase.from('organizations').update({ sport_config: { default_sport_id: sport.id } }).eq('id', coach.org_id);
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || 'Failed to select sport');
+        setLoading(false);
+        return;
+      }
+
+      router.push('/onboarding/team');
+    } catch {
+      setError('Something went wrong');
+      setLoading(false);
     }
-
-    router.push('/onboarding/team');
   }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 p-4">
-      <div className="w-full max-w-md space-y-6">
+      <div className="w-full max-w-lg space-y-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-zinc-100">Choose your sport</h1>
-          <p className="mt-2 text-zinc-400">We'll customize everything for your sport</p>
+          <p className="mt-2 text-zinc-400">We&apos;ll customize everything for your sport</p>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        {error && (
+          <div className="rounded-lg bg-red-500/10 p-3 text-center text-sm text-red-400">{error}</div>
+        )}
+        <div className="grid grid-cols-3 gap-4">
           {sports.map((sport) => (
             <Card
               key={sport.slug}
@@ -51,7 +63,7 @@ export default function SportSelectionPage() {
             >
               <CardContent className="flex flex-col items-center gap-2 p-6">
                 <span className="text-4xl">{sport.icon}</span>
-                <span className="font-medium">{sport.name}</span>
+                <span className="text-sm font-medium">{sport.name}</span>
               </CardContent>
             </Card>
           ))}
