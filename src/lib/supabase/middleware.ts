@@ -31,16 +31,17 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Public routes
-  if (pathname.startsWith('/share/') || pathname.startsWith('/api/share/') || pathname.startsWith('/api/health')) {
-    return supabaseResponse;
-  }
-
-  // Auth routes — redirect to home if already logged in
-  if (pathname.startsWith('/login') || pathname.startsWith('/signup')) {
-    if (user) {
-      return NextResponse.redirect(new URL('/home', request.url));
-    }
+  // Public routes — no auth required
+  const publicPaths = [
+    '/share/',
+    '/api/share/',
+    '/api/health',
+    '/api/auth/',
+    '/login',
+    '/signup',
+    '/onboarding',
+  ];
+  if (publicPaths.some((p) => pathname.startsWith(p))) {
     return supabaseResponse;
   }
 
