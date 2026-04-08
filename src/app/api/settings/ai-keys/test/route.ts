@@ -51,8 +51,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid provider' }, { status: 400 });
   }
 
-  // Get coach's org
-  const { data: coach } = await supabase
+  // Get coach's org via service role (bypasses RLS)
+  const service = await createServiceSupabase();
+
+  const { data: coach } = await service
     .from('coaches')
     .select('org_id')
     .eq('id', user.id)
@@ -61,9 +63,6 @@ export async function POST(request: Request) {
   if (!coach) {
     return NextResponse.json({ error: 'Coach not found' }, { status: 404 });
   }
-
-  // Get the API key from org settings or env var
-  const service = await createServiceSupabase();
   const { data: org } = await service
     .from('organizations')
     .select('settings')

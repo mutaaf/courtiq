@@ -13,8 +13,9 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  // Get coach's org
-  const { data: coach } = await supabase
+  const admin = await createServiceSupabase();
+
+  const { data: coach } = await admin
     .from('coaches')
     .select('org_id')
     .eq('id', user.id)
@@ -24,9 +25,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Coach not found' }, { status: 404 });
   }
 
-  // Read org settings via service role (settings may contain sensitive data)
-  const service = await createServiceSupabase();
-  const { data: org } = await service
+  const { data: org } = await admin
     .from('organizations')
     .select('settings')
     .eq('id', coach.org_id)
@@ -43,7 +42,6 @@ export async function GET() {
       openai: aiKeys.openai ? maskKey(aiKeys.openai) : null,
       gemini: aiKeys.gemini ? maskKey(aiKeys.gemini) : null,
     },
-    // Also report which env vars are set (without exposing values)
     envKeys: {
       anthropic: !!process.env.ANTHROPIC_API_KEY,
       openai: !!process.env.OPENAI_API_KEY,
@@ -52,7 +50,7 @@ export async function GET() {
   });
 }
 
-// POST — save an AI key for a provider (admin only)
+// POST — save an AI key for a provider
 export async function POST(request: Request) {
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
@@ -69,12 +67,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid provider' }, { status: 400 });
   }
 
-  if (!apiKey || typeof apiKey !== 'string') {
-    return NextResponse.json({ error: 'API key is required' }, { status: 400 });
+  if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length < 5) {
+    return NextResponse.json({ error: 'A valid API key is required' }, { status: 400 });
   }
 
-  // Get coach + verify admin role
-  const { data: coach } = await supabase
+  const admin = await createServiceSupabase();
+
+  const { data: coach } = await admin
     .from('coaches')
     .select('org_id, role')
     .eq('id', user.id)
@@ -84,13 +83,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Coach not found' }, { status: 404 });
   }
 
-  if (!['admin', 'head_coach'].includes(coach.role)) {
-    return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-  }
-
-  // Read current settings via service role
-  const service = await createServiceSupabase();
-  const { data: org } = await service
+  // Read current settings
+  const { data: org } = await admin
     .from('organizations')
     .select('settings')
     .eq('id', coach.org_id)
@@ -99,20 +93,18 @@ export async function POST(request: Request) {
   const settings = (org?.settings || {}) as Record<string, any>;
   const aiKeys = settings.ai_keys || {};
 
-  // Update the key
-  aiKeys[provider] = apiKey;
+  aiKeys[provider] = apiKey.trim();
 
   const updatedSettings: Record<string, any> = {
     ...settings,
     ai_keys: aiKeys,
   };
 
-  // Optionally set as active provider
   if (setActive !== false) {
     updatedSettings.ai_provider = provider;
   }
 
-  const { error } = await service
+  const { error } = await admin
     .from('organizations')
     .update({ settings: updatedSettings })
     .eq('id', coach.org_id);
