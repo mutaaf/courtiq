@@ -35,9 +35,9 @@ const PROVIDERS: ProviderConfig[] = [
     placeholder: 'sk-...',
   },
   {
-    id: 'google',
+    id: 'gemini',
     name: 'Google',
-    model: 'Gemini Pro',
+    model: 'Gemini 2.0 Flash',
     emoji: '\u{1F535}',
     keyUrl: 'https://aistudio.google.com/apikey',
     placeholder: 'AIza...',
@@ -75,18 +75,20 @@ export default function AISettingsPage() {
         const res = await fetch('/api/settings/ai-keys');
         if (res.ok) {
           const data = await res.json();
+          // API returns: { provider, keys: { anthropic, openai, gemini }, envKeys: {...} }
           const newStates: Record<string, ProviderState> = {};
-          for (const provider of PROVIDERS) {
-            const config = data.providers?.[provider.id];
-            newStates[provider.id] = {
+          for (const p of PROVIDERS) {
+            const maskedKey = data.keys?.[p.id] || '';
+            const hasEnvKey = data.envKeys?.[p.id] || false;
+            newStates[p.id] = {
               apiKey: '',
-              maskedKey: config?.masked_key || '',
-              status: config?.is_configured ? 'connected' : 'not_configured',
+              maskedKey: maskedKey || (hasEnvKey ? '(set via env)' : ''),
+              status: maskedKey || hasEnvKey ? 'connected' : 'not_configured',
             };
           }
           setProviderStates(newStates);
-          if (data.active_provider) {
-            setActiveProvider(data.active_provider);
+          if (data.provider) {
+            setActiveProvider(data.provider);
           }
         }
       } catch {
@@ -151,8 +153,8 @@ export default function AISettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           provider: providerId,
-          api_key: providerStates[providerId].apiKey,
-          set_active: activeProvider === providerId,
+          apiKey: providerStates[providerId].apiKey,
+          setActive: activeProvider === providerId,
         }),
       });
 
