@@ -31,6 +31,7 @@ export default function CapturePage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const transcriptRef = useRef('');
 
   // Cleanup on unmount
   useEffect(() => {
@@ -47,6 +48,7 @@ export default function CapturePage() {
     setIsApiKeyError(false);
     setTranscript('');
     setLiveTranscript('');
+    transcriptRef.current = '';
     audioChunksRef.current = [];
 
     try {
@@ -104,7 +106,9 @@ export default function CapturePage() {
               interim += event.results[i][0].transcript;
             }
           }
-          setLiveTranscript(final + interim);
+          const fullText = final + interim;
+          setLiveTranscript(fullText);
+          transcriptRef.current = fullText;
         };
 
         recognition.onerror = () => {
@@ -160,8 +164,11 @@ export default function CapturePage() {
     try {
       if (!coach) throw new Error('Not authenticated');
 
+      // Use ref for latest transcript (state may be stale in callback closure)
+      const currentTranscript = transcriptRef.current;
+
       // Guard: empty transcript
-      if (!liveTranscript || !liveTranscript.trim()) {
+      if (!currentTranscript || !currentTranscript.trim()) {
         setErrorMessage('No speech was detected. Please try recording again and speak clearly.');
         setCaptureState('error');
         return;
@@ -193,7 +200,7 @@ export default function CapturePage() {
           mime_type: mimeType,
           file_size_bytes: audioBlob.size,
           status: 'uploaded' as const,
-          raw_transcript: liveTranscript || null,
+          raw_transcript: currentTranscript || null,
         },
       });
 
@@ -201,7 +208,7 @@ export default function CapturePage() {
       const response = await fetch('/api/ai/segment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: liveTranscript, teamId: activeTeam.id }),
+        body: JSON.stringify({ transcript: currentTranscript, teamId: activeTeam.id }),
       });
 
       if (!response.ok) {
@@ -221,7 +228,7 @@ export default function CapturePage() {
       }
 
       const result = await response.json();
-      setTranscript(result.transcript || liveTranscript);
+      setTranscript(result.transcript || currentTranscript);
 
       // Check for API key error in response
       if (result.error && checkApiKeyError(result.error)) {
@@ -237,7 +244,7 @@ export default function CapturePage() {
         JSON.stringify({
           recording_id: recordingId,
           observations: result.observations || [],
-          transcript: result.transcript || liveTranscript,
+          transcript: result.transcript || currentTranscript,
           unmatched_names: result.unmatched_names || [],
           error: result.error || null,
         })

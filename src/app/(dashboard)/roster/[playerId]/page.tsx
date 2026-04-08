@@ -192,9 +192,14 @@ export default function PlayerDetailPage({
               </p>
             )}
           </div>
-          <div className="hidden flex-col items-end gap-1 sm:flex">
-            <p className="text-2xl font-bold text-orange-500">{observations.length}</p>
-            <p className="text-xs text-zinc-500">observations</p>
+          <div className="flex flex-col items-end gap-2">
+            <Link href={`/roster/${playerId}/edit`}>
+              <Button size="sm" variant="outline">Edit Player</Button>
+            </Link>
+            <div className="hidden sm:block text-right">
+              <p className="text-2xl font-bold text-orange-500">{observations.length}</p>
+              <p className="text-xs text-zinc-500">observations</p>
+            </div>
           </div>
         </CardContent>
       </Card>
