@@ -37,7 +37,7 @@ const PROVIDERS: ProviderConfig[] = [
   {
     id: 'gemini',
     name: 'Google',
-    model: 'Gemini 2.0 Flash',
+    model: 'Gemini 2.5 Flash',
     emoji: '\u{1F535}',
     keyUrl: 'https://aistudio.google.com/apikey',
     placeholder: 'AIza...',
