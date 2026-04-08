@@ -9,7 +9,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RecordingButton } from '@/components/capture/recording-button';
-import { Loader2, Send, Keyboard, Mic, AlertCircle, Sparkles } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Loader2, Send, Keyboard, Mic, AlertCircle, Sparkles, Upload, FileAudio } from 'lucide-react';
 import { generateId } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -27,6 +28,9 @@ export default function CapturePage() {
   const [showQuickNote, setShowQuickNote] = useState(false);
   const [quickNote, setQuickNote] = useState('');
   const [quickNoteSending, setQuickNoteSending] = useState(false);
+  const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'transcribing' | 'editing'>('idle');
+  const [uploadTranscript, setUploadTranscript] = useState('');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -180,7 +184,7 @@ export default function CapturePage() {
       // Upload audio via storage (requires supabase client)
       const supabase = createClient();
       const { error: uploadError } = await supabase.storage
-        .from('recordings')
+        .from('audio')
         .upload(storagePath, audioBlob, { contentType: mimeType });
 
       if (uploadError) {
@@ -342,6 +346,88 @@ export default function CapturePage() {
     }
   };
 
+  const handleFileUpload = async (file: File) => {
+    if (!activeTeam) return;
+    setUploadFile(file);
+    setUploadState('transcribing');
+    setErrorMessage(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('audio', file);
+      formData.append('teamId', activeTeam.id);
+
+      const res = await fetch('/api/voice/upload-transcribe', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (data.transcript) {
+        setUploadTranscript(data.transcript);
+        setUploadState('editing');
+      } else if (data.needsManualTranscript) {
+        setUploadTranscript('');
+        setUploadState('editing');
+        setErrorMessage('Could not auto-transcribe. Please type or paste the transcript below.');
+      } else {
+        setErrorMessage(data.error || 'Transcription failed');
+        setUploadState('idle');
+      }
+    } catch {
+      setErrorMessage('Failed to upload audio');
+      setUploadState('idle');
+    }
+  };
+
+  const handleUploadSubmit = async () => {
+    if (!activeTeam || !uploadTranscript.trim()) return;
+    setCaptureState('processing');
+    setUploadState('idle');
+
+    try {
+      const response = await fetch('/api/ai/segment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript: uploadTranscript.trim(), teamId: activeTeam.id }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const errMsg = errData.error || 'AI processing failed';
+        if (checkApiKeyError(errMsg)) {
+          setIsApiKeyError(true);
+          setErrorMessage(errMsg);
+          setCaptureState('error');
+          return;
+        }
+        setErrorMessage(errMsg);
+        setCaptureState('error');
+        return;
+      }
+
+      const result = await response.json();
+
+      sessionStorage.setItem(
+        'pending_observations',
+        JSON.stringify({
+          recording_id: null,
+          observations: result.observations || [],
+          transcript: uploadTranscript.trim(),
+          unmatched_names: result.unmatched_names || [],
+          error: result.error || null,
+          source: 'voice',
+        })
+      );
+
+      router.push('/capture/review');
+    } catch {
+      setErrorMessage('AI processing failed');
+      setCaptureState('error');
+    }
+  };
+
   if (!activeTeam) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center">
@@ -441,19 +527,77 @@ export default function CapturePage() {
           </div>
         )}
 
+        {/* Upload Voice Memo */}
+        {captureState === 'idle' && uploadState === 'idle' && (
+          <div className="flex justify-center gap-3">
+            <Button variant="ghost" className="text-zinc-400" onClick={() => setShowQuickNote(true)}>
+              <Keyboard className="h-4 w-4" /> Type a note
+            </Button>
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg px-4 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100">
+              <Upload className="h-4 w-4" /> Upload audio
+              <input
+                type="file"
+                accept="audio/*,video/*,.m4a,.mp3,.wav,.webm,.ogg,.mp4,.mov"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFileUpload(file);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+          </div>
+        )}
+
+        {/* Upload transcribing state */}
+        {uploadState === 'transcribing' && (
+          <Card>
+            <CardContent className="flex flex-col items-center gap-3 p-6">
+              <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+              <p className="text-sm font-medium text-zinc-300">Transcribing audio...</p>
+              <p className="text-xs text-zinc-500">{uploadFile?.name}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Upload transcript editing */}
+        {uploadState === 'editing' && (
+          <Card>
+            <CardContent className="space-y-3 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileAudio className="h-4 w-4 text-orange-500" />
+                  <span className="text-sm font-medium text-zinc-300">Voice Memo Transcript</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setUploadState('idle'); setUploadTranscript(''); setUploadFile(null); }}
+                  className="text-xs text-zinc-500 hover:text-zinc-300"
+                >Cancel</button>
+              </div>
+              {uploadFile && (
+                <p className="text-xs text-zinc-500">{uploadFile.name}</p>
+              )}
+              <Textarea
+                value={uploadTranscript}
+                onChange={(e) => setUploadTranscript(e.target.value)}
+                placeholder="Edit the transcript if needed, or paste your own..."
+                rows={6}
+              />
+              <p className="text-xs text-zinc-500">Review and edit the transcript, then submit for AI analysis.</p>
+              <Button onClick={handleUploadSubmit} disabled={!uploadTranscript.trim()} className="w-full">
+                <Sparkles className="h-4 w-4" /> Analyze with AI
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Quick Note Toggle */}
-        {captureState === 'idle' && (
+        {captureState === 'idle' && uploadState === 'idle' && (
           <>
             {!showQuickNote ? (
-              <div className="flex justify-center">
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowQuickNote(true)}
-                  className="text-zinc-400"
-                >
-                  <Keyboard className="h-4 w-4" />
-                  Type a quick note
-                </Button>
+              <div className="hidden">
+                {/* Buttons moved to combined row above */}
               </div>
             ) : (
               <Card>

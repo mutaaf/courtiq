@@ -287,7 +287,7 @@ export async function callAI(options: AICallOptions, supabase: any): Promise<AIC
   }
 
   // Resolve provider
-  const orgId = await getOrgId(supabase, coachId);
+  const orgId = options.orgId || await getOrgId(supabase, coachId);
   const { provider, apiKey } = await getConfiguredProvider(supabase, orgId);
   const model = modelOverride || DEFAULT_MODELS[provider];
 
