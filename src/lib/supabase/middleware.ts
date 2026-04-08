@@ -36,6 +36,7 @@ export async function updateSession(request: NextRequest) {
     '/share/',
     '/api/share/',
     '/api/health',
+    '/api/debug',
     '/api/auth/',
     '/login',
     '/signup',
