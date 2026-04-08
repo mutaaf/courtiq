@@ -62,7 +62,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ data });
   }
 
-  const { data, error, count } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data, count });
+  try {
+    const { data, error, count } = await query;
+    if (error) {
+      console.error('Data query error:', { table, filters, error: error.message });
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ data: data || [], count });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown query error';
+    console.error('Data query exception:', { table, message });
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

@@ -17,12 +17,18 @@ export async function query<T = unknown>(options: QueryOptions): Promise<T> {
   });
 
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || 'Query failed');
+    let errorMsg = 'Query failed';
+    try {
+      const err = await res.json();
+      errorMsg = err.error || errorMsg;
+    } catch {
+      // Response wasn't JSON
+    }
+    throw new Error(errorMsg);
   }
 
   const json = await res.json();
-  return options.single ? json.data : json.data;
+  return (json.data ?? []) as T;
 }
 
 // Mutation helper — for inserts/updates/deletes
