@@ -103,7 +103,7 @@ export function DashboardShell({ coach, children }: Props) {
         </div>
 
         {/* Mobile bottom nav */}
-        <nav className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-zinc-800 bg-zinc-900/95 backdrop-blur-sm lg:hidden">
+        <nav className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-zinc-800 bg-zinc-900/95 backdrop-blur-sm lg:hidden safe-area-bottom">
           {navItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
             return (
@@ -111,20 +111,20 @@ export function DashboardShell({ coach, children }: Props) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex flex-1 flex-col items-center gap-1 py-2 text-[10px]',
+                  'flex flex-1 flex-col items-center gap-1 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-[11px] font-medium touch-manipulation',
                   item.primary && !isActive && 'text-orange-500',
                   isActive ? 'text-orange-500' : 'text-zinc-500'
                 )}
               >
                 {item.primary ? (
                   <div className={cn(
-                    'flex h-12 w-12 -mt-6 items-center justify-center rounded-full shadow-lg',
-                    isActive ? 'bg-orange-500 text-white' : 'bg-orange-500 text-white'
+                    'flex h-14 w-14 -mt-8 items-center justify-center rounded-full shadow-lg shadow-orange-500/30 active:scale-95 transition-transform',
+                    isActive ? 'bg-orange-500 text-white ring-4 ring-orange-500/20' : 'bg-orange-500 text-white'
                   )}>
-                    <item.icon className="h-6 w-6" />
+                    <item.icon className="h-7 w-7" />
                   </div>
                 ) : (
-                  <item.icon className="h-5 w-5" />
+                  <item.icon className="h-6 w-6" />
                 )}
                 <span>{item.label}</span>
               </Link>

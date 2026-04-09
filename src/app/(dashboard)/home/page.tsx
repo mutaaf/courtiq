@@ -57,40 +57,40 @@ export default function HomePage() {
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Link href="/capture">
-          <Card className="cursor-pointer transition-colors hover:border-orange-500/50">
-            <CardContent className="flex flex-col items-center gap-2 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-500/20">
-                <Mic className="h-6 w-6 text-orange-500" />
+          <Card className="cursor-pointer transition-colors hover:border-orange-500/50 active:scale-[0.97] touch-manipulation">
+            <CardContent className="flex flex-col items-center gap-3 p-5 sm:p-4 sm:gap-2">
+              <div className="flex h-14 w-14 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-orange-500/20">
+                <Mic className="h-7 w-7 sm:h-6 sm:w-6 text-orange-500" />
               </div>
               <span className="text-sm font-medium">Capture</span>
             </CardContent>
           </Card>
         </Link>
         <Link href="/roster">
-          <Card className="cursor-pointer transition-colors hover:border-orange-500/50">
-            <CardContent className="flex flex-col items-center gap-2 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/20">
-                <Users className="h-6 w-6 text-blue-500" />
+          <Card className="cursor-pointer transition-colors hover:border-orange-500/50 active:scale-[0.97] touch-manipulation">
+            <CardContent className="flex flex-col items-center gap-3 p-5 sm:p-4 sm:gap-2">
+              <div className="flex h-14 w-14 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-blue-500/20">
+                <Users className="h-7 w-7 sm:h-6 sm:w-6 text-blue-500" />
               </div>
               <span className="text-sm font-medium">Roster</span>
             </CardContent>
           </Card>
         </Link>
         <Link href="/plans">
-          <Card className="cursor-pointer transition-colors hover:border-orange-500/50">
-            <CardContent className="flex flex-col items-center gap-2 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/20">
-                <ClipboardList className="h-6 w-6 text-emerald-500" />
+          <Card className="cursor-pointer transition-colors hover:border-orange-500/50 active:scale-[0.97] touch-manipulation">
+            <CardContent className="flex flex-col items-center gap-3 p-5 sm:p-4 sm:gap-2">
+              <div className="flex h-14 w-14 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-emerald-500/20">
+                <ClipboardList className="h-7 w-7 sm:h-6 sm:w-6 text-emerald-500" />
               </div>
               <span className="text-sm font-medium">Plans</span>
             </CardContent>
           </Card>
         </Link>
         <Link href="/sessions/new">
-          <Card className="cursor-pointer transition-colors hover:border-orange-500/50">
-            <CardContent className="flex flex-col items-center gap-2 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-500/20">
-                <Calendar className="h-6 w-6 text-purple-500" />
+          <Card className="cursor-pointer transition-colors hover:border-orange-500/50 active:scale-[0.97] touch-manipulation">
+            <CardContent className="flex flex-col items-center gap-3 p-5 sm:p-4 sm:gap-2">
+              <div className="flex h-14 w-14 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-purple-500/20">
+                <Calendar className="h-7 w-7 sm:h-6 sm:w-6 text-purple-500" />
               </div>
               <span className="text-sm font-medium">New Session</span>
             </CardContent>
@@ -101,24 +101,50 @@ export default function HomePage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-orange-500">{stats?.players || 0}</p>
-            <p className="text-xs text-zinc-400">Players</p>
+          <CardContent className="p-5 sm:p-4 text-center">
+            <p className="text-3xl sm:text-2xl font-bold text-orange-500">{stats?.players || 0}</p>
+            <p className="text-xs text-zinc-400 mt-1">Players</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-blue-500">{stats?.observations || 0}</p>
-            <p className="text-xs text-zinc-400">Observations</p>
+          <CardContent className="p-5 sm:p-4 text-center">
+            <p className="text-3xl sm:text-2xl font-bold text-blue-500">{stats?.observations || 0}</p>
+            <p className="text-xs text-zinc-400 mt-1">Observations</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-emerald-500">{stats?.sessions || 0}</p>
-            <p className="text-xs text-zinc-400">Sessions</p>
+          <CardContent className="p-5 sm:p-4 text-center">
+            <p className="text-3xl sm:text-2xl font-bold text-emerald-500">{stats?.sessions || 0}</p>
+            <p className="text-xs text-zinc-400 mt-1">Sessions</p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Empty state prompt for new users */}
+      {stats && stats.players === 0 && stats.observations === 0 && stats.sessions === 0 && (
+        <Card className="border-dashed border-zinc-700">
+          <CardContent className="flex flex-col items-center text-center p-6 sm:p-8">
+            <p className="text-lg font-semibold text-zinc-300">What would you like to do?</p>
+            <p className="mt-1 text-sm text-zinc-500 max-w-sm">
+              Get started by adding players to your roster, then capture your first observation.
+            </p>
+            <div className="mt-5 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <Link href="/roster/add" className="w-full sm:w-auto">
+                <Button variant="outline" className="w-full sm:w-auto h-12 sm:h-10">
+                  <Users className="h-4 w-4" />
+                  Add Players
+                </Button>
+              </Link>
+              <Link href="/capture" className="w-full sm:w-auto">
+                <Button className="w-full sm:w-auto h-12 sm:h-10">
+                  <Mic className="h-4 w-4" />
+                  Start Capturing
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

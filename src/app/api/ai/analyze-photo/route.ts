@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { callAI } from '@/lib/ai/client';
 import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { buildAIContext } from '@/lib/ai/context-builder';
@@ -9,6 +9,8 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const admin = await createServiceSupabase();
+
   const body = await request.json();
   const { teamId, imageUrl, imageBase64, analysisType = 'coaching', customPrompt, mediaId } = body;
 
@@ -17,7 +19,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const context = await buildAIContext(teamId, supabase);
+    // Get coach org_id for AI provider resolution
+    const { data: coach } = await admin
+      .from('coaches')
+      .select('org_id')
+      .eq('id', user.id)
+      .single();
+
+    const context = await buildAIContext(teamId, admin);
     const prompt = PROMPT_REGISTRY.analyzePhoto({ ...context, analysisType, customPrompt });
 
     // Use Claude vision — pass image as base64 or URL in user prompt
@@ -32,13 +41,14 @@ export async function POST(request: Request) {
         interactionType: 'analyze_photo',
         systemPrompt: prompt.system,
         userPrompt: `${prompt.user}\n\n${imageContent}`,
+        orgId: coach?.org_id || '',
       },
-      supabase
+      admin
     );
 
     // If a mediaId was provided, update the media record with the analysis
     if (mediaId) {
-      await supabase
+      await admin
         .from('media')
         .update({
           ai_analysis: result.text,

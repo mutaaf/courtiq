@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { callAIWithJSON } from '@/lib/ai/client';
 import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { buildAIContext } from '@/lib/ai/context-builder';
@@ -10,6 +10,8 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const admin = await createServiceSupabase();
+
   const body = await request.json();
   const { teamId, type = 'practice', opponent, focusSkills } = body;
 
@@ -18,7 +20,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const context = await buildAIContext(teamId, supabase);
+    // Get coach org_id for AI provider resolution
+    const { data: coach } = await admin
+      .from('coaches')
+      .select('org_id')
+      .eq('id', user.id)
+      .single();
+
+    const context = await buildAIContext(teamId, admin);
     let prompt, schema, interactionType: any;
 
     if (type === 'gameday') {
@@ -38,14 +47,15 @@ export async function POST(request: Request) {
         interactionType,
         systemPrompt: prompt.system,
         userPrompt: prompt.user,
+        orgId: coach?.org_id || '',
       },
-      supabase
+      admin
     );
 
     const validated = schema.parse(result.parsed);
 
     // Save the plan
-    const { data: plan } = await supabase.from('plans').insert({
+    const { data: plan } = await admin.from('plans').insert({
       team_id: teamId,
       coach_id: user.id,
       ai_interaction_id: result.interactionId,

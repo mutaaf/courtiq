@@ -51,17 +51,30 @@ export async function POST(request: Request) {
       admin
     );
 
-    // Validate with Zod
-    const validated = segmentedObservationSchema.parse(result.parsed);
+    // Validate with Zod — if validation fails, return raw AI output anyway
+    try {
+      const validated = segmentedObservationSchema.parse(result.parsed);
 
-    return NextResponse.json({
-      observations: validated.observations,
-      unmatched_names: validated.unmatched_names || [],
-      team_observations: validated.team_observations || [],
-      interactionId: result.interactionId,
-    });
+      return NextResponse.json({
+        observations: validated.observations,
+        unmatched_names: validated.unmatched_names || [],
+        team_observations: validated.team_observations || [],
+        interactionId: result.interactionId,
+      });
+    } catch (zodError) {
+      console.error('Zod validation failed, returning raw AI output:', zodError);
+      const raw = result.parsed as any;
+      return NextResponse.json({
+        observations: raw?.observations || [],
+        unmatched_names: raw?.unmatched_names || [],
+        team_observations: raw?.team_observations || [],
+        interactionId: result.interactionId,
+        warning: 'AI output validation was relaxed',
+      });
+    }
   } catch (error: any) {
     console.error('Segment error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error.message || 'AI segmentation failed';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

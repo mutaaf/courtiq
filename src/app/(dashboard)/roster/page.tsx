@@ -97,7 +97,7 @@ export default function RosterPage() {
             {players.length} player{players.length !== 1 ? 's' : ''} on {activeTeam.name}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="hidden sm:flex items-center gap-2">
           <Link href="/roster/import">
             <Button variant="outline" size="sm">
               <Upload className="h-4 w-4" />
@@ -113,40 +113,42 @@ export default function RosterPage() {
         </div>
       </div>
 
-      {/* Search & Filter */}
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-          <Input
-            placeholder="Search players..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+      {/* Search & Filter - sticky on mobile */}
+      <div className="sticky top-0 z-10 -mx-4 bg-zinc-950/95 backdrop-blur-sm px-4 py-2 sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+            <Input
+              placeholder="Search players..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 h-12 sm:h-10 text-base sm:text-sm"
+            />
+          </div>
+          <select
+            value={positionFilter}
+            onChange={(e) => setPositionFilter(e.target.value)}
+            className="h-12 sm:h-10 rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-base sm:text-sm text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+          >
+            <option value="all">All Positions</option>
+            {positions.map((pos) => (
+              <option key={pos} value={pos}>
+                {pos}
+              </option>
+            ))}
+          </select>
         </div>
-        <select
-          value={positionFilter}
-          onChange={(e) => setPositionFilter(e.target.value)}
-          className="h-10 rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-sm text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
-        >
-          <option value="all">All Positions</option>
-          {positions.map((pos) => (
-            <option key={pos} value={pos}>
-              {pos}
-            </option>
-          ))}
-        </select>
       </div>
 
       {/* Player Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 rounded-xl" />
+            <Skeleton key={i} className="h-24 sm:h-20 rounded-xl" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-700 p-12 text-center">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-700 p-8 sm:p-12 text-center">
           <Users className="mb-4 h-16 w-16 text-zinc-700" />
           {players.length === 0 ? (
             <>
@@ -154,15 +156,15 @@ export default function RosterPage() {
               <p className="mt-1 max-w-sm text-sm text-zinc-500">
                 Add players to your roster to start tracking observations and progress.
               </p>
-              <div className="mt-6 flex gap-3">
-                <Link href="/roster/import">
-                  <Button variant="outline">
+              <div className="mt-6 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                <Link href="/roster/import" className="w-full sm:w-auto">
+                  <Button variant="outline" className="w-full sm:w-auto h-12 sm:h-10">
                     <Upload className="h-4 w-4" />
                     Import Roster
                   </Button>
                 </Link>
-                <Link href="/roster/add">
-                  <Button>
+                <Link href="/roster/add" className="w-full sm:w-auto">
+                  <Button className="w-full sm:w-auto h-12 sm:h-10">
                     <Plus className="h-4 w-4" />
                     Add Player
                   </Button>
@@ -179,7 +181,7 @@ export default function RosterPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((player) => (
             <PlayerCard
               key={player.id}
@@ -189,6 +191,14 @@ export default function RosterPage() {
           ))}
         </div>
       )}
+
+      {/* Mobile FAB - Add Player */}
+      <Link
+        href="/roster/add"
+        className="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-orange-500 text-white shadow-lg shadow-orange-500/30 active:scale-95 touch-manipulation sm:hidden"
+      >
+        <Plus className="h-7 w-7" />
+      </Link>
     </div>
   );
 }

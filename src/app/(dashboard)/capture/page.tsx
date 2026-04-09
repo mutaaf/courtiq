@@ -84,6 +84,9 @@ export default function CapturePage() {
         stream.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
 
+        // Wait a moment for final speech recognition results to arrive
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         await processRecording(audioBlob, mimeType);
       };
@@ -181,32 +184,38 @@ export default function CapturePage() {
       const recordingId = generateId();
       const storagePath = `recordings/${activeTeam.id}/${recordingId}.webm`;
 
-      // Upload audio via storage (requires supabase client)
-      const supabase = createClient();
-      const { error: uploadError } = await supabase.storage
-        .from('audio')
-        .upload(storagePath, audioBlob, { contentType: mimeType });
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        // Continue without upload - store locally
+      // Upload audio via storage — best-effort, don't block on failure
+      let uploadSucceeded = false;
+      try {
+        const supabase = createClient();
+        const { error: uploadError } = await supabase.storage
+          .from('audio')
+          .upload(storagePath, audioBlob, { contentType: mimeType });
+        if (!uploadError) uploadSucceeded = true;
+        else console.error('Upload error:', uploadError);
+      } catch {
+        // Storage upload failed, continue anyway
       }
 
-      // Create recording record
-      await mutate({
-        table: 'recordings',
-        operation: 'insert',
-        data: {
-          id: recordingId,
-          team_id: activeTeam.id,
-          coach_id: coach.id,
-          storage_path: uploadError ? null : storagePath,
-          mime_type: mimeType,
-          file_size_bytes: audioBlob.size,
-          status: 'uploaded' as const,
-          raw_transcript: currentTranscript || null,
-        },
-      });
+      // Create recording record — best-effort, don't block the AI call
+      try {
+        await mutate({
+          table: 'recordings',
+          operation: 'insert',
+          data: {
+            id: recordingId,
+            team_id: activeTeam.id,
+            coach_id: coach.id,
+            storage_path: uploadSucceeded ? storagePath : null,
+            mime_type: mimeType,
+            file_size_bytes: audioBlob.size,
+            status: 'uploaded' as const,
+            raw_transcript: currentTranscript || null,
+          },
+        });
+      } catch (e) {
+        console.error('Recording insert failed:', e);
+      }
 
       // Send for AI segmentation
       const response = await fetch('/api/ai/segment', {
@@ -472,12 +481,12 @@ export default function CapturePage() {
         {/* Live Transcript */}
         {(captureState === 'recording' || liveTranscript) && (
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-                <span className="text-xs font-medium text-zinc-400">Live Transcript</span>
+            <CardContent className="p-5 sm:p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" />
+                <span className="text-sm sm:text-xs font-medium text-zinc-400">Live Transcript</span>
               </div>
-              <p className="min-h-[3rem] text-sm text-zinc-300">
+              <p className="min-h-[4rem] text-base sm:text-sm leading-relaxed text-zinc-300">
                 {liveTranscript || (
                   <span className="italic text-zinc-600">Listening...</span>
                 )}
@@ -488,33 +497,34 @@ export default function CapturePage() {
 
         {/* Error */}
         {captureState === 'error' && errorMessage && (
-          <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
-            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-400" />
-            <div>
-              <p className="text-sm font-medium text-red-400">
-                {isApiKeyError ? 'AI Not Configured' : 'Recording Error'}
-              </p>
-              <p className="mt-1 text-sm text-red-400/80">{errorMessage}</p>
-              {isApiKeyError && (
-                <Link
-                  href="/settings/ai"
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-orange-500/20 border border-orange-500/30 px-3 py-1.5 text-sm font-medium text-orange-400 hover:bg-orange-500/30 transition-colors"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Configure AI Provider
-                </Link>
-              )}
-              {!isApiKeyError && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-3"
-                  onClick={() => { setCaptureState('idle'); setErrorMessage(null); setIsApiKeyError(false); }}
-                >
-                  Try Again
-                </Button>
-              )}
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-5 sm:p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="mt-0.5 h-6 w-6 sm:h-5 sm:w-5 flex-shrink-0 text-red-400" />
+              <div className="flex-1">
+                <p className="text-base sm:text-sm font-semibold text-red-400">
+                  {isApiKeyError ? 'AI Not Configured' : 'Recording Error'}
+                </p>
+                <p className="mt-1.5 text-sm text-red-400/80 leading-relaxed">{errorMessage}</p>
+              </div>
             </div>
+            {isApiKeyError && (
+              <Link
+                href="/settings/ai"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500/20 border border-orange-500/30 px-4 py-3 text-sm font-medium text-orange-400 hover:bg-orange-500/30 transition-colors active:scale-[0.98] touch-manipulation"
+              >
+                <Sparkles className="h-4 w-4" />
+                Configure AI Provider
+              </Link>
+            )}
+            {!isApiKeyError && (
+              <Button
+                variant="outline"
+                className="mt-4 w-full h-12 sm:h-10 text-base sm:text-sm"
+                onClick={() => { setCaptureState('idle'); setErrorMessage(null); setIsApiKeyError(false); }}
+              >
+                Try Again
+              </Button>
+            )}
           </div>
         )}
 
@@ -529,12 +539,28 @@ export default function CapturePage() {
 
         {/* Upload Voice Memo */}
         {captureState === 'idle' && uploadState === 'idle' && (
-          <div className="flex justify-center gap-3">
-            <Button variant="ghost" className="text-zinc-400" onClick={() => setShowQuickNote(true)}>
-              <Keyboard className="h-4 w-4" /> Type a note
-            </Button>
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg px-4 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100">
-              <Upload className="h-4 w-4" /> Upload audio
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setShowQuickNote(true)}
+              className="flex items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 text-left transition-colors hover:border-zinc-700 hover:bg-zinc-800/50 active:scale-[0.98] touch-manipulation"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-500/20">
+                <Keyboard className="h-6 w-6 text-blue-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-zinc-200">Type a note</p>
+                <p className="text-xs text-zinc-500">Quick text observation</p>
+              </div>
+            </button>
+            <label className="flex cursor-pointer items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 text-left transition-colors hover:border-zinc-700 hover:bg-zinc-800/50 active:scale-[0.98] touch-manipulation">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-purple-500/20">
+                <Upload className="h-6 w-6 text-purple-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-zinc-200">Upload audio</p>
+                <p className="text-xs text-zinc-500">Voice memo or recording</p>
+              </div>
               <input
                 type="file"
                 accept="audio/*,video/*,.m4a,.mp3,.wav,.webm,.ogg,.mp4,.mov"

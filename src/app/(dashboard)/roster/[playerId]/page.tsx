@@ -2,6 +2,7 @@
 
 import { use, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useActiveTeam } from '@/hooks/use-active-team';
 import { query } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { CACHE_PROFILES } from '@/lib/query/config';
@@ -18,6 +19,11 @@ import {
   Image as ImageIcon,
   Share2,
   MessageSquare,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  Copy,
+  ExternalLink,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
@@ -43,7 +49,19 @@ export default function PlayerDetailPage({
   params: Promise<{ playerId: string }>;
 }) {
   const { playerId } = use(params);
+  const { activeTeam } = useActiveTeam();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
+
+  // Report card state
+  const [reportCardLoading, setReportCardLoading] = useState(false);
+  const [reportCardError, setReportCardError] = useState<string | null>(null);
+  const [reportCardData, setReportCardData] = useState<any>(null);
+
+  // Share link state
+  const [shareLinkLoading, setShareLinkLoading] = useState(false);
+  const [shareLinkError, setShareLinkError] = useState<string | null>(null);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
 
   const { data: player, isLoading: playerLoading } = useQuery({
     queryKey: queryKeys.players.detail(playerId),
@@ -109,6 +127,68 @@ export default function PlayerDetailPage({
     { id: 'share', label: 'Share', icon: <Share2 className="h-4 w-4" /> },
   ];
 
+  async function handleGenerateReportCard() {
+    if (!activeTeam || !player) return;
+    setReportCardLoading(true);
+    setReportCardError(null);
+    try {
+      const res = await fetch('/api/ai/report-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id, playerId: player.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate report card');
+      }
+      const data = await res.json();
+      setReportCardData(data.content);
+    } catch (err) {
+      setReportCardError(err instanceof Error ? err.message : 'Generation failed');
+    } finally {
+      setReportCardLoading(false);
+    }
+  }
+
+  async function handleCreateShareLink() {
+    if (!activeTeam || !player) return;
+    setShareLinkLoading(true);
+    setShareLinkError(null);
+    try {
+      const res = await fetch('/api/share/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId: activeTeam.id,
+          playerId: player.id,
+          expirationDays: 30,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to create share link');
+      }
+      const data = await res.json();
+      const fullUrl = `${window.location.origin}${data.shareUrl}`;
+      setShareUrl(fullUrl);
+    } catch (err) {
+      setShareLinkError(err instanceof Error ? err.message : 'Failed to create share link');
+    } finally {
+      setShareLinkLoading(false);
+    }
+  }
+
+  async function copyShareLink() {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch {
+      // Fallback
+    }
+  }
+
   if (playerLoading) {
     return (
       <div className="space-y-6 p-4 lg:p-8">
@@ -144,6 +224,101 @@ export default function PlayerDetailPage({
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  }
+
+  function renderReportCardContent(rc: any) {
+    if (!rc) return null;
+
+    return (
+      <div className="space-y-6">
+        {rc.summary && (
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400 mb-2">Summary</h3>
+            <p className="text-sm text-zinc-300">{rc.summary}</p>
+          </div>
+        )}
+
+        {rc.strengths && rc.strengths.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald-400 mb-2">Strengths</h3>
+            <ul className="space-y-1.5">
+              {rc.strengths.map((s: any, i: number) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
+                  <CheckCircle2 className="h-4 w-4 mt-0.5 text-emerald-500 shrink-0" />
+                  {typeof s === 'string' ? s : s.skill || s.description || JSON.stringify(s)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {rc.areas_for_improvement && rc.areas_for_improvement.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-orange-400 mb-2">Areas for Improvement</h3>
+            <ul className="space-y-1.5">
+              {rc.areas_for_improvement.map((a: any, i: number) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
+                  <AlertCircle className="h-4 w-4 mt-0.5 text-orange-500 shrink-0" />
+                  {typeof a === 'string' ? a : a.skill || a.description || JSON.stringify(a)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {rc.grades && (
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400 mb-2">Grades</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {(Array.isArray(rc.grades) ? rc.grades : Object.entries(rc.grades).map(([k, v]) => ({ skill: k, grade: v }))).map(
+                (g: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/30 p-2">
+                    <span className="text-sm text-zinc-300">{g.skill || g.category}</span>
+                    <Badge variant="secondary">{g.grade || g.level || g.score}</Badge>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        )}
+
+        {rc.recommendations && (
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-blue-400 mb-2">Recommendations</h3>
+            <ul className="space-y-1.5">
+              {(Array.isArray(rc.recommendations) ? rc.recommendations : [rc.recommendations]).map(
+                (r: any, i: number) => (
+                  <li key={i} className="text-sm text-zinc-300">
+                    - {typeof r === 'string' ? r : r.description || JSON.stringify(r)}
+                  </li>
+                )
+              )}
+            </ul>
+          </div>
+        )}
+
+        {rc.coach_message && (
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-purple-400 mb-2">Coach Message</h3>
+            <p className="text-sm text-zinc-300 italic">{rc.coach_message}</p>
+          </div>
+        )}
+
+        {/* Fallback: render any other top-level keys */}
+        {Object.entries(rc)
+          .filter(([key]) => !['summary', 'strengths', 'areas_for_improvement', 'grades', 'recommendations', 'coach_message', 'title', 'player_name'].includes(key))
+          .map(([key, value]) => (
+            <div key={key}>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+                {key.replace(/_/g, ' ')}
+              </h3>
+              <div className="text-sm text-zinc-300 whitespace-pre-wrap">
+                {typeof value === 'string' ? value : JSON.stringify(value, null, 2)}
+              </div>
+            </div>
+          ))}
+      </div>
+    );
   }
 
   return (
@@ -360,16 +535,68 @@ export default function PlayerDetailPage({
       )}
 
       {activeTab === 'report-card' && (
-        <Card>
-          <CardContent className="flex flex-col items-center p-8 text-center">
-            <FileText className="mb-3 h-10 w-10 text-zinc-700" />
-            <h3 className="font-semibold text-zinc-300">Report Card</h3>
-            <p className="mt-1 text-sm text-zinc-500">
-              Generate a comprehensive report card summarizing {player.name}&apos;s progress.
-            </p>
-            <Button className="mt-4">Generate Report Card</Button>
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          {reportCardError && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{reportCardError}</span>
+            </div>
+          )}
+
+          {reportCardData ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Report Card - {player.name}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {renderReportCardContent(reportCardData)}
+                <div className="mt-6 pt-4 border-t border-zinc-800">
+                  <Button
+                    onClick={handleGenerateReportCard}
+                    disabled={reportCardLoading}
+                    variant="outline"
+                    size="sm"
+                  >
+                    {reportCardLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Regenerating...
+                      </>
+                    ) : (
+                      'Regenerate Report Card'
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center p-8 text-center">
+                <FileText className="mb-3 h-10 w-10 text-zinc-700" />
+                <h3 className="font-semibold text-zinc-300">Report Card</h3>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Generate a comprehensive report card summarizing {player.name}&apos;s progress.
+                </p>
+                <Button
+                  className="mt-4"
+                  onClick={handleGenerateReportCard}
+                  disabled={reportCardLoading || !activeTeam}
+                >
+                  {reportCardLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    'Generate Report Card'
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
       {activeTab === 'media' && (
@@ -385,16 +612,95 @@ export default function PlayerDetailPage({
       )}
 
       {activeTab === 'share' && (
-        <Card>
-          <CardContent className="flex flex-col items-center p-8 text-center">
-            <Share2 className="mb-3 h-10 w-10 text-zinc-700" />
-            <h3 className="font-semibold text-zinc-300">Share with Parents</h3>
-            <p className="mt-1 text-sm text-zinc-500">
-              Create a shareable link for {player.name}&apos;s parents to view progress.
-            </p>
-            <Button className="mt-4">Create Share Link</Button>
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          {shareLinkError && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{shareLinkError}</span>
+            </div>
+          )}
+
+          {shareUrl ? (
+            <Card>
+              <CardContent className="p-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+                  <div>
+                    <h3 className="font-semibold text-zinc-200">Share Link Created</h3>
+                    <p className="text-sm text-zinc-500">
+                      Share this link with {player.name}&apos;s parents. Expires in 30 days.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 p-3">
+                  <input
+                    type="text"
+                    readOnly
+                    value={shareUrl}
+                    className="flex-1 bg-transparent text-sm text-zinc-300 outline-none"
+                  />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={copyShareLink}
+                  >
+                    {shareCopied ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <a href={shareUrl} target="_blank" rel="noopener noreferrer">
+                    <Button size="sm" variant="ghost">
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </a>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCreateShareLink}
+                  disabled={shareLinkLoading}
+                >
+                  {shareLinkLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    'Create New Link'
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center p-8 text-center">
+                <Share2 className="mb-3 h-10 w-10 text-zinc-700" />
+                <h3 className="font-semibold text-zinc-300">Share with Parents</h3>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Create a shareable link for {player.name}&apos;s parents to view progress.
+                </p>
+                <Button
+                  className="mt-4"
+                  onClick={handleCreateShareLink}
+                  disabled={shareLinkLoading || !activeTeam}
+                >
+                  {shareLinkLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    'Create Share Link'
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
     </div>
   );

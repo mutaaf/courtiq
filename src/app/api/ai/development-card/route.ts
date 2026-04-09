@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { callAIWithJSON } from '@/lib/ai/client';
 import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { buildAIContext } from '@/lib/ai/context-builder';
@@ -10,6 +10,8 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const admin = await createServiceSupabase();
+
   const body = await request.json();
   const { teamId, playerId } = body;
 
@@ -18,10 +20,17 @@ export async function POST(request: Request) {
   }
 
   try {
-    const context = await buildAIContext(teamId, supabase);
+    // Get coach org_id for AI provider resolution
+    const { data: coach } = await admin
+      .from('coaches')
+      .select('org_id')
+      .eq('id', user.id)
+      .single();
+
+    const context = await buildAIContext(teamId, admin);
 
     // Get player info
-    const { data: player } = await supabase
+    const { data: player } = await admin
       .from('players')
       .select('*')
       .eq('id', playerId)
@@ -32,7 +41,7 @@ export async function POST(request: Request) {
     }
 
     // Get recent observations for this player
-    const { data: observations } = await supabase
+    const { data: observations } = await admin
       .from('observations')
       .select('category, sentiment, text, skill_id, result, created_at')
       .eq('player_id', playerId)
@@ -40,7 +49,7 @@ export async function POST(request: Request) {
       .limit(50);
 
     // Get current proficiency
-    const { data: proficiency } = await supabase
+    const { data: proficiency } = await admin
       .from('player_skill_proficiency')
       .select('skill_id, proficiency_level, success_rate, trend')
       .eq('player_id', playerId);
@@ -59,14 +68,15 @@ export async function POST(request: Request) {
         interactionType: 'generate_development_card',
         systemPrompt: prompt.system,
         userPrompt: prompt.user,
+        orgId: coach?.org_id || '',
       },
-      supabase
+      admin
     );
 
     const validated = developmentCardSchema.parse(result.parsed);
 
     // Save as a plan
-    const { data: plan } = await supabase.from('plans').insert({
+    const { data: plan } = await admin.from('plans').insert({
       team_id: teamId,
       coach_id: user.id,
       player_id: playerId,

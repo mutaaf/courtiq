@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { callAIWithJSON } from '@/lib/ai/client';
 import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { rosterImportSchema, type RosterImport } from '@/lib/ai/schemas';
@@ -9,6 +9,8 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const admin = await createServiceSupabase();
+
   const body = await request.json();
   const { teamId, imageUrl, imageBase64 } = body;
 
@@ -17,6 +19,13 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Get coach org_id for AI provider resolution
+    const { data: coach } = await admin
+      .from('coaches')
+      .select('org_id')
+      .eq('id', user.id)
+      .single();
+
     const prompt = PROMPT_REGISTRY.importRoster();
 
     const imageContent = imageBase64
@@ -30,14 +39,15 @@ export async function POST(request: Request) {
         interactionType: 'roster_import',
         systemPrompt: prompt.system,
         userPrompt: `${prompt.user}\n\n${imageContent}`,
+        orgId: coach?.org_id || '',
       },
-      supabase
+      admin
     );
 
     const validated = rosterImportSchema.parse(result.parsed);
 
     // Get existing players to avoid duplicates
-    const { data: existingPlayers } = await supabase
+    const { data: existingPlayers } = await admin
       .from('players')
       .select('name')
       .eq('team_id', teamId);
@@ -54,7 +64,7 @@ export async function POST(request: Request) {
     );
 
     // Get team info for age_group default
-    const { data: team } = await supabase
+    const { data: team } = await admin
       .from('teams')
       .select('age_group')
       .eq('id', teamId)
@@ -63,7 +73,7 @@ export async function POST(request: Request) {
     // Insert new players
     let inserted: any[] = [];
     if (newPlayers.length > 0) {
-      const { data } = await supabase
+      const { data } = await admin
         .from('players')
         .insert(
           newPlayers.map((p) => ({

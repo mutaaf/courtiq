@@ -80,22 +80,25 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {visibleCards.map((card) => {
+        {visibleCards.map((card, index) => {
           const Icon = card.icon;
+          const isFirst = index === 0;
           return (
-            <Link key={card.href} href={card.href}>
-              <Card className="h-full cursor-pointer transition-colors hover:border-zinc-700">
-                <CardContent className="flex items-center gap-4 p-4">
+            <Link key={card.href} href={card.href} className={isFirst ? 'sm:col-span-2 lg:col-span-1' : ''}>
+              <Card className={`h-full cursor-pointer transition-colors hover:border-zinc-700 active:scale-[0.98] touch-manipulation ${
+                isFirst ? 'border-orange-500/30 bg-orange-500/5' : ''
+              }`}>
+                <CardContent className="flex items-center gap-4 p-5 sm:p-4">
                   <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-lg shrink-0 ${card.iconColor}`}
+                    className={`flex h-12 w-12 sm:h-10 sm:w-10 items-center justify-center rounded-lg shrink-0 ${card.iconColor}`}
                   >
-                    <Icon className="h-5 w-5" />
+                    <Icon className="h-6 w-6 sm:h-5 sm:w-5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm">{card.label}</p>
-                    <p className="text-xs text-zinc-500">{card.description}</p>
+                    <p className="font-medium text-base sm:text-sm">{card.label}</p>
+                    <p className="text-xs text-zinc-500 mt-0.5">{card.description}</p>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-zinc-600 shrink-0" />
+                  <ChevronRight className="h-5 w-5 sm:h-4 sm:w-4 text-zinc-600 shrink-0" />
                 </CardContent>
               </Card>
             </Link>

@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { query, mutate } from '@/lib/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { query } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { CACHE_PROFILES } from '@/lib/query/config';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,6 +20,7 @@ import {
   FileText,
   Sparkles,
   X,
+  AlertCircle,
 } from 'lucide-react';
 import type { Plan, PlanType } from '@/types/database';
 
@@ -37,10 +38,11 @@ const PLAN_TYPE_CONFIG: Record<
 };
 
 export default function PlansPage() {
-  const { activeTeam, coach } = useActiveTeam();
-  const queryClient = useQueryClient();
+  const { activeTeam } = useActiveTeam();
+  const qc = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [generating, setGenerating] = useState<PlanType | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const { data: plans, isLoading } = useQuery({
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
@@ -58,38 +60,30 @@ export default function PlansPage() {
     ...CACHE_PROFILES.plans,
   });
 
-  async function handleGenerate(type: PlanType) {
+  const generatePlan = async (type: 'practice' | 'gameday') => {
     if (!activeTeam) return;
     setGenerating(type);
-
+    setError(null);
     try {
-      if (!coach) throw new Error('Not authenticated');
-
-      const data = await mutate<Plan[]>({
-        table: 'plans',
-        operation: 'insert',
-        data: {
-          team_id: activeTeam.id,
-          coach_id: coach.id,
-          type,
-          title: `${PLAN_TYPE_CONFIG[type]?.label || type} - ${new Date().toLocaleDateString()}`,
-          content: `Generating ${type} plan... This will be populated by the AI pipeline.`,
-          curriculum_week: activeTeam.current_week,
-        },
-        select: '*',
+      const res = await fetch('/api/ai/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id, type }),
       });
-
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.plans.all(activeTeam.id),
-      });
-
-      if (data?.[0]) setSelectedPlan(data[0]);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate plan');
+      }
+      const data = await res.json();
+      // Refresh plans list
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
     } catch (err) {
-      console.error('Failed to generate plan:', err);
+      setError(err instanceof Error ? err.message : 'Generation failed');
     } finally {
       setGenerating(null);
     }
-  }
+  };
 
   function formatDate(dateStr: string) {
     return new Date(dateStr).toLocaleDateString('en-US', {
@@ -97,6 +91,200 @@ export default function PlansPage() {
       day: 'numeric',
       year: 'numeric',
     });
+  }
+
+  // Render structured plan content (warmup, drills, scrimmage, cooldown)
+  function renderStructuredContent(plan: Plan) {
+    const structured = plan.content_structured as any;
+    if (!structured) {
+      return (
+        <div className="prose prose-invert prose-sm max-w-none whitespace-pre-wrap">
+          {plan.content}
+        </div>
+      );
+    }
+
+    // Practice plan structure
+    if (structured.warmup || structured.drills || structured.scrimmage || structured.cooldown) {
+      return (
+        <div className="space-y-6">
+          {structured.title && (
+            <h2 className="text-lg font-semibold text-zinc-100">{structured.title}</h2>
+          )}
+          {structured.overview && (
+            <p className="text-sm text-zinc-400">{structured.overview}</p>
+          )}
+
+          {structured.warmup && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-blue-400">
+                Warm-Up
+              </h3>
+              {Array.isArray(structured.warmup) ? (
+                <ul className="space-y-1.5">
+                  {structured.warmup.map((item: any, i: number) => (
+                    <li key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                      <p className="text-sm font-medium text-zinc-200">
+                        {typeof item === 'string' ? item : item.name || item.activity}
+                      </p>
+                      {item.duration && (
+                        <span className="text-xs text-zinc-500">{item.duration}</span>
+                      )}
+                      {item.description && (
+                        <p className="mt-1 text-xs text-zinc-400">{item.description}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-zinc-300">{String(structured.warmup)}</p>
+              )}
+            </div>
+          )}
+
+          {structured.drills && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald-400">
+                Drills
+              </h3>
+              {Array.isArray(structured.drills) ? (
+                <ul className="space-y-2">
+                  {structured.drills.map((drill: any, i: number) => (
+                    <li key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-zinc-200">
+                          {typeof drill === 'string' ? drill : drill.name || drill.activity}
+                        </p>
+                        {drill.duration && (
+                          <Badge variant="outline" className="text-xs">{drill.duration}</Badge>
+                        )}
+                      </div>
+                      {drill.description && (
+                        <p className="mt-1 text-xs text-zinc-400">{drill.description}</p>
+                      )}
+                      {drill.coaching_points && (
+                        <div className="mt-2">
+                          <p className="text-xs font-medium text-zinc-500">Coaching Points:</p>
+                          <ul className="mt-1 space-y-0.5">
+                            {(Array.isArray(drill.coaching_points) ? drill.coaching_points : [drill.coaching_points]).map(
+                              (point: string, j: number) => (
+                                <li key={j} className="text-xs text-zinc-400">- {point}</li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                      )}
+                      {drill.skill && (
+                        <Badge variant="secondary" className="mt-2 text-xs">{drill.skill}</Badge>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-zinc-300">{String(structured.drills)}</p>
+              )}
+            </div>
+          )}
+
+          {structured.scrimmage && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-orange-400">
+                Scrimmage
+              </h3>
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                {typeof structured.scrimmage === 'string' ? (
+                  <p className="text-sm text-zinc-300">{structured.scrimmage}</p>
+                ) : (
+                  <>
+                    {structured.scrimmage.format && (
+                      <p className="text-sm font-medium text-zinc-200">{structured.scrimmage.format}</p>
+                    )}
+                    {structured.scrimmage.duration && (
+                      <span className="text-xs text-zinc-500">{structured.scrimmage.duration}</span>
+                    )}
+                    {structured.scrimmage.focus && (
+                      <p className="mt-1 text-xs text-zinc-400">Focus: {structured.scrimmage.focus}</p>
+                    )}
+                    {structured.scrimmage.rules && (
+                      <p className="mt-1 text-xs text-zinc-400">{structured.scrimmage.rules}</p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {structured.cooldown && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-purple-400">
+                Cool Down
+              </h3>
+              {Array.isArray(structured.cooldown) ? (
+                <ul className="space-y-1.5">
+                  {structured.cooldown.map((item: any, i: number) => (
+                    <li key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                      <p className="text-sm text-zinc-200">
+                        {typeof item === 'string' ? item : item.name || item.activity}
+                      </p>
+                      {item.description && (
+                        <p className="mt-1 text-xs text-zinc-400">{item.description}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-zinc-300">{String(structured.cooldown)}</p>
+              )}
+            </div>
+          )}
+
+          {structured.notes && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
+                Coach Notes
+              </h3>
+              <p className="text-sm text-zinc-300 whitespace-pre-wrap">
+                {typeof structured.notes === 'string'
+                  ? structured.notes
+                  : Array.isArray(structured.notes)
+                  ? structured.notes.join('\n')
+                  : JSON.stringify(structured.notes, null, 2)}
+              </p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Gameday / other structured content — render sections generically
+    return (
+      <div className="space-y-4">
+        {structured.title && (
+          <h2 className="text-lg font-semibold text-zinc-100">{structured.title}</h2>
+        )}
+        {Object.entries(structured).map(([key, value]) => {
+          if (key === 'title') return null;
+          return (
+            <div key={key} className="space-y-1">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
+                {key.replace(/_/g, ' ')}
+              </h3>
+              <div className="text-sm text-zinc-300 whitespace-pre-wrap">
+                {typeof value === 'string'
+                  ? value
+                  : Array.isArray(value)
+                  ? value.map((item, i) => (
+                      <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3 mb-2">
+                        {typeof item === 'string' ? item : JSON.stringify(item, null, 2)}
+                      </div>
+                    ))
+                  : JSON.stringify(value, null, 2)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
   }
 
   // Plan detail view
@@ -133,9 +321,7 @@ export default function PlansPage() {
 
         <Card>
           <CardContent className="p-6">
-            <div className="prose prose-invert prose-sm max-w-none whitespace-pre-wrap">
-              {selectedPlan.content}
-            </div>
+            {renderStructuredContent(selectedPlan)}
           </CardContent>
         </Card>
 
@@ -166,49 +352,72 @@ export default function PlansPage() {
         <p className="text-zinc-400 text-sm">Generate and manage practice plans and game sheets</p>
       </div>
 
+      {/* Error message */}
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="ml-auto text-red-500 hover:text-red-300"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Generate buttons */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Card
-          className="cursor-pointer transition-colors hover:border-blue-500/50"
-          onClick={() => handleGenerate('practice')}
+          className={`cursor-pointer transition-colors hover:border-blue-500/50 active:scale-[0.98] touch-manipulation ${
+            generating ? 'pointer-events-none opacity-60' : ''
+          }`}
+          onClick={() => generatePlan('practice')}
         >
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/20 shrink-0">
+          <CardContent className="flex items-center gap-4 p-5 sm:p-4">
+            <div className="flex h-14 w-14 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-blue-500/20 shrink-0">
               {generating === 'practice' ? (
-                <Loader2 className="h-6 w-6 text-blue-400 animate-spin" />
+                <Loader2 className="h-7 w-7 sm:h-6 sm:w-6 text-blue-400 animate-spin" />
               ) : (
-                <Dumbbell className="h-6 w-6 text-blue-400" />
+                <Dumbbell className="h-7 w-7 sm:h-6 sm:w-6 text-blue-400" />
               )}
             </div>
-            <div>
-              <p className="font-medium">Generate Practice Plan</p>
-              <p className="text-xs text-zinc-500">
-                AI-powered plan based on curriculum and observations
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-base sm:text-sm">Generate Practice Plan</p>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                {generating === 'practice'
+                  ? 'AI is generating your plan...'
+                  : 'AI-powered plan based on curriculum and observations'}
               </p>
             </div>
-            <Sparkles className="h-4 w-4 text-zinc-600 ml-auto shrink-0" />
+            <Sparkles className="h-5 w-5 sm:h-4 sm:w-4 text-blue-500/50 shrink-0" />
           </CardContent>
         </Card>
 
         <Card
-          className="cursor-pointer transition-colors hover:border-emerald-500/50"
-          onClick={() => handleGenerate('gameday')}
+          className={`cursor-pointer transition-colors hover:border-emerald-500/50 active:scale-[0.98] touch-manipulation ${
+            generating ? 'pointer-events-none opacity-60' : ''
+          }`}
+          onClick={() => generatePlan('gameday')}
         >
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/20 shrink-0">
+          <CardContent className="flex items-center gap-4 p-5 sm:p-4">
+            <div className="flex h-14 w-14 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-emerald-500/20 shrink-0">
               {generating === 'gameday' ? (
-                <Loader2 className="h-6 w-6 text-emerald-400 animate-spin" />
+                <Loader2 className="h-7 w-7 sm:h-6 sm:w-6 text-emerald-400 animate-spin" />
               ) : (
-                <Trophy className="h-6 w-6 text-emerald-400" />
+                <Trophy className="h-7 w-7 sm:h-6 sm:w-6 text-emerald-400" />
               )}
             </div>
-            <div>
-              <p className="font-medium">Generate Game Day Sheet</p>
-              <p className="text-xs text-zinc-500">
-                Lineup, rotations, and focus areas for game day
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-base sm:text-sm">Generate Game Day Sheet</p>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                {generating === 'gameday'
+                  ? 'AI is generating your game sheet...'
+                  : 'Lineup, rotations, and focus areas for game day'}
               </p>
             </div>
-            <Sparkles className="h-4 w-4 text-zinc-600 ml-auto shrink-0" />
+            <Sparkles className="h-5 w-5 sm:h-4 sm:w-4 text-emerald-500/50 shrink-0" />
           </CardContent>
         </Card>
       </div>

@@ -83,21 +83,21 @@ export default function SessionsPage() {
           </p>
         </div>
         <Link href="/sessions/new">
-          <Button>
-            <Plus className="h-4 w-4" />
+          <Button className="h-12 px-5 sm:h-10 sm:px-4 text-base sm:text-sm">
+            <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
             New Session
           </Button>
         </Link>
       </div>
 
       {/* Type filter */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
         <Filter className="h-4 w-4 text-zinc-500 shrink-0" />
         {FILTER_OPTIONS.map((opt) => (
           <button
             key={opt.value}
             onClick={() => setTypeFilter(opt.value)}
-            className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+            className={`shrink-0 rounded-full px-4 py-2 sm:px-3 sm:py-1 text-sm sm:text-xs font-medium transition-colors touch-manipulation ${
               typeFilter === opt.value
                 ? 'bg-orange-500 text-white'
                 : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
@@ -120,9 +120,9 @@ export default function SessionsPage() {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Calendar className="h-12 w-12 text-zinc-600 mb-4" />
             <p className="text-zinc-400 text-sm">No sessions yet</p>
-            <Link href="/sessions/new" className="mt-4">
-              <Button variant="outline" size="sm">
-                <Plus className="h-4 w-4" />
+            <Link href="/sessions/new" className="mt-4 w-full sm:w-auto px-4 sm:px-0">
+              <Button variant="outline" className="w-full sm:w-auto h-12 sm:h-10 text-base sm:text-sm">
+                <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
                 Create your first session
               </Button>
             </Link>
@@ -136,8 +136,8 @@ export default function SessionsPage() {
 
             return (
               <Link key={session.id} href={`/sessions/${session.id}`}>
-                <Card className="transition-colors hover:border-zinc-700 cursor-pointer">
-                  <CardContent className="p-4">
+                <Card className="transition-colors hover:border-zinc-700 cursor-pointer active:scale-[0.98] touch-manipulation">
+                  <CardContent className="p-5 sm:p-4">
                     <div className="flex items-start justify-between">
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2">
