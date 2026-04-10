@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -30,6 +30,160 @@ interface ChatMessage {
   suggestions?: string[];
   timestamp: Date;
 }
+
+// ---------------------------------------------------------------------------
+// Markdown renderer — parses common coaching AI response patterns
+// ---------------------------------------------------------------------------
+
+/** Renders inline markdown: **bold**, *italic*, `code` */
+function renderInline(text: string): ReactNode {
+  const INLINE_RE = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/;
+  const parts = text.split(INLINE_RE);
+  if (parts.length === 1) return text;
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**') && part.length > 4)
+          return <strong key={i} className="font-semibold text-zinc-100">{part.slice(2, -2)}</strong>;
+        if (part.startsWith('*') && part.endsWith('*') && part.length > 2)
+          return <em key={i} className="italic">{part.slice(1, -1)}</em>;
+        if (part.startsWith('`') && part.endsWith('`') && part.length > 2)
+          return <code key={i} className="rounded bg-zinc-900 px-1 py-0.5 font-mono text-[11px] text-orange-300">{part.slice(1, -1)}</code>;
+        return part;
+      })}
+    </>
+  );
+}
+
+/** Block-level markdown renderer for AI assistant messages */
+function MarkdownContent({ content }: { content: string }) {
+  const lines = content.split('\n');
+  const nodes: ReactNode[] = [];
+  let i = 0;
+  let k = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Skip blank lines between blocks
+    if (!line.trim()) { i++; continue; }
+
+    // Headings
+    if (line.startsWith('### ')) {
+      nodes.push(
+        <h3 key={k++} className="mt-3 mb-1 text-[13px] font-semibold text-orange-300 uppercase tracking-wider">
+          {renderInline(line.slice(4))}
+        </h3>
+      );
+      i++; continue;
+    }
+    if (line.startsWith('## ')) {
+      nodes.push(
+        <h2 key={k++} className="mt-3 mb-1 text-sm font-bold text-zinc-100">
+          {renderInline(line.slice(3))}
+        </h2>
+      );
+      i++; continue;
+    }
+    if (line.startsWith('# ')) {
+      nodes.push(
+        <h1 key={k++} className="mt-3 mb-1 text-base font-bold text-zinc-100">
+          {renderInline(line.slice(2))}
+        </h1>
+      );
+      i++; continue;
+    }
+
+    // Horizontal rule
+    if (/^---+$/.test(line.trim())) {
+      nodes.push(<hr key={k++} className="my-2 border-zinc-700" />);
+      i++; continue;
+    }
+
+    // Unordered list — collect consecutive items
+    if (/^[-*] /.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^[-*] /.test(lines[i])) {
+        items.push(lines[i].slice(2));
+        i++;
+      }
+      nodes.push(
+        <ul key={k++} className="my-1.5 space-y-1">
+          {items.map((item, j) => (
+            <li key={j} className="flex items-start gap-2">
+              <span className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400" />
+              <span>{renderInline(item)}</span>
+            </li>
+          ))}
+        </ul>
+      );
+      continue;
+    }
+
+    // Ordered list — collect consecutive items
+    if (/^\d+\. /.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^\d+\. /.test(lines[i])) {
+        items.push(lines[i].replace(/^\d+\. /, ''));
+        i++;
+      }
+      nodes.push(
+        <ol key={k++} className="my-1.5 space-y-1">
+          {items.map((item, j) => (
+            <li key={j} className="flex items-start gap-2">
+              <span className="shrink-0 min-w-[1.25rem] text-[11px] font-semibold text-orange-400">{j + 1}.</span>
+              <span>{renderInline(item)}</span>
+            </li>
+          ))}
+        </ol>
+      );
+      continue;
+    }
+
+    // Fenced code block
+    if (line.startsWith('```')) {
+      const codeLines: string[] = [];
+      i++;
+      while (i < lines.length && !lines[i].startsWith('```')) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      i++; // consume closing ```
+      nodes.push(
+        <pre key={k++} className="my-2 overflow-x-auto rounded-lg bg-zinc-900 p-3 text-xs text-zinc-300">
+          <code>{codeLines.join('\n')}</code>
+        </pre>
+      );
+      continue;
+    }
+
+    // Regular paragraph — collect consecutive "plain" lines
+    const paraLines: string[] = [];
+    while (
+      i < lines.length &&
+      lines[i].trim() !== '' &&
+      !/^#{1,3} /.test(lines[i]) &&
+      !/^[-*] /.test(lines[i]) &&
+      !/^\d+\. /.test(lines[i]) &&
+      !lines[i].startsWith('```') &&
+      !/^---+$/.test(lines[i].trim())
+    ) {
+      paraLines.push(lines[i]);
+      i++;
+    }
+    if (paraLines.length > 0) {
+      nodes.push(
+        <p key={k++} className="leading-relaxed">
+          {renderInline(paraLines.join(' '))}
+        </p>
+      );
+    }
+  }
+
+  return <div className="space-y-0.5 text-sm">{nodes}</div>;
+}
+
+// ---------------------------------------------------------------------------
 
 const QUICK_ACTIONS = [
   {
@@ -259,7 +413,11 @@ export default function AssistantPage() {
                 : 'bg-zinc-800 text-zinc-200 rounded-bl-md'
             }`}
           >
-            <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+            {isUser ? (
+              <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+            ) : (
+              <MarkdownContent content={message.content} />
+            )}
 
             {message.structured_data && Object.keys(message.structured_data).length > 0 && (
               renderStructuredData(message.structured_data)
