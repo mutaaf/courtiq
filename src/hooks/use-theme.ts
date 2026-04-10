@@ -1,25 +1,32 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore, useCallback } from 'react';
+
+function getTheme(): 'dark' | 'light' {
+  if (typeof window === 'undefined') return 'dark';
+  return (localStorage.getItem('courtiq-theme') as 'dark' | 'light') || 'dark';
+}
+
+function subscribe(callback: () => void) {
+  window.addEventListener('storage', callback);
+  return () => window.removeEventListener('storage', callback);
+}
 
 export function useTheme() {
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const theme = useSyncExternalStore(subscribe, getTheme, () => 'dark' as const);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('courtiq-theme') as 'dark' | 'light' | null;
-    if (saved) {
-      setTheme(saved);
-      document.documentElement.classList.toggle('dark', saved === 'dark');
-      document.documentElement.classList.toggle('light', saved === 'light');
-    }
-  }, []);
-
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     const next = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
     localStorage.setItem('courtiq-theme', next);
     document.documentElement.classList.toggle('dark', next === 'dark');
     document.documentElement.classList.toggle('light', next === 'light');
-  };
+    window.dispatchEvent(new StorageEvent('storage'));
+  }, [theme]);
+
+  // Apply theme on first render
+  if (typeof window !== 'undefined') {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    document.documentElement.classList.toggle('light', theme === 'light');
+  }
 
   return { theme, toggleTheme };
 }
