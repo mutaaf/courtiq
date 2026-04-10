@@ -49,6 +49,11 @@ export const PROMPT_REGISTRY = {
       '- Sentiment: positive, needs-work, or neutral.',
       '- If a skill_id can be matched from the curriculum skills list, include it.',
       '- Team-level observations (not about specific players) go in team_observations.',
+      '- Extract any stats mentioned (points, rebounds, assists, steals, blocks, turnovers)',
+      '- Note player-to-player interactions (passes, screens, picks)',
+      '- Identify tendencies and patterns ("always drives left", "hesitates on open shots")',
+      '- Include a "stats" field in each observation if any stats are mentioned',
+      '- Include a "tendency" field if a pattern or habit is described',
       '- Even if the transcript is short or unclear, try to extract at least one observation.',
     ].join('\n'),
     user: [
@@ -64,7 +69,7 @@ export const PROMPT_REGISTRY = {
       '\nTranscript:',
       params.transcript,
       '\nSegment into individual observations. Respond with JSON matching this schema:',
-      '{ "observations": [{ "player_name", "category", "sentiment", "text", "skill_id", "result" }], "unmatched_names": [], "team_observations": [{ "category", "sentiment", "text" }] }',
+      '{ "observations": [{ "player_name", "category", "sentiment", "text", "skill_id", "result", "stats", "tendency" }], "unmatched_names": [], "team_observations": [{ "category", "sentiment", "text" }] }',
     ].join('\n'),
   }),
 

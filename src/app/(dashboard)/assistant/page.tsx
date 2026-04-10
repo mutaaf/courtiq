@@ -191,18 +191,34 @@ export default function AssistantPage() {
                       <li key={i} className="text-zinc-300">
                         {typeof item === 'string' ? (
                           `- ${item}`
+                        ) : typeof item === 'object' && item !== null ? (
+                          <div className="rounded border border-zinc-700/50 bg-zinc-800/30 p-2 mb-1">
+                            {Object.entries(item).map(([ik, iv]) => (
+                              <p key={ik} className="text-[11px]">
+                                <span className="font-medium text-zinc-400">{ik.replace(/_/g, ' ')}:</span>{' '}
+                                {typeof iv === 'string' ? iv
+                                  : Array.isArray(iv) ? (iv as any[]).map((s: any) => typeof s === 'string' ? s : s?.name || String(s)).join(', ')
+                                  : String(iv)}
+                              </p>
+                            ))}
+                          </div>
                         ) : (
-                          <pre className="whitespace-pre-wrap text-[11px]">
-                            {JSON.stringify(item, null, 2)}
-                          </pre>
+                          `- ${String(item)}`
                         )}
                       </li>
                     ))}
                   </ul>
                 ) : typeof value === 'object' && value !== null ? (
-                  <pre className="whitespace-pre-wrap text-[11px]">
-                    {JSON.stringify(value, null, 2)}
-                  </pre>
+                  <div className="space-y-1">
+                    {Object.entries(value as Record<string, unknown>).map(([k, v]) => (
+                      <p key={k} className="text-[11px]">
+                        <span className="font-medium text-zinc-400">{k.replace(/_/g, ' ')}:</span>{' '}
+                        {typeof v === 'string' ? v
+                          : Array.isArray(v) ? (v as any[]).map((s: any) => typeof s === 'string' ? s : String(s)).join(', ')
+                          : String(v)}
+                      </p>
+                    ))}
+                  </div>
                 ) : (
                   <p>{String(value)}</p>
                 )}

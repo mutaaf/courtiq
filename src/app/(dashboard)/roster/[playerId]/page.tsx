@@ -245,7 +245,7 @@ export default function PlayerDetailPage({
               {rc.strengths.map((s: any, i: number) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
                   <CheckCircle2 className="h-4 w-4 mt-0.5 text-emerald-500 shrink-0" />
-                  {typeof s === 'string' ? s : s.skill || s.description || JSON.stringify(s)}
+                  {typeof s === 'string' ? s : s.skill || s.description || s.name || s.text || String(s)}
                 </li>
               ))}
             </ul>
@@ -259,7 +259,7 @@ export default function PlayerDetailPage({
               {rc.areas_for_improvement.map((a: any, i: number) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
                   <AlertCircle className="h-4 w-4 mt-0.5 text-orange-500 shrink-0" />
-                  {typeof a === 'string' ? a : a.skill || a.description || JSON.stringify(a)}
+                  {typeof a === 'string' ? a : a.skill || a.description || a.name || a.text || String(a)}
                 </li>
               ))}
             </ul>
@@ -289,7 +289,7 @@ export default function PlayerDetailPage({
               {(Array.isArray(rc.recommendations) ? rc.recommendations : [rc.recommendations]).map(
                 (r: any, i: number) => (
                   <li key={i} className="text-sm text-zinc-300">
-                    - {typeof r === 'string' ? r : r.description || JSON.stringify(r)}
+                    - {typeof r === 'string' ? r : r.description || r.text || r.name || String(r)}
                   </li>
                 )
               )}
@@ -313,7 +313,21 @@ export default function PlayerDetailPage({
                 {key.replace(/_/g, ' ')}
               </h3>
               <div className="text-sm text-zinc-300 whitespace-pre-wrap">
-                {typeof value === 'string' ? value : JSON.stringify(value, null, 2)}
+                {typeof value === 'string'
+                  ? value
+                  : Array.isArray(value)
+                  ? (value as any[]).map((item: any, i: number) => (
+                      <p key={i} className="mb-1">
+                        - {typeof item === 'string' ? item : item?.name || item?.text || item?.description || String(item)}
+                      </p>
+                    ))
+                  : typeof value === 'object' && value !== null
+                  ? Object.entries(value as Record<string, unknown>).map(([k, v]) => (
+                      <p key={k} className="mb-1">
+                        <span className="font-medium text-zinc-400">{k.replace(/_/g, ' ')}:</span> {String(v)}
+                      </p>
+                    ))
+                  : String(value)}
               </div>
             </div>
           ))}

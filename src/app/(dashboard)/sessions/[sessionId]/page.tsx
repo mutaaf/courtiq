@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -24,9 +24,11 @@ import {
   CheckCircle2,
   AlertCircle,
   MinusCircle,
+  ImagePlus,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
-import type { Session, Observation, SessionType, Sentiment } from '@/types/database';
+import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
 
 const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   practice: 'Practice',
@@ -50,6 +52,9 @@ export default function SessionDetailPage() {
 
   const [debrief, setDebrief] = useState('');
   const [debriefInitialized, setDebriefInitialized] = useState(false);
+  const [mediaUploading, setMediaUploading] = useState(false);
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
+  const mediaInputRef = useRef<HTMLInputElement>(null);
 
   const { data: session, isLoading: sessionLoading } = useQuery({
     queryKey: ['session', sessionId],
@@ -82,6 +87,76 @@ export default function SessionDetailPage() {
     },
     ...CACHE_PROFILES.observations,
   });
+
+  const { data: sessionMedia = [], isLoading: mediaLoading } = useQuery({
+    queryKey: ['session-media', sessionId],
+    queryFn: async () => {
+      const data = await query<Media[]>({
+        table: 'media',
+        select: '*',
+        filters: { session_id: sessionId },
+        order: { column: 'created_at', ascending: false },
+      });
+      return data || [];
+    },
+    enabled: !!sessionId,
+  });
+
+  const { data: rosterPlayers = [] } = useQuery({
+    queryKey: queryKeys.players.all(activeTeam?.id ?? ''),
+    queryFn: async () => {
+      const data = await query<Player[]>({
+        table: 'players',
+        select: 'id, name, jersey_number',
+        filters: { team_id: activeTeam!.id, is_active: true },
+        order: { column: 'name', ascending: true },
+      });
+      return data || [];
+    },
+    enabled: !!activeTeam,
+  });
+
+  const handleMediaUpload = async (files: FileList) => {
+    if (!activeTeam || !session) return;
+    setMediaUploading(true);
+
+    try {
+      for (const file of Array.from(files)) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('sessionId', sessionId);
+        formData.append('teamId', activeTeam.id);
+        if (selectedPlayerIds.length > 0) {
+          formData.append('playerIds', selectedPlayerIds.join(','));
+        }
+
+        await fetch('/api/media/upload', {
+          method: 'POST',
+          body: formData,
+        });
+      }
+
+      // Refresh media list
+      queryClient.invalidateQueries({ queryKey: ['session-media', sessionId] });
+      setSelectedPlayerIds([]);
+    } catch (err) {
+      console.error('Media upload failed:', err);
+    } finally {
+      setMediaUploading(false);
+    }
+  };
+
+  const togglePlayerTag = (playerId: string) => {
+    setSelectedPlayerIds((prev) =>
+      prev.includes(playerId) ? prev.filter((id) => id !== playerId) : [...prev, playerId]
+    );
+  };
+
+  const getMediaPublicUrl = (storagePath: string | null) => {
+    if (!storagePath) return null;
+    // Construct URL from Supabase storage
+    return `/api/media/proxy?path=${encodeURIComponent(storagePath)}`;
+  };
 
   const debriefMutation = useMutation({
     mutationFn: async (text: string) => {
@@ -259,6 +334,121 @@ export default function SessionDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Media Upload Section */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ImagePlus className="h-5 w-5 text-orange-500" />
+              Photos & Videos
+              {sessionMedia.length > 0 && (
+                <Badge variant="secondary">{sessionMedia.length}</Badge>
+              )}
+            </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => mediaInputRef.current?.click()}
+              disabled={mediaUploading}
+            >
+              {mediaUploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <ImagePlus className="h-4 w-4" />
+                  Add Photos/Videos
+                </>
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <input
+            ref={mediaInputRef}
+            type="file"
+            accept="image/*,video/*"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                handleMediaUpload(e.target.files);
+              }
+              e.target.value = '';
+            }}
+          />
+
+          {/* Player tag selector */}
+          {rosterPlayers.length > 0 && (
+            <div>
+              <p className="text-xs text-zinc-500 mb-2">Tag players (optional):</p>
+              <div className="flex flex-wrap gap-1.5">
+                {rosterPlayers.map((player: Player) => (
+                  <button
+                    key={player.id}
+                    type="button"
+                    onClick={() => togglePlayerTag(player.id)}
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                      selectedPlayerIds.includes(player.id)
+                        ? 'bg-orange-500/20 text-orange-400 border border-orange-500/50'
+                        : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600'
+                    }`}
+                  >
+                    {player.jersey_number ? `#${player.jersey_number} ` : ''}
+                    {player.name}
+                    {selectedPlayerIds.includes(player.id) && (
+                      <X className="inline h-3 w-3 ml-1" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Media Grid */}
+          {sessionMedia.length > 0 ? (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {sessionMedia.map((media: Media) => (
+                <div
+                  key={media.id}
+                  className="group relative aspect-square overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900"
+                >
+                  {media.type === 'video' ? (
+                    <div className="flex h-full w-full items-center justify-center bg-zinc-900">
+                      <div className="text-center">
+                        <div className="mx-auto mb-1 flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800">
+                          <svg className="h-4 w-4 text-zinc-400" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </div>
+                        <p className="text-[10px] text-zinc-500">Video</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-zinc-900">
+                      <ImagePlus className="h-6 w-6 text-zinc-700" />
+                    </div>
+                  )}
+                  {media.caption && (
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5">
+                      <p className="text-[10px] text-zinc-300 line-clamp-2">{media.caption}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-6 text-center">
+              <ImagePlus className="h-8 w-8 text-zinc-700 mb-2" />
+              <p className="text-sm text-zinc-500">No media uploaded yet</p>
+              <p className="text-xs text-zinc-600 mt-1">Tap the button above to add photos or videos</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Coach Debrief */}
       <Card>

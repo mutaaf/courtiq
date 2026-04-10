@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { query } from '@/lib/api';
+import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { CACHE_PROFILES } from '@/lib/query/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -77,8 +77,11 @@ export default function PlansPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (planId: string) => {
-      const res = await fetch(`/api/plans/${planId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete plan');
+      await mutate({
+        table: 'plans',
+        operation: 'delete',
+        filters: { id: planId },
+      });
     },
     onSuccess: () => {
       if (activeTeam) {
@@ -146,6 +149,30 @@ export default function PlansPage() {
       day: 'numeric',
       year: 'numeric',
     });
+  }
+
+  function renderObjectFields(obj: any) {
+    if (!obj || typeof obj !== 'object') return String(obj ?? '');
+    return (
+      <div className="space-y-1">
+        {Object.entries(obj).map(([k, v]) => (
+          <div key={k}>
+            <span className="font-medium text-zinc-400 text-xs uppercase tracking-wider">{k.replace(/_/g, ' ')}: </span>
+            <span className="text-zinc-300 text-sm">
+              {typeof v === 'string' ? v
+                : Array.isArray(v) ? v.map((item, i) => (
+                    <span key={i} className="block ml-2 text-zinc-300">- {typeof item === 'string' ? item : item?.name || item?.text || String(item)}</span>
+                  ))
+                : typeof v === 'object' && v !== null
+                ? Object.entries(v).map(([ik, iv]) => (
+                    <span key={ik} className="block ml-2 text-zinc-400">{ik.replace(/_/g, ' ')}: <span className="text-zinc-300">{String(iv)}</span></span>
+                  ))
+                : String(v)}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
   }
 
   function renderStructuredContent(plan: Plan) {
@@ -329,13 +356,19 @@ export default function PlansPage() {
               <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
                 Coach Notes
               </h3>
-              <p className="text-sm text-zinc-300 whitespace-pre-wrap">
+              <div className="text-sm text-zinc-300 whitespace-pre-wrap">
                 {typeof structured.notes === 'string'
                   ? structured.notes
                   : Array.isArray(structured.notes)
-                  ? structured.notes.join('\n')
-                  : JSON.stringify(structured.notes, null, 2)}
-              </p>
+                  ? structured.notes.map((note: any, i: number) => (
+                      <p key={i} className="mb-1">{typeof note === 'string' ? note : note.text || note.note || String(note)}</p>
+                    ))
+                  : typeof structured.notes === 'object' && structured.notes !== null
+                  ? Object.entries(structured.notes).map(([k, v]) => (
+                      <p key={k} className="mb-1"><span className="font-medium text-zinc-400">{k.replace(/_/g, ' ')}:</span> {String(v)}</p>
+                    ))
+                  : String(structured.notes)}
+              </div>
             </div>
           )}
         </div>
@@ -360,10 +393,12 @@ export default function PlansPage() {
                   : Array.isArray(value)
                   ? value.map((item, i) => (
                       <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3 mb-2">
-                        {typeof item === 'string' ? item : JSON.stringify(item, null, 2)}
+                        {typeof item === 'string' ? item : renderObjectFields(item)}
                       </div>
                     ))
-                  : JSON.stringify(value, null, 2)}
+                  : typeof value === 'object' && value !== null
+                  ? renderObjectFields(value as Record<string, unknown>)
+                  : String(value)}
               </div>
             </div>
           );

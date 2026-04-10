@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlayerCard } from '@/components/roster/player-card';
-import { Plus, Upload, Search, Users, UserPlus, ArrowRight } from 'lucide-react';
+import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera } from 'lucide-react';
 import Link from 'next/link';
 import type { Player } from '@/types/database';
 
@@ -99,6 +99,12 @@ export default function RosterPage() {
           </p>
         </div>
         <div className="hidden sm:flex items-center gap-2">
+          <Link href="/roster/import-photo">
+            <Button variant="outline" size="sm">
+              <Camera className="h-4 w-4" />
+              Photo Import
+            </Button>
+          </Link>
           <Link href="/roster/import">
             <Button variant="outline" size="sm">
               <Upload className="h-4 w-4" />
@@ -162,6 +168,12 @@ export default function RosterPage() {
                 Add your players to start tracking observations, skill progression, and generate personalized development reports.
               </p>
               <div className="mt-8 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                <Link href="/roster/import-photo" className="w-full sm:w-auto">
+                  <Button variant="outline" className="w-full sm:w-auto h-12 sm:h-10">
+                    <Camera className="h-4 w-4" />
+                    Photo Import
+                  </Button>
+                </Link>
                 <Link href="/roster/import" className="w-full sm:w-auto">
                   <Button variant="outline" className="w-full sm:w-auto h-12 sm:h-10">
                     <Upload className="h-4 w-4" />

@@ -9,6 +9,15 @@ export const segmentedObservationSchema = z.object({
       text: z.string().min(5),
       skill_id: z.string().nullable().optional(),
       result: z.enum(['success', 'failure']).nullable().optional(),
+      stats: z.object({
+        points: z.number().optional(),
+        rebounds: z.number().optional(),
+        assists: z.number().optional(),
+        steals: z.number().optional(),
+        blocks: z.number().optional(),
+        turnovers: z.number().optional(),
+      }).nullable().optional(),
+      tendency: z.string().nullable().optional(),
     })
   ),
   unmatched_names: z.array(z.string()).optional(),

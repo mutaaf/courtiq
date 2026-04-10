@@ -35,12 +35,17 @@ export default function CapturePage() {
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const transcriptRef = useRef('');
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release();
+        wakeLockRef.current = null;
       }
     };
   }, []);
@@ -92,6 +97,15 @@ export default function CapturePage() {
 
       mediaRecorder.start(1000); // Collect data every second
       setCaptureState('recording');
+
+      // Request Wake Lock to prevent screen from locking during recording
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLockRef.current = await navigator.wakeLock.request('screen');
+        }
+      } catch {
+        // Wake Lock not available or denied — non-critical
+      }
 
       // Start live transcription via SpeechRecognition if available
       if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -148,6 +162,12 @@ export default function CapturePage() {
       }
       recorder.stop();
       setCaptureState('processing');
+    }
+
+    // Release Wake Lock
+    if (wakeLockRef.current) {
+      wakeLockRef.current.release();
+      wakeLockRef.current = null;
     }
   }, []);
 

@@ -17,23 +17,48 @@
   --card-bg: #f4f4f5;
   --border: #e4e4e7;
   --text: #09090b;
-  --text-muted: #71717a;
+  --text-muted: #52525b;
 }
 
+/* Background overrides for light mode */
 .light .bg-zinc-950 { background-color: #ffffff; }
-.light .bg-zinc-900\/50 { background-color: #f4f4f5; }
+.light .bg-zinc-900 { background-color: #f4f4f5; }
+.light .bg-zinc-900\/50 { background-color: rgba(244, 244, 245, 0.5); }
 .light .bg-zinc-900\/95 { background-color: rgba(244, 244, 245, 0.95); }
-.light .bg-zinc-900 { background-color: #e4e4e7; }
-.light .bg-zinc-800 { background-color: #d4d4d8; }
-.light .bg-zinc-700 { background-color: #a1a1aa; }
+.light .bg-zinc-900\/30 { background-color: rgba(244, 244, 245, 0.3); }
+.light .bg-zinc-800 { background-color: #e4e4e7; }
+.light .bg-zinc-800\/50 { background-color: rgba(228, 228, 231, 0.5); }
+.light .bg-zinc-700 { background-color: #d4d4d8; }
+
+/* Border overrides for light mode */
+.light .border-zinc-800 { border-color: #e4e4e7; }
+.light .border-zinc-700 { border-color: #d4d4d8; }
+.light .border-zinc-700\/50 { border-color: rgba(212, 212, 216, 0.5); }
+
+/* Text overrides for light mode */
 .light .text-zinc-100 { color: #18181b; }
 .light .text-zinc-200 { color: #27272a; }
 .light .text-zinc-300 { color: #3f3f46; }
 .light .text-zinc-400 { color: #52525b; }
 .light .text-zinc-500 { color: #71717a; }
 .light .text-zinc-600 { color: #a1a1aa; }
-.light .border-zinc-800 { border-color: #e4e4e7; }
-.light .border-zinc-700 { border-color: #d4d4d8; }
+
+/* Placeholder overrides for light mode */
+.light .placeholder\:text-zinc-500::placeholder { color: #a1a1aa; }
+
+/* Hover state overrides for light mode */
+.light .hover\:bg-zinc-700:hover { background-color: #d4d4d8; }
+.light .hover\:bg-zinc-800:hover { background-color: #e4e4e7; }
+.light .hover\:border-zinc-700:hover { border-color: #d4d4d8; }
+.light .hover\:border-zinc-600:hover { border-color: #a1a1aa; }
+.light .hover\:text-zinc-200:hover { color: #27272a; }
+.light .hover\:text-zinc-300:hover { color: #3f3f46; }
+
+/* Ring overrides for light mode */
+.light .ring-zinc-700 { --tw-ring-color: #d4d4d8; }
+
+/* Focus-within overrides for light mode */
+.light .focus-within\:border-orange-500\/50:focus-within { border-color: rgba(249, 115, 22, 0.5); }
 
 @theme inline {
   --color-background: var(--background);

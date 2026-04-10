@@ -107,21 +107,34 @@ export default function ImportRosterPage() {
     setError(null);
 
     try {
-      const formData = new FormData();
-      formData.append('image', imageFile);
-      formData.append('team_id', activeTeam.id);
+      // Convert image to base64 for the API
+      const buffer = await imageFile.arrayBuffer();
+      const base64 = btoa(
+        new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
 
       const response = await fetch('/api/ai/import-roster', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId: activeTeam.id,
+          imageBase64: base64,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to process screenshot');
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to process screenshot');
       }
 
       const result = await response.json();
-      const parsed: ImportedPlayer[] = (result.players || []).map(
+
+      // The API auto-imports players and returns imported + duplicates
+      // Build preview from the imported players so coach can review
+      const imported = result.imported || [];
+      const duplicates = result.duplicates || [];
+
+      const parsed: ImportedPlayer[] = imported.map(
         (p: { name: string; jersey_number?: number | null; position?: string }) => ({
           name: p.name,
           jersey_number: p.jersey_number ?? null,
@@ -130,13 +143,27 @@ export default function ImportRosterPage() {
         })
       );
 
-      if (parsed.length === 0) {
+      if (parsed.length === 0 && duplicates.length === 0) {
         setError('No players could be extracted from the image. Try the text import instead.');
         return;
       }
 
-      setPlayers(parsed);
-      setStep('preview');
+      if (parsed.length === 0 && duplicates.length > 0) {
+        setError(`All extracted players already on roster: ${duplicates.join(', ')}`);
+        return;
+      }
+
+      // Players were already imported by the API, go straight to done
+      setSavedCount(imported.length);
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.players.all(activeTeam.id),
+      });
+
+      if (duplicates.length > 0) {
+        setError(`${duplicates.length} player(s) already on roster were skipped: ${duplicates.join(', ')}`);
+      }
+
+      setStep('done');
     } catch (err: any) {
       setError(err.message || 'Failed to process screenshot.');
     } finally {

@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { randomBytes } from 'crypto';
 
 export async function POST(request: Request) {
-  const supabase = await createServerSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
+  // Use server supabase only for auth check
+  const authSupabase = await createServerSupabase();
+  const { data: { user } } = await authSupabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // Use service role for all DB operations (bypasses RLS)
+  const supabase = await createServiceSupabase();
 
   const body = await request.json();
   const {
@@ -77,7 +81,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       share,
-      shareUrl: `/parent/${shareToken}`,
+      shareUrl: `/share/${shareToken}`,
       token: shareToken,
     });
   } catch (error: any) {
