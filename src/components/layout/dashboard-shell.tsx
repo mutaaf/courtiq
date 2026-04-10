@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Home, Mic, Users, ClipboardList, Settings, Calendar, BookOpen, BarChart3, Sparkles, Sun, Moon } from 'lucide-react';
+import { Home, Mic, Users, ClipboardList, Settings, Calendar, BookOpen, BarChart3, Sparkles, Sun, Moon, LineChart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TeamSwitcher } from '@/components/layout/team-switcher';
 import { SyncIndicator } from '@/components/layout/sync-indicator';
@@ -23,6 +23,7 @@ const sidebarItems = [
   { href: '/home', label: 'Home', icon: Home },
   { href: '/assistant', label: 'Assistant', icon: Sparkles },
   { href: '/capture', label: 'Capture', icon: Mic },
+  { href: '/analytics', label: 'Analytics', icon: LineChart },
   { href: '/roster', label: 'Roster', icon: Users },
   { href: '/sessions', label: 'Sessions', icon: Calendar },
   { href: '/curriculum', label: 'Curriculum', icon: BookOpen },
