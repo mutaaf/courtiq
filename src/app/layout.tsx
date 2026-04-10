@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   description: 'Voice-first, AI-powered coaching intelligence platform',
   manifest: '/manifest.json',
   icons: {
-    icon: '/icons/icon-192.png',
+    icon: '/favicon.svg',
     apple: '/icons/icon-192.png',
   },
 };

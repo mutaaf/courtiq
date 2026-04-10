@@ -2,16 +2,19 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Home, Mic, Users, ClipboardList, Settings, Calendar, BookOpen, BarChart3 } from 'lucide-react';
+import Image from 'next/image';
+import { Home, Mic, Users, ClipboardList, Settings, Calendar, BookOpen, BarChart3, Sun, Moon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TeamSwitcher } from '@/components/layout/team-switcher';
 import { SyncIndicator } from '@/components/layout/sync-indicator';
+import { useTheme } from '@/hooks/use-theme';
 import type { Coach } from '@/types/database';
 
+// Bottom nav: Home | Roster | CAPTURE (center FAB) | Plans | Settings
 const navItems = [
   { href: '/home', label: 'Home', icon: Home },
-  { href: '/capture', label: 'Capture', icon: Mic, primary: true },
   { href: '/roster', label: 'Roster', icon: Users },
+  { href: '/capture', label: 'Capture', icon: Mic, primary: true },
   { href: '/plans', label: 'Plans', icon: ClipboardList },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
@@ -34,14 +37,15 @@ interface Props {
 
 export function DashboardShell({ coach, children }: Props) {
   const pathname = usePathname();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-100">
       {/* Desktop Sidebar */}
       <aside className="hidden w-64 flex-col border-r border-zinc-800 bg-zinc-900/50 lg:flex">
         <div className="flex h-16 items-center gap-3 border-b border-zinc-800 px-6">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500 text-lg">
-            🏀
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500 p-1">
+            <Image src="/logo.svg" alt="CourtIQ" width={24} height={24} className="invert" />
           </div>
           <span className="font-bold text-lg">CourtIQ</span>
         </div>
@@ -71,6 +75,17 @@ export function DashboardShell({ coach, children }: Props) {
           })}
         </nav>
 
+        {/* Theme toggle */}
+        <div className="border-t border-zinc-800 px-4 pt-3">
+          <button
+            onClick={toggleTheme}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
+          >
+            {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          </button>
+        </div>
+
         <div className="border-t border-zinc-800 p-4">
           <SyncIndicator />
           <div className="mt-3 flex items-center gap-3 px-3">
@@ -90,19 +105,27 @@ export function DashboardShell({ coach, children }: Props) {
         {/* Mobile header */}
         <header className="flex h-14 items-center justify-between border-b border-zinc-800 px-4 lg:hidden">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500 text-sm">
-              🏀
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500 p-0.5">
+              <Image src="/logo.svg" alt="CourtIQ" width={20} height={20} className="invert" />
             </div>
             <span className="font-bold">CourtIQ</span>
           </div>
-          <TeamSwitcher compact />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-100 transition-colors"
+            >
+              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+            <TeamSwitcher compact />
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto pb-20 lg:pb-0">
           {children}
         </div>
 
-        {/* Mobile bottom nav */}
+        {/* Mobile bottom nav — 5 items, Capture centered as FAB */}
         <nav className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-zinc-800 bg-zinc-900/95 backdrop-blur-sm lg:hidden safe-area-bottom">
           {navItems.map((item) => {
             const isActive = pathname.startsWith(item.href);

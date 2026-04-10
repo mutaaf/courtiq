@@ -3,7 +3,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { createClient } from '@/lib/supabase/client';
 import { mutate } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -184,17 +183,16 @@ export default function CapturePage() {
       const recordingId = generateId();
       const storagePath = `recordings/${activeTeam.id}/${recordingId}.webm`;
 
-      // Upload audio via storage — best-effort, don't block on failure
+      // Upload audio via API route (uses service role, bypasses RLS)
       let uploadSucceeded = false;
       try {
-        const supabase = createClient();
-        const { error: uploadError } = await supabase.storage
-          .from('audio')
-          .upload(storagePath, audioBlob, { contentType: mimeType });
-        if (!uploadError) uploadSucceeded = true;
-        else console.error('Upload error:', uploadError);
+        const uploadForm = new FormData();
+        uploadForm.append('audio', audioBlob);
+        uploadForm.append('path', storagePath);
+        const uploadRes = await fetch('/api/voice/upload-audio', { method: 'POST', body: uploadForm });
+        if (uploadRes.ok) uploadSucceeded = true;
       } catch {
-        // Storage upload failed, continue anyway
+        // Storage upload failed, continue
       }
 
       // Create recording record — best-effort, don't block the AI call

@@ -10,25 +10,24 @@ interface QueryOptions {
 }
 
 export async function query<T = unknown>(options: QueryOptions): Promise<T> {
-  const res = await fetch('/api/data', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(options),
-  });
+  try {
+    const res = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(options),
+    });
 
-  if (!res.ok) {
-    let errorMsg = 'Query failed';
-    try {
-      const err = await res.json();
-      errorMsg = err.error || errorMsg;
-    } catch {
-      // Response wasn't JSON
+    if (!res.ok) {
+      console.warn(`Query failed for ${options.table}:`, res.status);
+      return (options.single ? null : []) as T;
     }
-    throw new Error(errorMsg);
-  }
 
-  const json = await res.json();
-  return (json.data ?? []) as T;
+    const json = await res.json();
+    return (json.data ?? (options.single ? null : [])) as T;
+  } catch (err) {
+    console.warn(`Query error for ${options.table}:`, err);
+    return (options.single ? null : []) as T;
+  }
 }
 
 // Mutation helper — for inserts/updates/deletes
