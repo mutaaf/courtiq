@@ -30,6 +30,7 @@ export const queryKeys = {
   },
   drills: {
     all: (sportId: string) => ['drills', sportId] as const,
+    detail: (drillId: string) => ['drills', 'detail', drillId] as const,
   },
   branding: {
     org: (orgId: string) => ['branding', orgId] as const,

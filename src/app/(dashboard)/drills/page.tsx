@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Clock, Users, Filter, BarChart3, X } from 'lucide-react';
+import { Search, Clock, Users, Filter, BarChart3, X, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
 import type { Drill } from '@/types/database';
 
 export default function DrillsPage() {
@@ -186,33 +187,44 @@ export default function DrillsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map((drill) => (
-            <Card key={drill.id} className="transition-colors hover:border-zinc-700">
-              <CardContent className="p-4 space-y-3">
-                <div>
-                  <p className="font-medium text-zinc-100">{drill.name}</p>
-                  <p className="text-xs text-zinc-400 mt-1 line-clamp-2">{drill.description}</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="secondary">{drill.category}</Badge>
-                  {drill.duration_minutes && (
+            <Link key={drill.id} href={`/drills/${drill.id}`}>
+              <Card className="h-full cursor-pointer transition-colors hover:border-orange-500/40 active:scale-[0.98] touch-manipulation">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-zinc-100 leading-snug">{drill.name}</p>
+                      <p className="text-xs text-zinc-400 mt-1 line-clamp-2">{drill.description}</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-zinc-600 shrink-0 mt-0.5" />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="secondary">{drill.category}</Badge>
+                    {drill.duration_minutes && (
+                      <span className="flex items-center gap-1 text-xs text-zinc-500">
+                        <Clock className="h-3 w-3" />
+                        {drill.duration_minutes} min
+                      </span>
+                    )}
                     <span className="flex items-center gap-1 text-xs text-zinc-500">
-                      <Clock className="h-3 w-3" />
-                      {drill.duration_minutes} min
+                      <Users className="h-3 w-3" />
+                      {drill.player_count_max
+                        ? `${drill.player_count_min}–${drill.player_count_max}`
+                        : `${drill.player_count_min}+`}
                     </span>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {drill.age_groups.map((ag) => (
-                    <span
-                      key={ag}
-                      className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400"
-                    >
-                      {ag}
-                    </span>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {drill.age_groups.map((ag) => (
+                      <span
+                        key={ag}
+                        className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400"
+                      >
+                        {ag}
+                      </span>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       )}
