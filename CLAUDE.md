@@ -1,40 +1,49 @@
 # SportsIQ — Voice-First Coaching Intelligence Platform
 
-## Architecture
-- **Next.js 14+ (App Router)** — TypeScript, Tailwind CSS, dark theme (zinc-950)
-- **Supabase** — PostgreSQL, Auth, RLS, Storage
-- **Offline-first** — Dexie.js/IndexedDB, Service Worker
-- **AI** — Claude API via audited wrapper (`src/lib/ai/client.ts`)
-- **Voice** — Deepgram Nova-3 + Web Speech API fallback
-- **Caching** — React Query + Upstash Redis + materialized tables
-- **Config** — System → Org → Team inheritance (`src/lib/config/resolver.ts`)
+**Full docs:** See `README.md` for setup, architecture, and tier system.
+**Contributing:** See `CONTRIBUTING.md` for priority queue and patterns.
 
-## Key Patterns
-- **Config resolver** — Never hardcode defaults. Use `useConfig()` or `resolveConfigFromDB()`.
-- **AI wrapper** — Every AI call goes through `callAI()` or `callAIWithJSON()`. All calls logged to `ai_interactions`.
-- **Cache invalidation** — Every write path busts relevant caches via `src/lib/cache/invalidation.ts`.
-- **Offline-first** — Save to IndexedDB first, sync to Supabase when online.
-- **Tests** — Vitest for unit/integration, Playwright for E2E. 80% coverage floor, 95% for critical paths.
+## Quick Reference
 
-## Commands
-- `npm run dev` — Development server
-- `npm run test` — Run tests (watch mode)
-- `npm run test:unit` — Run unit tests
-- `npm run test:e2e` — Run Playwright E2E tests
-- `npm run lint` — ESLint
-- `npm run typecheck` — TypeScript check
-- `npm run build` — Production build
+### Architecture
+- **Next.js 14+ (App Router)** — TypeScript, Tailwind CSS, dark theme (zinc-950), orange accent (#F97316)
+- **Supabase** — PostgreSQL + Auth + RLS + Storage (service role for all DB ops)
+- **AI** — Multi-provider (Anthropic/OpenAI/Gemini) via `src/lib/ai/client.ts`. Every call logged.
+- **Voice** — Web Speech API (live) + Gemini (uploaded audio transcription)
+- **Tiers** — Free/Coach/Pro/Organization with `src/lib/tier.ts` + `<UpgradeGate>`
+- **COPPA** — Age 13+ on signup, minimum data, `/privacy` page
 
-## Project Structure
+### Critical Rules
+1. **Data access**: Client uses `query()`/`mutate()` from `src/lib/api.ts` — NEVER direct Supabase client
+2. **API routes**: Always `createServiceSupabase()` for DB operations (bypasses RLS)
+3. **AI calls**: Through `callAI()`/`callAIWithJSON()` — auto-resolves provider, logs everything
+4. **Feature gating**: Use `useTier()` hook + `<UpgradeGate>` component
+5. **Before pushing**: `npx tsc --noEmit && npm run lint && npx vitest run` — ALL must pass with 0 errors
+
+### Commands
 ```
-src/app/(auth)/     — Login, signup, onboarding
-src/app/(dashboard)/ — Main app pages (roster, capture, plans, etc.)
-src/app/api/        — API routes (ai, voice, config, sync, share)
-src/app/share/      — Public parent portal (no auth)
-src/components/     — UI components, admin, layout, roster, capture
-src/lib/            — Core libraries (ai, cache, config, curriculum, sync, voice)
-src/hooks/          — React hooks
-src/types/          — TypeScript types
-supabase/migrations/ — Database schema + seeds
-tests/              — Unit, integration, E2E, AI contract tests
+npm run dev          # Development server
+npm run lint         # ESLint (0 errors required)
+npm run typecheck    # TypeScript check
+npx vitest run       # Unit + AI contract tests
+npm run test:e2e     # Playwright E2E
 ```
+
+### Key Files
+```
+src/lib/tier.ts              — Tier limits + feature access
+src/lib/ai/client.ts         — Multi-provider AI client
+src/lib/ai/prompts.ts        — All AI prompt templates
+src/lib/api.ts               — Client query()/mutate() helpers
+src/lib/config/resolver.ts   — System→Org→Team config
+src/hooks/use-tier.ts        — Client tier hook
+src/hooks/use-active-team.ts — Team context hook
+src/app/api/data/route.ts    — Generic read endpoint
+src/app/api/data/mutate/     — Generic write endpoint
+```
+
+### ESLint Config
+- `no-explicit-any`: off
+- `react-hooks/purity`: warn
+- `react-hooks/set-state-in-effect`: warn
+- `react-compiler/react-compiler`: off
