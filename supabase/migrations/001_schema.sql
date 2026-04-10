@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════
--- CourtIQ Unified Schema — Migration 001
+-- SportsIQ Unified Schema — Migration 001
 -- ═══════════════════════════════════════════════════════
 
 -- ORGANIZATION & AUTH

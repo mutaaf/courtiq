@@ -5,8 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Key, Check, X, ExternalLink, Loader2 } from 'lucide-react';
+import { Key, Check, X, ExternalLink, Loader2, CreditCard, Sparkles, Zap, Shield, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
+
+type AiMode = 'own-keys' | 'pro';
 
 interface ProviderConfig {
   id: string;
@@ -53,6 +55,7 @@ interface ProviderState {
 }
 
 export default function AISettingsPage() {
+  const [aiMode, setAiMode] = useState<AiMode>('own-keys');
   const [providerStates, setProviderStates] = useState<Record<string, ProviderState>>({
     anthropic: { apiKey: '', maskedKey: '', status: 'not_configured' },
     openai: { apiKey: '', maskedKey: '', status: 'not_configured' },
@@ -262,6 +265,105 @@ export default function AISettingsPage() {
         </p>
       </div>
 
+      {/* AI Mode Toggle */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">How would you like to use AI?</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => setAiMode('own-keys')}
+              className={`flex flex-col items-center gap-2 rounded-xl border p-5 text-center transition-all active:scale-[0.98] ${
+                aiMode === 'own-keys'
+                  ? 'border-orange-500/50 bg-orange-500/10 ring-1 ring-orange-500/20'
+                  : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700'
+              }`}
+            >
+              <Key className={`h-6 w-6 ${aiMode === 'own-keys' ? 'text-orange-400' : 'text-zinc-500'}`} />
+              <span className={`text-sm font-semibold ${aiMode === 'own-keys' ? 'text-orange-400' : 'text-zinc-300'}`}>My Keys</span>
+              <span className="text-xs text-zinc-500">Free, BYO API keys</span>
+            </button>
+            <button
+              onClick={() => setAiMode('pro')}
+              className={`flex flex-col items-center gap-2 rounded-xl border p-5 text-center transition-all active:scale-[0.98] ${
+                aiMode === 'pro'
+                  ? 'border-orange-500/50 bg-orange-500/10 ring-1 ring-orange-500/20'
+                  : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700'
+              }`}
+            >
+              <CreditCard className={`h-6 w-6 ${aiMode === 'pro' ? 'text-orange-400' : 'text-zinc-500'}`} />
+              <span className={`text-sm font-semibold ${aiMode === 'pro' ? 'text-orange-400' : 'text-zinc-300'}`}>SportsIQ Pro</span>
+              <span className="text-xs text-zinc-500">$9.99/mo, we handle it</span>
+            </button>
+          </div>
+          <p className="mt-3 text-xs text-zinc-500">
+            Currently: {aiMode === 'own-keys' ? 'Using my own keys' : 'SportsIQ Pro (coming soon)'}
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* SportsIQ Pro Marketing Tab */}
+      {aiMode === 'pro' && (
+        <div className="space-y-6">
+          <Card className="border-orange-500/20 bg-gradient-to-br from-orange-500/5 to-transparent">
+            <CardContent className="p-8 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-500/20">
+                <Sparkles className="h-8 w-8 text-orange-500" />
+              </div>
+              <h2 className="text-2xl font-bold text-zinc-100">SportsIQ Pro</h2>
+              <p className="mt-2 text-zinc-400">
+                Let us handle the AI infrastructure. No API keys to manage, no usage limits to worry about.
+              </p>
+              <div className="mt-2 flex items-baseline justify-center gap-1">
+                <span className="text-4xl font-bold text-orange-500">$9.99</span>
+                <span className="text-zinc-500">/month</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[
+              { icon: Zap, title: 'Unlimited AI calls', desc: 'No rate limits. Generate as many practice plans, reports, and observations as you need.' },
+              { icon: Key, title: 'No key management', desc: 'We handle all API providers and automatically use the best model for each task.' },
+              { icon: Shield, title: 'Priority processing', desc: 'Your AI requests get priority queue access for faster response times.' },
+              { icon: MessageSquare, title: 'Advanced AI features', desc: 'Access to premium features like video analysis, advanced analytics, and custom prompts.' },
+            ].map((feature) => (
+              <Card key={feature.title}>
+                <CardContent className="flex items-start gap-3 p-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-500/10">
+                    <feature.icon className="h-4 w-4 text-orange-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-zinc-200">{feature.title}</p>
+                    <p className="mt-0.5 text-xs text-zinc-500 leading-relaxed">{feature.desc}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <Card className="border-dashed border-zinc-700">
+            <CardContent className="flex flex-col items-center p-8 text-center">
+              <Badge variant="warning" className="mb-3">Coming Soon</Badge>
+              <p className="text-sm text-zinc-400 max-w-sm">
+                SportsIQ Pro is currently in development. We will notify you when it launches. In the meantime, use your own API keys for free.
+              </p>
+              <div className="mt-4 flex gap-3">
+                <Button variant="outline" onClick={() => setAiMode('own-keys')}>
+                  Use My Own Keys
+                </Button>
+                <a href="mailto:support@sportsiq.app">
+                  <Button>Contact Us</Button>
+                </a>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Active Provider Selector — only show in own-keys mode */}
+      {aiMode === 'own-keys' && (<>
       {/* Active Provider Selector */}
       <Card>
         <CardHeader>
@@ -391,6 +493,7 @@ export default function AISettingsPage() {
           );
         })}
       </div>
+      </>)}
     </div>
   );
 }

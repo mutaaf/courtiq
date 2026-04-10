@@ -171,7 +171,7 @@ export default function ProfileSettingsPage() {
             <CardContent className="flex items-center justify-between p-4">
               <div>
                 <p className="font-medium text-sm">Sign Out</p>
-                <p className="text-xs text-zinc-500">Sign out of your CourtIQ account</p>
+                <p className="text-xs text-zinc-500">Sign out of your SportsIQ account</p>
               </div>
               <Button variant="destructive" size="sm" onClick={handleSignOut}>
                 <LogOut className="h-4 w-4" />

@@ -76,11 +76,11 @@ export default function SignupPage() {
     <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-orange-500 text-2xl">
-            🏀
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-orange-500 p-2">
+            <img src="/logo.svg" alt="SportsIQ" width={32} height={32} className="invert" />
           </div>
           <CardTitle className="text-2xl">Create your account</CardTitle>
-          <CardDescription>Start coaching smarter with CourtIQ</CardDescription>
+          <CardDescription>Start coaching smarter with SportsIQ</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignup} className="space-y-4">

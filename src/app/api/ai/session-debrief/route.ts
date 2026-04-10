@@ -121,7 +121,7 @@ export async function POST(request: Request) {
     const totalNeedsWork = observations.filter((o) => o.sentiment === 'needs-work').length;
 
     const systemPrompt = [
-      `You are an expert youth ${sportName} coaching assistant for CourtIQ.`,
+      `You are an expert youth ${sportName} coaching assistant for SportsIQ.`,
       'You analyze post-session data and generate actionable, encouraging coaching insights.',
       'You work with volunteer coaches at youth organizations like the YMCA.',
       'Your tone is positive, growth-mindset oriented, and practical.',

@@ -1,4 +1,4 @@
-# CourtIQ — Voice-First Coaching Intelligence Platform
+# SportsIQ — Voice-First Coaching Intelligence Platform
 
 ## Architecture
 - **Next.js 14+ (App Router)** — TypeScript, Tailwind CSS, dark theme (zinc-950)

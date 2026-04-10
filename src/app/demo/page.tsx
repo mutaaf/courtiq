@@ -258,7 +258,7 @@ export default function DemoPage() {
           <Badge variant="warning" className="mb-4">Demo Mode</Badge>
 
           <h1 className="text-3xl font-bold text-zinc-100 mb-3">
-            Try CourtIQ Voice Capture
+            Try SportsIQ Voice Capture
           </h1>
           <p className="text-zinc-400 mb-2">
             Tap the mic and talk about your players for 20 seconds.

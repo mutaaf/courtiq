@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'CourtIQ — Coaching Intelligence',
+  title: 'SportsIQ — Coaching Intelligence',
   description: 'Voice-first, AI-powered coaching intelligence platform',
   manifest: '/manifest.json',
   icons: {

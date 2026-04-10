@@ -19,9 +19,9 @@ export default function LandingContent() {
       <nav className="flex items-center justify-between px-6 py-4 max-w-6xl mx-auto">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500 p-1.5 shadow-lg shadow-orange-500/20">
-            <Image src="/logo.svg" alt="CourtIQ" width={28} height={28} className="invert" />
+            <Image src="/logo.svg" alt="SportsIQ" width={28} height={28} className="invert" />
           </div>
-          <span className="font-bold text-xl">CourtIQ</span>
+          <span className="font-bold text-xl">SportsIQ</span>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/login" className="text-sm font-medium text-zinc-400 hover:text-zinc-100 transition-colors">
@@ -157,7 +157,7 @@ export default function LandingContent() {
             </div>
             <h3 className="text-lg font-semibold">For Volunteer Coaches</h3>
             <p className="mt-3 text-sm text-zinc-400 leading-relaxed">
-              No coaching degree required. CourtIQ&apos;s curriculum engine guides you through age-appropriate skill development.
+              No coaching degree required. SportsIQ&apos;s curriculum engine guides you through age-appropriate skill development.
             </p>
           </div>
           {/* Parents */}
@@ -209,7 +209,7 @@ export default function LandingContent() {
               <span className="text-4xl font-bold">$0</span>
               <span className="text-zinc-500">/month</span>
             </div>
-            <p className="mt-3 text-sm text-zinc-400">Perfect for trying CourtIQ</p>
+            <p className="mt-3 text-sm text-zinc-400">Perfect for trying SportsIQ</p>
             <ul className="mt-6 space-y-3">
               {['1 team, 10 players', '5 AI-powered observations/month', 'Basic practice plans', 'Community support'].map(f => (
                 <li key={f} className="flex items-start gap-2 text-sm text-zinc-300">
@@ -357,7 +357,7 @@ export default function LandingContent() {
 
       {/* Footer */}
       <div className="border-t border-zinc-800 py-8 text-center text-sm text-zinc-500">
-        CourtIQ -- Coaching Intelligence Platform
+        SportsIQ -- Coaching Intelligence Platform
       </div>
     </div>
   );

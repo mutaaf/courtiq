@@ -304,9 +304,9 @@ export default function HomePage() {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center min-h-[60vh]">
         <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-orange-500/10 p-3">
-          <Image src="/logo.svg" alt="CourtIQ" width={48} height={48} />
+          <Image src="/logo.svg" alt="SportsIQ" width={48} height={48} />
         </div>
-        <h1 className="text-2xl font-bold">Welcome to CourtIQ</h1>
+        <h1 className="text-2xl font-bold">Welcome to SportsIQ</h1>
         <p className="mt-2 text-zinc-400 max-w-sm">
           Your AI-powered coaching assistant. Create your first team to start tracking players,
           capturing observations, and generating practice plans.

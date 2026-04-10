@@ -20,16 +20,16 @@ const navItems = [
 ];
 
 const sidebarItems = [
-  { href: '/home', label: 'Home', icon: Home },
-  { href: '/assistant', label: 'Assistant', icon: Sparkles },
-  { href: '/capture', label: 'Capture', icon: Mic },
-  { href: '/analytics', label: 'Analytics', icon: LineChart },
-  { href: '/roster', label: 'Roster', icon: Users },
-  { href: '/sessions', label: 'Sessions', icon: Calendar },
-  { href: '/curriculum', label: 'Curriculum', icon: BookOpen },
-  { href: '/plans', label: 'Plans', icon: ClipboardList },
-  { href: '/drills', label: 'Drills', icon: BarChart3 },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/home', label: 'Home', icon: Home, tourId: undefined },
+  { href: '/assistant', label: 'Assistant', icon: Sparkles, tourId: 'assistant' },
+  { href: '/capture', label: 'Capture', icon: Mic, tourId: 'capture' },
+  { href: '/analytics', label: 'Analytics', icon: LineChart, tourId: undefined },
+  { href: '/roster', label: 'Roster', icon: Users, tourId: 'roster' },
+  { href: '/sessions', label: 'Sessions', icon: Calendar, tourId: undefined },
+  { href: '/curriculum', label: 'Curriculum', icon: BookOpen, tourId: undefined },
+  { href: '/plans', label: 'Plans', icon: ClipboardList, tourId: undefined },
+  { href: '/drills', label: 'Drills', icon: BarChart3, tourId: undefined },
+  { href: '/settings', label: 'Settings', icon: Settings, tourId: 'settings' },
 ];
 
 interface Props {
@@ -47,9 +47,9 @@ export function DashboardShell({ coach, children }: Props) {
       <aside className="hidden w-64 flex-col border-r border-zinc-800 bg-zinc-900/50 lg:flex">
         <div className="flex h-16 items-center gap-3 border-b border-zinc-800 px-6">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500 p-1">
-            <Image src="/logo.svg" alt="CourtIQ" width={24} height={24} className="invert" />
+            <Image src="/logo.svg" alt="SportsIQ" width={24} height={24} className="invert" />
           </div>
-          <span className="font-bold text-lg">CourtIQ</span>
+          <span className="font-bold text-lg">SportsIQ</span>
         </div>
 
         <div className="border-b border-zinc-800 p-4">
@@ -63,6 +63,7 @@ export function DashboardShell({ coach, children }: Props) {
               <Link
                 key={item.href}
                 href={item.href}
+                data-tour={item.tourId}
                 className={cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                   isActive
@@ -120,9 +121,9 @@ export function DashboardShell({ coach, children }: Props) {
         <header className="flex h-14 items-center justify-between border-b border-zinc-800 px-4 lg:hidden">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500 p-0.5">
-              <Image src="/logo.svg" alt="CourtIQ" width={20} height={20} className="invert" />
+              <Image src="/logo.svg" alt="SportsIQ" width={20} height={20} className="invert" />
             </div>
-            <span className="font-bold">CourtIQ</span>
+            <span className="font-bold">SportsIQ</span>
           </div>
           <div className="flex items-center gap-2">
             <button

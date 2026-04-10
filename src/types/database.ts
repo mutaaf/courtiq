@@ -1,4 +1,4 @@
-// CourtIQ Database Types — Generated from schema
+// SportsIQ Database Types — Generated from schema
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 

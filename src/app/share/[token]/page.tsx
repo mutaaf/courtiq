@@ -260,7 +260,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           </Card>
         )}
 
-        <p className="text-center text-xs text-zinc-600">Powered by CourtIQ</p>
+        <p className="text-center text-xs text-zinc-600">Powered by SportsIQ</p>
       </div>
     </div>
   );

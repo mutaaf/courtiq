@@ -68,7 +68,7 @@ export async function POST(request: Request) {
       .eq('is_active', true);
 
     const systemPrompt = [
-      `You are CourtIQ's AI coaching assistant for youth ${context.sportName}.`,
+      `You are SportsIQ's AI coaching assistant for youth ${context.sportName}.`,
       'You help volunteer coaches with:',
       '- Generating practice plans and game day preparations',
       '- Creating age-appropriate drills',

@@ -1,6 +1,6 @@
 {
-  "name": "CourtIQ",
-  "short_name": "CourtIQ",
+  "name": "SportsIQ",
+  "short_name": "SportsIQ",
   "description": "Voice-first coaching intelligence platform",
   "start_url": "/",
   "display": "standalone",
