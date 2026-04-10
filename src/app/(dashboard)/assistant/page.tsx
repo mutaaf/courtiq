@@ -15,9 +15,10 @@ import {
   Save,
   Share2,
   Plus,
-  ArrowLeft,
   Bot,
   User,
+  History,
+  Trash2,
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -88,6 +89,11 @@ export default function AssistantPage() {
       timestamp: new Date(),
     };
 
+    // Capture history BEFORE adding the new user message (last 10 turns = 20 messages max)
+    const historySnapshot = messages
+      .slice(-20)
+      .map((m) => ({ role: m.role, content: m.content }));
+
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
@@ -100,6 +106,7 @@ export default function AssistantPage() {
         body: JSON.stringify({
           message: text.trim(),
           teamId: activeTeam.id,
+          history: historySnapshot,
         }),
       });
 
@@ -327,12 +334,32 @@ export default function AssistantPage() {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/20">
             <Sparkles className="h-5 w-5 text-orange-400" />
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold">AI Coach Assistant</h1>
             <p className="text-xs text-zinc-500">
               {activeTeam ? `Coaching ${activeTeam.name}` : 'Select a team to get started'}
             </p>
           </div>
+          {messages.length > 0 && (
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 px-2.5 py-1">
+                <History className="h-3 w-3 text-orange-400" />
+                <span className="text-[10px] font-medium text-orange-400">
+                  {messages.length} turn{messages.length !== 1 ? 's' : ''} remembered
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setMessages([]);
+                  setError(null);
+                }}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+                title="Clear conversation"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

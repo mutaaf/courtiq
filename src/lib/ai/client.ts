@@ -12,6 +12,12 @@ import type { AIInteractionType } from '@/types/database';
 
 export type AIProvider = 'anthropic' | 'openai' | 'gemini';
 
+/** A single turn in a multi-turn conversation. */
+export interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 interface OrgAISettings {
   ai_provider?: AIProvider;
   ai_keys?: {
@@ -32,6 +38,8 @@ interface AICallOptions {
   maxTokens?: number;
   temperature?: number;
   orgId?: string;
+  /** Previous conversation turns to pass as context for multi-turn interactions. */
+  conversationHistory?: ConversationMessage[];
 }
 
 interface AICallResult {
@@ -133,15 +141,25 @@ async function callAnthropic(
   userPrompt: string,
   model: string,
   maxTokens: number,
-  temperature: number
+  temperature: number,
+  conversationHistory?: ConversationMessage[]
 ): Promise<ProviderCallResult> {
   const client = new Anthropic({ apiKey });
+
+  const messages: Anthropic.MessageParam[] = [
+    ...(conversationHistory ?? []).map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    })),
+    { role: 'user', content: userPrompt },
+  ];
+
   const response = await client.messages.create({
     model,
     max_tokens: maxTokens,
     temperature,
     system: systemPrompt,
-    messages: [{ role: 'user', content: userPrompt }],
+    messages,
   });
 
   const text = response.content
@@ -163,17 +181,25 @@ async function callOpenAI(
   userPrompt: string,
   model: string,
   maxTokens: number,
-  temperature: number
+  temperature: number,
+  conversationHistory?: ConversationMessage[]
 ): Promise<ProviderCallResult> {
   const client = new OpenAI({ apiKey });
+
+  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    { role: 'system', content: systemPrompt },
+    ...(conversationHistory ?? []).map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    })),
+    { role: 'user', content: userPrompt },
+  ];
+
   const response = await client.chat.completions.create({
     model,
     max_tokens: maxTokens,
     temperature,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ],
+    messages,
   });
 
   const text = response.choices[0]?.message?.content || '';
@@ -192,7 +218,8 @@ async function callGemini(
   userPrompt: string,
   model: string,
   maxTokens: number,
-  temperature: number
+  temperature: number,
+  conversationHistory?: ConversationMessage[]
 ): Promise<ProviderCallResult> {
   const genAI = new GoogleGenerativeAI(apiKey);
   const geminiModel = genAI.getGenerativeModel({
@@ -204,14 +231,33 @@ async function callGemini(
     },
   });
 
-  const result = await geminiModel.generateContent(userPrompt);
-  const response = result.response;
-  const text = response.text();
+  let text: string;
+  let tokensIn: number;
+  let tokensOut: number;
 
-  // Gemini doesn't always return exact token counts — approximate from text length
-  const usage = response.usageMetadata;
-  const tokensIn = usage?.promptTokenCount || Math.ceil((systemPrompt.length + userPrompt.length) / 4);
-  const tokensOut = usage?.candidatesTokenCount || Math.ceil(text.length / 4);
+  if (conversationHistory && conversationHistory.length > 0) {
+    // Use chat session for multi-turn conversations
+    const chat = geminiModel.startChat({
+      history: conversationHistory.map((m) => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }],
+      })),
+    });
+    const result = await chat.sendMessage(userPrompt);
+    const response = result.response;
+    text = response.text();
+    const usage = response.usageMetadata;
+    tokensIn = usage?.promptTokenCount || Math.ceil((systemPrompt.length + userPrompt.length) / 4);
+    tokensOut = usage?.candidatesTokenCount || Math.ceil(text.length / 4);
+  } else {
+    const result = await geminiModel.generateContent(userPrompt);
+    const response = result.response;
+    text = response.text();
+    // Gemini doesn't always return exact token counts — approximate from text length
+    const usage = response.usageMetadata;
+    tokensIn = usage?.promptTokenCount || Math.ceil((systemPrompt.length + userPrompt.length) / 4);
+    tokensOut = usage?.candidatesTokenCount || Math.ceil(text.length / 4);
+  }
 
   return { text, tokensIn, tokensOut, model };
 }
@@ -223,17 +269,18 @@ async function callProvider(
   userPrompt: string,
   modelOverride: string | undefined,
   maxTokens: number,
-  temperature: number
+  temperature: number,
+  conversationHistory?: ConversationMessage[]
 ): Promise<ProviderCallResult> {
   const model = modelOverride || DEFAULT_MODELS[provider];
 
   switch (provider) {
     case 'anthropic':
-      return callAnthropic(apiKey, systemPrompt, userPrompt, model, maxTokens, temperature);
+      return callAnthropic(apiKey, systemPrompt, userPrompt, model, maxTokens, temperature, conversationHistory);
     case 'openai':
-      return callOpenAI(apiKey, systemPrompt, userPrompt, model, maxTokens, temperature);
+      return callOpenAI(apiKey, systemPrompt, userPrompt, model, maxTokens, temperature, conversationHistory);
     case 'gemini':
-      return callGemini(apiKey, systemPrompt, userPrompt, model, maxTokens, temperature);
+      return callGemini(apiKey, systemPrompt, userPrompt, model, maxTokens, temperature, conversationHistory);
     default:
       throw new Error(`Unknown AI provider: ${provider}`);
   }
@@ -243,9 +290,9 @@ async function callProvider(
 // Helpers
 // ---------------------------------------------------------------------------
 
-function hashPrompt(system: string, user: string, context?: unknown): string {
+function hashPrompt(system: string, user: string, context?: unknown, history?: ConversationMessage[]): string {
   return createHash('sha256')
-    .update(JSON.stringify({ system, user, context }))
+    .update(JSON.stringify({ system, user, context, history }))
     .digest('hex')
     .slice(0, 16);
 }
@@ -274,12 +321,13 @@ export async function callAI(options: AICallOptions, supabase: any): Promise<AIC
     model: modelOverride,
     maxTokens = 4096,
     temperature = 0.7,
+    conversationHistory,
   } = options;
 
   // Check dedup cache for cacheable types
   const cacheable = CACHEABLE_TYPES.includes(interactionType);
   if (cacheable && redis) {
-    const hash = hashPrompt(systemPrompt, userPrompt, promptContext);
+    const hash = hashPrompt(systemPrompt, userPrompt, promptContext, conversationHistory);
     const hit = await redis.get<AICallResult>(cacheKeys.aiDedup(hash));
     if (hit) {
       return { ...hit, _cached: true };
@@ -301,7 +349,8 @@ export async function callAI(options: AICallOptions, supabase: any): Promise<AIC
       userPrompt,
       modelOverride,
       maxTokens,
-      temperature
+      temperature,
+      conversationHistory
     );
 
     const latencyMs = Date.now() - startTime;
@@ -336,7 +385,7 @@ export async function callAI(options: AICallOptions, supabase: any): Promise<AIC
 
     // Cache if cacheable
     if (cacheable && redis) {
-      const hash = hashPrompt(systemPrompt, userPrompt, promptContext);
+      const hash = hashPrompt(systemPrompt, userPrompt, promptContext, conversationHistory);
       await redis.set(cacheKeys.aiDedup(hash), result, { ex: 86400 });
     }
 

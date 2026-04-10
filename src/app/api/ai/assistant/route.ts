@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { callAIWithJSON } from '@/lib/ai/client';
 import { buildAIContext } from '@/lib/ai/context-builder';
+import type { ConversationMessage } from '@/lib/ai/client';
 
 type AssistantResponseType = 'plan' | 'drill' | 'report' | 'analysis' | 'general';
 
@@ -20,11 +21,26 @@ export async function POST(request: Request) {
   const admin = await createServiceSupabase();
 
   const body = await request.json();
-  const { message, teamId } = body;
+  const { message, teamId, history } = body;
 
   if (!message || !teamId) {
     return NextResponse.json({ error: 'message and teamId required' }, { status: 400 });
   }
+
+  // Validate and cap conversation history to last 10 messages (5 turns)
+  const conversationHistory: ConversationMessage[] = Array.isArray(history)
+    ? history
+        .filter(
+          (m: unknown) =>
+            m !== null &&
+            typeof m === 'object' &&
+            'role' in (m as object) &&
+            'content' in (m as object) &&
+            ((m as ConversationMessage).role === 'user' || (m as ConversationMessage).role === 'assistant') &&
+            typeof (m as ConversationMessage).content === 'string'
+        )
+        .slice(-10)
+    : [];
 
   try {
     // Get coach org_id for AI provider resolution
@@ -97,6 +113,7 @@ export async function POST(request: Request) {
         systemPrompt,
         userPrompt: message,
         orgId: coach?.org_id || '',
+        conversationHistory: conversationHistory.length > 0 ? conversationHistory : undefined,
       },
       admin
     );

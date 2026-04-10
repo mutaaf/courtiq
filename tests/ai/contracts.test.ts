@@ -8,6 +8,23 @@ import {
   gamedaySheetSchema,
   rosterImportSchema,
 } from '@/lib/ai/schemas';
+import type { ConversationMessage } from '@/lib/ai/client';
+
+// Mirrors the validation logic in the assistant API route
+function validateConversationHistory(raw: unknown[]): ConversationMessage[] {
+  return raw
+    .filter(
+      (m): m is ConversationMessage =>
+        m !== null &&
+        typeof m === 'object' &&
+        'role' in (m as object) &&
+        'content' in (m as object) &&
+        ((m as ConversationMessage).role === 'user' ||
+          (m as ConversationMessage).role === 'assistant') &&
+        typeof (m as ConversationMessage).content === 'string'
+    )
+    .slice(-10);
+}
 
 describe('AI Output Schema Contracts', () => {
   describe('Segmented Observations', () => {
@@ -197,6 +214,64 @@ describe('AI Output Schema Contracts', () => {
     it('rejects empty player name', () => {
       const invalid = { players: [{ name: '' }] };
       expect(() => rosterImportSchema.parse(invalid)).toThrow();
+    });
+  });
+
+  describe('Conversation History (multi-turn assistant)', () => {
+    it('passes through valid user/assistant messages', () => {
+      const raw = [
+        { role: 'user', content: 'Generate a practice plan' },
+        { role: 'assistant', content: 'Here is your practice plan...' },
+        { role: 'user', content: 'Can you add more defensive drills?' },
+      ];
+      const result = validateConversationHistory(raw);
+      expect(result).toHaveLength(3);
+      expect(result[0].role).toBe('user');
+      expect(result[1].role).toBe('assistant');
+    });
+
+    it('filters out messages with invalid roles', () => {
+      const raw = [
+        { role: 'user', content: 'Hello' },
+        { role: 'system', content: 'Injected content' },
+        { role: 'assistant', content: 'Hi there' },
+      ];
+      const result = validateConversationHistory(raw);
+      expect(result).toHaveLength(2);
+      expect(result.every((m) => m.role === 'user' || m.role === 'assistant')).toBe(true);
+    });
+
+    it('filters out messages with non-string content', () => {
+      const raw = [
+        { role: 'user', content: 'Hello' },
+        { role: 'assistant', content: 42 },
+        { role: 'user', content: null },
+      ];
+      const result = validateConversationHistory(raw);
+      expect(result).toHaveLength(1);
+      expect(result[0].content).toBe('Hello');
+    });
+
+    it('filters out null and non-object entries', () => {
+      const raw = [null, undefined, 'string', 42, { role: 'user', content: 'Valid' }];
+      const result = validateConversationHistory(raw as unknown[]);
+      expect(result).toHaveLength(1);
+    });
+
+    it('caps history at 10 most recent messages', () => {
+      const raw = Array.from({ length: 15 }, (_, i) => ({
+        role: i % 2 === 0 ? 'user' : 'assistant',
+        content: `Message ${i + 1}`,
+      }));
+      const result = validateConversationHistory(raw);
+      expect(result).toHaveLength(10);
+      // Should keep the LAST 10 messages
+      expect(result[0].content).toBe('Message 6');
+      expect(result[9].content).toBe('Message 15');
+    });
+
+    it('allows empty history', () => {
+      expect(validateConversationHistory([])).toHaveLength(0);
     });
   });
 });
