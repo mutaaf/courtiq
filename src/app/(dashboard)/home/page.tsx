@@ -50,126 +50,145 @@ function TeamPulseCard({ pulse }: { pulse: PulseStats }) {
       ? 'text-emerald-400'
       : pulse.healthTrend === 'down'
       ? 'text-red-400'
-      : 'text-zinc-500';
+      : 'text-zinc-400';
+
+  const trendBg =
+    pulse.healthTrend === 'up'
+      ? 'bg-emerald-500/10'
+      : pulse.healthTrend === 'down'
+      ? 'bg-red-500/10'
+      : 'bg-zinc-800';
 
   const healthPct = pulse.thisWeekHealth ?? 0;
   const healthColor =
-    healthPct >= 70 ? '#10b981' : healthPct >= 50 ? '#F97316' : '#f59e0b';
+    healthPct >= 70 ? '#10b981' : healthPct >= 50 ? '#F97316' : '#ef4444';
 
-  // SVG progress ring
-  const r = 18;
+  const observedPct = pulse.totalPlayers > 0
+    ? Math.round(((pulse.totalPlayers - pulse.unobservedPlayers.length) / pulse.totalPlayers) * 100)
+    : 0;
+
+  // Large SVG progress ring
+  const r = 38;
   const circ = 2 * Math.PI * r;
   const offset = circ * (1 - healthPct / 100);
 
   return (
-    <Card className="border-orange-500/20 bg-zinc-900/60">
-      <CardHeader className="pb-2 pt-4 px-4">
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <Zap className="h-4 w-4 text-orange-400" />
-          Team Pulse
-          <Badge variant="secondary" className="ml-auto text-[10px]">
-            Last 14 days
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4 px-4 pb-4">
-        {/* Health summary row */}
-        <div className="flex items-center gap-4">
-          {pulse.thisWeekHealth !== null && (
-            <div className="relative shrink-0" style={{ width: 52, height: 52 }}>
-              <svg width={52} height={52} className="-rotate-90">
-                <circle cx={26} cy={26} r={r} fill="none" stroke="#27272a" strokeWidth={5} />
+    <Card className="overflow-hidden border-orange-500/20">
+      {/* Header with gradient accent */}
+      <div className="relative bg-gradient-to-r from-orange-500/10 via-orange-500/5 to-transparent px-5 pt-5 pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/20">
+              <Zap className="h-4.5 w-4.5 text-orange-400" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-zinc-100">Team Pulse</h3>
+              <p className="text-xs text-zinc-500">Last 14 days</p>
+            </div>
+          </div>
+          <div className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${trendBg} ${trendColor}`}>
+            <TrendIcon className="h-3.5 w-3.5" />
+            {pulse.healthTrend === 'stable' ? 'Stable' : pulse.healthTrend === 'up' ? 'Improving' : 'Declining'}
+          </div>
+        </div>
+      </div>
+
+      <CardContent className="space-y-5 px-5 pb-5 pt-2">
+        {/* Main stats row */}
+        <div className="grid grid-cols-3 gap-3">
+          {/* Health ring */}
+          <div className="flex flex-col items-center gap-1">
+            <div className="relative" style={{ width: 88, height: 88 }}>
+              <svg width={88} height={88} className="-rotate-90">
+                <circle cx={44} cy={44} r={r} fill="none" stroke="#27272a" strokeWidth={6} />
                 <circle
-                  cx={26}
-                  cy={26}
-                  r={r}
+                  cx={44} cy={44} r={r}
                   fill="none"
                   stroke={healthColor}
-                  strokeWidth={5}
+                  strokeWidth={6}
                   strokeDasharray={circ}
                   strokeDashoffset={offset}
                   strokeLinecap="round"
-                  style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+                  style={{ transition: 'stroke-dashoffset 0.8s ease' }}
                 />
               </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-xs font-bold text-zinc-100">{pulse.thisWeekHealth}%</span>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-xl font-bold text-zinc-100">{healthPct}%</span>
+                <span className="text-[9px] text-zinc-500 uppercase tracking-wider">Health</span>
               </div>
             </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-zinc-200">
-              {pulse.obs7dCount} observation{pulse.obs7dCount !== 1 ? 's' : ''} this week
-            </p>
-            {pulse.thisWeekHealth !== null ? (
-              <div className={`mt-0.5 flex items-center gap-1 text-xs ${trendColor}`}>
-                <TrendIcon className="h-3 w-3" />
-                <span>
-                  {pulse.healthTrend === 'stable'
-                    ? 'Stable'
-                    : pulse.healthTrend === 'up'
-                    ? 'Improving'
-                    : 'Declining'}
-                  {pulse.lastWeekHealth !== null
-                    ? ` · vs ${pulse.lastWeekHealth}% last week`
-                    : ''}
-                </span>
-              </div>
-            ) : (
-              <p className="mt-0.5 text-xs text-zinc-600">Not enough data to trend yet</p>
+            {pulse.lastWeekHealth !== null && (
+              <p className="text-[10px] text-zinc-500">vs {pulse.lastWeekHealth}% last week</p>
             )}
+          </div>
+
+          {/* Observations stat */}
+          <div className="flex flex-col items-center justify-center rounded-xl bg-zinc-800/50 p-3">
+            <span className="text-2xl font-bold text-zinc-100">{pulse.obs7dCount}</span>
+            <span className="text-[10px] text-zinc-500 text-center mt-0.5">this week</span>
+            <span className="text-[10px] text-zinc-600 mt-1">{pulse.obs14dCount} in 14 days</span>
+          </div>
+
+          {/* Coverage stat */}
+          <div className="flex flex-col items-center justify-center rounded-xl bg-zinc-800/50 p-3">
+            <span className="text-2xl font-bold" style={{ color: observedPct >= 80 ? '#10b981' : observedPct >= 50 ? '#F97316' : '#ef4444' }}>
+              {observedPct}%
+            </span>
+            <span className="text-[10px] text-zinc-500 text-center mt-0.5">coverage</span>
+            <span className="text-[10px] text-zinc-600 mt-1">
+              {pulse.totalPlayers - pulse.unobservedPlayers.length}/{pulse.totalPlayers} players
+            </span>
           </div>
         </div>
 
-        {/* Players not observed this week */}
+        {/* Unobserved players */}
         {pulse.unobservedPlayers.length > 0 && (
-          <div>
-            <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-amber-400">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              Not observed this week · {pulse.unobservedPlayers.length}/{pulse.totalPlayers}{' '}
-              players
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5">
+            <p className="mb-2.5 flex items-center gap-2 text-xs font-semibold text-amber-400">
+              <AlertTriangle className="h-4 w-4" />
+              Needs attention — {pulse.unobservedPlayers.length} player{pulse.unobservedPlayers.length !== 1 ? 's' : ''} not observed
             </p>
-            <div className="flex flex-wrap gap-1.5">
-              {pulse.unobservedPlayers.slice(0, 6).map((p) => (
+            <div className="flex flex-wrap gap-2">
+              {pulse.unobservedPlayers.slice(0, 8).map((p) => (
                 <Link key={p.id} href={`/roster/${p.id}`}>
-                  <span className="touch-manipulation inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-300 transition-colors hover:bg-amber-500/20">
-                    {p.jersey_number != null ? `#${p.jersey_number} ` : ''}
+                  <span className="touch-manipulation inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-300 transition-all hover:bg-amber-500/20 hover:scale-105 active:scale-95">
+                    {p.jersey_number != null && (
+                      <span className="text-amber-500/70">#{p.jersey_number}</span>
+                    )}
                     {p.name.split(' ')[0]}
                   </span>
                 </Link>
               ))}
-              {pulse.unobservedPlayers.length > 6 && (
-                <span className="inline-flex items-center rounded-full bg-zinc-800 px-2.5 py-1 text-xs text-zinc-500">
-                  +{pulse.unobservedPlayers.length - 6} more
+              {pulse.unobservedPlayers.length > 8 && (
+                <span className="inline-flex items-center rounded-full bg-zinc-800 px-3 py-1.5 text-xs text-zinc-500">
+                  +{pulse.unobservedPlayers.length - 8} more
                 </span>
               )}
             </div>
           </div>
         )}
 
-        {/* Top focus area */}
+        {/* Top focus area — action card */}
         {pulse.topFocusArea && (
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <Target className="h-4 w-4 shrink-0 text-orange-400" />
-              <div className="min-w-0">
-                <p className="truncate text-xs font-medium text-zinc-300">
-                  Top focus:{' '}
-                  <span className="capitalize text-orange-400">
-                    {pulse.topFocusArea.category}
-                  </span>
-                </p>
-                <p className="text-[10px] text-zinc-500">
-                  {pulse.topFocusArea.count} needs-work observations
-                </p>
+          <Link href="/plans" className="block">
+            <div className="group flex items-center justify-between gap-3 rounded-xl border border-orange-500/20 bg-gradient-to-r from-orange-500/10 to-transparent p-4 transition-all hover:border-orange-500/40 hover:from-orange-500/15 active:scale-[0.98]">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500/20">
+                  <Target className="h-5 w-5 text-orange-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-zinc-200">
+                    Top focus:{' '}
+                    <span className="capitalize text-orange-400">{pulse.topFocusArea.category}</span>
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    {pulse.topFocusArea.count} needs-work observation{pulse.topFocusArea.count !== 1 ? 's' : ''} — tap to plan
+                  </p>
+                </div>
               </div>
+              <ArrowRight className="h-5 w-5 text-orange-500/50 transition-transform group-hover:translate-x-1 group-hover:text-orange-400" />
             </div>
-            <Link href="/plans" className="shrink-0">
-              <span className="touch-manipulation flex items-center gap-1 px-1 py-1 text-xs font-medium text-orange-500 transition-colors hover:text-orange-400">
-                Plan <ArrowRight className="h-3 w-3" />
-              </span>
-            </Link>
-          </div>
+          </Link>
         )}
       </CardContent>
     </Card>
