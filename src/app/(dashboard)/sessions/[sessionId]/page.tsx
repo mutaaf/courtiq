@@ -26,9 +26,17 @@ import {
   MinusCircle,
   ImagePlus,
   X,
+  Sparkles,
+  Star,
+  Target,
+  Lightbulb,
+  Dumbbell,
+  RefreshCw,
+  TrendingUp,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
+import type { SessionDebriefResult } from '@/app/api/ai/session-debrief/route';
 
 const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   practice: 'Practice',
@@ -43,6 +51,268 @@ const SENTIMENT_CONFIG: Record<Sentiment, { icon: typeof CheckCircle2; color: st
   'needs-work': { icon: AlertCircle, color: 'text-amber-400' },
   neutral: { icon: MinusCircle, color: 'text-zinc-400' },
 };
+
+const TONE_CONFIG: Record<
+  SessionDebriefResult['overall_tone'],
+  { label: string; color: string; bg: string; border: string }
+> = {
+  great: {
+    label: 'Great Session',
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/30',
+  },
+  good: {
+    label: 'Good Session',
+    color: 'text-blue-400',
+    bg: 'bg-blue-500/10',
+    border: 'border-blue-500/30',
+  },
+  developing: {
+    label: 'Developing',
+    color: 'text-amber-400',
+    bg: 'bg-amber-500/10',
+    border: 'border-amber-500/30',
+  },
+  struggling: {
+    label: 'Needs Focus',
+    color: 'text-red-400',
+    bg: 'bg-red-500/10',
+    border: 'border-red-500/30',
+  },
+};
+
+function AIDebriefCard({
+  sessionId,
+  teamId,
+  observationCount,
+  savedDebrief,
+  onDebriefSaved,
+}: {
+  sessionId: string;
+  teamId: string;
+  observationCount: number;
+  savedDebrief: SessionDebriefResult | null;
+  onDebriefSaved: () => void;
+}) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [localDebrief, setLocalDebrief] = useState<SessionDebriefResult | null>(savedDebrief);
+
+  const debrief = localDebrief || savedDebrief;
+
+  async function handleGenerate() {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/ai/session-debrief', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, teamId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate analysis');
+      }
+      const data = await res.json();
+      setLocalDebrief(data.debrief);
+      onDebriefSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  const toneConfig = debrief ? TONE_CONFIG[debrief.overall_tone] : null;
+
+  return (
+    <Card className={debrief ? `border-orange-500/20` : 'border-zinc-800'}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-orange-400" />
+            AI Post-Session Analysis
+          </CardTitle>
+          {debrief && (
+            <button
+              onClick={handleGenerate}
+              disabled={isGenerating || observationCount === 0}
+              className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors disabled:opacity-40"
+            >
+              {isGenerating ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3 w-3" />
+              )}
+              Regenerate
+            </button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!debrief && !isGenerating && (
+          <div className="flex flex-col items-center justify-center py-6 text-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-500/10">
+              <Sparkles className="h-7 w-7 text-orange-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-zinc-200">Analyze this session with AI</p>
+              <p className="text-xs text-zinc-500 mt-1 max-w-xs">
+                Get player highlights, areas to improve, and next-practice suggestions based on your{' '}
+                {observationCount} observation{observationCount !== 1 ? 's' : ''}.
+              </p>
+            </div>
+            {error && (
+              <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2 max-w-sm">
+                {error}
+              </p>
+            )}
+            <Button
+              onClick={handleGenerate}
+              disabled={observationCount === 0}
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              <Sparkles className="h-4 w-4" />
+              Generate Analysis
+            </Button>
+            {observationCount === 0 && (
+              <p className="text-xs text-zinc-600">Add observations to this session first</p>
+            )}
+          </div>
+        )}
+
+        {isGenerating && !debrief && (
+          <div className="flex flex-col items-center justify-center py-8 gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-orange-400" />
+            <p className="text-sm text-zinc-400">Analyzing session data...</p>
+          </div>
+        )}
+
+        {debrief && (
+          <div className="space-y-5">
+            {/* Tone badge + summary */}
+            {toneConfig && (
+              <div
+                className={`flex items-start gap-3 rounded-xl border p-3 ${toneConfig.bg} ${toneConfig.border}`}
+              >
+                <TrendingUp className={`h-5 w-5 mt-0.5 shrink-0 ${toneConfig.color}`} />
+                <div>
+                  <p className={`text-sm font-semibold ${toneConfig.color}`}>{toneConfig.label}</p>
+                  <p className="text-sm text-zinc-300 mt-1 leading-relaxed">{debrief.session_summary}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Player Highlights */}
+            {debrief.player_highlights.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                  <Star className="h-3.5 w-3.5" />
+                  Player Highlights
+                </h4>
+                <div className="space-y-2">
+                  {debrief.player_highlights.map((h, i) => (
+                    <div
+                      key={i}
+                      className="flex items-start gap-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/15 p-3"
+                    >
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-xs font-semibold text-emerald-400">{h.player_name}</span>
+                        <p className="text-xs text-zinc-300 mt-0.5">{h.highlight}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Areas to Improve */}
+            {debrief.areas_to_improve.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                  <Target className="h-3.5 w-3.5" />
+                  Areas to Improve
+                </h4>
+                <div className="space-y-2">
+                  {debrief.areas_to_improve.map((area, i) => (
+                    <div
+                      key={i}
+                      className="flex items-start gap-2.5 rounded-lg bg-amber-500/5 border border-amber-500/15 p-3"
+                    >
+                      <AlertCircle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-amber-400 capitalize">
+                            {area.skill_area}
+                          </span>
+                          {area.player_count > 0 && (
+                            <span className="text-[10px] text-zinc-600">
+                              {area.player_count} player{area.player_count !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-zinc-300 mt-0.5">{area.detail}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Next Practice Focus */}
+            {debrief.next_practice_focus.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
+                  <Dumbbell className="h-3.5 w-3.5" />
+                  Next Practice Focus
+                </h4>
+                <div className="space-y-2">
+                  {debrief.next_practice_focus.map((item, i) => (
+                    <div
+                      key={i}
+                      className="rounded-lg bg-blue-500/5 border border-blue-500/15 p-3 space-y-1.5"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500/20 text-[10px] font-bold text-blue-400 shrink-0">
+                          {i + 1}
+                        </span>
+                        <span className="text-xs font-semibold text-blue-300">{item.focus}</span>
+                      </div>
+                      <p className="text-xs text-zinc-400 pl-7">{item.rationale}</p>
+                      <div className="flex items-center gap-1.5 pl-7">
+                        <Dumbbell className="h-3 w-3 text-zinc-600 shrink-0" />
+                        <p className="text-[11px] text-zinc-500 italic">{item.suggested_drill}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Coaching Tip */}
+            {debrief.coaching_tip && (
+              <div className="flex items-start gap-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700/50 p-3">
+                <Lightbulb className="h-4 w-4 text-yellow-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-yellow-400/70 mb-1">
+                    Coach Tip
+                  </p>
+                  <p className="text-xs text-zinc-300 leading-relaxed">{debrief.coaching_tip}</p>
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{error}</p>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function SessionDetailPage() {
   const params = useParams();
@@ -88,7 +358,7 @@ export default function SessionDetailPage() {
     ...CACHE_PROFILES.observations,
   });
 
-  const { data: sessionMedia = [], isLoading: mediaLoading } = useQuery({
+  const { data: sessionMedia = [] } = useQuery({
     queryKey: ['session-media', sessionId],
     queryFn: async () => {
       const data = await query<Media[]>({
@@ -136,7 +406,6 @@ export default function SessionDetailPage() {
         });
       }
 
-      // Refresh media list
       queryClient.invalidateQueries({ queryKey: ['session-media', sessionId] });
       setSelectedPlayerIds([]);
     } catch (err) {
@@ -150,12 +419,6 @@ export default function SessionDetailPage() {
     setSelectedPlayerIds((prev) =>
       prev.includes(playerId) ? prev.filter((id) => id !== playerId) : [...prev, playerId]
     );
-  };
-
-  const getMediaPublicUrl = (storagePath: string | null) => {
-    if (!storagePath) return null;
-    // Construct URL from Supabase storage
-    return `/api/media/proxy?path=${encodeURIComponent(storagePath)}`;
   };
 
   const debriefMutation = useMutation({
@@ -212,6 +475,8 @@ export default function SessionDetailPage() {
       </div>
     );
   }
+
+  const savedDebrief = session.coach_debrief_extracts as SessionDebriefResult | null;
 
   return (
     <div className="p-4 lg:p-8 space-y-6 max-w-3xl mx-auto">
@@ -317,10 +582,7 @@ export default function SessionDetailPage() {
                           <Badge variant="secondary" className="text-[10px]">
                             {obs.category}
                           </Badge>
-                          <Badge
-                            variant="outline"
-                            className="text-[10px]"
-                          >
+                          <Badge variant="outline" className="text-[10px]">
                             {obs.source}
                           </Badge>
                         </div>
@@ -334,6 +596,19 @@ export default function SessionDetailPage() {
           </div>
         )}
       </div>
+
+      {/* AI Post-Session Analysis */}
+      {activeTeam && (
+        <AIDebriefCard
+          sessionId={sessionId}
+          teamId={activeTeam.id}
+          observationCount={observations?.length || 0}
+          savedDebrief={savedDebrief}
+          onDebriefSaved={() =>
+            queryClient.invalidateQueries({ queryKey: ['session', sessionId] })
+          }
+        />
+      )}
 
       {/* Media Upload Section */}
       <Card>
@@ -453,7 +728,7 @@ export default function SessionDetailPage() {
       {/* Coach Debrief */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Coach Debrief</CardTitle>
+          <CardTitle className="text-base">Coach Notes</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <Textarea
@@ -477,7 +752,7 @@ export default function SessionDetailPage() {
               ) : (
                 <Save className="h-4 w-4" />
               )}
-              Save Debrief
+              Save Notes
             </Button>
           </div>
         </CardContent>
