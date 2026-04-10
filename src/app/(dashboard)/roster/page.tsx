@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlayerCard } from '@/components/roster/player-card';
-import { Plus, Upload, Search, Users } from 'lucide-react';
+import { Plus, Upload, Search, Users, UserPlus, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import type { Player } from '@/types/database';
 
@@ -34,7 +34,6 @@ export default function RosterPage() {
     ...CACHE_PROFILES.roster,
   });
 
-  // Fetch observation counts per player
   const { data: obsCounts = {} } = useQuery({
     queryKey: [...queryKeys.observations.all(activeTeam?.id ?? ''), 'counts'],
     queryFn: async () => {
@@ -79,10 +78,12 @@ export default function RosterPage() {
 
   if (!activeTeam) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 text-center">
-        <Users className="mb-4 h-12 w-12 text-zinc-600" />
+      <div className="flex flex-col items-center justify-center p-8 text-center min-h-[60vh]">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-800/50 mb-5">
+          <Users className="h-8 w-8 text-zinc-600" />
+        </div>
         <h2 className="text-lg font-semibold text-zinc-300">No Active Team</h2>
-        <p className="mt-1 text-sm text-zinc-500">Select or create a team to manage your roster.</p>
+        <p className="mt-2 text-sm text-zinc-500 max-w-sm">Select or create a team to manage your roster.</p>
       </div>
     );
   }
@@ -114,31 +115,33 @@ export default function RosterPage() {
       </div>
 
       {/* Search & Filter - sticky on mobile */}
-      <div className="sticky top-0 z-10 -mx-4 bg-zinc-950/95 backdrop-blur-sm px-4 py-2 sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-            <Input
-              placeholder="Search players..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-12 sm:h-10 text-base sm:text-sm"
-            />
+      {players.length > 0 && (
+        <div className="sticky top-0 z-10 -mx-4 bg-zinc-950/95 backdrop-blur-sm px-4 py-2 sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+              <Input
+                placeholder="Search players..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-12 sm:h-10 text-base sm:text-sm"
+              />
+            </div>
+            <select
+              value={positionFilter}
+              onChange={(e) => setPositionFilter(e.target.value)}
+              className="h-12 sm:h-10 rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-base sm:text-sm text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+            >
+              <option value="all">All Positions</option>
+              {positions.map((pos) => (
+                <option key={pos} value={pos}>
+                  {pos}
+                </option>
+              ))}
+            </select>
           </div>
-          <select
-            value={positionFilter}
-            onChange={(e) => setPositionFilter(e.target.value)}
-            className="h-12 sm:h-10 rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-base sm:text-sm text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
-          >
-            <option value="all">All Positions</option>
-            {positions.map((pos) => (
-              <option key={pos} value={pos}>
-                {pos}
-              </option>
-            ))}
-          </select>
         </div>
-      </div>
+      )}
 
       {/* Player Grid */}
       {isLoading ? (
@@ -148,15 +151,17 @@ export default function RosterPage() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-700 p-8 sm:p-12 text-center">
-          <Users className="mb-4 h-16 w-16 text-zinc-700" />
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-700 p-10 sm:p-16 text-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-500/10 mb-6">
+            <UserPlus className="h-10 w-10 text-blue-500/60" />
+          </div>
           {players.length === 0 ? (
             <>
-              <h3 className="text-lg font-semibold text-zinc-300">No players yet</h3>
-              <p className="mt-1 max-w-sm text-sm text-zinc-500">
-                Add players to your roster to start tracking observations and progress.
+              <h3 className="text-xl font-semibold text-zinc-200">Build your roster</h3>
+              <p className="mt-2 max-w-sm text-sm text-zinc-500 leading-relaxed">
+                Add your players to start tracking observations, skill progression, and generate personalized development reports.
               </p>
-              <div className="mt-6 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <div className="mt-8 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                 <Link href="/roster/import" className="w-full sm:w-auto">
                   <Button variant="outline" className="w-full sm:w-auto h-12 sm:h-10">
                     <Upload className="h-4 w-4" />
@@ -166,7 +171,8 @@ export default function RosterPage() {
                 <Link href="/roster/add" className="w-full sm:w-auto">
                   <Button className="w-full sm:w-auto h-12 sm:h-10">
                     <Plus className="h-4 w-4" />
-                    Add Player
+                    Add First Player
+                    <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
               </div>

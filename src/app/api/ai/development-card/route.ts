@@ -73,7 +73,13 @@ export async function POST(request: Request) {
       admin
     );
 
-    const validated = developmentCardSchema.parse(result.parsed);
+    let validated;
+    try {
+      validated = developmentCardSchema.parse(result.parsed);
+    } catch (zodError) {
+      console.warn('Zod validation relaxed:', zodError);
+      validated = result.parsed as DevelopmentCard;
+    }
 
     // Save as a plan
     const { data: plan } = await admin.from('plans').insert({

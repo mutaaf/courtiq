@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Home, Mic, Users, ClipboardList, Settings, Calendar, BookOpen, BarChart3, Sun, Moon } from 'lucide-react';
+import { Home, Mic, Users, ClipboardList, Settings, Calendar, BookOpen, BarChart3, Sparkles, Sun, Moon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TeamSwitcher } from '@/components/layout/team-switcher';
 import { SyncIndicator } from '@/components/layout/sync-indicator';
@@ -13,7 +13,7 @@ import type { Coach } from '@/types/database';
 // Bottom nav: Home | Roster | CAPTURE (center FAB) | Plans | Settings
 const navItems = [
   { href: '/home', label: 'Home', icon: Home },
-  { href: '/roster', label: 'Roster', icon: Users },
+  { href: '/assistant', label: 'Assistant', icon: Sparkles },
   { href: '/capture', label: 'Capture', icon: Mic, primary: true },
   { href: '/plans', label: 'Plans', icon: ClipboardList },
   { href: '/settings', label: 'Settings', icon: Settings },
@@ -21,6 +21,7 @@ const navItems = [
 
 const sidebarItems = [
   { href: '/home', label: 'Home', icon: Home },
+  { href: '/assistant', label: 'Assistant', icon: Sparkles },
   { href: '/capture', label: 'Capture', icon: Mic },
   { href: '/roster', label: 'Roster', icon: Users },
   { href: '/sessions', label: 'Sessions', icon: Calendar },

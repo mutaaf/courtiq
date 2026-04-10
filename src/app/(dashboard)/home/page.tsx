@@ -5,7 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 import { query } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Mic, Users, ClipboardList, TrendingUp, Calendar, Plus } from 'lucide-react';
+import { Mic, Users, ClipboardList, TrendingUp, Calendar, Plus, Sparkles, ArrowRight } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 
 export default function HomePage() {
@@ -31,12 +32,14 @@ export default function HomePage() {
 
   if (!activeTeam) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 text-center">
-        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-orange-500/10 text-4xl">
-          🏀
+      <div className="flex flex-col items-center justify-center p-8 text-center min-h-[60vh]">
+        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-orange-500/10 p-3">
+          <Image src="/logo.svg" alt="CourtIQ" width={48} height={48} />
         </div>
         <h1 className="text-2xl font-bold">Welcome to CourtIQ</h1>
-        <p className="mt-2 text-zinc-400">Create your first team to get started</p>
+        <p className="mt-2 text-zinc-400 max-w-sm">
+          Your AI-powered coaching assistant. Create your first team to start tracking players, capturing observations, and generating practice plans.
+        </p>
         <Link href="/onboarding/team">
           <Button className="mt-6" size="lg">
             <Plus className="h-5 w-5" />
@@ -122,24 +125,39 @@ export default function HomePage() {
 
       {/* Empty state prompt for new users */}
       {stats && stats.players === 0 && stats.observations === 0 && stats.sessions === 0 && (
-        <Card className="border-dashed border-zinc-700">
-          <CardContent className="flex flex-col items-center text-center p-6 sm:p-8">
-            <p className="text-lg font-semibold text-zinc-300">What would you like to do?</p>
-            <p className="mt-1 text-sm text-zinc-500 max-w-sm">
-              Get started by adding players to your roster, then capture your first observation.
-            </p>
-            <div className="mt-5 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              <Link href="/roster/add" className="w-full sm:w-auto">
-                <Button variant="outline" className="w-full sm:w-auto h-12 sm:h-10">
-                  <Users className="h-4 w-4" />
-                  Add Players
-                </Button>
+        <Card className="border-dashed border-zinc-700 overflow-hidden">
+          <CardContent className="flex flex-col items-center text-center p-8 sm:p-10">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-500/10 mb-5">
+              <Sparkles className="h-8 w-8 text-orange-500" />
+            </div>
+            <h3 className="text-xl font-semibold text-zinc-200">Get started in 3 steps</h3>
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-lg">
+              <Link href="/roster/add" className="group">
+                <div className="rounded-xl border border-zinc-800 p-4 text-center hover:border-blue-500/50 transition-colors">
+                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/20 mb-2">
+                    <Users className="h-5 w-5 text-blue-500" />
+                  </div>
+                  <p className="text-sm font-medium">Add Players</p>
+                  <p className="text-xs text-zinc-500 mt-1">Build your roster</p>
+                </div>
               </Link>
-              <Link href="/capture" className="w-full sm:w-auto">
-                <Button className="w-full sm:w-auto h-12 sm:h-10">
-                  <Mic className="h-4 w-4" />
-                  Start Capturing
-                </Button>
+              <Link href="/capture" className="group">
+                <div className="rounded-xl border border-zinc-800 p-4 text-center hover:border-orange-500/50 transition-colors">
+                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-orange-500/20 mb-2">
+                    <Mic className="h-5 w-5 text-orange-500" />
+                  </div>
+                  <p className="text-sm font-medium">Capture</p>
+                  <p className="text-xs text-zinc-500 mt-1">Record observations</p>
+                </div>
+              </Link>
+              <Link href="/plans" className="group">
+                <div className="rounded-xl border border-zinc-800 p-4 text-center hover:border-emerald-500/50 transition-colors">
+                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 mb-2">
+                    <ClipboardList className="h-5 w-5 text-emerald-500" />
+                  </div>
+                  <p className="text-sm font-medium">Plan</p>
+                  <p className="text-xs text-zinc-500 mt-1">Generate AI plans</p>
+                </div>
               </Link>
             </div>
           </CardContent>

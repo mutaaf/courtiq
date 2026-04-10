@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { query } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { CACHE_PROFILES } from '@/lib/query/config';
@@ -17,10 +17,13 @@ import {
   Loader2,
   Calendar,
   ChevronRight,
+  ChevronDown,
   FileText,
   Sparkles,
   X,
   AlertCircle,
+  Trash2,
+  Send,
 } from 'lucide-react';
 import type { Plan, PlanType } from '@/types/database';
 
@@ -37,12 +40,24 @@ const PLAN_TYPE_CONFIG: Record<
   custom: { label: 'Custom', icon: ClipboardList, color: 'text-zinc-400' },
 };
 
+const SUGGESTION_CHIPS = [
+  '60-min practice for fundamentals',
+  'Game day sheet',
+  'Ball handling and passing drills',
+  'Defensive positioning focus',
+  'Week recap and conditioning',
+  'Shooting skills for beginners',
+];
+
 export default function PlansPage() {
   const { activeTeam } = useActiveTeam();
   const qc = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
-  const [generating, setGenerating] = useState<PlanType | null>(null);
+  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState('');
+  const [generatedPreview, setGeneratedPreview] = useState<any>(null);
 
   const { data: plans, isLoading } = useQuery({
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
@@ -60,28 +75,68 @@ export default function PlansPage() {
     ...CACHE_PROFILES.plans,
   });
 
-  const generatePlan = async (type: 'practice' | 'gameday') => {
-    if (!activeTeam) return;
-    setGenerating(type);
+  const deleteMutation = useMutation({
+    mutationFn: async (planId: string) => {
+      const res = await fetch(`/api/plans/${planId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete plan');
+    },
+    onSuccess: () => {
+      if (activeTeam) {
+        qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      }
+      setSelectedPlan(null);
+    },
+  });
+
+  const generateFromPrompt = async (text: string) => {
+    if (!activeTeam || !text.trim()) return;
+    setGenerating(true);
     setError(null);
+    setGeneratedPreview(null);
+
+    // Determine type from prompt text
+    const lowerText = text.toLowerCase();
+    const isGameday = lowerText.includes('game day') || lowerText.includes('gameday') || lowerText.includes('game sheet');
+    const type = isGameday ? 'gameday' : 'practice';
+
+    // Extract focus skills from the prompt
+    const skillKeywords = ['ball handling', 'passing', 'shooting', 'defense', 'rebounding', 'footwork', 'teamwork', 'conditioning', 'dribbling'];
+    const focusSkills = skillKeywords.filter(skill => lowerText.includes(skill));
+
     try {
       const res = await fetch('/api/ai/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teamId: activeTeam.id, type }),
+        body: JSON.stringify({
+          teamId: activeTeam.id,
+          type,
+          focusSkills: focusSkills.length > 0 ? focusSkills : undefined,
+        }),
       });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || 'Failed to generate plan');
       }
       const data = await res.json();
-      // Refresh plans list
       qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
       setSelectedPlan(data.plan);
+      setPrompt('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Generation failed');
     } finally {
-      setGenerating(null);
+      setGenerating(false);
+    }
+  };
+
+  const handleChipClick = (chip: string) => {
+    setPrompt(chip);
+    generateFromPrompt(chip);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      generateFromPrompt(prompt);
     }
   };
 
@@ -93,7 +148,6 @@ export default function PlansPage() {
     });
   }
 
-  // Render structured plan content (warmup, drills, scrimmage, cooldown)
   function renderStructuredContent(plan: Plan) {
     const structured = plan.content_structured as any;
     if (!structured) {
@@ -104,7 +158,6 @@ export default function PlansPage() {
       );
     }
 
-    // Practice plan structure
     if (structured.warmup || structured.drills || structured.scrimmage || structured.cooldown) {
       return (
         <div className="space-y-6">
@@ -120,7 +173,17 @@ export default function PlansPage() {
               <h3 className="text-sm font-semibold uppercase tracking-wider text-blue-400">
                 Warm-Up
               </h3>
-              {Array.isArray(structured.warmup) ? (
+              {typeof structured.warmup === 'object' && !Array.isArray(structured.warmup) ? (
+                <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                  <p className="text-sm font-medium text-zinc-200">{structured.warmup.name}</p>
+                  {structured.warmup.duration_minutes && (
+                    <span className="text-xs text-zinc-500">{structured.warmup.duration_minutes} min</span>
+                  )}
+                  {structured.warmup.description && (
+                    <p className="mt-1 text-xs text-zinc-400">{structured.warmup.description}</p>
+                  )}
+                </div>
+              ) : Array.isArray(structured.warmup) ? (
                 <ul className="space-y-1.5">
                   {structured.warmup.map((item: any, i: number) => (
                     <li key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
@@ -155,12 +218,26 @@ export default function PlansPage() {
                         <p className="text-sm font-medium text-zinc-200">
                           {typeof drill === 'string' ? drill : drill.name || drill.activity}
                         </p>
-                        {drill.duration && (
-                          <Badge variant="outline" className="text-xs">{drill.duration}</Badge>
+                        {(drill.duration_minutes || drill.duration) && (
+                          <Badge variant="outline" className="text-xs">
+                            {drill.duration_minutes ? `${drill.duration_minutes} min` : drill.duration}
+                          </Badge>
                         )}
                       </div>
                       {drill.description && (
                         <p className="mt-1 text-xs text-zinc-400">{drill.description}</p>
+                      )}
+                      {drill.coaching_cues && (
+                        <div className="mt-2">
+                          <p className="text-xs font-medium text-zinc-500">Coaching Cues:</p>
+                          <ul className="mt-1 space-y-0.5">
+                            {(Array.isArray(drill.coaching_cues) ? drill.coaching_cues : [drill.coaching_cues]).map(
+                              (point: string, j: number) => (
+                                <li key={j} className="text-xs text-zinc-400">- {point}</li>
+                              )
+                            )}
+                          </ul>
+                        </div>
                       )}
                       {drill.coaching_points && (
                         <div className="mt-2">
@@ -199,8 +276,8 @@ export default function PlansPage() {
                     {structured.scrimmage.format && (
                       <p className="text-sm font-medium text-zinc-200">{structured.scrimmage.format}</p>
                     )}
-                    {structured.scrimmage.duration && (
-                      <span className="text-xs text-zinc-500">{structured.scrimmage.duration}</span>
+                    {structured.scrimmage.duration_minutes && (
+                      <span className="text-xs text-zinc-500">{structured.scrimmage.duration_minutes} min</span>
                     )}
                     {structured.scrimmage.focus && (
                       <p className="mt-1 text-xs text-zinc-400">Focus: {structured.scrimmage.focus}</p>
@@ -219,7 +296,16 @@ export default function PlansPage() {
               <h3 className="text-sm font-semibold uppercase tracking-wider text-purple-400">
                 Cool Down
               </h3>
-              {Array.isArray(structured.cooldown) ? (
+              {typeof structured.cooldown === 'object' && !Array.isArray(structured.cooldown) ? (
+                <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                  {structured.cooldown.duration_minutes && (
+                    <span className="text-xs text-zinc-500">{structured.cooldown.duration_minutes} min</span>
+                  )}
+                  {structured.cooldown.notes && (
+                    <p className="mt-1 text-xs text-zinc-400">{structured.cooldown.notes}</p>
+                  )}
+                </div>
+              ) : Array.isArray(structured.cooldown) ? (
                 <ul className="space-y-1.5">
                   {structured.cooldown.map((item: any, i: number) => (
                     <li key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
@@ -256,7 +342,6 @@ export default function PlansPage() {
       );
     }
 
-    // Gameday / other structured content — render sections generically
     return (
       <div className="space-y-4">
         {structured.title && (
@@ -317,6 +402,18 @@ export default function PlansPage() {
               </div>
             </div>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+            onClick={() => {
+              if (confirm('Delete this plan? This cannot be undone.')) {
+                deleteMutation.mutate(selectedPlan.id);
+              }
+            }}
+          >
+            <Trash2 className="h-5 w-5" />
+          </Button>
         </div>
 
         <Card>
@@ -349,7 +446,7 @@ export default function PlansPage() {
     <div className="p-4 lg:p-8 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Plans</h1>
-        <p className="text-zinc-400 text-sm">Generate and manage practice plans and game sheets</p>
+        <p className="text-zinc-400 text-sm">Describe what you need and AI will generate it</p>
       </div>
 
       {/* Error message */}
@@ -367,60 +464,72 @@ export default function PlansPage() {
         </div>
       )}
 
-      {/* Generate buttons */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Card
-          className={`cursor-pointer transition-colors hover:border-blue-500/50 active:scale-[0.98] touch-manipulation ${
-            generating ? 'pointer-events-none opacity-60' : ''
-          }`}
-          onClick={() => generatePlan('practice')}
-        >
-          <CardContent className="flex items-center gap-4 p-5 sm:p-4">
-            <div className="flex h-14 w-14 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-blue-500/20 shrink-0">
-              {generating === 'practice' ? (
-                <Loader2 className="h-7 w-7 sm:h-6 sm:w-6 text-blue-400 animate-spin" />
-              ) : (
-                <Dumbbell className="h-7 w-7 sm:h-6 sm:w-6 text-blue-400" />
-              )}
+      {/* Generation input */}
+      <Card className="border-zinc-700/50">
+        <CardContent className="p-4 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500/20">
+              <Sparkles className="h-5 w-5 text-orange-400" />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-base sm:text-sm">Generate Practice Plan</p>
-              <p className="text-xs text-zinc-500 mt-0.5">
-                {generating === 'practice'
-                  ? 'AI is generating your plan...'
-                  : 'AI-powered plan based on curriculum and observations'}
-              </p>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-zinc-200">Generate with AI</p>
+              <p className="text-xs text-zinc-500">Describe what you need, or tap a suggestion below</p>
             </div>
-            <Sparkles className="h-5 w-5 sm:h-4 sm:w-4 text-blue-500/50 shrink-0" />
-          </CardContent>
-        </Card>
+          </div>
 
-        <Card
-          className={`cursor-pointer transition-colors hover:border-emerald-500/50 active:scale-[0.98] touch-manipulation ${
-            generating ? 'pointer-events-none opacity-60' : ''
-          }`}
-          onClick={() => generatePlan('gameday')}
-        >
-          <CardContent className="flex items-center gap-4 p-5 sm:p-4">
-            <div className="flex h-14 w-14 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-emerald-500/20 shrink-0">
-              {generating === 'gameday' ? (
-                <Loader2 className="h-7 w-7 sm:h-6 sm:w-6 text-emerald-400 animate-spin" />
+          {/* Text input */}
+          <div className="flex items-end gap-2">
+            <div className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all">
+              <input
+                type="text"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Describe what you need..."
+                disabled={generating || !activeTeam}
+                className="w-full bg-transparent px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none disabled:opacity-50"
+              />
+            </div>
+            <Button
+              onClick={() => generateFromPrompt(prompt)}
+              disabled={!prompt.trim() || generating || !activeTeam}
+              size="icon"
+              className="h-11 w-11 shrink-0 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-30"
+            >
+              {generating ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
-                <Trophy className="h-7 w-7 sm:h-6 sm:w-6 text-emerald-400" />
+                <Send className="h-5 w-5" />
               )}
+            </Button>
+          </div>
+
+          {/* Suggestion chips */}
+          <div className="flex flex-wrap gap-2">
+            {SUGGESTION_CHIPS.map((chip) => (
+              <button
+                key={chip}
+                onClick={() => handleChipClick(chip)}
+                disabled={generating}
+                className="rounded-full border border-zinc-700 bg-zinc-800/50 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 hover:border-zinc-600 transition-colors disabled:opacity-50 touch-manipulation"
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
+
+          {/* Generating indicator */}
+          {generating && (
+            <div className="flex items-center gap-3 rounded-lg border border-orange-500/20 bg-orange-500/5 p-3">
+              <Loader2 className="h-5 w-5 text-orange-400 animate-spin" />
+              <div>
+                <p className="text-sm font-medium text-orange-300">Generating your plan...</p>
+                <p className="text-xs text-zinc-500">AI is creating a customized plan based on your roster and curriculum</p>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-base sm:text-sm">Generate Game Day Sheet</p>
-              <p className="text-xs text-zinc-500 mt-0.5">
-                {generating === 'gameday'
-                  ? 'AI is generating your game sheet...'
-                  : 'Lineup, rotations, and focus areas for game day'}
-              </p>
-            </div>
-            <Sparkles className="h-5 w-5 sm:h-4 sm:w-4 text-emerald-500/50 shrink-0" />
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Plans list */}
       <div className="space-y-3">
@@ -435,12 +544,14 @@ export default function PlansPage() {
             ))}
           </div>
         ) : plans?.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <ClipboardList className="h-12 w-12 text-zinc-600 mb-4" />
-              <p className="text-zinc-400 text-sm">No plans generated yet</p>
-              <p className="text-zinc-500 text-xs mt-1">
-                Use the buttons above to generate your first plan
+          <Card className="border-dashed border-zinc-700">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-800/50 mb-5">
+                <ClipboardList className="h-8 w-8 text-zinc-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-zinc-300">No plans yet</h3>
+              <p className="text-zinc-500 text-sm mt-2 max-w-xs text-center">
+                Describe what you need above and AI will generate a plan tailored to your roster and curriculum.
               </p>
             </CardContent>
           </Card>
@@ -449,33 +560,80 @@ export default function PlansPage() {
             {plans?.map((plan) => {
               const typeConfig = PLAN_TYPE_CONFIG[plan.type] || PLAN_TYPE_CONFIG.custom;
               const TypeIcon = typeConfig.icon;
+              const isExpanded = expandedPlanId === plan.id;
 
               return (
-                <Card
-                  key={plan.id}
-                  className="cursor-pointer transition-colors hover:border-zinc-700"
-                  onClick={() => setSelectedPlan(plan)}
-                >
-                  <CardContent className="flex items-center gap-3 p-4">
-                    <TypeIcon className={`h-5 w-5 shrink-0 ${typeConfig.color}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {plan.title || typeConfig.label}
-                      </p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-zinc-500">
-                          {formatDate(plan.created_at)}
-                        </span>
-                        {plan.curriculum_week && (
-                          <span className="text-xs text-zinc-600">
-                            Week {plan.curriculum_week}
+                <div key={plan.id}>
+                  <Card
+                    className="cursor-pointer transition-colors hover:border-zinc-700"
+                  >
+                    <CardContent className="flex items-center gap-3 p-4">
+                      <TypeIcon className={`h-5 w-5 shrink-0 ${typeConfig.color}`} />
+                      <div
+                        className="flex-1 min-w-0"
+                        onClick={() => setExpandedPlanId(isExpanded ? null : plan.id)}
+                      >
+                        <p className="text-sm font-medium truncate">
+                          {plan.title || typeConfig.label}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs text-zinc-500">
+                            {formatDate(plan.created_at)}
                           </span>
-                        )}
+                          {plan.curriculum_week && (
+                            <span className="text-xs text-zinc-600">
+                              Week {plan.curriculum_week}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-zinc-600 shrink-0" />
-                  </CardContent>
-                </Card>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm('Delete this plan?')) {
+                              deleteMutation.mutate(plan.id);
+                            }
+                          }}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => setSelectedPlan(plan)}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-300 transition-colors"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => setExpandedPlanId(isExpanded ? null : plan.id)}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-300 transition-colors"
+                        >
+                          <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                        </button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Expanded preview */}
+                  {isExpanded && (
+                    <Card className="mt-1 border-zinc-800/50">
+                      <CardContent className="p-4 max-h-64 overflow-y-auto">
+                        <div className="text-sm text-zinc-300 whitespace-pre-wrap line-clamp-[12]">
+                          {plan.content?.slice(0, 500) || 'No content preview available.'}
+                          {(plan.content?.length || 0) > 500 && (
+                            <button
+                              onClick={() => setSelectedPlan(plan)}
+                              className="mt-2 text-xs text-orange-500 hover:text-orange-400 font-medium"
+                            >
+                              View full plan
+                            </button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
               );
             })}
           </div>

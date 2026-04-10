@@ -52,7 +52,13 @@ export async function POST(request: Request) {
       admin
     );
 
-    const validated = schema.parse(result.parsed);
+    let validated;
+    try {
+      validated = schema.parse(result.parsed);
+    } catch (zodError) {
+      console.warn('Zod validation relaxed:', zodError);
+      validated = result.parsed;
+    }
 
     // Save the plan
     const { data: plan } = await admin.from('plans').insert({

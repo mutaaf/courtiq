@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, MapPin, Eye, Plus, Filter } from 'lucide-react';
+import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import type { Session, SessionType } from '@/types/database';
 
@@ -116,16 +116,30 @@ export default function SessionsPage() {
           ))}
         </div>
       ) : sessions?.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Calendar className="h-12 w-12 text-zinc-600 mb-4" />
-            <p className="text-zinc-400 text-sm">No sessions yet</p>
-            <Link href="/sessions/new" className="mt-4 w-full sm:w-auto px-4 sm:px-0">
-              <Button variant="outline" className="w-full sm:w-auto h-12 sm:h-10 text-base sm:text-sm">
-                <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
-                Create your first session
-              </Button>
-            </Link>
+        <Card className="border-dashed border-zinc-700">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-purple-500/10 mb-6">
+              <Calendar className="h-10 w-10 text-purple-500/60" />
+            </div>
+            <h3 className="text-xl font-semibold text-zinc-200">No sessions yet</h3>
+            <p className="text-zinc-500 text-sm mt-2 max-w-sm text-center leading-relaxed">
+              Sessions track your practices, games, and scrimmages. Create a session to start logging observations and measuring your team&apos;s progress over time.
+            </p>
+            <div className="mt-8 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <Link href="/sessions/new" className="w-full sm:w-auto">
+                <Button className="w-full sm:w-auto h-12 sm:h-10 text-base sm:text-sm">
+                  <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
+                  Create First Session
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="/capture" className="w-full sm:w-auto">
+                <Button variant="outline" className="w-full sm:w-auto h-12 sm:h-10 text-base sm:text-sm">
+                  <Mic className="h-5 w-5 sm:h-4 sm:w-4" />
+                  Quick Capture
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       ) : (

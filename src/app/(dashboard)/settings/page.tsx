@@ -6,13 +6,15 @@ import { Card, CardContent } from '@/components/ui/card';
 import {
   User,
   Building2,
-  Palette,
   Shield,
   ChevronRight,
   Dumbbell,
   Sparkles,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useTheme } from '@/hooks/use-theme';
 
 interface SettingCard {
   href: string;
@@ -56,6 +58,8 @@ const SETTING_CARDS: SettingCard[] = [
 ];
 
 export default function SettingsPage() {
+  const { theme, toggleTheme } = useTheme();
+
   const { data: coach } = useQuery({
     queryKey: queryKeys.coach.current(),
     queryFn: async () => {
@@ -104,6 +108,27 @@ export default function SettingsPage() {
             </Link>
           );
         })}
+
+        {/* Theme toggle card */}
+        <Card
+          className="h-full cursor-pointer transition-colors hover:border-zinc-700 active:scale-[0.98] touch-manipulation"
+          onClick={toggleTheme}
+        >
+          <CardContent className="flex items-center gap-4 p-5 sm:p-4">
+            <div className="flex h-12 w-12 sm:h-10 sm:w-10 items-center justify-center rounded-lg shrink-0 text-amber-400 bg-amber-500/20">
+              {theme === 'dark' ? <Sun className="h-6 w-6 sm:h-5 sm:w-5" /> : <Moon className="h-6 w-6 sm:h-5 sm:w-5" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-base sm:text-sm">Appearance</p>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              </p>
+            </div>
+            <div className="flex h-8 items-center rounded-full bg-zinc-800 px-3 text-xs font-medium text-zinc-400">
+              {theme === 'dark' ? 'Dark' : 'Light'}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
