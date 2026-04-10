@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   ArrowLeft,
+  ArrowRight,
   Calendar,
   MapPin,
   Mic,
@@ -33,6 +34,7 @@ import {
   Dumbbell,
   RefreshCw,
   TrendingUp,
+  ClipboardList,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
@@ -99,11 +101,19 @@ function AIDebriefCard({
   const [error, setError] = useState<string | null>(null);
   const [localDebrief, setLocalDebrief] = useState<SessionDebriefResult | null>(savedDebrief);
 
+  // Practice plan creation state
+  const [isPlanGenerating, setIsPlanGenerating] = useState(false);
+  const [planCreated, setPlanCreated] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
+
   const debrief = localDebrief || savedDebrief;
 
   async function handleGenerate() {
     setIsGenerating(true);
     setError(null);
+    // Reset plan state when regenerating
+    setPlanCreated(false);
+    setPlanError(null);
     try {
       const res = await fetch('/api/ai/session-debrief', {
         method: 'POST',
@@ -121,6 +131,30 @@ function AIDebriefCard({
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setIsGenerating(false);
+    }
+  }
+
+  async function handleCreatePlan() {
+    if (!debrief || debrief.next_practice_focus.length === 0) return;
+    setIsPlanGenerating(true);
+    setPlanError(null);
+
+    const focusSkills = debrief.next_practice_focus.map((f) => f.focus);
+    try {
+      const res = await fetch('/api/ai/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId, type: 'practice', focusSkills }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to create practice plan');
+      }
+      setPlanCreated(true);
+    } catch (err) {
+      setPlanError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsPlanGenerating(false);
     }
   }
 
@@ -301,6 +335,78 @@ function AIDebriefCard({
                   </p>
                   <p className="text-xs text-zinc-300 leading-relaxed">{debrief.coaching_tip}</p>
                 </div>
+              </div>
+            )}
+
+            {/* ── Create Practice Plan CTA ─────────────────────────────────── */}
+            {debrief.next_practice_focus.length > 0 && (
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <ClipboardList className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-blue-300">Ready for next practice?</p>
+                    <p className="text-xs text-zinc-500 mt-0.5">
+                      Build a full AI practice plan targeting the{' '}
+                      {debrief.next_practice_focus.length} focus area
+                      {debrief.next_practice_focus.length !== 1 ? 's' : ''} above.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Focus skill chips */}
+                <div className="flex flex-wrap gap-1.5">
+                  {debrief.next_practice_focus.map((item, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center rounded-full border border-blue-500/25 bg-blue-500/10 px-2.5 py-0.5 text-[11px] font-medium text-blue-400"
+                    >
+                      {item.focus}
+                    </span>
+                  ))}
+                </div>
+
+                {planCreated ? (
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex flex-1 items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                      <span className="text-sm font-medium text-emerald-400">
+                        Practice plan created!
+                      </span>
+                    </div>
+                    <Link href="/plans" className="shrink-0">
+                      <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white min-h-[44px] px-4">
+                        View Plan
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <>
+                    {planError && (
+                      <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                        {planError}
+                      </p>
+                    )}
+                    <Button
+                      onClick={handleCreatePlan}
+                      disabled={isPlanGenerating}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white min-h-[44px]"
+                      size="sm"
+                    >
+                      {isPlanGenerating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Creating practice plan…
+                        </>
+                      ) : (
+                        <>
+                          <ClipboardList className="h-4 w-4" />
+                          Create Practice Plan from Debrief
+                        </>
+                      )}
+                    </Button>
+                  </>
+                )}
               </div>
             )}
 
