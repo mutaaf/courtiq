@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // ─── Team Pulse ────────────────────────────────────────────────────────────────
 
@@ -200,7 +201,7 @@ function TeamPulseCard({ pulse }: { pulse: PulseStats }) {
 export default function HomePage() {
   const { activeTeam, teams } = useActiveTeam();
 
-  const { data: stats } = useQuery({
+  const { data: stats, isLoading: isLoadingStats } = useQuery({
     queryKey: ['home-stats', activeTeam?.id],
     queryFn: async () => {
       if (!activeTeam) return null;
@@ -231,7 +232,7 @@ export default function HomePage() {
   });
 
   // Team Pulse: 14-day observation analytics for coaching intelligence
-  const { data: pulse } = useQuery({
+  const { data: pulse, isLoading: isLoadingPulse } = useQuery({
     queryKey: ['home-pulse', activeTeam?.id],
     queryFn: async (): Promise<PulseStats | null> => {
       if (!activeTeam) return null;
@@ -395,37 +396,76 @@ export default function HomePage() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
-        <Card>
-          <CardContent className="p-5 sm:p-4 text-center">
-            <p className="text-3xl sm:text-2xl font-bold text-orange-500">
-              {stats?.players || 0}
-            </p>
-            <p className="text-xs text-zinc-400 mt-1">Players</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5 sm:p-4 text-center">
-            <p className="text-3xl sm:text-2xl font-bold text-blue-500">
-              {stats?.observations || 0}
-            </p>
-            <p className="text-xs text-zinc-400 mt-1">Observations</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5 sm:p-4 text-center">
-            <p className="text-3xl sm:text-2xl font-bold text-emerald-500">
-              {stats?.sessions || 0}
-            </p>
-            <p className="text-xs text-zinc-400 mt-1">Sessions</p>
-          </CardContent>
-        </Card>
+        {isLoadingStats ? (
+          <>
+            {(['Players', 'Observations', 'Sessions'] as const).map((label) => (
+              <Card key={label}>
+                <CardContent className="p-5 sm:p-4 flex flex-col items-center gap-2">
+                  <Skeleton className="h-8 w-10 rounded" />
+                  <Skeleton className="h-3 w-16 rounded" />
+                </CardContent>
+              </Card>
+            ))}
+          </>
+        ) : (
+          <>
+            <Card>
+              <CardContent className="p-5 sm:p-4 text-center">
+                <p className="text-3xl sm:text-2xl font-bold text-orange-500">
+                  {stats?.players ?? 0}
+                </p>
+                <p className="text-xs text-zinc-400 mt-1">Players</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-5 sm:p-4 text-center">
+                <p className="text-3xl sm:text-2xl font-bold text-blue-500">
+                  {stats?.observations ?? 0}
+                </p>
+                <p className="text-xs text-zinc-400 mt-1">Observations</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-5 sm:p-4 text-center">
+                <p className="text-3xl sm:text-2xl font-bold text-emerald-500">
+                  {stats?.sessions ?? 0}
+                </p>
+                <p className="text-xs text-zinc-400 mt-1">Sessions</p>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Team Pulse — coaching intelligence card, shown once there's observation data */}
-      {pulse && <TeamPulseCard pulse={pulse} />}
+      {isLoadingPulse ? (
+        <Card className="overflow-hidden border-orange-500/20">
+          <div className="px-5 pt-5 pb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Skeleton className="h-8 w-8 rounded-lg" />
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-24 rounded" />
+                  <Skeleton className="h-3 w-16 rounded" />
+                </div>
+              </div>
+              <Skeleton className="h-6 w-20 rounded-full" />
+            </div>
+          </div>
+          <CardContent className="px-5 pb-5 pt-2">
+            <div className="grid grid-cols-3 gap-3">
+              <Skeleton className="h-24 rounded-xl" />
+              <Skeleton className="h-24 rounded-xl" />
+              <Skeleton className="h-24 rounded-xl" />
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        pulse && <TeamPulseCard pulse={pulse} />
+      )}
 
-      {/* Empty state prompt for new users */}
-      {stats && stats.players === 0 && stats.observations === 0 && stats.sessions === 0 && (
+      {/* Empty state prompt for new users — only shown after data loads */}
+      {!isLoadingStats && stats && stats.players === 0 && stats.observations === 0 && stats.sessions === 0 && (
         <Card className="border-dashed border-zinc-700 overflow-hidden">
           <CardContent className="flex flex-col items-center text-center p-8 sm:p-10">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-500/10 mb-5">
