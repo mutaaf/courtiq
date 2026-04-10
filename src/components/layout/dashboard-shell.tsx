@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Home, Mic, Users, ClipboardList, Settings, Calendar, BookOpen, BarChart3, Sparkles, Sun, Moon, LineChart } from 'lucide-react';
+import { Home, Mic, Users, ClipboardList, Settings, Calendar, BookOpen, BarChart3, Sparkles, Sun, Moon, LineChart, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TeamSwitcher } from '@/components/layout/team-switcher';
 import { SyncIndicator } from '@/components/layout/sync-indicator';
@@ -99,6 +99,18 @@ export function DashboardShell({ coach, children }: Props) {
               <p className="truncate text-xs text-zinc-400">{coach.organizations?.name}</p>
             </div>
           </div>
+          <button
+            onClick={async () => {
+              const { createClient } = await import('@/lib/supabase/client');
+              const supabase = createClient();
+              await supabase.auth.signOut();
+              window.location.href = '/login';
+            }}
+            className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-500 hover:bg-zinc-800 hover:text-red-400 transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out
+          </button>
         </div>
       </aside>
 
@@ -118,6 +130,18 @@ export function DashboardShell({ coach, children }: Props) {
               className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-100 transition-colors"
             >
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+            <button
+              onClick={async () => {
+                const { createClient } = await import('@/lib/supabase/client');
+                const supabase = createClient();
+                await supabase.auth.signOut();
+                window.location.href = '/login';
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:text-red-400 transition-colors"
+              title="Sign Out"
+            >
+              <LogOut className="h-4 w-4" />
             </button>
             <TeamSwitcher compact />
           </div>
