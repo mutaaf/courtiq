@@ -34,7 +34,7 @@ You run every hour. Here's how to be effective.
 - [ ] Remove any remaining `[object Object]` or raw JSON in UI
 - [ ] Fix any broken navigation or dead links
 - [ ] Ensure all forms save data correctly
-- [ ] Improve loading states (skeleton screens, not blank pages)
+- [x] Improve loading states (skeleton screens, not blank pages) — home page stats + Team Pulse skeleton done
 - [ ] Add pull-to-refresh on mobile pages
 - [ ] Add swipe gestures for navigation
 - [ ] Smooth page transitions/animations
