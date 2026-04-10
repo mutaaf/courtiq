@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Minus, Users, Eye, Calendar, Target, AlertTriangle, CheckCircle2, Activity } from 'lucide-react';
+import { UpgradeGate } from '@/components/ui/upgrade-gate';
 import type { Observation, Player, Session, Sentiment } from '@/types/database';
 
 // --- Helpers ---
@@ -324,6 +325,7 @@ export default function AnalyticsPage() {
       : '#f59e0b';
 
   return (
+    <UpgradeGate feature="analytics" featureLabel="Team Analytics">
     <div className="p-4 lg:p-8 space-y-6 max-w-5xl mx-auto">
       {/* Header */}
       <div>
@@ -709,5 +711,6 @@ export default function AnalyticsPage() {
         </Card>
       )}
     </div>
+    </UpgradeGate>
   );
 }

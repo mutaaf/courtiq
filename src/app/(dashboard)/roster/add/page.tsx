@@ -9,7 +9,7 @@ import { queryKeys } from '@/lib/query/keys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { SYSTEM_DEFAULTS } from '@/lib/config/defaults';
 
@@ -96,6 +96,13 @@ export default function AddPlayerPage() {
       </Link>
 
       <h1 className="text-2xl font-bold text-zinc-100">Add Player</h1>
+
+      <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+        <Shield className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+        <p className="text-xs text-zinc-400">
+          Player data is stored securely and only visible to authorized coaches. No accounts are created for minors.
+        </p>
+      </div>
 
       <Card>
         <CardHeader>
@@ -195,6 +202,9 @@ export default function AddPlayerPage() {
               value={form.parent_email}
               onChange={(e) => updateField('parent_email', e.target.value)}
             />
+            <p className="text-[11px] text-zinc-500">
+              Parent/guardian email is used for sharing progress reports. By providing this, you confirm you have parental consent to share this child&apos;s progress data.
+            </p>
           </div>
         </CardContent>
       </Card>

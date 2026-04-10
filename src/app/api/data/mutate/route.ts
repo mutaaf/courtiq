@@ -1,5 +1,6 @@
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { TIER_LIMITS, type Tier } from '@/lib/tier';
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabase();
@@ -21,6 +22,35 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Tier check for player inserts
+    if (operation === 'insert' && table === 'players') {
+      const teamId = Array.isArray(payload) ? payload[0]?.team_id : payload?.team_id;
+      if (teamId) {
+        // Get team's org and tier
+        const { data: team } = await admin.from('teams').select('org_id').eq('id', teamId).single();
+        if (team) {
+          const { data: org } = await admin.from('organizations').select('tier').eq('id', team.org_id).single();
+          const orgTier = ((org as any)?.tier || 'free') as Tier;
+          const tierLimits = TIER_LIMITS[orgTier];
+
+          const { count: existingPlayerCount } = await admin
+            .from('players')
+            .select('id', { count: 'exact', head: true })
+            .eq('team_id', teamId)
+            .eq('is_active', true);
+
+          const newPlayerCount = Array.isArray(payload) ? payload.length : 1;
+
+          if ((existingPlayerCount || 0) + newPlayerCount > tierLimits.maxPlayersPerTeam) {
+            return NextResponse.json({
+              error: `Your ${orgTier.replace('_', ' ')} plan allows up to ${tierLimits.maxPlayersPerTeam} players per team. Please upgrade to add more players.`,
+              upgrade: true,
+            }, { status: 403 });
+          }
+        }
+      }
+    }
+
     if (operation === 'insert') {
       const { data, error } = await admin.from(table).insert(payload).select(select);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });

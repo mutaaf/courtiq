@@ -14,12 +14,17 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
+    if (!ageConfirmed) {
+      setError('You must confirm you are 13 years or older to create an account.');
+      return;
+    }
     setError('');
     setLoading(true);
 
@@ -121,7 +126,18 @@ export default function SignupPage() {
                 minLength={6}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={ageConfirmed}
+                onChange={(e) => setAgeConfirmed(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-orange-500 focus:ring-orange-500"
+              />
+              <span className="text-xs text-zinc-400">
+                I confirm I am 13 years or older
+              </span>
+            </label>
+            <Button type="submit" className="w-full" disabled={loading || !ageConfirmed}>
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               Create Account
             </Button>

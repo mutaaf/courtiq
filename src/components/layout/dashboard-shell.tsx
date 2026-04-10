@@ -3,11 +3,12 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Home, Mic, Users, ClipboardList, Settings, Calendar, BookOpen, BarChart3, Sparkles, Sun, Moon, LineChart, LogOut } from 'lucide-react';
+import { Home, Mic, Users, ClipboardList, Settings, Calendar, BookOpen, BarChart3, Sparkles, Sun, Moon, LineChart, LogOut, Lock, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TeamSwitcher } from '@/components/layout/team-switcher';
 import { SyncIndicator } from '@/components/layout/sync-indicator';
 import { useTheme } from '@/hooks/use-theme';
+import { useTier } from '@/hooks/use-tier';
 import type { Coach } from '@/types/database';
 
 // Bottom nav: Home | Roster | CAPTURE (center FAB) | Plans | Settings
@@ -20,16 +21,16 @@ const navItems = [
 ];
 
 const sidebarItems = [
-  { href: '/home', label: 'Home', icon: Home, tourId: undefined },
-  { href: '/assistant', label: 'Assistant', icon: Sparkles, tourId: 'assistant' },
-  { href: '/capture', label: 'Capture', icon: Mic, tourId: 'capture' },
-  { href: '/analytics', label: 'Analytics', icon: LineChart, tourId: undefined },
-  { href: '/roster', label: 'Roster', icon: Users, tourId: 'roster' },
-  { href: '/sessions', label: 'Sessions', icon: Calendar, tourId: undefined },
-  { href: '/curriculum', label: 'Curriculum', icon: BookOpen, tourId: undefined },
-  { href: '/plans', label: 'Plans', icon: ClipboardList, tourId: undefined },
-  { href: '/drills', label: 'Drills', icon: BarChart3, tourId: undefined },
-  { href: '/settings', label: 'Settings', icon: Settings, tourId: 'settings' },
+  { href: '/home', label: 'Home', icon: Home, tourId: undefined, feature: undefined },
+  { href: '/assistant', label: 'Assistant', icon: Sparkles, tourId: 'assistant', feature: 'assistant' },
+  { href: '/capture', label: 'Capture', icon: Mic, tourId: 'capture', feature: undefined },
+  { href: '/analytics', label: 'Analytics', icon: LineChart, tourId: undefined, feature: 'analytics' },
+  { href: '/roster', label: 'Roster', icon: Users, tourId: 'roster', feature: undefined },
+  { href: '/sessions', label: 'Sessions', icon: Calendar, tourId: undefined, feature: undefined },
+  { href: '/curriculum', label: 'Curriculum', icon: BookOpen, tourId: undefined, feature: undefined },
+  { href: '/plans', label: 'Plans', icon: ClipboardList, tourId: undefined, feature: undefined },
+  { href: '/drills', label: 'Drills', icon: BarChart3, tourId: undefined, feature: undefined },
+  { href: '/settings', label: 'Settings', icon: Settings, tourId: 'settings', feature: undefined },
 ];
 
 interface Props {
@@ -40,6 +41,8 @@ interface Props {
 export function DashboardShell({ coach, children }: Props) {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
+  const { canAccess: canAccessFeature } = useTier();
+  const isAdmin = coach.role === 'admin' && ((coach as any).organizations?.tier === 'organization');
 
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-100">
@@ -59,6 +62,7 @@ export function DashboardShell({ coach, children }: Props) {
         <nav className="flex-1 space-y-1 p-4">
           {sidebarItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
+            const isLocked = item.feature ? !canAccessFeature(item.feature) : false;
             return (
               <Link
                 key={item.href}
@@ -73,9 +77,24 @@ export function DashboardShell({ coach, children }: Props) {
               >
                 <item.icon className="h-5 w-5" />
                 {item.label}
+                {isLocked && <Lock className="ml-auto h-3.5 w-3.5 text-zinc-600" />}
               </Link>
             );
           })}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                pathname.startsWith('/admin')
+                  ? 'bg-orange-500/10 text-orange-500'
+                  : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'
+              )}
+            >
+              <ShieldCheck className="h-5 w-5" />
+              Admin
+            </Link>
+          )}
         </nav>
 
         {/* Theme toggle */}

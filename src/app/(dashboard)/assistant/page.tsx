@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import {
   Sparkles,
   Send,
@@ -20,6 +19,7 @@ import {
   History,
   Trash2,
 } from 'lucide-react';
+import { UpgradeGate } from '@/components/ui/upgrade-gate';
 
 interface ChatMessage {
   id: string;
@@ -485,6 +485,7 @@ export default function AssistantPage() {
   const hasMessages = messages.length > 0;
 
   return (
+    <UpgradeGate feature="assistant" featureLabel="AI Coach Assistant">
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="border-b border-zinc-800 px-4 py-3 lg:px-8">
@@ -610,5 +611,6 @@ export default function AssistantPage() {
         </div>
       </div>
     </div>
+    </UpgradeGate>
   );
 }
