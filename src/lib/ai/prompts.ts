@@ -1,5 +1,12 @@
 import type { Player, CurriculumSkill, Team } from '@/types/database';
 
+export interface ObservationInsightsParam {
+  totalObs: number;
+  daysOfData: number;
+  topNeedsWork: Array<{ category: string; count: number }>;
+  topStrengths: Array<{ category: string; count: number }>;
+}
+
 interface PromptParams {
   sportName?: string;
   sportPreamble?: string;
@@ -73,22 +80,59 @@ export const PROMPT_REGISTRY = {
     ].join('\n'),
   }),
 
-  practicePlan: (params: PromptParams & { proficiencyData?: unknown; focusSkills?: string[] }) => ({
-    system: [
-      buildSystemPreamble(params),
-      'You generate age-appropriate, curriculum-aligned practice plans.',
-      `Age group: ${params.ageGroup || '8-10'}`,
-      `Practice duration: ${params.practiceDuration || 60} minutes`,
-      `Season week: ${params.seasonWeek || 1}`,
-      `Player count: ${params.playerCount || 10}`,
-    ].join('\n'),
-    user: [
-      `Generate a practice plan for ${params.teamName || 'the team'}.`,
-      params.focusSkills?.length ? `Focus skills this week: ${params.focusSkills.join(', ')}` : '',
-      params.proficiencyData ? `Team proficiency data: ${JSON.stringify(params.proficiencyData)}` : '',
-      'Respond with JSON: { "title", "duration_minutes", "warmup": { "name", "duration_minutes", "description" }, "drills": [{ "name", "skill_id", "duration_minutes", "description", "coaching_cues" }], "scrimmage": { "duration_minutes", "focus" }, "cooldown": { "duration_minutes", "notes" } }',
-    ].filter(Boolean).join('\n'),
-  }),
+  practicePlan: (params: PromptParams & {
+    proficiencyData?: unknown;
+    focusSkills?: string[];
+    observationInsights?: ObservationInsightsParam;
+  }) => {
+    const insights = params.observationInsights;
+    const hasInsights = insights && insights.totalObs > 0;
+
+    const insightsBlock = hasInsights
+      ? [
+          '',
+          `REAL TEAM PERFORMANCE DATA (last ${insights.daysOfData} days, ${insights.totalObs} observations):`,
+          insights.topNeedsWork.length > 0
+            ? `Areas most needing improvement:\n${insights.topNeedsWork
+                .map((c) => `  - ${c.category}: ${c.count} needs-work observation${c.count !== 1 ? 's' : ''}`)
+                .join('\n')}`
+            : '',
+          insights.topStrengths.length > 0
+            ? `Team strengths to reinforce:\n${insights.topStrengths
+                .map((c) => `  - ${c.category}: ${c.count} positive observation${c.count !== 1 ? 's' : ''}`)
+                .join('\n')}`
+            : '',
+          '',
+          'IMPORTANT: Use this real performance data to make this plan highly specific to this team.',
+          insights.topNeedsWork.length > 0
+            ? `Allocate at least 50% of drill time to the top ${Math.min(2, insights.topNeedsWork.length)} needs-improvement area(s) listed above.`
+            : '',
+          insights.topStrengths.length > 0
+            ? `Include at least one drill that celebrates and builds on the team\'s strengths.`
+            : '',
+        ]
+        .filter(Boolean)
+        .join('\n')
+      : '';
+
+    return {
+      system: [
+        buildSystemPreamble(params),
+        'You generate age-appropriate, curriculum-aligned practice plans.',
+        `Age group: ${params.ageGroup || '8-10'}`,
+        `Practice duration: ${params.practiceDuration || 60} minutes`,
+        `Season week: ${params.seasonWeek || 1}`,
+        `Player count: ${params.playerCount || 10}`,
+      ].join('\n'),
+      user: [
+        `Generate a practice plan for ${params.teamName || 'the team'}.`,
+        params.focusSkills?.length ? `Requested focus skills: ${params.focusSkills.join(', ')}` : '',
+        insightsBlock,
+        params.proficiencyData ? `Additional proficiency data: ${JSON.stringify(params.proficiencyData)}` : '',
+        'Respond with JSON: { "title", "duration_minutes", "warmup": { "name", "duration_minutes", "description" }, "drills": [{ "name", "skill_id", "duration_minutes", "description", "coaching_cues" }], "scrimmage": { "duration_minutes", "focus" }, "cooldown": { "duration_minutes", "notes" } }',
+      ].filter(Boolean).join('\n'),
+    };
+  },
 
   gamedaySheet: (params: PromptParams & { opponent?: string; gameNotes?: string }) => ({
     system: [

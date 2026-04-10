@@ -24,8 +24,11 @@ import {
   AlertCircle,
   Trash2,
   Send,
+  Activity,
+  TrendingUp,
 } from 'lucide-react';
 import type { Plan, PlanType } from '@/types/database';
+import type { ObservationInsights } from '@/app/api/ai/plan/route';
 
 const PLAN_TYPE_CONFIG: Record<
   string,
@@ -57,7 +60,8 @@ export default function PlansPage() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
-  const [generatedPreview, setGeneratedPreview] = useState<any>(null);
+  const [generatedPreview, setGeneratedPreview] = useState<unknown>(null);
+  const [lastInsights, setLastInsights] = useState<ObservationInsights | null>(null);
 
   const { data: plans, isLoading } = useQuery({
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
@@ -91,20 +95,21 @@ export default function PlansPage() {
     },
   });
 
-  const generateFromPrompt = async (text: string) => {
-    if (!activeTeam || !text.trim()) return;
+  const generateFromPrompt = async (text: string, smartMode = false) => {
+    if (!activeTeam || (!text.trim() && !smartMode)) return;
     setGenerating(true);
     setError(null);
     setGeneratedPreview(null);
+    setLastInsights(null);
 
     // Determine type from prompt text
     const lowerText = text.toLowerCase();
     const isGameday = lowerText.includes('game day') || lowerText.includes('gameday') || lowerText.includes('game sheet');
     const type = isGameday ? 'gameday' : 'practice';
 
-    // Extract focus skills from the prompt
+    // Extract explicit focus skills from the prompt (smart mode lets AI decide from data)
     const skillKeywords = ['ball handling', 'passing', 'shooting', 'defense', 'rebounding', 'footwork', 'teamwork', 'conditioning', 'dribbling'];
-    const focusSkills = skillKeywords.filter(skill => lowerText.includes(skill));
+    const focusSkills = smartMode ? [] : skillKeywords.filter(skill => lowerText.includes(skill));
 
     try {
       const res = await fetch('/api/ai/plan', {
@@ -123,6 +128,9 @@ export default function PlansPage() {
       const data = await res.json();
       qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
       setSelectedPlan(data.plan);
+      if (data.observationInsights && data.observationInsights.totalObs > 0) {
+        setLastInsights(data.observationInsights as ObservationInsights);
+      }
       setPrompt('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Generation failed');
@@ -548,18 +556,37 @@ export default function PlansPage() {
             </Button>
           </div>
 
-          {/* Suggestion chips */}
-          <div className="flex flex-wrap gap-2">
-            {SUGGESTION_CHIPS.map((chip) => (
-              <button
-                key={chip}
-                onClick={() => handleChipClick(chip)}
-                disabled={generating}
-                className="rounded-full border border-zinc-700 bg-zinc-800/50 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 hover:border-zinc-600 transition-colors disabled:opacity-50 touch-manipulation"
-              >
-                {chip}
-              </button>
-            ))}
+          {/* Smart Plan chip + suggestion chips */}
+          <div className="space-y-2">
+            {/* Smart Plan — data-driven, always first */}
+            <button
+              onClick={() => generateFromPrompt('', true)}
+              disabled={generating || !activeTeam}
+              className="flex w-full items-center gap-2.5 rounded-xl border border-orange-500/40 bg-gradient-to-r from-orange-500/15 to-orange-500/5 px-4 py-3 text-left transition-all hover:border-orange-500/60 hover:from-orange-500/20 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/25">
+                <Activity className="h-4 w-4 text-orange-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-orange-300">AI-Tailored Plan</p>
+                <p className="text-xs text-zinc-500">Auto-generated from your team&apos;s recent observation data</p>
+              </div>
+              <TrendingUp className="h-4 w-4 text-orange-500/50 shrink-0" />
+            </button>
+
+            {/* Generic suggestion chips */}
+            <div className="flex flex-wrap gap-2">
+              {SUGGESTION_CHIPS.map((chip) => (
+                <button
+                  key={chip}
+                  onClick={() => handleChipClick(chip)}
+                  disabled={generating}
+                  className="rounded-full border border-zinc-700 bg-zinc-800/50 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 hover:border-zinc-600 transition-colors disabled:opacity-50 touch-manipulation"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Generating indicator */}
@@ -568,8 +595,38 @@ export default function PlansPage() {
               <Loader2 className="h-5 w-5 text-orange-400 animate-spin" />
               <div>
                 <p className="text-sm font-medium text-orange-300">Generating your plan...</p>
-                <p className="text-xs text-zinc-500">AI is creating a customized plan based on your roster and curriculum</p>
+                <p className="text-xs text-zinc-500">Analyzing your team&apos;s recent observations and creating a tailored practice plan</p>
               </div>
+            </div>
+          )}
+
+          {/* Data-driven badge — shown after successful generation */}
+          {!generating && lastInsights && lastInsights.totalObs > 0 && (
+            <div className="flex items-start gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+              <Activity className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-emerald-300">
+                  Data-driven plan generated
+                </p>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  Based on {lastInsights.totalObs} observation{lastInsights.totalObs !== 1 ? 's' : ''} from the last {lastInsights.daysOfData} days.
+                  {lastInsights.topNeedsWork.length > 0 && (
+                    <>
+                      {' '}Targeting:{' '}
+                      <span className="text-zinc-400">
+                        {lastInsights.topNeedsWork.slice(0, 3).map((c) => c.category).join(', ')}
+                      </span>
+                    </>
+                  )}
+                </p>
+              </div>
+              <button
+                onClick={() => setLastInsights(null)}
+                className="text-zinc-600 hover:text-zinc-400 shrink-0"
+                aria-label="Dismiss"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
           )}
         </CardContent>
