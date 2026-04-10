@@ -245,7 +245,7 @@ export default function PlayerDetailPage({
               {rc.strengths.map((s: any, i: number) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
                   <CheckCircle2 className="h-4 w-4 mt-0.5 text-emerald-500 shrink-0" />
-                  {typeof s === 'string' ? s : s.skill || s.description || s.name || s.text || String(s)}
+                  {typeof s === 'string' ? s : s.skill || s.description || s.name || s.text || (typeof s === 'object' ? Object.values(s).filter(v => typeof v === 'string').join(' — ') : String(s))}
                 </li>
               ))}
             </ul>
@@ -259,7 +259,7 @@ export default function PlayerDetailPage({
               {rc.areas_for_improvement.map((a: any, i: number) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
                   <AlertCircle className="h-4 w-4 mt-0.5 text-orange-500 shrink-0" />
-                  {typeof a === 'string' ? a : a.skill || a.description || a.name || a.text || String(a)}
+                  {typeof a === 'string' ? a : a.skill || a.description || a.name || a.text || (typeof a === 'object' ? Object.values(a).filter(v => typeof v === 'string').join(' — ') : String(a))}
                 </li>
               ))}
             </ul>
@@ -297,16 +297,62 @@ export default function PlayerDetailPage({
           </div>
         )}
 
-        {rc.coach_message && (
+        {/* Skills with proficiency */}
+        {rc.skills && Array.isArray(rc.skills) && rc.skills.length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-purple-400 mb-2">Coach Message</h3>
-            <p className="text-sm text-zinc-300 italic">{rc.coach_message}</p>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-blue-400 mb-3">Skills</h3>
+            <div className="space-y-2">
+              {rc.skills.map((s: any, i: number) => (
+                <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-zinc-200">{s.skill_name || s.name || s.skill || `Skill ${i + 1}`}</span>
+                    {(s.proficiency_level || s.level || s.grade) && (
+                      <Badge variant="secondary">{s.proficiency_level || s.level || s.grade}</Badge>
+                    )}
+                  </div>
+                  {s.narrative && <p className="text-xs text-zinc-400 leading-relaxed">{s.narrative}</p>}
+                  {s.description && !s.narrative && <p className="text-xs text-zinc-400 leading-relaxed">{s.description}</p>}
+                  {s.trend && <p className="text-xs text-zinc-500 mt-1">Trend: <span className={s.trend === 'improving' || s.trend === 'positive' ? 'text-emerald-400' : 'text-zinc-400'}>{s.trend}</span></p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Growth areas */}
+        {rc.growth_areas && Array.isArray(rc.growth_areas) && rc.growth_areas.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-orange-400 mb-2">Growth Areas</h3>
+            <ul className="space-y-1.5">
+              {rc.growth_areas.map((g: any, i: number) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
+                  <AlertCircle className="h-4 w-4 mt-0.5 text-orange-500 shrink-0" />
+                  {typeof g === 'string' ? g : g.description || g.text || g.name || (typeof g === 'object' ? Object.values(g).filter(v => typeof v === 'string').join(' — ') : String(g))}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Coach note */}
+        {(rc.coach_note || rc.coach_message) && (
+          <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-purple-400 mb-2">Coach&apos;s Note</h3>
+            <p className="text-sm text-zinc-300 italic leading-relaxed">{rc.coach_note || rc.coach_message}</p>
+          </div>
+        )}
+
+        {/* Home practice suggestion */}
+        {rc.home_practice_suggestion && (
+          <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-blue-400 mb-2">Home Practice</h3>
+            <p className="text-sm text-zinc-300 leading-relaxed">{rc.home_practice_suggestion}</p>
           </div>
         )}
 
         {/* Fallback: render any other top-level keys */}
         {Object.entries(rc)
-          .filter(([key]) => !['summary', 'strengths', 'areas_for_improvement', 'grades', 'recommendations', 'coach_message', 'title', 'player_name'].includes(key))
+          .filter(([key]) => !['summary', 'skills', 'strengths', 'growth_areas', 'areas_for_improvement', 'grades', 'recommendations', 'coach_note', 'coach_message', 'home_practice_suggestion', 'season_summary', 'title', 'player_name'].includes(key))
           .map(([key, value]) => (
             <div key={key}>
               <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400 mb-2">
@@ -318,7 +364,7 @@ export default function PlayerDetailPage({
                   : Array.isArray(value)
                   ? (value as any[]).map((item: any, i: number) => (
                       <p key={i} className="mb-1">
-                        - {typeof item === 'string' ? item : item?.name || item?.text || item?.description || String(item)}
+                        - {typeof item === 'string' ? item : item?.name || item?.text || item?.description || item?.narrative || item?.skill_name || (typeof item === 'object' ? Object.values(item).filter((v: unknown) => typeof v === 'string').join(' — ') : String(item))}
                       </p>
                     ))
                   : typeof value === 'object' && value !== null

@@ -176,14 +176,23 @@ export default function PlansPage() {
   }
 
   function renderStructuredContent(plan: Plan) {
-    const structured = plan.content_structured as any;
-    if (!structured) {
-      return (
-        <div className="prose prose-invert prose-sm max-w-none whitespace-pre-wrap">
-          {plan.content}
-        </div>
-      );
+    let structured = plan.content_structured as any;
+
+    // If no structured content, try to parse content as JSON
+    if (!structured && plan.content) {
+      try {
+        structured = JSON.parse(plan.content);
+      } catch {
+        // Not JSON — render as plain text
+        return (
+          <div className="prose prose-invert prose-sm max-w-none whitespace-pre-wrap">
+            {plan.content}
+          </div>
+        );
+      }
     }
+
+    if (!structured) return <p className="text-sm text-zinc-500">No content available</p>;
 
     if (structured.warmup || structured.drills || structured.scrimmage || structured.cooldown) {
       return (
@@ -227,7 +236,7 @@ export default function PlansPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-zinc-300">{String(structured.warmup)}</p>
+                <p className="text-sm text-zinc-300">{typeof structured.warmup === 'string' ? structured.warmup : structured.warmup?.name || structured.warmup?.description || renderObjectFields(structured.warmup)}</p>
               )}
             </div>
           )}
@@ -285,7 +294,7 @@ export default function PlansPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-zinc-300">{String(structured.drills)}</p>
+                <p className="text-sm text-zinc-300">{typeof structured.drills === 'string' ? structured.drills : renderObjectFields(structured.drills)}</p>
               )}
             </div>
           )}
@@ -346,7 +355,7 @@ export default function PlansPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-zinc-300">{String(structured.cooldown)}</p>
+                <p className="text-sm text-zinc-300">{typeof structured.cooldown === 'string' ? structured.cooldown : structured.cooldown?.notes || structured.cooldown?.description || renderObjectFields(structured.cooldown)}</p>
               )}
             </div>
           )}
