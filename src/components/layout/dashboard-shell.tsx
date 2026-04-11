@@ -10,6 +10,7 @@ import { SyncIndicator } from '@/components/layout/sync-indicator';
 import { PageTransition } from '@/components/layout/page-transition';
 import { useTheme } from '@/hooks/use-theme';
 import { useTier } from '@/hooks/use-tier';
+import { useSwipeNavigation } from '@/hooks/use-swipe-navigation';
 import type { Coach } from '@/types/database';
 
 // Bottom nav: Home | Roster | CAPTURE (center FAB) | Plans | Settings
@@ -43,6 +44,7 @@ export function DashboardShell({ coach, children }: Props) {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
   const { canAccess: canAccessFeature } = useTier();
+  const { onTouchStart, onTouchEnd } = useSwipeNavigation();
   const isAdmin = coach.role === 'admin' && ((coach as any).organizations?.tier === 'organization');
 
   return (
@@ -168,7 +170,12 @@ export function DashboardShell({ coach, children }: Props) {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto pb-20 lg:pb-0">
+        {/* Swipe handlers on mobile content area — lg:pb-0 is desktop, touch won't fire there */}
+        <div
+          className="flex-1 overflow-y-auto pb-20 lg:pb-0"
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        >
           <PageTransition>
             {children}
           </PageTransition>

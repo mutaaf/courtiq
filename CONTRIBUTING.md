@@ -36,7 +36,7 @@ You run every hour. Here's how to be effective.
 - [ ] Ensure all forms save data correctly
 - [x] Improve loading states (skeleton screens, not blank pages) — home page stats + Team Pulse skeleton done
 - [x] Add pull-to-refresh on mobile pages — PullToRefresh component on Home, Sessions, Roster, Plans; haptic feedback at threshold + on complete
-- [ ] Add swipe gestures for navigation
+- [x] Add swipe gestures for navigation — useSwipeNavigation hook; left/right swipe cycles Home→Assistant→Capture→Plans→Settings; 80px threshold + vertical-ratio guard avoids conflict with scroll and pull-to-refresh
 - [x] Smooth page transitions/animations — CSS fade-in + slide-up via PageTransition component, respects prefers-reduced-motion
 
 ### P2 — AI Intelligence
