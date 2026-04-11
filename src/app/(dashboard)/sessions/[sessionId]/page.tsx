@@ -603,12 +603,22 @@ export default function SessionDetailPage() {
             )}
           </div>
         </div>
-        <Link href={`/capture?sessionId=${sessionId}`}>
-          <Button>
-            <Mic className="h-4 w-4" />
-            Capture
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          {(session.type === 'practice' || session.type === 'training' || session.type === 'scrimmage') && (
+            <Link href={`/sessions/${sessionId}/timer`}>
+              <Button variant="outline" size="sm" className="hidden sm:flex">
+                <Dumbbell className="h-4 w-4" />
+                Timer
+              </Button>
+            </Link>
+          )}
+          <Link href={`/capture?sessionId=${sessionId}`}>
+            <Button>
+              <Mic className="h-4 w-4" />
+              Capture
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Session info card */}
