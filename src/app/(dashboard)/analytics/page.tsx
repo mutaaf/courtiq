@@ -7,7 +7,7 @@ import { query } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, Minus, Users, Eye, Calendar, Target, AlertTriangle, CheckCircle2, Activity } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Users, Eye, Calendar, Target, AlertTriangle, CheckCircle2, Activity, LineChart as LineChartIcon } from 'lucide-react';
 import { UpgradeGate } from '@/components/ui/upgrade-gate';
 import type { Observation, Player, Session, Sentiment } from '@/types/database';
 
@@ -116,6 +116,163 @@ interface WeekBucket {
   neutral: number;
   needsWork: number;
   total: number;
+  healthScore: number | null; // null = not enough data
+}
+
+// SVG line chart — renders two lines: health score (%) and normalised obs count
+function LineChart({
+  buckets,
+}: {
+  buckets: WeekBucket[];
+}) {
+  const W = 480;
+  const H = 120;
+  const padL = 32;
+  const padR = 12;
+  const padT = 12;
+  const padB = 28;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+
+  const n = buckets.length;
+  if (n < 2) return null;
+
+  // Health line: only connect points where healthScore !== null
+  const healthPoints = buckets.map((b, i) => ({
+    x: padL + (i / (n - 1)) * innerW,
+    y: b.healthScore !== null ? padT + innerH - (b.healthScore / 100) * innerH : null,
+    score: b.healthScore,
+    label: weekLabel(b.weekKey),
+    total: b.total,
+  }));
+
+  // Volume line: normalise to 0–100
+  const maxTotal = Math.max(1, ...buckets.map((b) => b.total));
+  const volPoints = buckets.map((b, i) => ({
+    x: padL + (i / (n - 1)) * innerW,
+    y: padT + innerH - (b.total / maxTotal) * innerH,
+    total: b.total,
+  }));
+
+  // Build SVG path from connected health points (skip nulls)
+  function pathFromPoints(
+    pts: Array<{ x: number; y: number | null }>,
+    smooth = true
+  ): string {
+    const valid = pts.filter((p) => p.y !== null) as Array<{ x: number; y: number }>;
+    if (valid.length < 2) return '';
+    let d = `M ${valid[0].x},${valid[0].y}`;
+    for (let i = 1; i < valid.length; i++) {
+      if (smooth) {
+        const prev = valid[i - 1];
+        const curr = valid[i];
+        const cpx = (prev.x + curr.x) / 2;
+        d += ` C ${cpx},${prev.y} ${cpx},${curr.y} ${curr.x},${curr.y}`;
+      } else {
+        d += ` L ${valid[i].x},${valid[i].y}`;
+      }
+    }
+    return d;
+  }
+
+  // Y-axis labels: 0%, 50%, 100%
+  const yLabels = [100, 50, 0];
+
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="w-full overflow-visible"
+      style={{ height: H }}
+      aria-label="Team health score over time"
+    >
+      {/* Grid lines */}
+      {yLabels.map((pct) => {
+        const y = padT + innerH - (pct / 100) * innerH;
+        return (
+          <g key={pct}>
+            <line
+              x1={padL}
+              x2={padL + innerW}
+              y1={y}
+              y2={y}
+              stroke="#27272a"
+              strokeWidth={1}
+              strokeDasharray={pct === 0 ? '0' : '4 3'}
+            />
+            <text x={padL - 4} y={y + 4} fontSize={8} fill="#71717a" textAnchor="end">
+              {pct}%
+            </text>
+          </g>
+        );
+      })}
+
+      {/* Volume area fill */}
+      {volPoints.length >= 2 && (
+        <>
+          <path
+            d={`${pathFromPoints(volPoints)} L ${volPoints[volPoints.length - 1].x},${padT + innerH} L ${volPoints[0].x},${padT + innerH} Z`}
+            fill="#F97316"
+            fillOpacity={0.06}
+          />
+          <path
+            d={pathFromPoints(volPoints)}
+            fill="none"
+            stroke="#F97316"
+            strokeWidth={1.5}
+            strokeOpacity={0.35}
+            strokeDasharray="4 3"
+          />
+        </>
+      )}
+
+      {/* Health score line */}
+      {pathFromPoints(healthPoints) && (
+        <path
+          d={pathFromPoints(healthPoints)}
+          fill="none"
+          stroke="#10b981"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+
+      {/* Health score dots */}
+      {healthPoints.map((pt, i) =>
+        pt.y !== null ? (
+          <circle
+            key={i}
+            cx={pt.x}
+            cy={pt.y}
+            r={3.5}
+            fill={
+              pt.score !== null && pt.score >= 70
+                ? '#10b981'
+                : pt.score !== null && pt.score >= 50
+                ? '#F97316'
+                : '#f59e0b'
+            }
+            stroke="#09090b"
+            strokeWidth={1.5}
+          />
+        ) : null
+      )}
+
+      {/* X-axis labels */}
+      {healthPoints.map((pt, i) => (
+        <text
+          key={i}
+          x={pt.x}
+          y={H - 4}
+          fontSize={8}
+          fill="#52525b"
+          textAnchor="middle"
+        >
+          {pt.label}
+        </text>
+      ))}
+    </svg>
+  );
 }
 
 export default function AnalyticsPage() {
@@ -223,6 +380,7 @@ export default function AnalyticsPage() {
       neutral: 0,
       needsWork: 0,
       total: 0,
+      healthScore: null,
     }));
     const weekMap = new Map(weekBuckets.map((b) => [b.weekKey, b]));
 
@@ -235,6 +393,12 @@ export default function AnalyticsPage() {
         else if (o.sentiment === 'needs-work') bucket.needsWork++;
         else bucket.neutral++;
       }
+    });
+
+    // Compute per-week health score (positive / scored, null if no scored obs)
+    weekBuckets.forEach((b) => {
+      const scored = b.positive + b.needsWork;
+      b.healthScore = scored > 0 ? Math.round((b.positive / scored) * 100) : null;
     });
 
     // Player observation counts
@@ -488,6 +652,59 @@ export default function AnalyticsPage() {
                   label={weekLabel(bucket.weekKey)}
                 />
               ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Health score line chart */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <LineChartIcon className="h-4 w-4 text-emerald-400" />
+            Team Health Score Over Time
+            <Badge variant="secondary" className="text-[10px]">
+              8 weeks
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 space-y-3">
+          {isLoading ? (
+            <Skeleton className="h-32 w-full rounded-lg" />
+          ) : analytics.weekBuckets.some((b) => b.healthScore !== null) ? (
+            <>
+              <LineChart buckets={analytics.weekBuckets} />
+              {/* Legend */}
+              <div className="flex items-center gap-4 text-[10px] text-zinc-500">
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-2 w-5 rounded-full bg-emerald-500" />
+                  Health score %
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-0.5 w-5 rounded-full bg-orange-500/50" style={{ borderTop: '1.5px dashed #F97316' }} />
+                  Observation volume
+                </span>
+                <span className="ml-auto text-zinc-600">
+                  {(() => {
+                    const withData = analytics.weekBuckets.filter((b) => b.healthScore !== null);
+                    if (withData.length < 2) return null;
+                    const first = withData[0].healthScore!;
+                    const last = withData[withData.length - 1].healthScore!;
+                    const delta = last - first;
+                    if (Math.abs(delta) < 3) return 'Stable';
+                    return delta > 0
+                      ? `+${delta}pp over ${withData.length} weeks`
+                      : `${delta}pp over ${withData.length} weeks`;
+                  })()}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <LineChartIcon className="h-8 w-8 text-zinc-700 mb-2" />
+              <p className="text-xs text-zinc-500">
+                Capture observations with positive/needs-work sentiment to track health score trends.
+              </p>
             </div>
           )}
         </CardContent>
