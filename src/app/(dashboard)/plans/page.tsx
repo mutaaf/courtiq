@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   ClipboardList,
+  ClipboardCheck,
   Dumbbell,
   Trophy,
   Loader2,
@@ -49,6 +50,7 @@ const PLAN_TYPE_CONFIG: Record<
   custom: { label: 'Custom', icon: ClipboardList, color: 'text-zinc-400' },
   newsletter: { label: 'Parent Newsletter', icon: Newspaper, color: 'text-violet-400' },
   season_storyline: { label: 'Season Storyline', icon: BookOpen, color: 'text-indigo-400' },
+  self_assessment: { label: 'Self-Assessment', icon: ClipboardCheck, color: 'text-teal-400' },
 };
 
 const SUGGESTION_CHIPS = [

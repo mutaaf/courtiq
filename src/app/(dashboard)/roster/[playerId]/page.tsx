@@ -1,9 +1,9 @@
 'use client';
 
 import { use, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { query } from '@/lib/api';
+import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { CACHE_PROFILES } from '@/lib/query/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,12 +31,15 @@ import {
   BookOpen,
   TrendingUp,
   Star,
+  ClipboardCheck,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
-import type { Player, Observation, PlayerSkillProficiency, Sentiment } from '@/types/database';
+import type { Player, Observation, PlayerSkillProficiency, Plan, Sentiment } from '@/types/database';
 
-type Tab = 'overview' | 'observations' | 'report-card' | 'media' | 'share' | 'challenges' | 'storyline';
+type Tab = 'overview' | 'observations' | 'report-card' | 'media' | 'share' | 'challenges' | 'storyline' | 'self-assessment';
 
 const sentimentVariant: Record<Sentiment, 'success' | 'destructive' | 'secondary'> = {
   positive: 'success',
@@ -56,7 +59,8 @@ export default function PlayerDetailPage({
   params: Promise<{ playerId: string }>;
 }) {
   const { playerId } = use(params);
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, coach } = useActiveTeam();
+  const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
 
   // Report card state
@@ -80,6 +84,15 @@ export default function PlayerDetailPage({
   const [storylineLoading, setStorylineLoading] = useState(false);
   const [storylineError, setStorylineError] = useState<string | null>(null);
   const [storylineData, setStorylineData] = useState<any>(null);
+
+  // Self-assessment state
+  const [selfRatings, setSelfRatings] = useState<Record<string, number>>({});
+  const [selfNotes, setSelfNotes] = useState('');
+  const [selfOverall, setSelfOverall] = useState(3);
+  const [selfSaving, setSelfSaving] = useState(false);
+  const [selfError, setSelfError] = useState<string | null>(null);
+  const [selfSuccess, setSelfSuccess] = useState(false);
+  const [expandedAssessment, setExpandedAssessment] = useState<string | null>(null);
 
   const { data: player, isLoading: playerLoading } = useQuery({
     queryKey: queryKeys.players.detail(playerId),
@@ -126,6 +139,22 @@ export default function PlayerDetailPage({
     ...CACHE_PROFILES.proficiency,
   });
 
+  const { data: selfAssessments = [] } = useQuery({
+    queryKey: queryKeys.selfAssessments.player(playerId),
+    queryFn: async () => {
+      const data = await query<Plan[]>({
+        table: 'plans',
+        select: '*',
+        filters: { player_id: playerId, type: 'self_assessment' },
+        order: { column: 'created_at', ascending: false },
+        limit: 10,
+      });
+      return data || [];
+    },
+    enabled: activeTab === 'self-assessment',
+    ...CACHE_PROFILES.roster,
+  });
+
   // Category breakdown
   const categoryBreakdown = observations.reduce<Record<string, number>>((acc, obs) => {
     acc[obs.category] = (acc[obs.category] || 0) + 1;
@@ -143,6 +172,7 @@ export default function PlayerDetailPage({
     { id: 'report-card', label: 'Report Card', icon: <FileText className="h-4 w-4" /> },
     { id: 'challenges', label: 'Challenges', icon: <Zap className="h-4 w-4" /> },
     { id: 'storyline', label: 'Storyline', icon: <BookOpen className="h-4 w-4" /> },
+    { id: 'self-assessment', label: 'Self-Assessment', icon: <ClipboardCheck className="h-4 w-4" /> },
     { id: 'media', label: 'Media', icon: <ImageIcon className="h-4 w-4" /> },
     { id: 'share', label: 'Share', icon: <Share2 className="h-4 w-4" /> },
   ];
@@ -239,6 +269,61 @@ export default function PlayerDetailPage({
       setStorylineError(err instanceof Error ? err.message : 'Generation failed');
     } finally {
       setStorylineLoading(false);
+    }
+  }
+
+  async function handleSaveSelfAssessment() {
+    if (!activeTeam || !player || !coach) return;
+    setSelfSaving(true);
+    setSelfError(null);
+    setSelfSuccess(false);
+
+    const skillRatings = proficiencies
+      .filter((prof) => selfRatings[prof.skill_id] && selfRatings[prof.skill_id] > 0)
+      .map((prof) => ({
+        skill_id: prof.skill_id,
+        skill_name: prof.curriculum_skills?.name || prof.skill_id,
+        category: prof.curriculum_skills?.category || '',
+        self_rating: selfRatings[prof.skill_id],
+        coach_level: prof.proficiency_level,
+      }));
+
+    if (skillRatings.length === 0) {
+      setSelfError('Please rate at least one skill before saving.');
+      setSelfSaving(false);
+      return;
+    }
+
+    try {
+      await mutate({
+        table: 'plans',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          player_id: playerId,
+          type: 'self_assessment',
+          title: `Self-Assessment — ${player.name} — ${new Date().toLocaleDateString()}`,
+          content: JSON.stringify({ skill_ratings: skillRatings, overall_confidence: selfOverall, player_notes: selfNotes }),
+          content_structured: {
+            submitted_at: new Date().toISOString(),
+            skill_ratings: skillRatings,
+            overall_confidence: selfOverall,
+            player_notes: selfNotes || null,
+          },
+          skills_targeted: proficiencies.map((p) => p.skill_id),
+        },
+      });
+      setSelfSuccess(true);
+      setSelfRatings({});
+      setSelfNotes('');
+      setSelfOverall(3);
+      qc.invalidateQueries({ queryKey: queryKeys.selfAssessments.player(playerId) });
+      setTimeout(() => setSelfSuccess(false), 4000);
+    } catch (err) {
+      setSelfError(err instanceof Error ? err.message : 'Failed to save self-assessment');
+    } finally {
+      setSelfSaving(false);
     }
   }
 
@@ -1100,6 +1185,273 @@ export default function PlayerDetailPage({
               >
                 Generate New Storyline
               </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'self-assessment' && (
+        <div className="space-y-5">
+          {/* Intro Card */}
+          <Card className="border-teal-500/20 bg-gradient-to-b from-teal-500/10 to-transparent">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-500/15">
+                  <ClipboardCheck className="h-5 w-5 text-teal-400" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-zinc-100">Player Self-Assessment</h2>
+                  <p className="text-xs text-teal-400">Ages 13+ · Coaching conversation tool</p>
+                </div>
+              </div>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Have {player.name} rate their own skills (1–5 stars) during a 1-on-1 conversation.
+                Compare their self-perception with your coaching assessment to spark meaningful discussions.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Error / Success */}
+          {selfError && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{selfError}</span>
+            </div>
+          )}
+          {selfSuccess && (
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-400">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>Self-assessment saved! Great coaching conversation.</span>
+            </div>
+          )}
+
+          {/* Skill Rating Form */}
+          {proficiencies.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center p-8 text-center">
+                <ClipboardCheck className="mb-3 h-10 w-10 text-zinc-700" />
+                <h3 className="font-semibold text-zinc-300">No skills to assess yet</h3>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Record some observations for {player.name} first so skills appear here.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Rate Each Skill</CardTitle>
+                <p className="text-xs text-zinc-500">
+                  Ask {player.name} to rate themselves honestly — 1 = just starting, 5 = game-ready
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {proficiencies.slice(0, 12).map((prof) => {
+                  const skillName = prof.curriculum_skills?.name || prof.skill_id;
+                  const category = prof.curriculum_skills?.category || '';
+                  const coachLevelLabel: Record<string, string> = {
+                    insufficient_data: 'Not enough data',
+                    exploring: 'Exploring',
+                    practicing: 'Practicing',
+                    got_it: 'Got It',
+                    game_ready: 'Game Ready',
+                  };
+                  const coachLevelColor: Record<string, string> = {
+                    insufficient_data: 'text-zinc-500',
+                    exploring: 'text-blue-400',
+                    practicing: 'text-amber-400',
+                    got_it: 'text-emerald-400',
+                    game_ready: 'text-orange-400',
+                  };
+                  const currentRating = selfRatings[prof.skill_id] || 0;
+                  return (
+                    <div key={prof.skill_id} className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium text-zinc-200">{skillName}</p>
+                          {category && <p className="text-xs text-zinc-500">{category}</p>}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs text-zinc-500">Coach says</p>
+                          <p className={`text-xs font-semibold ${coachLevelColor[prof.proficiency_level] || 'text-zinc-400'}`}>
+                            {coachLevelLabel[prof.proficiency_level] || prof.proficiency_level}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() =>
+                              setSelfRatings((prev) => ({
+                                ...prev,
+                                [prof.skill_id]: prev[prof.skill_id] === star ? 0 : star,
+                              }))
+                            }
+                            className="touch-manipulation p-1 transition-transform active:scale-90"
+                            aria-label={`Rate ${skillName} ${star} stars`}
+                          >
+                            <Star
+                              className={`h-7 w-7 transition-colors ${
+                                star <= currentRating
+                                  ? 'fill-teal-400 text-teal-400'
+                                  : 'text-zinc-700 hover:text-zinc-500'
+                              }`}
+                            />
+                          </button>
+                        ))}
+                        {currentRating > 0 && (
+                          <span className="ml-2 text-xs text-teal-400 font-medium">
+                            {currentRating === 1 ? 'Just starting' : currentRating === 2 ? 'Getting there' : currentRating === 3 ? 'Making progress' : currentRating === 4 ? 'Feeling confident' : 'I\'ve got this!'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Overall confidence */}
+                <div className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-4 space-y-3">
+                  <p className="text-sm font-medium text-zinc-200">Overall Confidence</p>
+                  <p className="text-xs text-zinc-500">How confident does {player.name} feel about their game overall?</p>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setSelfOverall(star)}
+                        className="touch-manipulation p-1 transition-transform active:scale-90"
+                        aria-label={`Overall confidence ${star} stars`}
+                      >
+                        <Star
+                          className={`h-7 w-7 transition-colors ${
+                            star <= selfOverall
+                              ? 'fill-orange-400 text-orange-400'
+                              : 'text-zinc-700 hover:text-zinc-500'
+                          }`}
+                        />
+                      </button>
+                    ))}
+                    <span className="ml-2 text-xs text-orange-400 font-medium">
+                      {selfOverall}/5
+                    </span>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2 block">
+                    Player Notes (optional)
+                  </label>
+                  <textarea
+                    value={selfNotes}
+                    onChange={(e) => setSelfNotes(e.target.value)}
+                    placeholder={`What does ${player.name} want to work on? What are they proud of?`}
+                    rows={3}
+                    className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-teal-500/50 focus:ring-1 focus:ring-teal-500/20 resize-none"
+                  />
+                </div>
+
+                <Button
+                  onClick={handleSaveSelfAssessment}
+                  disabled={selfSaving || !activeTeam || !coach}
+                  className="w-full h-12 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-medium touch-manipulation active:scale-[0.98]"
+                >
+                  {selfSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <ClipboardCheck className="h-4 w-4 mr-2" />
+                      Save Self-Assessment
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Past Assessments */}
+          {selfAssessments.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-zinc-300 px-1">Previous Assessments</p>
+              {selfAssessments.map((assessment) => {
+                const structured = assessment.content_structured as any;
+                const ratings = structured?.skill_ratings || [];
+                const isExpanded = expandedAssessment === assessment.id;
+                return (
+                  <Card key={assessment.id} className="border-zinc-800">
+                    <CardContent className="p-4">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedAssessment(isExpanded ? null : assessment.id)}
+                        className="flex items-center justify-between w-full text-left touch-manipulation"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-zinc-200">
+                            {assessment.title?.replace('Self-Assessment — ', '') || formatDate(assessment.created_at)}
+                          </p>
+                          <p className="text-xs text-zinc-500">
+                            {ratings.length} skill{ratings.length !== 1 ? 's' : ''} rated
+                            {structured?.overall_confidence ? ` · Overall: ${structured.overall_confidence}/5` : ''}
+                          </p>
+                        </div>
+                        {isExpanded ? (
+                          <ChevronUp className="h-4 w-4 text-zinc-500 shrink-0" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-zinc-500 shrink-0" />
+                        )}
+                      </button>
+
+                      {isExpanded && (
+                        <div className="mt-4 space-y-3">
+                          {ratings.map((r: any, i: number) => {
+                            const coachLevelMap: Record<string, number> = {
+                              exploring: 1,
+                              practicing: 3,
+                              got_it: 4,
+                              game_ready: 5,
+                            };
+                            const coachNumeric = coachLevelMap[r.coach_level] || 0;
+                            const diff = r.self_rating - coachNumeric;
+                            return (
+                              <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div>
+                                    <p className="text-sm font-medium text-zinc-200">{r.skill_name}</p>
+                                    {r.category && <p className="text-xs text-zinc-500">{r.category}</p>}
+                                  </div>
+                                  {coachNumeric > 0 && (
+                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${diff > 0 ? 'bg-amber-500/15 text-amber-400' : diff < 0 ? 'bg-blue-500/15 text-blue-400' : 'bg-zinc-700/50 text-zinc-400'}`}>
+                                      {diff > 0 ? `+${diff} vs coach` : diff < 0 ? `${diff} vs coach` : 'Aligned'}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <div className="flex gap-0.5">
+                                    {[1, 2, 3, 4, 5].map((s) => (
+                                      <Star key={s} className={`h-4 w-4 ${s <= r.self_rating ? 'fill-teal-400 text-teal-400' : 'text-zinc-700'}`} />
+                                    ))}
+                                  </div>
+                                  <span className="text-xs text-zinc-500">Player self-rating</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {structured?.player_notes && (
+                            <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1">Player Notes</p>
+                              <p className="text-sm text-zinc-300 italic leading-relaxed">&ldquo;{structured.player_notes}&rdquo;</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>

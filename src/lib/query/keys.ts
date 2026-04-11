@@ -44,4 +44,7 @@ export const queryKeys = {
   coach: {
     current: () => ['coach', 'current'] as const,
   },
+  selfAssessments: {
+    player: (playerId: string) => ['selfAssessments', 'player', playerId] as const,
+  },
 } as const;
