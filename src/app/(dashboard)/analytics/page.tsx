@@ -7,7 +7,7 @@ import { query } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, Minus, Users, Eye, Calendar, Target, AlertTriangle, CheckCircle2, Activity, LineChart as LineChartIcon } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Users, Eye, Calendar, Target, AlertTriangle, CheckCircle2, Activity, LineChart as LineChartIcon, LayoutGrid } from 'lucide-react';
 import { UpgradeGate } from '@/components/ui/upgrade-gate';
 import type { Observation, Player, Session, Sentiment } from '@/types/database';
 
@@ -275,6 +275,141 @@ function LineChart({
   );
 }
 
+// Observation Heatmap — player rows × week columns, cell color = observation intensity
+function HeatmapGrid({
+  players,
+  weekKeys,
+  playerWeekCounts,
+  maxCellCount,
+}: {
+  players: Pick<Player, 'id' | 'name' | 'jersey_number'>[];
+  weekKeys: string[];
+  playerWeekCounts: Map<string, Map<string, number>>;
+  maxCellCount: number;
+}) {
+  const CELL = 22;
+  const GAP = 3;
+  const LABEL_W = 72;
+  const HEADER_H = 20;
+  const visPlayers = players.slice(0, 14);
+  const cols = weekKeys.length;
+  const rows = visPlayers.length;
+  const totalW = LABEL_W + cols * (CELL + GAP);
+  const totalH = HEADER_H + rows * (CELL + GAP);
+
+  if (rows === 0) return null;
+
+  return (
+    <div className="overflow-x-auto -mx-1 px-1">
+      <svg
+        viewBox={`0 0 ${totalW} ${totalH}`}
+        className="w-full"
+        style={{ minWidth: 280, height: Math.min(totalH, 380) }}
+        aria-label="Observation attention heatmap — players vs weeks"
+      >
+        {/* Week column headers */}
+        {weekKeys.map((wk, ci) => (
+          <text
+            key={wk}
+            x={LABEL_W + ci * (CELL + GAP) + CELL / 2}
+            y={HEADER_H - 4}
+            fontSize={7}
+            fill="#52525b"
+            textAnchor="middle"
+          >
+            {weekLabel(wk)}
+          </text>
+        ))}
+
+        {/* Player rows */}
+        {visPlayers.map((player, ri) => {
+          const y = HEADER_H + ri * (CELL + GAP);
+          return (
+            <g key={player.id}>
+              {/* Truncated first name label */}
+              <text
+                x={LABEL_W - 5}
+                y={y + CELL / 2 + 3.5}
+                fontSize={9}
+                fill="#a1a1aa"
+                textAnchor="end"
+              >
+                {player.name.split(' ')[0].slice(0, 9)}
+              </text>
+
+              {/* Week cells */}
+              {weekKeys.map((wk, ci) => {
+                const count = playerWeekCounts.get(player.id)?.get(wk) ?? 0;
+                // sqrt scale for better visual range at low counts
+                const intensity = Math.pow(count / maxCellCount, 0.55);
+                const cellFill =
+                  count === 0
+                    ? '#18181b'
+                    : `rgba(249,115,22,${(0.15 + intensity * 0.85).toFixed(2)})`;
+
+                return (
+                  <g key={wk}>
+                    <rect
+                      x={LABEL_W + ci * (CELL + GAP)}
+                      y={y}
+                      width={CELL}
+                      height={CELL}
+                      rx={4}
+                      fill={cellFill}
+                    >
+                      <title>{`${player.name} · ${weekLabel(wk)}: ${count} obs`}</title>
+                    </rect>
+                    {count > 0 && (
+                      <text
+                        x={LABEL_W + ci * (CELL + GAP) + CELL / 2}
+                        y={y + CELL / 2 + 3.5}
+                        fontSize={count >= 10 ? 6.5 : 7.5}
+                        fill={intensity > 0.5 ? '#fff' : '#d4d4d8'}
+                        textAnchor="middle"
+                        style={{ pointerEvents: 'none', userSelect: 'none' }}
+                      >
+                        {count}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
+            </g>
+          );
+        })}
+      </svg>
+
+      {/* Colour scale legend */}
+      <div className="flex items-center gap-2 mt-2 text-[10px] text-zinc-500">
+        <span>Few</span>
+        <div className="flex gap-0.5">
+          {[0.08, 0.25, 0.45, 0.65, 0.85, 1.0].map((a) => (
+            <div
+              key={a}
+              className="rounded-sm"
+              style={{
+                width: 14,
+                height: 10,
+                background: a === 0.08 ? '#18181b' : `rgba(249,115,22,${a.toFixed(2)})`,
+              }}
+            />
+          ))}
+        </div>
+        <span>Many</span>
+        <span className="ml-auto text-zinc-600 italic">
+          Hover a cell to see exact count
+        </span>
+      </div>
+
+      {players.length > 14 && (
+        <p className="text-[10px] text-zinc-600 text-center mt-1">
+          Showing top 14 players by total observations · {players.length - 14} more not shown
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function AnalyticsPage() {
   const { activeTeam } = useActiveTeam();
 
@@ -419,6 +554,23 @@ export default function AnalyticsPage() {
     });
     const maxPlayerObs = Math.max(1, ...Array.from(playerCounts.values()).map((c) => c.total));
 
+    // Player × week attention heatmap
+    const playerWeekCounts = new Map<string, Map<string, number>>();
+    players.forEach((p) => {
+      playerWeekCounts.set(p.id, new Map(uniqueWeekKeys.map((wk) => [wk, 0])));
+    });
+    observations.forEach((o) => {
+      if (!o.player_id) return;
+      const pw = playerWeekCounts.get(o.player_id);
+      if (!pw) return;
+      const wk = getISOWeekKey(new Date(o.created_at));
+      if (pw.has(wk)) pw.set(wk, (pw.get(wk) ?? 0) + 1);
+    });
+    const maxCellCount = Math.max(
+      1,
+      ...Array.from(playerWeekCounts.values()).flatMap((m) => Array.from(m.values()))
+    );
+
     // Category breakdown
     const categoryCounts = new Map<string, { positive: number; needsWork: number; neutral: number; total: number }>();
     observations.forEach((o) => {
@@ -452,8 +604,11 @@ export default function AnalyticsPage() {
       healthTrend,
       last30Health,
       weekBuckets,
+      heatmapWeekKeys: uniqueWeekKeys,
       playerCounts,
       maxPlayerObs,
+      playerWeekCounts,
+      maxCellCount,
       sortedCategories,
       maxCategoryTotal,
       needsWorkByCategory,
@@ -709,6 +864,36 @@ export default function AnalyticsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Observation Heatmap */}
+      {!isLoading && players.length > 0 && analytics.total > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <LayoutGrid className="h-4 w-4 text-orange-400" />
+              Attention Heatmap
+              <Badge variant="secondary" className="text-[10px]">
+                player × week
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 space-y-1">
+            <p className="text-[10px] text-zinc-500 mb-3">
+              Observation count per player per week — spot players who haven&apos;t received recent attention.
+            </p>
+            <HeatmapGrid
+              players={[...players].sort((a, b) => {
+                const ac = analytics.playerCounts.get(a.id)?.total ?? 0;
+                const bc = analytics.playerCounts.get(b.id)?.total ?? 0;
+                return bc - ac;
+              })}
+              weekKeys={analytics.heatmapWeekKeys}
+              playerWeekCounts={analytics.playerWeekCounts}
+              maxCellCount={analytics.maxCellCount}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Two-column: Player attention + Category breakdown */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
