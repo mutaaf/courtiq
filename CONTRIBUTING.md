@@ -48,7 +48,7 @@ You run every hour. Here's how to be effective.
 - [x] Auto-generate weekly parent newsletter from observations — AI-written team newsletter with player spotlights, home challenges, team highlight, and coaching note; saved as plan type `newsletter` with rich renderer; violet-themed generation button in Plans page
 
 ### P3 — Data & Analytics
-- [ ] Player comparison view (side-by-side skill radar)
+- [x] Player comparison view (side-by-side skill radar) — /roster/compare; SVG radar chart (shared skills, up to 12 axes), side-by-side progress bars for all skills, per-player summary stats; Compare button in roster header when 2+ players
 - [ ] Team progress over time (line charts)
 - [ ] Session-over-session improvement tracking
 - [ ] Practice-to-game transfer score visualization
