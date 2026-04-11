@@ -65,7 +65,16 @@ export async function POST(request: Request) {
   const admin = await createServiceSupabase();
 
   const body = await request.json();
-  const { teamId, type = 'practice', opponent, focusSkills } = body;
+  const {
+    teamId,
+    type = 'practice',
+    opponent,
+    focusSkills,
+    opponentStrengths,
+    opponentWeaknesses,
+    keyOpponentPlayers,
+    gameNotes,
+  } = body;
 
   if (!teamId) {
     return NextResponse.json({ error: 'teamId required' }, { status: 400 });
@@ -96,7 +105,14 @@ export async function POST(request: Request) {
     let prompt: { system: string; user: string }, schema: any, interactionType: string;
 
     if (type === 'gameday') {
-      prompt = PROMPT_REGISTRY.gamedaySheet({ ...context, opponent });
+      prompt = PROMPT_REGISTRY.gamedaySheet({
+        ...context,
+        opponent,
+        opponentStrengths: Array.isArray(opponentStrengths) ? opponentStrengths : undefined,
+        opponentWeaknesses: Array.isArray(opponentWeaknesses) ? opponentWeaknesses : undefined,
+        keyOpponentPlayers: Array.isArray(keyOpponentPlayers) ? keyOpponentPlayers : undefined,
+        gameNotes: typeof gameNotes === 'string' ? gameNotes : undefined,
+      });
       schema = gamedaySheetSchema;
       interactionType = 'generate_gameday_sheet';
     } else {

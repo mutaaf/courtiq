@@ -61,18 +61,35 @@ export const practicePlanSchema = z.object({
 export const gamedaySheetSchema = z.object({
   title: z.string(),
   opponent: z.string().optional(),
+  pregame_message: z.string().optional(),
+  scouting_report: z.object({
+    opponent_strengths: z.array(z.string()).optional(),
+    opponent_weaknesses: z.array(z.string()).optional(),
+    key_players_to_watch: z.array(z.object({
+      name: z.string(),
+      threat_level: z.enum(['high', 'medium', 'low']).optional(),
+      defensive_assignment: z.string().optional(),
+      notes: z.string().optional(),
+    })).optional(),
+  }).optional(),
+  game_plan: z.object({
+    offensive_focus: z.array(z.string()),
+    defensive_focus: z.array(z.string()),
+    key_matchups: z.array(z.string()).optional(),
+    set_plays: z.array(z.object({
+      name: z.string(),
+      description: z.string(),
+      use_when: z.string().optional(),
+    })).optional(),
+  }),
   lineup: z.array(z.object({
     player_name: z.string(),
     position: z.string(),
     focus_areas: z.array(z.string()),
   })).optional(),
-  game_plan: z.object({
-    offensive_focus: z.array(z.string()),
-    defensive_focus: z.array(z.string()),
-    key_matchups: z.array(z.string()).optional(),
-  }),
   substitution_plan: z.string().optional(),
   halftime_adjustments: z.array(z.string()).optional(),
+  coaching_reminders: z.array(z.string()).optional(),
 });
 
 export const developmentCardSchema = z.object({

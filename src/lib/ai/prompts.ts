@@ -134,16 +134,50 @@ export const PROMPT_REGISTRY = {
     };
   },
 
-  gamedaySheet: (params: PromptParams & { opponent?: string; gameNotes?: string }) => ({
+  gamedaySheet: (params: PromptParams & {
+    opponent?: string;
+    gameNotes?: string;
+    opponentStrengths?: string[];
+    opponentWeaknesses?: string[];
+    keyOpponentPlayers?: string[];
+  }) => ({
     system: [
       buildSystemPreamble(params),
-      'You generate game day preparation sheets for youth coaches.',
+      'You generate comprehensive game day preparation sheets for youth coaches.',
+      'Use specific scouting information to create actionable, opponent-specific strategies.',
+      'Keep strategies accessible for volunteer coaches, not just elite-level staff.',
+      'Always lead with positivity — build team confidence while preparing smart.',
     ].join('\n'),
     user: [
-      `Generate a game day sheet for ${params.teamName || 'the team'}.`,
-      params.opponent ? `Opponent: ${params.opponent}` : '',
-      params.gameNotes || '',
-      'Respond with JSON: { "title", "opponent", "game_plan": { "offensive_focus": [], "defensive_focus": [] }, "substitution_plan", "halftime_adjustments": [] }',
+      `Generate a complete game day prep sheet for ${params.teamName || 'the team'}.`,
+      params.opponent ? `Opponent: ${params.opponent}` : 'Opponent: TBD',
+      params.opponentStrengths?.length
+        ? `Opponent Strengths (what they do well): ${params.opponentStrengths.join('; ')}`
+        : '',
+      params.opponentWeaknesses?.length
+        ? `Opponent Weaknesses (areas to exploit): ${params.opponentWeaknesses.join('; ')}`
+        : '',
+      params.keyOpponentPlayers?.length
+        ? `Key Opponent Players to Watch: ${params.keyOpponentPlayers.join('; ')}`
+        : '',
+      params.gameNotes ? `Additional Notes: ${params.gameNotes}` : '',
+      params.roster?.length
+        ? `\nOur Roster (${params.roster.length} players): ${params.roster
+            .map((p) => `${p.name} #${p.jersey_number || '?'} (${p.position})`)
+            .join(', ')}`
+        : '',
+      '',
+      'Create a comprehensive prep sheet with:',
+      '1. An energizing pregame_message for the team (2-3 sentences, confidence-building)',
+      '2. scouting_report with opponent_strengths, opponent_weaknesses, and key_players_to_watch (each with name, threat_level: high/medium/low, defensive_assignment, notes)',
+      '3. game_plan with offensive_focus (3-5 items), defensive_focus (3-5 items), key_matchups, and set_plays (name, description, use_when)',
+      '4. lineup suggestions (player_name, position, focus_areas)',
+      '5. substitution_plan (rotation strategy as a string)',
+      '6. halftime_adjustments (3-4 items to consider based on opponent)',
+      '7. coaching_reminders (4-6 quick sideline reminders)',
+      '',
+      'Respond with JSON:',
+      '{ "title", "opponent", "pregame_message", "scouting_report": { "opponent_strengths": [], "opponent_weaknesses": [], "key_players_to_watch": [{ "name", "threat_level", "defensive_assignment", "notes" }] }, "game_plan": { "offensive_focus": [], "defensive_focus": [], "key_matchups": [], "set_plays": [{ "name", "description", "use_when" }] }, "lineup": [{ "player_name", "position", "focus_areas": [] }], "substitution_plan", "halftime_adjustments": [], "coaching_reminders": [] }',
     ].filter(Boolean).join('\n'),
   }),
 

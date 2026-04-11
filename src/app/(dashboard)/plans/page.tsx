@@ -32,6 +32,12 @@ import {
   Home,
   Users,
   BookOpen,
+  Shield,
+  Swords,
+  Eye,
+  MessageSquare,
+  Zap,
+  ChevronUp,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import type { Plan, Player, PlanType } from '@/types/database';
@@ -77,6 +83,15 @@ export default function PlansPage() {
   const [generatingStoryline, setGeneratingStoryline] = useState(false);
   const [storylinePlayerId, setStorylinePlayerId] = useState<string>('');
   const [storylineStats, setStorylineStats] = useState<{ totalObservations: number; weeksOfData: number; firstObservationDate: string; latestObservationDate: string } | null>(null);
+
+  // Game Day Prep state
+  const [showGamedayForm, setShowGamedayForm] = useState(false);
+  const [generatingGameday, setGeneratingGameday] = useState(false);
+  const [gamedayOpponent, setGamedayOpponent] = useState('');
+  const [gamedayStrengths, setGamedayStrengths] = useState('');
+  const [gamedayWeaknesses, setGamedayWeaknesses] = useState('');
+  const [gamedayKeyPlayers, setGamedayKeyPlayers] = useState('');
+  const [gamedayNotes, setGamedayNotes] = useState('');
 
   const { data: plans, isLoading, refetch: refetchPlans } = useQuery({
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
@@ -218,6 +233,45 @@ export default function PlansPage() {
       setError(err instanceof Error ? err.message : 'Season storyline generation failed');
     } finally {
       setGeneratingStoryline(false);
+    }
+  };
+
+  const generateGamedayPrep = async () => {
+    if (!activeTeam || !gamedayOpponent.trim()) return;
+    setGeneratingGameday(true);
+    setError(null);
+    const splitLine = (s: string) => s.split(',').map((x) => x.trim()).filter(Boolean);
+    try {
+      const res = await fetch('/api/ai/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId: activeTeam.id,
+          type: 'gameday',
+          opponent: gamedayOpponent.trim(),
+          opponentStrengths: splitLine(gamedayStrengths),
+          opponentWeaknesses: splitLine(gamedayWeaknesses),
+          keyOpponentPlayers: splitLine(gamedayKeyPlayers),
+          gameNotes: gamedayNotes.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate game day prep');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      setShowGamedayForm(false);
+      setGamedayOpponent('');
+      setGamedayStrengths('');
+      setGamedayWeaknesses('');
+      setGamedayKeyPlayers('');
+      setGamedayNotes('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Game day prep generation failed');
+    } finally {
+      setGeneratingGameday(false);
     }
   };
 
@@ -461,6 +515,214 @@ export default function PlansPage() {
             <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Coach&apos;s Reflection</p>
               <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{structured.coach_reflection}&rdquo;</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Game Day Sheet renderer
+    if (structured.game_plan && (structured.opponent !== undefined || structured.pregame_message !== undefined || structured.scouting_report !== undefined)) {
+      const gp = structured.game_plan;
+      const sr = structured.scouting_report;
+      const threatColor = (level: string) => {
+        if (level === 'high') return 'text-red-400 bg-red-500/10 border-red-500/20';
+        if (level === 'medium') return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+        return 'text-zinc-400 bg-zinc-800 border-zinc-700';
+      };
+      return (
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Trophy className="h-5 w-5 text-emerald-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Game Day Prep</span>
+            </div>
+            {structured.title && <h2 className="text-xl font-bold text-zinc-100">{structured.title}</h2>}
+            {structured.opponent && <p className="text-sm text-zinc-400">vs. {structured.opponent}</p>}
+          </div>
+
+          {/* Pregame Message */}
+          {structured.pregame_message && (
+            <div className="rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <MessageSquare className="h-4 w-4 text-emerald-400" />
+                <p className="text-sm font-semibold text-emerald-300">Pregame Message</p>
+              </div>
+              <p className="text-sm text-zinc-200 leading-relaxed italic">&ldquo;{structured.pregame_message}&rdquo;</p>
+            </div>
+          )}
+
+          {/* Scouting Report */}
+          {sr && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Eye className="h-4 w-4 text-amber-400" />
+                <p className="text-sm font-semibold text-zinc-200">Scouting Report</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {Array.isArray(sr.opponent_strengths) && sr.opponent_strengths.length > 0 && (
+                  <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Swords className="h-3.5 w-3.5 text-red-400" />
+                      <p className="text-xs font-semibold text-red-300 uppercase tracking-wider">Their Strengths</p>
+                    </div>
+                    <ul className="space-y-1">
+                      {sr.opponent_strengths.map((s: string, i: number) => (
+                        <li key={i} className="text-xs text-zinc-400 flex gap-2 items-start"><span className="text-red-500 mt-0.5 shrink-0">!</span>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {Array.isArray(sr.opponent_weaknesses) && sr.opponent_weaknesses.length > 0 && (
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Shield className="h-3.5 w-3.5 text-emerald-400" />
+                      <p className="text-xs font-semibold text-emerald-300 uppercase tracking-wider">Exploit</p>
+                    </div>
+                    <ul className="space-y-1">
+                      {sr.opponent_weaknesses.map((w: string, i: number) => (
+                        <li key={i} className="text-xs text-zinc-400 flex gap-2 items-start"><span className="text-emerald-500 mt-0.5 shrink-0">✓</span>{w}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              {Array.isArray(sr.key_players_to_watch) && sr.key_players_to_watch.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Eye className="h-3.5 w-3.5" />Key Players to Watch
+                  </p>
+                  <div className="space-y-2">
+                    {sr.key_players_to_watch.map((kp: any, i: number) => (
+                      <div key={i} className={`rounded-lg border px-3 py-2.5 ${threatColor(kp.threat_level)}`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-semibold">{kp.name}</p>
+                          {kp.threat_level && (
+                            <span className="text-xs font-medium uppercase tracking-wider px-2 py-0.5 rounded-full border border-current">{kp.threat_level}</span>
+                          )}
+                        </div>
+                        {kp.defensive_assignment && <p className="text-xs opacity-80">Assignment: {kp.defensive_assignment}</p>}
+                        {kp.notes && <p className="text-xs opacity-70 mt-0.5">{kp.notes}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Game Plan */}
+          {gp && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {Array.isArray(gp.offensive_focus) && gp.offensive_focus.length > 0 && (
+                  <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Swords className="h-3.5 w-3.5 text-blue-400" />
+                      <p className="text-xs font-semibold text-blue-300 uppercase tracking-wider">Offensive Focus</p>
+                    </div>
+                    <ul className="space-y-1.5">
+                      {gp.offensive_focus.map((f: string, i: number) => (
+                        <li key={i} className="text-xs text-zinc-300 flex gap-2 items-start"><span className="text-blue-500 shrink-0 mt-0.5">→</span>{f}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {Array.isArray(gp.defensive_focus) && gp.defensive_focus.length > 0 && (
+                  <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-3 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Shield className="h-3.5 w-3.5 text-orange-400" />
+                      <p className="text-xs font-semibold text-orange-300 uppercase tracking-wider">Defensive Focus</p>
+                    </div>
+                    <ul className="space-y-1.5">
+                      {gp.defensive_focus.map((f: string, i: number) => (
+                        <li key={i} className="text-xs text-zinc-300 flex gap-2 items-start"><span className="text-orange-500 shrink-0 mt-0.5">→</span>{f}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              {Array.isArray(gp.key_matchups) && gp.key_matchups.length > 0 && (
+                <div className="rounded-xl border border-zinc-700 bg-zinc-900/30 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Key Matchups</p>
+                  <ul className="space-y-1">
+                    {gp.key_matchups.map((m: string, i: number) => (
+                      <li key={i} className="text-xs text-zinc-400 flex gap-2"><span className="text-zinc-600">⚡</span>{m}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {Array.isArray(gp.set_plays) && gp.set_plays.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-purple-300 uppercase tracking-wider">Set Plays</p>
+                  <div className="space-y-2">
+                    {gp.set_plays.map((play: any, i: number) => (
+                      <div key={i} className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3">
+                        <p className="text-sm font-semibold text-purple-300">{play.name}</p>
+                        <p className="text-xs text-zinc-400 mt-1">{play.description}</p>
+                        {play.use_when && <p className="text-xs text-purple-400/70 mt-1 italic">Use when: {play.use_when}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Lineup */}
+          {Array.isArray(structured.lineup) && structured.lineup.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Suggested Lineup</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {structured.lineup.map((p: any, i: number) => (
+                  <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-sm font-semibold text-zinc-100">{p.player_name}</p>
+                      <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">{p.position}</span>
+                    </div>
+                    {Array.isArray(p.focus_areas) && p.focus_areas.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {p.focus_areas.map((fa: string, j: number) => (
+                          <span key={j} className="text-xs text-zinc-400 bg-zinc-800 px-1.5 py-0.5 rounded">{fa}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Substitution Plan */}
+          {structured.substitution_plan && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/30 p-4">
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Substitution Plan</p>
+              <p className="text-sm text-zinc-300">{structured.substitution_plan}</p>
+            </div>
+          )}
+
+          {/* Halftime Adjustments */}
+          {Array.isArray(structured.halftime_adjustments) && structured.halftime_adjustments.length > 0 && (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
+              <p className="text-xs font-semibold text-amber-300 uppercase tracking-wider">Halftime Adjustments</p>
+              <ul className="space-y-1.5">
+                {structured.halftime_adjustments.map((a: string, i: number) => (
+                  <li key={i} className="text-xs text-zinc-300 flex gap-2 items-start"><span className="text-amber-500 shrink-0 mt-0.5">→</span>{a}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Coaching Reminders */}
+          {Array.isArray(structured.coaching_reminders) && structured.coaching_reminders.length > 0 && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/40 p-4 space-y-2">
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Sideline Reminders</p>
+              <div className="flex flex-wrap gap-2">
+                {structured.coaching_reminders.map((r: string, i: number) => (
+                  <span key={i} className="text-xs text-zinc-300 bg-zinc-800 border border-zinc-700 rounded-full px-3 py-1">{r}</span>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -900,6 +1162,122 @@ export default function PlansPage() {
               </div>
             </div>
 
+            {/* Game Day Prep — scouting-based */}
+            <div className="rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 to-emerald-500/5 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowGamedayForm((v) => !v)}
+                disabled={generatingGameday || generating || !activeTeam}
+                className="flex w-full items-center gap-2.5 p-3 text-left transition-all hover:from-emerald-500/20 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/25">
+                  {generatingGameday ? (
+                    <Loader2 className="h-4 w-4 text-emerald-400 animate-spin" />
+                  ) : (
+                    <Trophy className="h-4 w-4 text-emerald-400" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-emerald-300">Game Day Prep</p>
+                  <p className="text-xs text-zinc-500">Scouting-based AI prep sheet with matchups &amp; strategy</p>
+                </div>
+                {showGamedayForm ? (
+                  <ChevronUp className="h-4 w-4 text-emerald-500/60 shrink-0" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-emerald-500/60 shrink-0" />
+                )}
+              </button>
+
+              {showGamedayForm && (
+                <div className="border-t border-emerald-500/20 p-3 space-y-3">
+                  <div>
+                    <label className="text-xs font-medium text-zinc-400 mb-1 block">Opponent Name <span className="text-red-400">*</span></label>
+                    <input
+                      type="text"
+                      value={gamedayOpponent}
+                      onChange={(e) => setGamedayOpponent(e.target.value)}
+                      placeholder="e.g. Riverside Hawks"
+                      disabled={generatingGameday}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-zinc-400 mb-1 flex items-center gap-1.5">
+                      <Swords className="h-3 w-3 text-red-400" />
+                      Their Strengths <span className="text-zinc-600">(comma-separated)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={gamedayStrengths}
+                      onChange={(e) => setGamedayStrengths(e.target.value)}
+                      placeholder="e.g. fast breaks, strong post play, press defense"
+                      disabled={generatingGameday}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-zinc-400 mb-1 flex items-center gap-1.5">
+                      <Shield className="h-3 w-3 text-emerald-400" />
+                      Their Weaknesses <span className="text-zinc-600">(comma-separated)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={gamedayWeaknesses}
+                      onChange={(e) => setGamedayWeaknesses(e.target.value)}
+                      placeholder="e.g. weak perimeter shooting, poor ball handling under pressure"
+                      disabled={generatingGameday}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-zinc-400 mb-1 flex items-center gap-1.5">
+                      <Eye className="h-3 w-3 text-amber-400" />
+                      Key Opponent Players <span className="text-zinc-600">(comma-separated)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={gamedayKeyPlayers}
+                      onChange={(e) => setGamedayKeyPlayers(e.target.value)}
+                      placeholder="e.g. #23 tall center, #5 fast point guard"
+                      disabled={generatingGameday}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-zinc-400 mb-1 flex items-center gap-1.5">
+                      <MessageSquare className="h-3 w-3 text-zinc-400" />
+                      Additional Notes <span className="text-zinc-600">(optional)</span>
+                    </label>
+                    <textarea
+                      value={gamedayNotes}
+                      onChange={(e) => setGamedayNotes(e.target.value)}
+                      placeholder="Any other scouting notes, game location, weather, etc."
+                      disabled={generatingGameday}
+                      rows={2}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500/50 disabled:opacity-50 resize-none"
+                    />
+                  </div>
+                  <Button
+                    onClick={generateGamedayPrep}
+                    disabled={!gamedayOpponent.trim() || generatingGameday || !activeTeam}
+                    className="w-full h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium disabled:opacity-30 touch-manipulation active:scale-[0.98]"
+                  >
+                    {generatingGameday ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Generating prep sheet...
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <Zap className="h-4 w-4" />
+                        Generate Game Day Prep
+                      </span>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+
             {/* Generic suggestion chips */}
             <div className="flex flex-wrap gap-2">
               {SUGGESTION_CHIPS.map((chip) => (
@@ -944,6 +1322,17 @@ export default function PlansPage() {
               <div>
                 <p className="text-sm font-medium text-indigo-300">Writing season storyline...</p>
                 <p className="text-xs text-zinc-500">Analyzing the full season of observations and crafting the player&apos;s arc</p>
+              </div>
+            </div>
+          )}
+
+          {/* Game Day Prep generating indicator */}
+          {generatingGameday && (
+            <div className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+              <Loader2 className="h-5 w-5 text-emerald-400 animate-spin" />
+              <div>
+                <p className="text-sm font-medium text-emerald-300">Building game day prep sheet...</p>
+                <p className="text-xs text-zinc-500">Analyzing scouting notes and generating matchup strategies</p>
               </div>
             </div>
           )}
