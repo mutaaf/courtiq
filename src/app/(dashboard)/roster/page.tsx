@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlayerCard } from '@/components/roster/player-card';
-import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera } from 'lucide-react';
+import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareArrows } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import type { Player } from '@/types/database';
@@ -101,6 +101,14 @@ export default function RosterPage() {
           </p>
         </div>
         <div className="hidden sm:flex items-center gap-2">
+          {players.length >= 2 && (
+            <Link href="/roster/compare">
+              <Button variant="outline" size="sm">
+                <GitCompareArrows className="h-4 w-4" />
+                Compare
+              </Button>
+            </Link>
+          )}
           <Link href="/roster/import-photo">
             <Button variant="outline" size="sm">
               <Camera className="h-4 w-4" />
