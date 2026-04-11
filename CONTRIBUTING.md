@@ -52,7 +52,7 @@ You run every hour. Here's how to be effective.
 - [x] Team progress over time (line charts) — SVG line chart in Analytics page: weekly health score % (emerald line, colour-coded dots) + observation volume (orange area), smoothed Bézier curves, gap handling for weeks with no data, trend delta label
 - [x] Session-over-session improvement tracking — per-session health score chart in Analytics; purple line + type-colored dots (practice=orange, game=blue, scrimmage=purple, tournament=amber, training=teal), dot size = obs count, trend delta badge
 - [x] Practice-to-game transfer score visualization — dual-bar card in Analytics: practice health% vs game health% per player + team aggregate; color-coded transfer delta (green=skills transfer, amber=slight drop, red=sharp drop); sorted by transfer delta
-- [ ] Export data as PDF/CSV
+- [x] Export data as PDF/CSV — CSV export (observations, roster, sessions) via GET /api/export; Export dropdown in Analytics page header triggers browser file download
 - [x] Observation heatmap (which players get most attention) — player × week SVG grid in Analytics; cell colour = observation intensity (sqrt-scaled orange), count label inside cell, tooltip on hover, colour legend; top 14 players sorted by total obs
 
 ### P4 — Innovative Features (Differentiators)
