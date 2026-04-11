@@ -12,6 +12,7 @@ export interface SessionDebriefResult {
     skill_area: string;
     detail: string;
     player_count: number;
+    is_recurring: boolean;
   }>;
   next_practice_focus: Array<{
     focus: string;
@@ -20,6 +21,8 @@ export interface SessionDebriefResult {
   }>;
   coaching_tip: string;
   overall_tone: 'great' | 'good' | 'developing' | 'struggling';
+  trend_note?: string;
+  recurring_focus_areas?: string[];
 }
 
 export async function POST(request: Request) {
@@ -61,6 +64,16 @@ export async function POST(request: Request) {
       .select('player_id, category, sentiment, text, players:player_id(name)')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true });
+
+    // Fetch last 3 prior sessions with debriefs for trend context
+    const { data: recentSessions } = await admin
+      .from('sessions')
+      .select('id, date, type, coach_debrief_extracts')
+      .eq('team_id', teamId)
+      .neq('id', sessionId)
+      .not('coach_debrief_extracts', 'is', null)
+      .order('date', { ascending: false })
+      .limit(3);
 
     if (!observations || observations.length === 0) {
       return NextResponse.json(
@@ -120,6 +133,31 @@ export async function POST(request: Request) {
     const totalPositive = observations.filter((o) => o.sentiment === 'positive').length;
     const totalNeedsWork = observations.filter((o) => o.sentiment === 'needs-work').length;
 
+    // Build historical trend context from recent debriefs
+    const historicalContext: string[] = [];
+    const priorFocusAreas: string[] = [];
+
+    if (recentSessions && recentSessions.length > 0) {
+      historicalContext.push('--- RECENT SESSION HISTORY ---');
+      for (const prior of recentSessions) {
+        const priorDebrief = prior.coach_debrief_extracts as SessionDebriefResult | null;
+        if (!priorDebrief) continue;
+        const priorDate = new Date(prior.date + 'T00:00:00').toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        });
+        historicalContext.push(
+          `${priorDate} (${prior.type}): ${priorDebrief.overall_tone} — ${priorDebrief.session_summary}`
+        );
+        if (priorDebrief.areas_to_improve?.length) {
+          const areas = priorDebrief.areas_to_improve.map((a) => a.skill_area);
+          historicalContext.push(`  Focus areas: ${areas.join(', ')}`);
+          priorFocusAreas.push(...areas);
+        }
+      }
+      historicalContext.push('');
+    }
+
     const systemPrompt = [
       `You are an expert youth ${sportName} coaching assistant for SportsIQ.`,
       'You analyze post-session data and generate actionable, encouraging coaching insights.',
@@ -128,6 +166,12 @@ export async function POST(request: Request) {
       'Keep feedback age-appropriate and constructive.',
     ].join('\n');
 
+    const hasHistory = historicalContext.length > 0;
+    const recurringAreas = priorFocusAreas.filter(
+      (area, _idx, arr) => arr.indexOf(area) !== arr.lastIndexOf(area)
+    );
+    const uniqueRecurring = [...new Set(recurringAreas)];
+
     const userPrompt = [
       `Session: ${sessionType.charAt(0).toUpperCase() + sessionType.slice(1)} on ${sessionDate}`,
       `Team: ${team?.name || 'Team'} | Age Group: ${team?.age_group || 'Youth'} | Season Week: ${team?.current_week || 1}`,
@@ -135,25 +179,34 @@ export async function POST(request: Request) {
       `Players on roster: ${players?.length || 0}`,
       `Total observations: ${observations.length} (${totalPositive} positive, ${totalNeedsWork} needs-work)`,
       '',
+      hasHistory ? historicalContext.join('\n') : null,
       '--- OBSERVATIONS ---',
       observationBlocks.join('\n\n'),
       '',
       'Generate a post-session debrief with:',
       '1. A brief session summary (2-3 sentences, encouraging)',
       '2. Player highlights (positive callouts, max 3, must be from actual observations)',
-      '3. Top areas to improve (max 3, from actual needs-work observations)',
+      '3. Top areas to improve (max 3, from actual needs-work observations). For each, set is_recurring=true if the skill_area also appeared in recent session history above.',
       '4. Next practice focus (3 actionable items with a specific drill suggestion each)',
       '5. One coaching tip for the coach themselves',
       '6. Overall session tone (great/good/developing/struggling) based on positive vs needs-work ratio',
+      hasHistory
+        ? '7. trend_note: 1 sentence comparing this session to the recent history above (e.g., "Stronger defensive focus than last week" or "Passing struggles continue from the previous two sessions").'
+        : null,
+      hasHistory && uniqueRecurring.length > 0
+        ? `8. recurring_focus_areas: list the skill areas that have appeared repeatedly across sessions. These are: ${uniqueRecurring.join(', ')}.`
+        : null,
       '',
       'Respond with JSON:',
       '{',
       '  "session_summary": "string",',
       '  "player_highlights": [{ "player_name": "string", "highlight": "string" }],',
-      '  "areas_to_improve": [{ "skill_area": "string", "detail": "string", "player_count": number }],',
+      '  "areas_to_improve": [{ "skill_area": "string", "detail": "string", "player_count": number, "is_recurring": boolean }],',
       '  "next_practice_focus": [{ "focus": "string", "rationale": "string", "suggested_drill": "string" }],',
       '  "coaching_tip": "string",',
-      '  "overall_tone": "great" | "good" | "developing" | "struggling"',
+      '  "overall_tone": "great" | "good" | "developing" | "struggling",',
+      '  "trend_note": "string or null",',
+      '  "recurring_focus_areas": ["string"] or []',
       '}',
     ]
       .filter((l) => l !== null)
@@ -167,7 +220,7 @@ export async function POST(request: Request) {
         systemPrompt,
         userPrompt,
         orgId: coach?.org_id || '',
-        maxTokens: 1500,
+        maxTokens: 2000,
         temperature: 0.6,
       },
       admin

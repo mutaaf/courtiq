@@ -34,10 +34,12 @@ import {
   Dumbbell,
   RefreshCw,
   TrendingUp,
+  TrendingDown,
   ClipboardList,
   BarChart2,
   Play,
   Shuffle,
+  Repeat2,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
@@ -241,6 +243,19 @@ function AIDebriefCard({
               </div>
             )}
 
+            {/* Trend note vs prior sessions */}
+            {debrief.trend_note && (
+              <div className="flex items-start gap-2.5 rounded-lg bg-purple-500/5 border border-purple-500/20 px-3 py-2.5">
+                <TrendingDown className="h-4 w-4 text-purple-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-400/70 mb-0.5">
+                    Trend vs Recent Sessions
+                  </p>
+                  <p className="text-xs text-zinc-300 leading-relaxed">{debrief.trend_note}</p>
+                </div>
+              </div>
+            )}
+
             {/* Player Highlights */}
             {debrief.player_highlights.length > 0 && (
               <div className="space-y-2">
@@ -276,14 +291,24 @@ function AIDebriefCard({
                   {debrief.areas_to_improve.map((area, i) => (
                     <div
                       key={i}
-                      className="flex items-start gap-2.5 rounded-lg bg-amber-500/5 border border-amber-500/15 p-3"
+                      className={`flex items-start gap-2.5 rounded-lg p-3 ${
+                        area.is_recurring
+                          ? 'bg-red-500/5 border border-red-500/20'
+                          : 'bg-amber-500/5 border border-amber-500/15'
+                      }`}
                     >
-                      <AlertCircle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                      <AlertCircle className={`h-4 w-4 shrink-0 mt-0.5 ${area.is_recurring ? 'text-red-400' : 'text-amber-400'}`} />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold text-amber-400 capitalize">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-xs font-semibold capitalize ${area.is_recurring ? 'text-red-400' : 'text-amber-400'}`}>
                             {area.skill_area}
                           </span>
+                          {area.is_recurring && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 border border-red-500/25 px-2 py-0.5 text-[10px] font-semibold text-red-400">
+                              <Repeat2 className="h-2.5 w-2.5" />
+                              Recurring
+                            </span>
+                          )}
                           {area.player_count > 0 && (
                             <span className="text-[10px] text-zinc-600">
                               {area.player_count} player{area.player_count !== 1 ? 's' : ''}
@@ -323,6 +348,31 @@ function AIDebriefCard({
                         <p className="text-[11px] text-zinc-500 italic">{item.suggested_drill}</p>
                       </div>
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Recurring focus areas summary */}
+            {debrief.recurring_focus_areas && debrief.recurring_focus_areas.length > 0 && (
+              <div className="rounded-lg bg-red-500/5 border border-red-500/20 p-3 space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Repeat2 className="h-3.5 w-3.5 text-red-400" />
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-red-400">
+                    Persistent Focus Areas
+                  </p>
+                </div>
+                <p className="text-xs text-zinc-400">
+                  These areas have appeared across multiple recent sessions — consider dedicating extra drill time:
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {debrief.recurring_focus_areas.map((area, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center rounded-full border border-red-500/25 bg-red-500/10 px-2.5 py-0.5 text-[11px] font-medium text-red-400 capitalize"
+                    >
+                      {area}
+                    </span>
                   ))}
                 </div>
               </div>
