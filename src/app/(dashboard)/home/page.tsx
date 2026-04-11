@@ -24,6 +24,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 
 // ─── Team Pulse ────────────────────────────────────────────────────────────────
 
@@ -201,7 +202,7 @@ function TeamPulseCard({ pulse }: { pulse: PulseStats }) {
 export default function HomePage() {
   const { activeTeam, teams } = useActiveTeam();
 
-  const { data: stats, isLoading: isLoadingStats } = useQuery({
+  const { data: stats, isLoading: isLoadingStats, refetch: refetchStats } = useQuery({
     queryKey: ['home-stats', activeTeam?.id],
     queryFn: async () => {
       if (!activeTeam) return null;
@@ -232,7 +233,7 @@ export default function HomePage() {
   });
 
   // Team Pulse: 14-day observation analytics for coaching intelligence
-  const { data: pulse, isLoading: isLoadingPulse } = useQuery({
+  const { data: pulse, isLoading: isLoadingPulse, refetch: refetchPulse } = useQuery({
     queryKey: ['home-pulse', activeTeam?.id],
     queryFn: async (): Promise<PulseStats | null> => {
       if (!activeTeam) return null;
@@ -342,6 +343,7 @@ export default function HomePage() {
   }
 
   return (
+    <PullToRefresh onRefresh={async () => { await Promise.all([refetchStats(), refetchPulse()]); }}>
     <div className="p-4 lg:p-8 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">{activeTeam.name}</h1>
@@ -505,5 +507,6 @@ export default function HomePage() {
         </Card>
       )}
     </div>
+    </PullToRefresh>
   );
 }

@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PlayerCard } from '@/components/roster/player-card';
 import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera } from 'lucide-react';
 import Link from 'next/link';
+import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import type { Player } from '@/types/database';
 
 export default function RosterPage() {
@@ -19,7 +20,7 @@ export default function RosterPage() {
   const [search, setSearch] = useState('');
   const [positionFilter, setPositionFilter] = useState<string>('all');
 
-  const { data: players = [], isLoading } = useQuery({
+  const { data: players = [], isLoading, refetch: refetchPlayers } = useQuery({
     queryKey: queryKeys.players.all(activeTeam?.id ?? ''),
     queryFn: async () => {
       const data = await query<Player[]>({
@@ -34,7 +35,7 @@ export default function RosterPage() {
     ...CACHE_PROFILES.roster,
   });
 
-  const { data: obsCounts = {} } = useQuery({
+  const { data: obsCounts = {}, refetch: refetchObs } = useQuery({
     queryKey: [...queryKeys.observations.all(activeTeam?.id ?? ''), 'counts'],
     queryFn: async () => {
       const data = await query<{ player_id: string }[]>({
@@ -89,6 +90,7 @@ export default function RosterPage() {
   }
 
   return (
+    <PullToRefresh onRefresh={async () => { await Promise.all([refetchPlayers(), refetchObs()]); }}>
     <div className="p-4 lg:p-8 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -218,5 +220,6 @@ export default function RosterPage() {
         <Plus className="h-7 w-7" />
       </Link>
     </div>
+    </PullToRefresh>
   );
 }

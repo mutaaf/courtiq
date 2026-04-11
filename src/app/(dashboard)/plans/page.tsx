@@ -27,6 +27,7 @@ import {
   Activity,
   TrendingUp,
 } from 'lucide-react';
+import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import type { Plan, PlanType } from '@/types/database';
 import type { ObservationInsights } from '@/app/api/ai/plan/route';
 
@@ -63,7 +64,7 @@ export default function PlansPage() {
   const [generatedPreview, setGeneratedPreview] = useState<unknown>(null);
   const [lastInsights, setLastInsights] = useState<ObservationInsights | null>(null);
 
-  const { data: plans, isLoading } = useQuery({
+  const { data: plans, isLoading, refetch: refetchPlans } = useQuery({
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
     queryFn: async () => {
       if (!activeTeam) return [];
@@ -495,6 +496,7 @@ export default function PlansPage() {
   }
 
   return (
+    <PullToRefresh onRefresh={async () => { await refetchPlans(); }}>
     <div className="p-4 lg:p-8 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Plans</h1>
@@ -741,5 +743,6 @@ export default function PlansPage() {
         )}
       </div>
     </div>
+    </PullToRefresh>
   );
 }
