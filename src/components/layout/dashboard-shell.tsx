@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Home, Mic, Users, ClipboardList, Settings, Calendar, BookOpen, BarChart3, Sparkles, Sun, Moon, LineChart, LogOut, Lock, ShieldCheck } from 'lucide-react';
+import { Home, Mic, Users, ClipboardList, Settings, Calendar, CalendarDays, BookOpen, BarChart3, Sparkles, Sun, Moon, LineChart, LogOut, Lock, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TeamSwitcher } from '@/components/layout/team-switcher';
 import { SyncIndicator } from '@/components/layout/sync-indicator';
@@ -30,6 +30,7 @@ const sidebarItems = [
   { href: '/analytics', label: 'Analytics', icon: LineChart, tourId: undefined, feature: 'analytics' },
   { href: '/roster', label: 'Roster', icon: Users, tourId: 'roster', feature: undefined },
   { href: '/sessions', label: 'Sessions', icon: Calendar, tourId: undefined, feature: undefined },
+  { href: '/calendar', label: 'Calendar', icon: CalendarDays, tourId: undefined, feature: undefined },
   { href: '/curriculum', label: 'Curriculum', icon: BookOpen, tourId: undefined, feature: undefined },
   { href: '/plans', label: 'Plans', icon: ClipboardList, tourId: undefined, feature: undefined },
   { href: '/drills', label: 'Drills', icon: BarChart3, tourId: undefined, feature: undefined },
