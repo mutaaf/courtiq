@@ -1379,31 +1379,73 @@ export default function PlansPage() {
 
           {/* Data-driven badge — shown after successful generation */}
           {!generating && lastInsights && lastInsights.totalObs > 0 && (
-            <div className="flex items-start gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
-              <Activity className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-emerald-300">
-                  Data-driven plan generated
-                </p>
-                <p className="text-xs text-zinc-500 mt-0.5">
-                  Based on {lastInsights.totalObs} observation{lastInsights.totalObs !== 1 ? 's' : ''} from the last {lastInsights.daysOfData} days.
-                  {lastInsights.topNeedsWork.length > 0 && (
-                    <>
-                      {' '}Targeting:{' '}
-                      <span className="text-zinc-400">
-                        {lastInsights.topNeedsWork.slice(0, 3).map((c) => c.category).join(', ')}
-                      </span>
-                    </>
-                  )}
-                </p>
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
+              <div className="flex items-start gap-3">
+                <Activity className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-emerald-300">
+                    Trend-driven plan generated
+                  </p>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    Analyzed {lastInsights.totalObs} observation{lastInsights.totalObs !== 1 ? 's' : ''} across two 7-day windows
+                    {lastInsights.trendData && (
+                      <> · {lastInsights.trendData.totalRecentObs} recent vs {lastInsights.trendData.totalPriorObs} prior</>
+                    )}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setLastInsights(null)}
+                  className="text-zinc-600 hover:text-zinc-400 shrink-0"
+                  aria-label="Dismiss"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
-              <button
-                onClick={() => setLastInsights(null)}
-                className="text-zinc-600 hover:text-zinc-400 shrink-0"
-                aria-label="Dismiss"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
+              {lastInsights.trendData && (lastInsights.trendData.declining.length > 0 || lastInsights.trendData.persistent.length > 0 || lastInsights.trendData.improving.length > 0) && (
+                <div className="space-y-1.5 pl-7">
+                  {lastInsights.trendData.declining.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs font-semibold text-red-400 shrink-0 mt-0.5">↑ Declining</span>
+                      <div className="flex flex-wrap gap-1">
+                        {lastInsights.trendData.declining.map((e) => (
+                          <span key={e.category} className="text-xs bg-red-500/10 text-red-300 border border-red-500/20 rounded-full px-2 py-0.5">
+                            {e.category}
+                            {e.priorCount > 0 && <span className="text-red-500/60 ml-1">{e.priorCount}→{e.recentCount}</span>}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {lastInsights.trendData.persistent.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs font-semibold text-amber-400 shrink-0 mt-0.5">! Persistent</span>
+                      <div className="flex flex-wrap gap-1">
+                        {lastInsights.trendData.persistent.map((cat) => (
+                          <span key={cat} className="text-xs bg-amber-500/10 text-amber-300 border border-amber-500/20 rounded-full px-2 py-0.5">{cat}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {lastInsights.trendData.improving.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs font-semibold text-emerald-400 shrink-0 mt-0.5">↓ Improving</span>
+                      <div className="flex flex-wrap gap-1">
+                        {lastInsights.trendData.improving.map((e) => (
+                          <span key={e.category} className="text-xs bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-full px-2 py-0.5">
+                            {e.category}
+                            {e.recentCount > 0 && <span className="text-emerald-600/70 ml-1">{e.priorCount}→{e.recentCount}</span>}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {(!lastInsights.trendData || (lastInsights.trendData.declining.length === 0 && lastInsights.trendData.persistent.length === 0 && lastInsights.trendData.improving.length === 0)) && lastInsights.topNeedsWork.length > 0 && (
+                <p className="text-xs text-zinc-500 pl-7">
+                  Targeting: <span className="text-zinc-400">{lastInsights.topNeedsWork.slice(0, 3).map((c) => c.category).join(', ')}</span>
+                </p>
+              )}
             </div>
           )}
         </CardContent>

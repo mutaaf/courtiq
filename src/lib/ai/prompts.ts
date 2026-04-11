@@ -5,6 +5,13 @@ export interface ObservationInsightsParam {
   daysOfData: number;
   topNeedsWork: Array<{ category: string; count: number }>;
   topStrengths: Array<{ category: string; count: number }>;
+  trendData?: {
+    declining: Array<{ category: string; recentCount: number; priorCount: number }>;
+    improving: Array<{ category: string; recentCount: number; priorCount: number }>;
+    persistent: string[];
+    totalRecentObs: number;
+    totalPriorObs: number;
+  };
 }
 
 interface PromptParams {
@@ -88,15 +95,48 @@ export const PROMPT_REGISTRY = {
     const insights = params.observationInsights;
     const hasInsights = insights && insights.totalObs > 0;
 
+    const td = insights?.trendData;
+    const hasTrends = td && (td.declining.length > 0 || td.improving.length > 0 || td.persistent.length > 0);
+
+    const trendBlock = hasTrends && td
+      ? [
+          '',
+          `TREND ANALYSIS — comparing last 7 days (${td.totalRecentObs} obs) vs prior 7 days (${td.totalPriorObs} obs):`,
+          td.declining.length > 0
+            ? `⚠ DECLINING (getting worse — HIGHEST priority for drill time):\n${td.declining
+                .map((e) => e.priorCount === 0
+                  ? `  - ${e.category}: new issue, ${e.recentCount} needs-work observations this week`
+                  : `  - ${e.category}: ${e.priorCount} → ${e.recentCount} needs-work (↑${e.recentCount - e.priorCount} more)`)
+                .join('\n')}`
+            : '',
+          td.persistent.length > 0
+            ? `⚡ PERSISTENT ISSUES (consistently struggling — steady focus needed):\n${td.persistent
+                .map((c) => `  - ${c}`)
+                .join('\n')}`
+            : '',
+          td.improving.length > 0
+            ? `✓ IMPROVING (getting better — light reinforcement only):\n${td.improving
+                .map((e) => e.recentCount === 0
+                  ? `  - ${e.category}: resolved this week (was ${e.priorCount} needs-work)`
+                  : `  - ${e.category}: ${e.priorCount} → ${e.recentCount} needs-work (↓${e.priorCount - e.recentCount} fewer)`)
+                .join('\n')}`
+            : '',
+          '',
+          'DRILL TIME ALLOCATION RULE: Spend the most time on DECLINING areas, then PERSISTENT areas. IMPROVING areas only need a brief review drill.',
+        ]
+        .filter(Boolean)
+        .join('\n')
+      : '';
+
     const insightsBlock = hasInsights
       ? [
           '',
           `REAL TEAM PERFORMANCE DATA (last ${insights.daysOfData} days, ${insights.totalObs} observations):`,
-          insights.topNeedsWork.length > 0
+          trendBlock || (insights.topNeedsWork.length > 0
             ? `Areas most needing improvement:\n${insights.topNeedsWork
                 .map((c) => `  - ${c.category}: ${c.count} needs-work observation${c.count !== 1 ? 's' : ''}`)
                 .join('\n')}`
-            : '',
+            : ''),
           insights.topStrengths.length > 0
             ? `Team strengths to reinforce:\n${insights.topStrengths
                 .map((c) => `  - ${c.category}: ${c.count} positive observation${c.count !== 1 ? 's' : ''}`)
@@ -104,7 +144,7 @@ export const PROMPT_REGISTRY = {
             : '',
           '',
           'IMPORTANT: Use this real performance data to make this plan highly specific to this team.',
-          insights.topNeedsWork.length > 0
+          !hasTrends && insights.topNeedsWork.length > 0
             ? `Allocate at least 50% of drill time to the top ${Math.min(2, insights.topNeedsWork.length)} needs-improvement area(s) listed above.`
             : '',
           insights.topStrengths.length > 0

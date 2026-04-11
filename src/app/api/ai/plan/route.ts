@@ -5,48 +5,134 @@ import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { buildAIContext } from '@/lib/ai/context-builder';
 import { practicePlanSchema, gamedaySheetSchema } from '@/lib/ai/schemas';
 
+export interface TrendEntry {
+  category: string;
+  recentCount: number;
+  priorCount: number;
+}
+
+export interface TrendData {
+  /** Skills with more needs-work observations recently than prior — highest priority */
+  declining: TrendEntry[];
+  /** Skills with fewer needs-work observations recently than prior — reinforce */
+  improving: TrendEntry[];
+  /** Skills consistently high in needs-work across both windows */
+  persistent: string[];
+  totalRecentObs: number;
+  totalPriorObs: number;
+}
+
 export interface ObservationInsights {
   totalObs: number;
   daysOfData: number;
   topNeedsWork: Array<{ category: string; count: number }>;
   topStrengths: Array<{ category: string; count: number }>;
+  /** Trend analysis comparing last 7 days vs prior 7 days */
+  trendData?: TrendData;
 }
 
 type AdminClient = Awaited<ReturnType<typeof createServiceSupabase>>;
 
-/** Fetch recent observations and compute team performance insights */
+/** Fetch recent observations and compute team performance insights with trend analysis */
 async function fetchObservationInsights(
   teamId: string,
-  admin: AdminClient,
-  daysOfData = 14
+  admin: AdminClient
 ): Promise<ObservationInsights> {
-  const cutoff = new Date(Date.now() - daysOfData * 24 * 60 * 60 * 1000).toISOString();
-  const { data: recentObs } = await admin
-    .from('observations')
-    .select('category, sentiment')
-    .eq('team_id', teamId)
-    .gte('created_at', cutoff)
-    .limit(300);
+  const now = Date.now();
+  const day = 24 * 60 * 60 * 1000;
+  // Fetch last 14 days; split into two 7-day windows for trend comparison
+  const priorCutoff = new Date(now - 14 * day).toISOString();
+  const recentCutoff = new Date(now - 7 * day).toISOString();
 
-  if (!recentObs || recentObs.length === 0) {
-    return { totalObs: 0, daysOfData, topNeedsWork: [], topStrengths: [] };
+  const { data: allObs } = await admin
+    .from('observations')
+    .select('category, sentiment, created_at')
+    .eq('team_id', teamId)
+    .gte('created_at', priorCutoff)
+    .limit(500);
+
+  if (!allObs || allObs.length === 0) {
+    return { totalObs: 0, daysOfData: 14, topNeedsWork: [], topStrengths: [] };
   }
 
-  const needsWorkCounts: Record<string, number> = {};
+  const recentObs = allObs.filter((o) => o.created_at >= recentCutoff);
+  const priorObs = allObs.filter((o) => o.created_at < recentCutoff);
+
+  // Tally needs-work and positive counts per window
+  const recentNeedsWork: Record<string, number> = {};
+  const priorNeedsWork: Record<string, number> = {};
   const positiveCounts: Record<string, number> = {};
 
   for (const obs of recentObs) {
     if (obs.sentiment === 'needs-work' && obs.category) {
-      needsWorkCounts[obs.category] = (needsWorkCounts[obs.category] ?? 0) + 1;
+      recentNeedsWork[obs.category] = (recentNeedsWork[obs.category] ?? 0) + 1;
     } else if (obs.sentiment === 'positive' && obs.category) {
       positiveCounts[obs.category] = (positiveCounts[obs.category] ?? 0) + 1;
     }
   }
+  for (const obs of priorObs) {
+    if (obs.sentiment === 'needs-work' && obs.category) {
+      priorNeedsWork[obs.category] = (priorNeedsWork[obs.category] ?? 0) + 1;
+    }
+  }
+
+  // Combine for overall topNeedsWork ranking
+  const totalNeedsWork: Record<string, number> = {};
+  for (const [cat, n] of Object.entries(recentNeedsWork)) {
+    totalNeedsWork[cat] = (totalNeedsWork[cat] ?? 0) + n;
+  }
+  for (const [cat, n] of Object.entries(priorNeedsWork)) {
+    totalNeedsWork[cat] = (totalNeedsWork[cat] ?? 0) + n;
+  }
+
+  // Classify each category's trend direction
+  const allCategories = new Set([
+    ...Object.keys(recentNeedsWork),
+    ...Object.keys(priorNeedsWork),
+  ]);
+
+  const declining: TrendEntry[] = [];
+  const improving: TrendEntry[] = [];
+  const persistent: string[] = [];
+
+  for (const category of allCategories) {
+    const recent = recentNeedsWork[category] ?? 0;
+    const prior = priorNeedsWork[category] ?? 0;
+
+    if (recent > 0 && prior > 0) {
+      if (recent > prior * 1.25) {
+        // 25%+ increase = declining
+        declining.push({ category, recentCount: recent, priorCount: prior });
+      } else if (prior > recent * 1.25) {
+        // 25%+ decrease = improving
+        improving.push({ category, recentCount: recent, priorCount: prior });
+      } else if (recent >= 2 && prior >= 2) {
+        // Consistent struggle in both windows
+        persistent.push(category);
+      }
+    } else if (recent >= 2 && prior === 0) {
+      // New problem emerging
+      declining.push({ category, recentCount: recent, priorCount: 0 });
+    } else if (prior >= 2 && recent === 0) {
+      // Problem resolved
+      improving.push({ category, recentCount: 0, priorCount: prior });
+    }
+  }
+
+  const trendData: TrendData = {
+    declining: declining.sort((a, b) => b.recentCount - a.recentCount),
+    improving: improving.sort((a, b) => b.priorCount - a.priorCount),
+    persistent: persistent.sort(
+      (a, b) => (totalNeedsWork[b] ?? 0) - (totalNeedsWork[a] ?? 0)
+    ),
+    totalRecentObs: recentObs.length,
+    totalPriorObs: priorObs.length,
+  };
 
   return {
-    totalObs: recentObs.length,
-    daysOfData,
-    topNeedsWork: Object.entries(needsWorkCounts)
+    totalObs: allObs.length,
+    daysOfData: 14,
+    topNeedsWork: Object.entries(totalNeedsWork)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 5)
       .map(([category, count]) => ({ category, count })),
@@ -54,6 +140,7 @@ async function fetchObservationInsights(
       .sort(([, a], [, b]) => b - a)
       .slice(0, 3)
       .map(([category, count]) => ({ category, count })),
+    trendData,
   };
 }
 
@@ -97,6 +184,7 @@ export async function POST(request: Request) {
             daysOfData: 14,
             topNeedsWork: [],
             topStrengths: [],
+            trendData: undefined,
           }))
         : Promise.resolve(null),
     ]);
