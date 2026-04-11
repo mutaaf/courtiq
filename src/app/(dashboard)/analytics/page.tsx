@@ -7,7 +7,7 @@ import { query } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, Minus, Users, Eye, Calendar, Target, AlertTriangle, CheckCircle2, Activity, LineChart as LineChartIcon, LayoutGrid } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Users, Eye, Calendar, Target, AlertTriangle, CheckCircle2, Activity, LineChart as LineChartIcon, LayoutGrid, BarChart2 } from 'lucide-react';
 import { UpgradeGate } from '@/components/ui/upgrade-gate';
 import type { Observation, Player, Session, Sentiment } from '@/types/database';
 
@@ -275,6 +275,141 @@ function LineChart({
   );
 }
 
+// Session-over-session improvement tracking
+
+interface SessionBucket {
+  sessionId: string;
+  date: string;
+  type: string;
+  positive: number;
+  needsWork: number;
+  neutral: number;
+  total: number;
+  healthScore: number | null;
+}
+
+const SESSION_TYPE_COLORS: Record<string, string> = {
+  practice: '#F97316',
+  game: '#3b82f6',
+  scrimmage: '#8b5cf6',
+  tournament: '#f59e0b',
+  training: '#14b8a6',
+};
+
+function SessionTrendChart({ buckets }: { buckets: SessionBucket[] }) {
+  const W = 480;
+  const H = 120;
+  const padL = 32;
+  const padR = 12;
+  const padT = 12;
+  const padB = 28;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+
+  const n = buckets.length;
+  if (n === 0) return null;
+
+  const maxObs = Math.max(1, ...buckets.map((b) => b.total));
+
+  const points = buckets.map((b, i) => ({
+    x: n === 1 ? padL + innerW / 2 : padL + (i / (n - 1)) * innerW,
+    y: b.healthScore !== null ? padT + innerH - (b.healthScore / 100) * innerH : null,
+    score: b.healthScore,
+    label: new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    type: b.type,
+    total: b.total,
+    r: 3.5 + (b.total / maxObs) * 3,
+  }));
+
+  function buildPath(pts: Array<{ x: number; y: number | null }>, smooth = true): string {
+    const valid = pts.filter((p) => p.y !== null) as Array<{ x: number; y: number }>;
+    if (valid.length < 2) return '';
+    let d = `M ${valid[0].x},${valid[0].y}`;
+    for (let i = 1; i < valid.length; i++) {
+      if (smooth) {
+        const prev = valid[i - 1];
+        const curr = valid[i];
+        const cpx = (prev.x + curr.x) / 2;
+        d += ` C ${cpx},${prev.y} ${cpx},${curr.y} ${curr.x},${curr.y}`;
+      } else {
+        d += ` L ${valid[i].x},${valid[i].y}`;
+      }
+    }
+    return d;
+  }
+
+  const yLabels = [100, 50, 0];
+  const skipN = n > 10 ? Math.ceil(n / 10) : 1;
+
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="w-full overflow-visible"
+      style={{ height: H }}
+      aria-label="Session-over-session health score trend"
+    >
+      {/* Grid lines */}
+      {yLabels.map((pct) => {
+        const y = padT + innerH - (pct / 100) * innerH;
+        return (
+          <g key={pct}>
+            <line
+              x1={padL}
+              x2={padL + innerW}
+              y1={y}
+              y2={y}
+              stroke="#27272a"
+              strokeWidth={1}
+              strokeDasharray={pct === 0 ? '0' : '4 3'}
+            />
+            <text x={padL - 4} y={y + 4} fontSize={8} fill="#71717a" textAnchor="end">
+              {pct}%
+            </text>
+          </g>
+        );
+      })}
+
+      {/* Connecting line (purple) */}
+      {buildPath(points) && (
+        <path
+          d={buildPath(points)}
+          fill="none"
+          stroke="#a855f7"
+          strokeWidth={1.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+
+      {/* Dots — sized by observation count, colored by session type */}
+      {points.map((pt, i) =>
+        pt.y !== null ? (
+          <circle
+            key={i}
+            cx={pt.x}
+            cy={pt.y}
+            r={pt.r}
+            fill={SESSION_TYPE_COLORS[pt.type] ?? '#71717a'}
+            stroke="#09090b"
+            strokeWidth={1.5}
+          >
+            <title>{`${pt.label} · ${pt.type} · ${pt.score !== null ? pt.score + '%' : '—'} · ${pt.total} obs`}</title>
+          </circle>
+        ) : null
+      )}
+
+      {/* X-axis date labels (thinned for dense charts) */}
+      {points.map((pt, i) =>
+        i % skipN === 0 ? (
+          <text key={i} x={pt.x} y={H - 4} fontSize={7} fill="#52525b" textAnchor="middle">
+            {pt.label}
+          </text>
+        ) : null
+      )}
+    </svg>
+  );
+}
+
 // Observation Heatmap — player rows × week columns, cell color = observation intensity
 function HeatmapGrid({
   players,
@@ -419,7 +554,7 @@ export default function AnalyticsPage() {
       if (!activeTeam) return [];
       const data = await query<Observation[]>({
         table: 'observations',
-        select: 'id, player_id, sentiment, category, skill_id, created_at',
+        select: 'id, player_id, sentiment, category, skill_id, session_id, created_at',
         filters: { team_id: activeTeam.id },
         order: { column: 'created_at', ascending: false },
       });
@@ -595,6 +730,36 @@ export default function AnalyticsPage() {
       .sort((a, b) => b.needsWork - a.needsWork)
       .slice(0, 5);
 
+    // Session-over-session health trend — last 20 sessions that have observations
+    const sessionObsMap = new Map<string, { positive: number; needsWork: number; neutral: number; total: number }>();
+    observations.forEach((o) => {
+      if (!o.session_id) return;
+      if (!sessionObsMap.has(o.session_id)) {
+        sessionObsMap.set(o.session_id, { positive: 0, needsWork: 0, neutral: 0, total: 0 });
+      }
+      const s = sessionObsMap.get(o.session_id)!;
+      s.total++;
+      if (o.sentiment === 'positive') s.positive++;
+      else if (o.sentiment === 'needs-work') s.needsWork++;
+      else s.neutral++;
+    });
+
+    const sessionTrend: SessionBucket[] = sessions
+      .filter((s) => sessionObsMap.has(s.id))
+      .map((s) => {
+        const counts = sessionObsMap.get(s.id)!;
+        const scored = counts.positive + counts.needsWork;
+        return {
+          sessionId: s.id,
+          date: s.date,
+          type: s.type,
+          ...counts,
+          healthScore: scored > 0 ? Math.round((counts.positive / scored) * 100) : null,
+        };
+      })
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(-20);
+
     return {
       total,
       positive,
@@ -612,8 +777,9 @@ export default function AnalyticsPage() {
       sortedCategories,
       maxCategoryTotal,
       needsWorkByCategory,
+      sessionTrend,
     };
-  }, [observations, players]);
+  }, [observations, players, sessions]);
 
   if (!activeTeam) {
     return (
@@ -861,6 +1027,65 @@ export default function AnalyticsPage() {
                 Capture observations with positive/needs-work sentiment to track health score trends.
               </p>
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Session-over-session improvement */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <BarChart2 className="h-4 w-4 text-purple-400" />
+            Session Improvement Trend
+            {!isLoading && analytics.sessionTrend.length > 0 && (
+              <Badge variant="secondary" className="text-[10px]">
+                last {analytics.sessionTrend.length} session{analytics.sessionTrend.length !== 1 ? 's' : ''}
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 space-y-3">
+          {isLoading ? (
+            <Skeleton className="h-32 w-full rounded-lg" />
+          ) : analytics.sessionTrend.length < 2 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <BarChart2 className="h-8 w-8 text-zinc-700 mb-2" />
+              <p className="text-xs text-zinc-500">
+                Capture observations in at least 2 sessions to track session-over-session improvement.
+              </p>
+            </div>
+          ) : (
+            <>
+              <SessionTrendChart buckets={analytics.sessionTrend} />
+              {/* Legend + trend delta */}
+              <div className="flex flex-wrap items-center gap-3 text-[10px] text-zinc-500">
+                {Object.entries(SESSION_TYPE_COLORS).map(([type, color]) =>
+                  analytics.sessionTrend.some((b) => b.type === type) ? (
+                    <span key={type} className="flex items-center gap-1 capitalize">
+                      <span
+                        className="inline-block h-2 w-2 rounded-full"
+                        style={{ background: color }}
+                      />
+                      {type}
+                    </span>
+                  ) : null
+                )}
+                <span className="ml-auto text-zinc-600 italic">Dot size = obs count</span>
+                {(() => {
+                  const withData = analytics.sessionTrend.filter((b) => b.healthScore !== null);
+                  if (withData.length < 2) return null;
+                  const first = withData[0].healthScore!;
+                  const last = withData[withData.length - 1].healthScore!;
+                  const delta = last - first;
+                  if (Math.abs(delta) < 3) return <span className="text-zinc-500">Stable across sessions</span>;
+                  return (
+                    <span className={delta > 0 ? 'text-emerald-400' : 'text-red-400'}>
+                      {delta > 0 ? '+' : ''}{delta}pp since first session
+                    </span>
+                  );
+                })()}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
