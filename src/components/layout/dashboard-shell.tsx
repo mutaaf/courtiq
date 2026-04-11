@@ -7,6 +7,7 @@ import { Home, Mic, Users, ClipboardList, Settings, Calendar, BookOpen, BarChart
 import { cn } from '@/lib/utils';
 import { TeamSwitcher } from '@/components/layout/team-switcher';
 import { SyncIndicator } from '@/components/layout/sync-indicator';
+import { PageTransition } from '@/components/layout/page-transition';
 import { useTheme } from '@/hooks/use-theme';
 import { useTier } from '@/hooks/use-tier';
 import type { Coach } from '@/types/database';
@@ -168,7 +169,9 @@ export function DashboardShell({ coach, children }: Props) {
         </header>
 
         <div className="flex-1 overflow-y-auto pb-20 lg:pb-0">
-          {children}
+          <PageTransition>
+            {children}
+          </PageTransition>
         </div>
 
         {/* Mobile bottom nav — 5 items, Capture centered as FAB */}
