@@ -65,7 +65,7 @@ You run every hour. Here's how to be effective.
 - [x] **Season Storyline** — AI generates a narrative arc of each player's season ("Marcus started exploring dribbling in Week 1 and by Week 8 was running pick-and-roll confidently"). Chapters by phase (Early Season / Building / Breakthrough), current strengths, trajectory, and coach reflection. Accessible from Plans page (player dropdown) and player detail Storyline tab.
 - [x] **Drill builder** — AI-assisted custom drill creator. Describe what you want, AI generates drill with setup, coaching cues, variations, and links to curriculum skills. Bottom sheet on /drills with textarea, category chips, duration selector, example prompts; saved to drills table with source='ai'; AI badge in library grid
 - [x] **Team Calendar** — monthly calendar view of sessions; tap any day to see/schedule sessions; colored dots by type; upcoming sessions list; ?date= pre-fills new session form; CalendarDays icon in sidebar
-- [ ] **Player self-assessment** (age 13+) — players rate themselves on skills, compare with coach assessment for coaching conversations
+- [x] **Player self-assessment** (age 13+) — players rate themselves on skills (1–5 stars) per skill tracked in proficiency; coach sees self-rating vs coach level side-by-side; saved as plan type `self_assessment`; history with expand/collapse and +/- vs coach indicator; teal theme, COPPA-compliant framing
 
 ### P5 — GTM & Growth
 - [ ] **Referral system** — "Invite a coach, get 1 month free" with tracking link and reward
