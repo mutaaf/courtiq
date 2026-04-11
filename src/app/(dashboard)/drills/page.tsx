@@ -11,10 +11,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Clock, Users, Filter, BarChart3, X, ChevronRight, Sparkles, Loader2, Wand2, CheckCircle2 } from 'lucide-react';
+import { Search, Clock, Users, Filter, BarChart3, X, ChevronRight, Sparkles, Loader2, Wand2, CheckCircle2, Target, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import type { Drill } from '@/types/database';
+import type { Drill, Observation } from '@/types/database';
 
 const DRILL_CATEGORIES = [
   'Offense', 'Defense', 'Conditioning', 'Fundamentals', 'Passing', 'Shooting', 'Dribbling', 'Teamwork',
@@ -60,6 +60,56 @@ export default function DrillsPage() {
     enabled: !!activeTeam,
     ...CACHE_PROFILES.drills,
   });
+
+  // Skill-gap query: needs-work observations from last 30 days
+  const { data: gapObs = [] } = useQuery({
+    queryKey: ['drills-skill-gaps', activeTeam?.id],
+    queryFn: async () => {
+      if (!activeTeam) return [];
+      const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      return await query<Pick<Observation, 'category' | 'sentiment'>[]>({
+        table: 'observations',
+        select: 'category, sentiment',
+        filters: {
+          team_id: activeTeam.id,
+          created_at: { op: 'gte', value: cutoff },
+          sentiment: 'needs-work',
+        },
+        limit: 200,
+      }) || [];
+    },
+    enabled: !!activeTeam,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Top 3 skill gaps by observation count
+  const topGaps = useMemo(() => {
+    if (!gapObs.length) return [];
+    const counts: Record<string, number> = {};
+    for (const obs of gapObs) {
+      if (obs.category) {
+        counts[obs.category] = (counts[obs.category] ?? 0) + 1;
+      }
+    }
+    return Object.entries(counts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3)
+      .map(([category, count]) => ({ category, count }));
+  }, [gapObs]);
+
+  // Drills that address the top skill gaps (case-insensitive category match)
+  const recommendedDrills = useMemo(() => {
+    if (!drills || !topGaps.length) return [];
+    const gapMap = new Map(topGaps.map((g) => [g.category.toLowerCase(), g.count]));
+    return drills
+      .filter((d) => gapMap.has(d.category.toLowerCase()))
+      .sort((a, b) => {
+        const ac = gapMap.get(a.category.toLowerCase()) ?? 0;
+        const bc = gapMap.get(b.category.toLowerCase()) ?? 0;
+        return bc - ac;
+      })
+      .slice(0, 6);
+  }, [drills, topGaps]);
 
   // Extract unique categories and age groups
   const categories = useMemo(() => {
@@ -157,6 +207,68 @@ export default function DrillsPage() {
           <span className="sm:hidden">Build</span>
         </Button>
       </div>
+
+      {/* Skill Gap Recommendations */}
+      {!isLoading && topGaps.length > 0 && recommendedDrills.length > 0 && (
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/15">
+                <Target className="h-3.5 w-3.5 text-amber-400" />
+              </div>
+              <p className="text-sm font-semibold text-zinc-100">Recommended for Your Team</p>
+            </div>
+            <p className="text-[11px] text-zinc-500 mt-1 ml-8">
+              Based on {gapObs.length} needs-work observation{gapObs.length !== 1 ? 's' : ''} in the last 30 days &middot; Top gaps:{' '}
+              {topGaps.map((g, i) => (
+                <span key={g.category}>
+                  {i > 0 && ', '}
+                  <span className="text-amber-400">{g.category}</span>
+                  {' '}
+                  <span className="text-zinc-600">({g.count})</span>
+                </span>
+              ))}
+            </p>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x">
+            {recommendedDrills.map((drill) => (
+              <Link
+                key={drill.id}
+                href={`/drills/${drill.id}`}
+                className="shrink-0 w-52 sm:w-60 snap-start rounded-xl border border-zinc-800 bg-zinc-900 p-3 hover:border-amber-500/30 active:scale-[0.98] touch-manipulation transition-colors block"
+              >
+                <div className="flex items-start justify-between gap-1.5">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1 flex-wrap mb-1">
+                      <p className="text-sm font-medium text-zinc-100 leading-snug line-clamp-2">{drill.name}</p>
+                      {drill.source === 'ai' && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-orange-500/15 px-1.5 py-0.5 text-[9px] font-medium text-orange-400 shrink-0">
+                          <Sparkles className="h-2.5 w-2.5" />
+                          AI
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-zinc-400 line-clamp-2">{drill.description}</p>
+                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                        <AlertTriangle className="h-2.5 w-2.5" />
+                        Addresses: {drill.category}
+                      </span>
+                      {drill.duration_minutes && (
+                        <span className="flex items-center gap-0.5 text-[10px] text-zinc-500">
+                          <Clock className="h-3 w-3" />
+                          {drill.duration_minutes}m
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-zinc-600 shrink-0 mt-0.5" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative">
