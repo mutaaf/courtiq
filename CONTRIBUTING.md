@@ -64,7 +64,7 @@ You run every hour. Here's how to be effective.
 - [x] **Smart Substitution Planner** — input game length + player count, AI generates fair rotation ensuring equal playing time. Tracks actual minutes played. 3-step flow: setup (game format + player selection) → rotation grid view → live tracking with game clock, on-court/bench display, and sub alerts
 - [x] **Season Storyline** — AI generates a narrative arc of each player's season ("Marcus started exploring dribbling in Week 1 and by Week 8 was running pick-and-roll confidently"). Chapters by phase (Early Season / Building / Breakthrough), current strengths, trajectory, and coach reflection. Accessible from Plans page (player dropdown) and player detail Storyline tab.
 - [x] **Drill builder** — AI-assisted custom drill creator. Describe what you want, AI generates drill with setup, coaching cues, variations, and links to curriculum skills. Bottom sheet on /drills with textarea, category chips, duration selector, example prompts; saved to drills table with source='ai'; AI badge in library grid
-- [ ] **Team Calendar** — schedule practices/games, auto-populate session records, send reminders
+- [x] **Team Calendar** — monthly calendar view of sessions; tap any day to see/schedule sessions; colored dots by type; upcoming sessions list; ?date= pre-fills new session form; CalendarDays icon in sidebar
 - [ ] **Player self-assessment** (age 13+) — players rate themselves on skills, compare with coach assessment for coaching conversations
 
 ### P5 — GTM & Growth
