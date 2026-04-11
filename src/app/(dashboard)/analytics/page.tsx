@@ -1,13 +1,14 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery } from '@tanstack/react-query';
 import { query } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, Minus, Users, Eye, Calendar, Target, AlertTriangle, CheckCircle2, Activity, LineChart as LineChartIcon, LayoutGrid, BarChart2, ArrowRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { TrendingUp, TrendingDown, Minus, Users, Eye, Calendar, Target, AlertTriangle, CheckCircle2, Activity, LineChart as LineChartIcon, LayoutGrid, BarChart2, ArrowRight, Download, ChevronDown } from 'lucide-react';
 import { UpgradeGate } from '@/components/ui/upgrade-gate';
 import type { Observation, Player, Session, Sentiment } from '@/types/database';
 
@@ -692,6 +693,77 @@ function TransferScoreChart({
   );
 }
 
+// ── Export menu ──────────────────────────────────────────────────────────────
+
+type ExportType = 'observations' | 'roster' | 'sessions';
+
+const EXPORT_OPTIONS: { type: ExportType; label: string }[] = [
+  { type: 'observations', label: 'Observations CSV' },
+  { type: 'roster', label: 'Roster CSV' },
+  { type: 'sessions', label: 'Sessions CSV' },
+];
+
+function ExportMenu({ teamId }: { teamId: string }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState<ExportType | null>(null);
+
+  async function handleExport(type: ExportType) {
+    setLoading(type);
+    setOpen(false);
+    try {
+      const res = await fetch(`/api/export?type=${type}&team_id=${encodeURIComponent(teamId)}`);
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition') ?? '';
+      const match = disposition.match(/filename="([^"]+)"/);
+      const filename = match ? match[1] : `${type}-export.csv`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // silently fail — user will see no download
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  return (
+    <div className="relative">
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-1.5 shrink-0"
+        onClick={() => setOpen((v) => !v)}
+        disabled={loading !== null}
+        aria-label="Export data"
+      >
+        <Download className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">{loading ? 'Exporting…' : 'Export'}</span>
+        <ChevronDown className="h-3 w-3 text-zinc-400" />
+      </Button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-1 z-20 w-44 rounded-lg border border-zinc-800 bg-zinc-900 shadow-xl py-1">
+            {EXPORT_OPTIONS.map(({ type, label }) => (
+              <button
+                key={type}
+                onClick={() => handleExport(type)}
+                className="w-full text-left px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function AnalyticsPage() {
   const { activeTeam } = useActiveTeam();
 
@@ -1038,12 +1110,15 @@ export default function AnalyticsPage() {
     <UpgradeGate feature="analytics" featureLabel="Team Analytics">
     <div className="p-4 lg:p-8 space-y-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">Team Analytics</h1>
-        <p className="text-zinc-400 text-sm">
-          {activeTeam.name} &middot; Season {activeTeam.season || 'N/A'} &middot; Week{' '}
-          {activeTeam.current_week}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Team Analytics</h1>
+          <p className="text-zinc-400 text-sm">
+            {activeTeam.name} &middot; Season {activeTeam.season || 'N/A'} &middot; Week{' '}
+            {activeTeam.current_week}
+          </p>
+        </div>
+        <ExportMenu teamId={activeTeam.id} />
       </div>
 
       {/* Top stats row */}
