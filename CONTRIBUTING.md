@@ -37,7 +37,7 @@ You run every hour. Here's how to be effective.
 - [x] Improve loading states (skeleton screens, not blank pages) — home page stats + Team Pulse skeleton done
 - [ ] Add pull-to-refresh on mobile pages
 - [ ] Add swipe gestures for navigation
-- [ ] Smooth page transitions/animations
+- [x] Smooth page transitions/animations — CSS fade-in + slide-up via PageTransition component, respects prefers-reduced-motion
 
 ### P2 — AI Intelligence
 - [ ] Better phonetic matching in observation segmentation
