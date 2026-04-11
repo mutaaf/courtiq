@@ -7,7 +7,7 @@ import { query } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, Minus, Users, Eye, Calendar, Target, AlertTriangle, CheckCircle2, Activity, LineChart as LineChartIcon, LayoutGrid, BarChart2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Users, Eye, Calendar, Target, AlertTriangle, CheckCircle2, Activity, LineChart as LineChartIcon, LayoutGrid, BarChart2, ArrowRight } from 'lucide-react';
 import { UpgradeGate } from '@/components/ui/upgrade-gate';
 import type { Observation, Player, Session, Sentiment } from '@/types/database';
 
@@ -545,6 +545,153 @@ function HeatmapGrid({
   );
 }
 
+// --- Practice-to-Game Transfer Score ---
+
+interface TransferStats {
+  playerId: string;
+  playerName: string;
+  practiceScore: number | null;
+  gameScore: number | null;
+  delta: number | null;
+}
+
+const PRACTICE_SESSION_TYPES = new Set(['practice', 'training']);
+const GAME_SESSION_TYPES = new Set(['game', 'scrimmage', 'tournament']);
+
+function TransferDeltaBadge({ delta }: { delta: number }) {
+  const color = delta >= 0 ? 'text-emerald-400' : delta >= -10 ? 'text-amber-400' : 'text-red-400';
+  return (
+    <span className={`text-[10px] font-semibold tabular-nums shrink-0 ${color}`}>
+      {delta >= 0 ? '+' : ''}{delta}pp
+    </span>
+  );
+}
+
+function TransferPlayerRow({ row }: { row: TransferStats }) {
+  const gameBarColor =
+    row.delta === null ? '#6366f1'
+      : row.delta >= 0 ? '#10b981'
+      : row.delta >= -10 ? '#f59e0b'
+      : '#ef4444';
+  return (
+    <div className="grid grid-cols-[1fr,auto] items-center gap-3">
+      <div>
+        <p className="text-xs font-medium text-zinc-300 mb-1 truncate">{row.playerName}</p>
+        {row.practiceScore !== null && (
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] text-indigo-400 w-10 shrink-0">Practice</span>
+            <div className="flex-1 bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+              <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${row.practiceScore}%` }} />
+            </div>
+            <span className="text-[9px] text-zinc-500 w-7 text-right tabular-nums">{row.practiceScore}%</span>
+          </div>
+        )}
+        {row.gameScore !== null && (
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-[9px] text-blue-400 w-10 shrink-0">Game</span>
+            <div className="flex-1 bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+              <div className="h-full rounded-full" style={{ width: `${row.gameScore}%`, background: gameBarColor }} />
+            </div>
+            <span className="text-[9px] text-zinc-500 w-7 text-right tabular-nums">{row.gameScore}%</span>
+          </div>
+        )}
+      </div>
+      {row.delta !== null && <TransferDeltaBadge delta={row.delta} />}
+    </div>
+  );
+}
+
+function TransferScoreChart({
+  rows,
+  teamPracticeScore,
+  teamGameScore,
+  teamDelta,
+}: {
+  rows: TransferStats[];
+  teamPracticeScore: number | null;
+  teamGameScore: number | null;
+  teamDelta: number | null;
+}) {
+  const hasBothTeam = teamPracticeScore !== null && teamGameScore !== null;
+  const playerRowsWithBoth = rows.filter((r) => r.practiceScore !== null && r.gameScore !== null);
+
+  if (!hasBothTeam && playerRowsWithBoth.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 text-center">
+        <ArrowRight className="h-8 w-8 text-zinc-700 mb-2" />
+        <p className="text-xs text-zinc-500">
+          Capture observations in both practice and game sessions to see transfer scores.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Team aggregate row */}
+      {hasBothTeam && (
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 space-y-1.5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-semibold text-zinc-300">Team Average</span>
+            {teamDelta !== null && <TransferDeltaBadge delta={teamDelta} />}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] text-indigo-400 w-10 shrink-0">Practice</span>
+            <div className="flex-1 bg-zinc-800 rounded-full h-2 overflow-hidden">
+              <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${teamPracticeScore}%` }} />
+            </div>
+            <span className="text-[9px] text-zinc-500 w-7 text-right tabular-nums">{teamPracticeScore}%</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] text-blue-400 w-10 shrink-0">Game</span>
+            <div className="flex-1 bg-zinc-800 rounded-full h-2 overflow-hidden">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${teamGameScore}%`,
+                  background: teamDelta !== null && teamDelta >= 0 ? '#10b981' : teamDelta !== null && teamDelta >= -10 ? '#f59e0b' : '#ef4444',
+                }}
+              />
+            </div>
+            <span className="text-[9px] text-zinc-500 w-7 text-right tabular-nums">{teamGameScore}%</span>
+          </div>
+        </div>
+      )}
+
+      {/* Per-player rows */}
+      {playerRowsWithBoth.length > 0 && (
+        <div className="space-y-3">
+          {playerRowsWithBoth.slice(0, 10).map((row) => (
+            <TransferPlayerRow key={row.playerId} row={row} />
+          ))}
+          {playerRowsWithBoth.length > 10 && (
+            <p className="text-[10px] text-zinc-600 text-center">
+              +{playerRowsWithBoth.length - 10} more players not shown
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-3 text-[10px] text-zinc-500 border-t border-zinc-800 pt-2">
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-3 rounded-sm bg-indigo-500" /> Practice
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-3 rounded-sm bg-emerald-500" /> Game (better)
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-3 rounded-sm bg-amber-500" /> Game (slight drop)
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-3 rounded-sm bg-red-500" /> Game (sharp drop)
+        </span>
+        <span className="ml-auto text-zinc-600 italic">Min 3 obs per session type</span>
+      </div>
+    </div>
+  );
+}
+
 export default function AnalyticsPage() {
   const { activeTeam } = useActiveTeam();
 
@@ -760,6 +907,80 @@ export default function AnalyticsPage() {
       .sort((a, b) => a.date.localeCompare(b.date))
       .slice(-20);
 
+    // Practice-to-game transfer score
+    const sessionTypeMap = new Map(sessions.map((s) => [s.id, s.type]));
+
+    const playerPracticeGame = new Map<
+      string,
+      { practice: { pos: number; nw: number }; game: { pos: number; nw: number } }
+    >();
+    players.forEach((p) => {
+      playerPracticeGame.set(p.id, {
+        practice: { pos: 0, nw: 0 },
+        game: { pos: 0, nw: 0 },
+      });
+    });
+
+    let teamPracticePos = 0, teamPracticeNW = 0;
+    let teamGamePos = 0, teamGameNW = 0;
+
+    observations.forEach((o) => {
+      if (!o.session_id || o.sentiment === 'neutral') return;
+      const st = sessionTypeMap.get(o.session_id);
+      if (!st) return;
+      const isPractice = PRACTICE_SESSION_TYPES.has(st);
+      const isGame = GAME_SESSION_TYPES.has(st);
+      if (!isPractice && !isGame) return;
+      const isPos = o.sentiment === 'positive';
+
+      if (isPractice) {
+        teamPracticePos += isPos ? 1 : 0;
+        teamPracticeNW += isPos ? 0 : 1;
+      } else {
+        teamGamePos += isPos ? 1 : 0;
+        teamGameNW += isPos ? 0 : 1;
+      }
+
+      if (o.player_id) {
+        const bucket = playerPracticeGame.get(o.player_id);
+        if (bucket) {
+          if (isPractice) {
+            if (isPos) bucket.practice.pos++; else bucket.practice.nw++;
+          } else {
+            if (isPos) bucket.game.pos++; else bucket.game.nw++;
+          }
+        }
+      }
+    });
+
+    const MIN_TRANSFER_OBS = 3;
+    const transferScores: TransferStats[] = players
+      .map((p) => {
+        const b = playerPracticeGame.get(p.id)!;
+        const practiceScored = b.practice.pos + b.practice.nw;
+        const gameScored = b.game.pos + b.game.nw;
+        const practiceScore = practiceScored >= MIN_TRANSFER_OBS
+          ? Math.round((b.practice.pos / practiceScored) * 100) : null;
+        const gameScore = gameScored >= MIN_TRANSFER_OBS
+          ? Math.round((b.game.pos / gameScored) * 100) : null;
+        const delta = practiceScore !== null && gameScore !== null ? gameScore - practiceScore : null;
+        return { playerId: p.id, playerName: p.name, practiceScore, gameScore, delta };
+      })
+      .filter((r) => r.practiceScore !== null || r.gameScore !== null)
+      .sort((a, b) => {
+        if (a.delta !== null && b.delta !== null) return b.delta - a.delta;
+        if (a.delta !== null) return -1;
+        if (b.delta !== null) return 1;
+        return 0;
+      });
+
+    const teamPracticeScore = (teamPracticePos + teamPracticeNW) >= 5
+      ? Math.round((teamPracticePos / (teamPracticePos + teamPracticeNW)) * 100) : null;
+    const teamGameScore = (teamGamePos + teamGameNW) >= 5
+      ? Math.round((teamGamePos / (teamGamePos + teamGameNW)) * 100) : null;
+    const teamTransferDelta = teamPracticeScore !== null && teamGameScore !== null
+      ? teamGameScore - teamPracticeScore : null;
+
     return {
       total,
       positive,
@@ -778,6 +999,10 @@ export default function AnalyticsPage() {
       maxCategoryTotal,
       needsWorkByCategory,
       sessionTrend,
+      transferScores,
+      teamPracticeScore,
+      teamGameScore,
+      teamTransferDelta,
     };
   }, [observations, players, sessions]);
 
@@ -1086,6 +1311,36 @@ export default function AnalyticsPage() {
                 })()}
               </div>
             </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Practice → Game Transfer Score */}
+      <Card className="border-indigo-500/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <ArrowRight className="h-4 w-4 text-indigo-400" />
+            Practice → Game Transfer
+            <Badge variant="secondary" className="text-[10px]">positive % by session type</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 space-y-2">
+          <p className="text-[10px] text-zinc-500 mb-3">
+            Compares each player&apos;s health score in practice vs competitive sessions — positive delta means skills are transferring.
+          </p>
+          {isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full rounded" />
+              ))}
+            </div>
+          ) : (
+            <TransferScoreChart
+              rows={analytics.transferScores}
+              teamPracticeScore={analytics.teamPracticeScore}
+              teamGameScore={analytics.teamGameScore}
+              teamDelta={analytics.teamTransferDelta}
+            />
           )}
         </CardContent>
       </Card>
