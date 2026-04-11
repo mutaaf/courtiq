@@ -24,12 +24,16 @@ import {
   CheckCircle2,
   Copy,
   ExternalLink,
+  Zap,
+  Clock,
+  Sparkles,
+  Trophy,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 import type { Player, Observation, PlayerSkillProficiency, Sentiment } from '@/types/database';
 
-type Tab = 'overview' | 'observations' | 'report-card' | 'media' | 'share';
+type Tab = 'overview' | 'observations' | 'report-card' | 'media' | 'share' | 'challenges';
 
 const sentimentVariant: Record<Sentiment, 'success' | 'destructive' | 'secondary'> = {
   positive: 'success',
@@ -62,6 +66,12 @@ export default function PlayerDetailPage({
   const [shareLinkError, setShareLinkError] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+
+  // Skill challenge state
+  const [challengeLoading, setChallengeLoading] = useState(false);
+  const [challengeError, setChallengeError] = useState<string | null>(null);
+  const [challengeData, setChallengeData] = useState<any>(null);
+  const [challengeTextCopied, setChallengeTextCopied] = useState(false);
 
   const { data: player, isLoading: playerLoading } = useQuery({
     queryKey: queryKeys.players.detail(playerId),
@@ -123,6 +133,7 @@ export default function PlayerDetailPage({
     { id: 'overview', label: 'Overview', icon: <BarChart3 className="h-4 w-4" /> },
     { id: 'observations', label: 'Observations', icon: <Eye className="h-4 w-4" /> },
     { id: 'report-card', label: 'Report Card', icon: <FileText className="h-4 w-4" /> },
+    { id: 'challenges', label: 'Challenges', icon: <Zap className="h-4 w-4" /> },
     { id: 'media', label: 'Media', icon: <ImageIcon className="h-4 w-4" /> },
     { id: 'share', label: 'Share', icon: <Share2 className="h-4 w-4" /> },
   ];
@@ -147,6 +158,55 @@ export default function PlayerDetailPage({
       setReportCardError(err instanceof Error ? err.message : 'Generation failed');
     } finally {
       setReportCardLoading(false);
+    }
+  }
+
+  async function handleGenerateChallenges() {
+    if (!activeTeam || !player) return;
+    setChallengeLoading(true);
+    setChallengeError(null);
+    try {
+      const res = await fetch('/api/ai/skill-challenge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id, playerId: player.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate challenges');
+      }
+      const data = await res.json();
+      setChallengeData(data.content);
+    } catch (err) {
+      setChallengeError(err instanceof Error ? err.message : 'Generation failed');
+    } finally {
+      setChallengeLoading(false);
+    }
+  }
+
+  async function copyChallengeText() {
+    if (!challengeData) return;
+    const challenges = Array.isArray(challengeData.challenges) ? challengeData.challenges : [];
+    const lines = [
+      `🏀 ${challengeData.week_label ?? 'Weekly'} Skill Challenges for ${player?.name ?? 'your player'}`,
+      '',
+      ...challenges.flatMap((c: any, i: number) => [
+        `Challenge ${i + 1}: ${c.title} (${c.skill_area})`,
+        `⏱ ${c.minutes_per_day} min/day  •  ${c.difficulty}`,
+        c.description,
+        ...((c.steps ?? []) as string[]).map((s: string, si: number) => `  ${si + 1}. ${s}`),
+        `✅ Success: ${c.success_criteria}`,
+        `💬 ${c.encouragement}`,
+        '',
+      ]),
+      challengeData.parent_note ? `Note for parents: ${challengeData.parent_note}` : '',
+    ].filter((l) => l !== undefined);
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      setChallengeTextCopied(true);
+      setTimeout(() => setChallengeTextCopied(false), 2000);
+    } catch {
+      // clipboard not available
     }
   }
 
@@ -651,6 +711,205 @@ export default function PlayerDetailPage({
                     </>
                   ) : (
                     'Generate Report Card'
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'challenges' && (
+        <div className="space-y-4">
+          {challengeError && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{challengeError}</span>
+            </div>
+          )}
+
+          {challengeData ? (
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-amber-400" />
+                    <h2 className="text-lg font-bold text-zinc-100">
+                      {challengeData.week_label ?? 'This Week\'s Challenges'}
+                    </h2>
+                  </div>
+                  <p className="mt-0.5 text-sm text-zinc-500">{player.name}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={copyChallengeText}
+                  >
+                    {challengeTextCopied ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 mr-1.5 text-emerald-500" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 mr-1.5" />
+                        Copy for parents
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleGenerateChallenges}
+                    disabled={challengeLoading}
+                  >
+                    {challengeLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Challenge Cards */}
+              <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-3">
+                {(Array.isArray(challengeData.challenges) ? challengeData.challenges : []).map((c: any, i: number) => {
+                  const diffColor =
+                    c.difficulty === 'advanced'
+                      ? 'text-red-400 bg-red-500/10 border-red-500/20'
+                      : c.difficulty === 'intermediate'
+                      ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                      : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+                  const cardAccent =
+                    i === 0
+                      ? 'border-orange-500/30 from-orange-500/5'
+                      : i === 1
+                      ? 'border-blue-500/30 from-blue-500/5'
+                      : 'border-purple-500/30 from-purple-500/5';
+                  return (
+                    <Card
+                      key={i}
+                      className={`bg-gradient-to-b ${cardAccent} to-zinc-900/50 border`}
+                    >
+                      <CardHeader className="pb-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 text-xs font-bold text-zinc-300">
+                              {i + 1}
+                            </div>
+                            <CardTitle className="text-base leading-tight">{c.title}</CardTitle>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <span className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-xs font-medium text-zinc-300">
+                            {c.skill_area}
+                          </span>
+                          <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${diffColor}`}>
+                            {c.difficulty}
+                          </span>
+                          {c.minutes_per_day && (
+                            <span className="flex items-center gap-1 rounded-full bg-zinc-800 px-2.5 py-0.5 text-xs text-zinc-400">
+                              <Clock className="h-3 w-3" />
+                              {c.minutes_per_day} min/day
+                            </span>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4 pt-0">
+                        {c.description && (
+                          <p className="text-sm text-zinc-400 leading-relaxed">{c.description}</p>
+                        )}
+
+                        {Array.isArray(c.steps) && c.steps.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Steps</p>
+                            <ol className="space-y-1.5">
+                              {(c.steps as string[]).map((step, si) => (
+                                <li key={si} className="flex items-start gap-2 text-sm text-zinc-300">
+                                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-xs font-bold text-zinc-400">
+                                    {si + 1}
+                                  </span>
+                                  {step}
+                                </li>
+                              ))}
+                            </ol>
+                          </div>
+                        )}
+
+                        {c.success_criteria && (
+                          <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+                            <Trophy className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-0.5">Success Goal</p>
+                              <p className="text-sm text-zinc-300">{c.success_criteria}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {c.encouragement && (
+                          <p className="text-xs text-zinc-500 italic leading-relaxed">
+                            &ldquo;{c.encouragement}&rdquo;
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              {/* Parent Note */}
+              {challengeData.parent_note && (
+                <Card className="border-zinc-700/50 bg-zinc-900/30">
+                  <CardContent className="flex items-start gap-3 p-4">
+                    <MessageSquare className="h-4 w-4 shrink-0 text-zinc-500 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1">Note for Parents</p>
+                      <p className="text-sm text-zinc-400 leading-relaxed">{challengeData.parent_note}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center p-8 text-center">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/10">
+                  <Zap className="h-8 w-8 text-amber-400" />
+                </div>
+                <h3 className="font-semibold text-zinc-200">Weekly Skill Challenges</h3>
+                <p className="mt-2 max-w-sm text-sm text-zinc-500 leading-relaxed">
+                  AI analyzes {player.name}&apos;s recent coaching observations and generates
+                  personalized at-home challenges to accelerate their growth.
+                </p>
+                <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs text-zinc-600">
+                  <span className="flex items-center gap-1 rounded-full bg-zinc-800/60 px-2.5 py-1">
+                    <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Personalized per player
+                  </span>
+                  <span className="flex items-center gap-1 rounded-full bg-zinc-800/60 px-2.5 py-1">
+                    <Copy className="h-3 w-3 text-blue-400" /> Shareable with parents
+                  </span>
+                  <span className="flex items-center gap-1 rounded-full bg-zinc-800/60 px-2.5 py-1">
+                    <Clock className="h-3 w-3 text-amber-400" /> 5-15 min/day
+                  </span>
+                </div>
+                <Button
+                  className="mt-6"
+                  onClick={handleGenerateChallenges}
+                  disabled={challengeLoading || !activeTeam}
+                >
+                  {challengeLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Generating challenges...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4 mr-2" />
+                      Generate This Week&apos;s Challenges
+                    </>
                   )}
                 </Button>
               </CardContent>

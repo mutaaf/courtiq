@@ -259,4 +259,40 @@ export const PROMPT_REGISTRY = {
       '{ "title": "string", "date_range": "string", "week_summary": "string (2-3 sentences)", "team_highlight": "string (1-2 sentences celebrating something the whole team did well)", "player_spotlights": [{ "player_name": "string", "highlight": "string (1-2 sentences, positive only)", "home_challenge": "string (simple at-home activity, 1 sentence)" }], "upcoming_focus": "string (what next week will focus on, 1-2 sentences)", "coaching_note": "string (warm personal note from the coach, 2-3 sentences)" }',
     ].filter(Boolean).join('\n'),
   }),
+
+  skillChallenge: (params: PromptParams & {
+    playerName: string;
+    ageGroup?: string;
+    growthAreas: string[];
+    recentNeedsWorkObs: string[];
+    weekLabel: string;
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You create personalized weekly skill challenge cards for youth athletes.',
+      'Rules:',
+      '- Challenges must be safe, age-appropriate, and doable at home without a coach.',
+      '- Each challenge should target a specific growth area observed in recent practices.',
+      '- Keep steps simple and concrete (3-5 numbered steps per challenge).',
+      '- Write success criteria that are MEASURABLE (e.g., "Make 7 out of 10 free throws").',
+      '- The encouragement message should feel personal and motivating.',
+      '- Parent note should be warm, brief, and include safety tips if relevant.',
+      '- Difficulty: match to player age and skill level.',
+      '- Max 3 challenges per week — focused beats exhaustive.',
+    ].join('\n'),
+    user: [
+      `Create a weekly skill challenge card for ${params.playerName}.`,
+      `Sport: ${params.sportName || 'basketball'} | Age group: ${params.ageGroup || 'youth'} | Week: ${params.weekLabel}`,
+      '',
+      params.growthAreas.length > 0
+        ? `Growth areas identified by coach: ${params.growthAreas.join(', ')}`
+        : 'No specific growth areas on record yet.',
+      params.recentNeedsWorkObs.length > 0
+        ? `Recent coaching observations (needs-work):\n${params.recentNeedsWorkObs.map(o => `- ${o}`).join('\n')}`
+        : '',
+      '',
+      'Generate 1-3 challenges. Respond with JSON:',
+      '{ "player_name": "string", "week_label": "string", "challenges": [{ "title": "string", "skill_area": "string", "difficulty": "beginner|intermediate|advanced", "minutes_per_day": number, "description": "string (1 sentence)", "steps": ["string", ...], "success_criteria": "string", "encouragement": "string (1 sentence, personal to this player)" }], "parent_note": "string (2-3 sentences for parents)" }',
+    ].filter(Boolean).join('\n'),
+  }),
 } as const;

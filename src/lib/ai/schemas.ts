@@ -159,3 +159,21 @@ export const weeklyNewsletterSchema = z.object({
 });
 
 export type WeeklyNewsletter = z.infer<typeof weeklyNewsletterSchema>;
+
+export const skillChallengeSchema = z.object({
+  player_name: z.string(),
+  week_label: z.string(),
+  challenges: z.array(z.object({
+    title: z.string(),
+    skill_area: z.string(),
+    difficulty: z.enum(['beginner', 'intermediate', 'advanced']),
+    minutes_per_day: z.number().positive(),
+    description: z.string(),
+    steps: z.array(z.string()).min(1),
+    success_criteria: z.string(),
+    encouragement: z.string(),
+  })).min(1).max(3),
+  parent_note: z.string(),
+});
+
+export type SkillChallenge = z.infer<typeof skillChallengeSchema>;
