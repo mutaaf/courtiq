@@ -53,7 +53,7 @@ You run every hour. Here's how to be effective.
 - [ ] Session-over-session improvement tracking
 - [ ] Practice-to-game transfer score visualization
 - [ ] Export data as PDF/CSV
-- [ ] Observation heatmap (which players get most attention)
+- [x] Observation heatmap (which players get most attention) — player × week SVG grid in Analytics; cell colour = observation intensity (sqrt-scaled orange), count label inside cell, tooltip on hover, colour legend; top 14 players sorted by total obs
 
 ### P4 — Innovative Features (Differentiators)
 - [x] **"Quick Capture" widget** — floating Zap button (bottom-right, above mobile nav) on every dashboard page except /capture. One tap opens a bottom sheet: record, auto-segments with AI, saves observations directly — no review step or navigation required. Haptic feedback, live transcript, success/error states, auto-closes after save
