@@ -42,7 +42,7 @@ You run every hour. Here's how to be effective.
 ### P2 — AI Intelligence
 - [ ] Better phonetic matching in observation segmentation
 - [ ] Smart practice plan generation from observation data trends
-- [ ] Post-session auto-debrief improvements
+- [x] Post-session auto-debrief improvements — multi-session trend context: fetches last 3 prior debriefs, AI generates trend_note comparing to recent history, recurring areas flagged with badge + persistent focus areas chip row
 - [x] Drill recommendation engine based on skill gaps — analyzes needs-work observations (last 30 days), surfaces matching drills in a "Recommended for Your Team" carousel at the top of the Drills Library; sorted by gap severity, up to 6 drills
 - [x] Game day prep based on opponent tendencies — dedicated form in Plans page: enter opponent name, strengths, weaknesses, key players; AI generates full prep sheet with scouting report (threat levels, defensive assignments), offensive/defensive game plan, set plays, lineup, halftime adjustments, and sideline reminders
 - [x] Auto-generate weekly parent newsletter from observations — AI-written team newsletter with player spotlights, home challenges, team highlight, and coaching note; saved as plan type `newsletter` with rich renderer; violet-themed generation button in Plans page
