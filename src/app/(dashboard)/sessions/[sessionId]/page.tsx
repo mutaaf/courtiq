@@ -36,6 +36,7 @@ import {
   TrendingUp,
   ClipboardList,
   BarChart2,
+  Play,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
@@ -621,6 +622,12 @@ export default function SessionDetailPage() {
               </Button>
             </Link>
           )}
+          <Link href={`/sessions/${sessionId}/replay`}>
+            <Button variant="outline" size="sm" className="border-zinc-700 text-zinc-400 hover:bg-zinc-800">
+              <Play className="h-4 w-4" />
+              <span className="hidden sm:inline">Replay</span>
+            </Button>
+          </Link>
           <Link href={`/capture?sessionId=${sessionId}`}>
             <Button>
               <Mic className="h-4 w-4" />
