@@ -94,3 +94,25 @@ body {
     animation: none;
   }
 }
+
+/* Quick Capture slide-up animation */
+@keyframes quick-capture-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-quick-capture-enter {
+  animation: quick-capture-enter 0.25s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-quick-capture-enter {
+    animation: none;
+  }
+}
