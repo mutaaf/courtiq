@@ -30,9 +30,10 @@ import {
   Star,
   Home,
   Users,
+  BookOpen,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
-import type { Plan, PlanType } from '@/types/database';
+import type { Plan, Player, PlanType } from '@/types/database';
 import type { ObservationInsights } from '@/app/api/ai/plan/route';
 
 const PLAN_TYPE_CONFIG: Record<
@@ -47,6 +48,7 @@ const PLAN_TYPE_CONFIG: Record<
   report_card: { label: 'Report Card', icon: FileText, color: 'text-amber-400' },
   custom: { label: 'Custom', icon: ClipboardList, color: 'text-zinc-400' },
   newsletter: { label: 'Parent Newsletter', icon: Newspaper, color: 'text-violet-400' },
+  season_storyline: { label: 'Season Storyline', icon: BookOpen, color: 'text-indigo-400' },
 };
 
 const SUGGESTION_CHIPS = [
@@ -70,6 +72,9 @@ export default function PlansPage() {
   const [lastInsights, setLastInsights] = useState<ObservationInsights | null>(null);
   const [generatingNewsletter, setGeneratingNewsletter] = useState(false);
   const [newsletterStats, setNewsletterStats] = useState<{ sessionsIncluded: number; observationsIncluded: number; playerSpotlightsCount: number; dateRange: string } | null>(null);
+  const [generatingStoryline, setGeneratingStoryline] = useState(false);
+  const [storylinePlayerId, setStorylinePlayerId] = useState<string>('');
+  const [storylineStats, setStorylineStats] = useState<{ totalObservations: number; weeksOfData: number; firstObservationDate: string; latestObservationDate: string } | null>(null);
 
   const { data: plans, isLoading, refetch: refetchPlans } = useQuery({
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
@@ -85,6 +90,21 @@ export default function PlansPage() {
     },
     enabled: !!activeTeam,
     ...CACHE_PROFILES.plans,
+  });
+
+  const { data: players } = useQuery({
+    queryKey: queryKeys.players.all(activeTeam?.id || ''),
+    queryFn: async () => {
+      if (!activeTeam) return [];
+      const data = await query<Player[]>({
+        table: 'players',
+        select: 'id, name',
+        filters: { team_id: activeTeam.id, is_active: true },
+        order: { column: 'name', ascending: true },
+      });
+      return data || [];
+    },
+    enabled: !!activeTeam,
   });
 
   const deleteMutation = useMutation({
@@ -170,6 +190,32 @@ export default function PlansPage() {
       setError(err instanceof Error ? err.message : 'Newsletter generation failed');
     } finally {
       setGeneratingNewsletter(false);
+    }
+  };
+
+  const generateStoryline = async () => {
+    if (!activeTeam || !storylinePlayerId) return;
+    setGeneratingStoryline(true);
+    setError(null);
+    setStorylineStats(null);
+    try {
+      const res = await fetch('/api/ai/season-storyline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id, playerId: storylinePlayerId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate season storyline');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      if (data.stats) setStorylineStats(data.stats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Season storyline generation failed');
+    } finally {
+      setGeneratingStoryline(false);
     }
   };
 
@@ -314,6 +360,105 @@ export default function PlansPage() {
             <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">From the Coach</p>
               <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{structured.coaching_note}&rdquo;</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Season Storyline renderer
+    if (structured.chapters || structured.opening || structured.trajectory) {
+      return (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <BookOpen className="h-5 w-5 text-indigo-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Season Storyline</span>
+            </div>
+            {structured.player_name && (
+              <h2 className="text-xl font-bold text-zinc-100">{structured.player_name}</h2>
+            )}
+            {structured.season_label && (
+              <p className="text-xs text-zinc-500">{structured.season_label}</p>
+            )}
+          </div>
+
+          {/* Opening */}
+          {structured.opening && (
+            <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4">
+              <p className="text-sm font-semibold text-indigo-300 mb-2">The Beginning</p>
+              <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{structured.opening}&rdquo;</p>
+            </div>
+          )}
+
+          {/* Chapters */}
+          {Array.isArray(structured.chapters) && structured.chapters.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-zinc-200">Season Arc</p>
+              {structured.chapters.map((chapter: any, i: number) => (
+                <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-zinc-100">{chapter.phase}</p>
+                    {chapter.weeks && (
+                      <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">{chapter.weeks}</span>
+                    )}
+                  </div>
+                  {chapter.narrative && (
+                    <p className="text-sm text-zinc-400 leading-relaxed">{chapter.narrative}</p>
+                  )}
+                  {Array.isArray(chapter.highlights) && chapter.highlights.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Highlights</p>
+                      {chapter.highlights.map((h: string, j: number) => (
+                        <p key={j} className="text-xs text-zinc-400 flex gap-2"><span className="text-emerald-500">+</span>{h}</p>
+                      ))}
+                    </div>
+                  )}
+                  {Array.isArray(chapter.growth_moments) && chapter.growth_moments.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Growth Moments</p>
+                      {chapter.growth_moments.map((g: string, j: number) => (
+                        <p key={j} className="text-xs text-zinc-400 flex gap-2"><span className="text-amber-500">→</span>{g}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Current Strengths */}
+          {Array.isArray(structured.current_strengths) && structured.current_strengths.length > 0 && (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Star className="h-4 w-4 text-emerald-400" />
+                <p className="text-sm font-semibold text-emerald-300">Current Strengths</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {structured.current_strengths.map((s: string, i: number) => (
+                  <span key={i} className="text-xs bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 rounded-full px-2.5 py-1">{s}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Trajectory */}
+          {structured.trajectory && (
+            <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="h-4 w-4 text-orange-400" />
+                <p className="text-sm font-semibold text-orange-300">Where They&apos;re Headed</p>
+              </div>
+              <p className="text-sm text-zinc-300 leading-relaxed">{structured.trajectory}</p>
+            </div>
+          )}
+
+          {/* Coach Reflection */}
+          {structured.coach_reflection && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Coach&apos;s Reflection</p>
+              <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{structured.coach_reflection}&rdquo;</p>
             </div>
           )}
         </div>
@@ -713,6 +858,46 @@ export default function PlansPage() {
               <Users className="h-4 w-4 text-violet-500/50 shrink-0" />
             </button>
 
+            {/* Season Storyline — player-specific */}
+            <div className="rounded-xl border border-indigo-500/40 bg-gradient-to-r from-indigo-500/15 to-indigo-500/5 p-3 space-y-2.5">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/25">
+                  <BookOpen className="h-4 w-4 text-indigo-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-indigo-300">Season Storyline</p>
+                  <p className="text-xs text-zinc-500">AI narrative arc of a player&apos;s season journey</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <select
+                    value={storylinePlayerId}
+                    onChange={(e) => setStorylinePlayerId(e.target.value)}
+                    disabled={generatingStoryline || !activeTeam}
+                    className="w-full appearance-none rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 pr-8 focus:outline-none focus:border-indigo-500/50 disabled:opacity-50"
+                  >
+                    <option value="">Select a player...</option>
+                    {players?.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                </div>
+                <Button
+                  onClick={generateStoryline}
+                  disabled={!storylinePlayerId || generatingStoryline || !activeTeam}
+                  className="h-9 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-30 shrink-0"
+                >
+                  {generatingStoryline ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    'Generate'
+                  )}
+                </Button>
+              </div>
+            </div>
+
             {/* Generic suggestion chips */}
             <div className="flex flex-wrap gap-2">
               {SUGGESTION_CHIPS.map((chip) => (
@@ -747,6 +932,37 @@ export default function PlansPage() {
                 <p className="text-sm font-medium text-violet-300">Writing parent newsletter...</p>
                 <p className="text-xs text-zinc-500">Gathering this week&apos;s sessions and crafting player spotlights</p>
               </div>
+            </div>
+          )}
+
+          {/* Storyline generating indicator */}
+          {generatingStoryline && (
+            <div className="flex items-center gap-3 rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-3">
+              <Loader2 className="h-5 w-5 text-indigo-400 animate-spin" />
+              <div>
+                <p className="text-sm font-medium text-indigo-300">Writing season storyline...</p>
+                <p className="text-xs text-zinc-500">Analyzing the full season of observations and crafting the player&apos;s arc</p>
+              </div>
+            </div>
+          )}
+
+          {/* Storyline stats badge — shown after successful generation */}
+          {!generatingStoryline && storylineStats && (
+            <div className="flex items-start gap-3 rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-3">
+              <BookOpen className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-indigo-300">Season Storyline generated</p>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  {storylineStats.totalObservations} observations &middot; {storylineStats.weeksOfData} week{storylineStats.weeksOfData !== 1 ? 's' : ''} of data &middot; {storylineStats.firstObservationDate} – {storylineStats.latestObservationDate}
+                </p>
+              </div>
+              <button
+                onClick={() => setStorylineStats(null)}
+                className="text-zinc-600 hover:text-zinc-400 shrink-0"
+                aria-label="Dismiss"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
           )}
 

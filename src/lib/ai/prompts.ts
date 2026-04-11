@@ -295,4 +295,58 @@ export const PROMPT_REGISTRY = {
       '{ "player_name": "string", "week_label": "string", "challenges": [{ "title": "string", "skill_area": "string", "difficulty": "beginner|intermediate|advanced", "minutes_per_day": number, "description": "string (1 sentence)", "steps": ["string", ...], "success_criteria": "string", "encouragement": "string (1 sentence, personal to this player)" }], "parent_note": "string (2-3 sentences for parents)" }',
     ].filter(Boolean).join('\n'),
   }),
+  seasonStoryline: (params: PromptParams & {
+    playerName: string;
+    seasonLabel: string;
+    totalObservations: number;
+    weeklyBreakdown: Array<{
+      week: number;
+      positiveCount: number;
+      needsWorkCount: number;
+      categories: string[];
+      highlights: string[];
+    }>;
+    overallStrengths: string[];
+    overallGrowthAreas: string[];
+    firstObservationDate: string;
+    latestObservationDate: string;
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You write compelling season narrative arcs for individual youth athletes.',
+      'Rules:',
+      '- Write like a sportswriter telling a developmental story, not a clinical report.',
+      '- Every player has a story worth telling. Find the arc even if growth was slow.',
+      '- Use concrete observations to ground the narrative (e.g., "In the early weeks, Marcus struggled with…").',
+      '- Celebrate effort, courage, and small wins as much as skill milestones.',
+      '- Growth-mindset language throughout — "exploring", "building", "unlocking".',
+      '- The opening should set the scene from Week 1 — where did this player start?',
+      '- Each chapter should feel like a natural story beat (Early Season / Building / Breakthrough / etc.).',
+      '- coach_reflection should be a personal, heartfelt message the coach could share.',
+      '- Keep the full narrative under 800 words.',
+    ].join('\n'),
+    user: [
+      `Write a season storyline narrative for ${params.playerName}.`,
+      `Sport: ${params.sportName || 'basketball'} | Team: ${params.teamName || 'the team'} | Age group: ${params.ageGroup || 'youth'} | Season: ${params.seasonLabel}`,
+      `Season span: ${params.firstObservationDate} – ${params.latestObservationDate} | Total coaching observations: ${params.totalObservations}`,
+      '',
+      params.overallStrengths.length > 0
+        ? `Observed strengths: ${params.overallStrengths.join(', ')}`
+        : '',
+      params.overallGrowthAreas.length > 0
+        ? `Growth areas worked on: ${params.overallGrowthAreas.join(', ')}`
+        : '',
+      '',
+      params.weeklyBreakdown.length > 0
+        ? `Week-by-week coaching data:\n${params.weeklyBreakdown.map(w =>
+            `  Week ${w.week}: ${w.positiveCount} positive, ${w.needsWorkCount} needs-work` +
+            (w.categories.length ? ` | categories: ${w.categories.join(', ')}` : '') +
+            (w.highlights.length ? `\n    Notable: ${w.highlights.slice(0, 2).join(' | ')}` : '')
+          ).join('\n')}`
+        : 'Limited week-by-week data available — build the narrative from what is known.',
+      '',
+      'Write a season storyline with narrative chapters. Respond with JSON:',
+      '{ "player_name": "string", "season_label": "string", "opening": "string (2-3 sentences setting the scene from the start of season)", "chapters": [{ "phase": "string (e.g. Early Season, Building Momentum, Breakthrough, etc.)", "weeks": "string (e.g. Weeks 1-3)", "narrative": "string (3-5 sentences telling the story of this phase)", "highlights": ["string"], "growth_moments": ["string"] }], "current_strengths": ["string"], "trajectory": "string (2-3 sentences on where this player is headed)", "coach_reflection": "string (2-3 sentences — a personal, heartfelt coaching perspective)" }',
+    ].filter(Boolean).join('\n'),
+  }),
 } as const;

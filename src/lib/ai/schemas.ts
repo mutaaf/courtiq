@@ -177,3 +177,21 @@ export const skillChallengeSchema = z.object({
 });
 
 export type SkillChallenge = z.infer<typeof skillChallengeSchema>;
+
+export const seasonStorylineSchema = z.object({
+  player_name: z.string(),
+  season_label: z.string(),
+  opening: z.string(),
+  chapters: z.array(z.object({
+    phase: z.string(),
+    weeks: z.string(),
+    narrative: z.string(),
+    highlights: z.array(z.string()),
+    growth_moments: z.array(z.string()),
+  })).min(1),
+  current_strengths: z.array(z.string()).min(1),
+  trajectory: z.string(),
+  coach_reflection: z.string(),
+});
+
+export type SeasonStoryline = z.infer<typeof seasonStorylineSchema>;

@@ -8,7 +8,7 @@ export type Sentiment = 'positive' | 'needs-work' | 'neutral';
 export type ObservationSource = 'voice' | 'typed' | 'photo' | 'video' | 'cv' | 'import' | 'debrief';
 export type RecordingStatus = 'recorded' | 'uploading' | 'uploaded' | 'transcribing' | 'transcribed' | 'parsing' | 'parsed' | 'reviewed' | 'failed';
 export type MediaType = 'photo' | 'screenshot' | 'video' | 'game_film' | 'document';
-export type PlanType = 'practice' | 'gameday' | 'weekly' | 'development_card' | 'parent_report' | 'report_card' | 'custom' | 'newsletter' | 'skill_challenge';
+export type PlanType = 'practice' | 'gameday' | 'weekly' | 'development_card' | 'parent_report' | 'report_card' | 'custom' | 'newsletter' | 'skill_challenge' | 'season_storyline';
 export type ProficiencyLevel = 'insufficient_data' | 'exploring' | 'practicing' | 'got_it' | 'game_ready';
 export type Trend = 'improving' | 'plateau' | 'regressing' | 'new';
 export type SyncOperation = 'create' | 'update' | 'delete';
@@ -33,6 +33,7 @@ export type AIInteractionType =
   | 'roster_import'
   | 'cv_coaching_event_extraction'
   | 'cv_identity_resolution'
+  | 'generate_season_storyline'
   | 'custom';
 
 export interface Organization {

@@ -28,12 +28,15 @@ import {
   Clock,
   Sparkles,
   Trophy,
+  BookOpen,
+  TrendingUp,
+  Star,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 import type { Player, Observation, PlayerSkillProficiency, Sentiment } from '@/types/database';
 
-type Tab = 'overview' | 'observations' | 'report-card' | 'media' | 'share' | 'challenges';
+type Tab = 'overview' | 'observations' | 'report-card' | 'media' | 'share' | 'challenges' | 'storyline';
 
 const sentimentVariant: Record<Sentiment, 'success' | 'destructive' | 'secondary'> = {
   positive: 'success',
@@ -72,6 +75,11 @@ export default function PlayerDetailPage({
   const [challengeError, setChallengeError] = useState<string | null>(null);
   const [challengeData, setChallengeData] = useState<any>(null);
   const [challengeTextCopied, setChallengeTextCopied] = useState(false);
+
+  // Season storyline state
+  const [storylineLoading, setStorylineLoading] = useState(false);
+  const [storylineError, setStorylineError] = useState<string | null>(null);
+  const [storylineData, setStorylineData] = useState<any>(null);
 
   const { data: player, isLoading: playerLoading } = useQuery({
     queryKey: queryKeys.players.detail(playerId),
@@ -134,6 +142,7 @@ export default function PlayerDetailPage({
     { id: 'observations', label: 'Observations', icon: <Eye className="h-4 w-4" /> },
     { id: 'report-card', label: 'Report Card', icon: <FileText className="h-4 w-4" /> },
     { id: 'challenges', label: 'Challenges', icon: <Zap className="h-4 w-4" /> },
+    { id: 'storyline', label: 'Storyline', icon: <BookOpen className="h-4 w-4" /> },
     { id: 'media', label: 'Media', icon: <ImageIcon className="h-4 w-4" /> },
     { id: 'share', label: 'Share', icon: <Share2 className="h-4 w-4" /> },
   ];
@@ -207,6 +216,29 @@ export default function PlayerDetailPage({
       setTimeout(() => setChallengeTextCopied(false), 2000);
     } catch {
       // clipboard not available
+    }
+  }
+
+  async function handleGenerateStoryline() {
+    if (!activeTeam || !player) return;
+    setStorylineLoading(true);
+    setStorylineError(null);
+    try {
+      const res = await fetch('/api/ai/season-storyline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id, playerId: player.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate season storyline');
+      }
+      const data = await res.json();
+      setStorylineData(data.content);
+    } catch (err) {
+      setStorylineError(err instanceof Error ? err.message : 'Generation failed');
+    } finally {
+      setStorylineLoading(false);
     }
   }
 
@@ -914,6 +946,161 @@ export default function PlayerDetailPage({
                 </Button>
               </CardContent>
             </Card>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'storyline' && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BookOpen className="h-5 w-5 text-indigo-400" />
+                Season Storyline
+              </CardTitle>
+              <p className="text-sm text-zinc-500">
+                AI-generated narrative arc of {player?.name}&apos;s season journey — from their first observations to where they are today.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {storylineError && (
+                <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>{storylineError}</span>
+                </div>
+              )}
+              {!storylineData && !storylineLoading && (
+                <Button
+                  onClick={handleGenerateStoryline}
+                  disabled={storylineLoading}
+                  className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium touch-manipulation active:scale-[0.98]"
+                >
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Generate Season Storyline
+                </Button>
+              )}
+              {storylineLoading && (
+                <div className="flex items-center gap-3 rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-4">
+                  <Loader2 className="h-5 w-5 text-indigo-400 animate-spin shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-indigo-300">Writing season storyline...</p>
+                    <p className="text-xs text-zinc-500">Analyzing all observations and crafting the narrative arc</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {storylineData && (
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="rounded-xl border border-indigo-500/30 bg-gradient-to-b from-indigo-500/10 to-transparent p-5 text-center space-y-1">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <BookOpen className="h-5 w-5 text-indigo-400" />
+                  <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Season Storyline</span>
+                </div>
+                <h2 className="text-xl font-bold text-zinc-100">{storylineData.player_name}</h2>
+                {storylineData.season_label && (
+                  <p className="text-xs text-zinc-500">{storylineData.season_label}</p>
+                )}
+              </div>
+
+              {/* Opening */}
+              {storylineData.opening && (
+                <Card className="border-indigo-500/20">
+                  <CardContent className="p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-indigo-400 mb-2">The Beginning</p>
+                    <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{storylineData.opening}&rdquo;</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Chapters */}
+              {Array.isArray(storylineData.chapters) && storylineData.chapters.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-zinc-300 px-1">Season Arc</p>
+                  {storylineData.chapters.map((chapter: any, i: number) => (
+                    <Card key={i} className="border-zinc-800">
+                      <CardContent className="p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-zinc-100">{chapter.phase}</p>
+                          {chapter.weeks && (
+                            <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">{chapter.weeks}</span>
+                          )}
+                        </div>
+                        {chapter.narrative && (
+                          <p className="text-sm text-zinc-400 leading-relaxed">{chapter.narrative}</p>
+                        )}
+                        {Array.isArray(chapter.highlights) && chapter.highlights.length > 0 && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Highlights</p>
+                            {chapter.highlights.map((h: string, j: number) => (
+                              <p key={j} className="text-xs text-zinc-400 flex gap-2"><span className="text-emerald-500">+</span>{h}</p>
+                            ))}
+                          </div>
+                        )}
+                        {Array.isArray(chapter.growth_moments) && chapter.growth_moments.length > 0 && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Growth Moments</p>
+                            {chapter.growth_moments.map((g: string, j: number) => (
+                              <p key={j} className="text-xs text-zinc-400 flex gap-2"><span className="text-amber-500">→</span>{g}</p>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {/* Current Strengths */}
+              {Array.isArray(storylineData.current_strengths) && storylineData.current_strengths.length > 0 && (
+                <Card className="border-emerald-500/20 bg-emerald-500/5">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Star className="h-4 w-4 text-emerald-400" />
+                      <p className="text-sm font-semibold text-emerald-300">Current Strengths</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {storylineData.current_strengths.map((s: string, i: number) => (
+                        <span key={i} className="text-xs bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 rounded-full px-2.5 py-1">{s}</span>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Trajectory */}
+              {storylineData.trajectory && (
+                <Card className="border-orange-500/20 bg-orange-500/5">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="h-4 w-4 text-orange-400" />
+                      <p className="text-sm font-semibold text-orange-300">Where They&apos;re Headed</p>
+                    </div>
+                    <p className="text-sm text-zinc-300 leading-relaxed">{storylineData.trajectory}</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Coach Reflection */}
+              {storylineData.coach_reflection && (
+                <Card className="border-zinc-700">
+                  <CardContent className="p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Coach&apos;s Reflection</p>
+                    <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{storylineData.coach_reflection}&rdquo;</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Button
+                variant="outline"
+                onClick={() => { setStorylineData(null); setStorylineError(null); }}
+                className="w-full"
+              >
+                Generate New Storyline
+              </Button>
+            </div>
           )}
         </div>
       )}
