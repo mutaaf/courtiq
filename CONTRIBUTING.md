@@ -56,7 +56,7 @@ You run every hour. Here's how to be effective.
 - [ ] Observation heatmap (which players get most attention)
 
 ### P4 — Innovative Features (Differentiators)
-- [ ] **"Quick Capture" widget** — floating mic button accessible from ANY page, not just /capture. One tap to record from roster, sessions, or home. Observations auto-associate with current context
+- [x] **"Quick Capture" widget** — floating Zap button (bottom-right, above mobile nav) on every dashboard page except /capture. One tap opens a bottom sheet: record, auto-segments with AI, saves observations directly — no review step or navigation required. Haptic feedback, live transcript, success/error states, auto-closes after save
 - [ ] **AI Practice Timer** — start a practice session timer that shows current drill, countdown, coaching cues, and auto-prompts "what did you observe?" between drills. Full guided practice mode
 - [ ] **Live Game Stat Tracker** — tap-based stat entry during games (made shot, miss, rebound, assist, steal, turnover). Per-player buttons, live box score, auto-generates game summary
 - [ ] **"Coach Replay"** — after a session, show a timeline of all observations with timestamps. Coach can re-listen to audio segments and add/edit observations in context
