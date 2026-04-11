@@ -37,6 +37,7 @@ import {
   ClipboardList,
   BarChart2,
   Play,
+  Shuffle,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
@@ -607,12 +608,20 @@ export default function SessionDetailPage() {
         </div>
         <div className="flex items-center gap-2">
           {(session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
-            <Link href={`/sessions/${sessionId}/game-tracker`}>
-              <Button variant="outline" size="sm" className="border-orange-500/40 text-orange-400 hover:bg-orange-500/10">
-                <BarChart2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Game Stats</span>
-              </Button>
-            </Link>
+            <>
+              <Link href={`/sessions/${sessionId}/subs`}>
+                <Button variant="outline" size="sm" className="border-zinc-700 text-zinc-400 hover:bg-zinc-800">
+                  <Shuffle className="h-4 w-4" />
+                  <span className="hidden sm:inline">Subs</span>
+                </Button>
+              </Link>
+              <Link href={`/sessions/${sessionId}/game-tracker`}>
+                <Button variant="outline" size="sm" className="border-orange-500/40 text-orange-400 hover:bg-orange-500/10">
+                  <BarChart2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Game Stats</span>
+                </Button>
+              </Link>
+            </>
           )}
           {(session.type === 'practice' || session.type === 'training' || session.type === 'scrimmage') && (
             <Link href={`/sessions/${sessionId}/timer`}>
