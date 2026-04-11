@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   const allowed = [
     'players', 'observations', 'sessions', 'plans', 'recordings',
     'media', 'teams', 'coaches', 'team_coaches', 'parent_shares',
-    'config_overrides', 'organizations',
+    'config_overrides', 'organizations', 'drills',
   ];
 
   if (!allowed.includes(table)) {

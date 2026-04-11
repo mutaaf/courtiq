@@ -349,4 +349,35 @@ export const PROMPT_REGISTRY = {
       '{ "player_name": "string", "season_label": "string", "opening": "string (2-3 sentences setting the scene from the start of season)", "chapters": [{ "phase": "string (e.g. Early Season, Building Momentum, Breakthrough, etc.)", "weeks": "string (e.g. Weeks 1-3)", "narrative": "string (3-5 sentences telling the story of this phase)", "highlights": ["string"], "growth_moments": ["string"] }], "current_strengths": ["string"], "trajectory": "string (2-3 sentences on where this player is headed)", "coach_reflection": "string (2-3 sentences — a personal, heartfelt coaching perspective)" }',
     ].filter(Boolean).join('\n'),
   }),
+  drillBuilder: (params: PromptParams & {
+    description: string;
+    preferredCategory?: string;
+    preferredAgeGroup?: string;
+    preferredDuration?: number;
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You design complete, ready-to-run youth sport drills from a coach\'s description.',
+      'Rules:',
+      '- Drills must be safe, age-appropriate, and require no specialized equipment unless described.',
+      '- Setup instructions should be concrete and easy to follow for a volunteer coach.',
+      '- Coaching cues should be short, memorable phrases coaches say DURING the drill.',
+      '- Include 2-3 progressions/variations so coaches can scale difficulty.',
+      '- Player count should be realistic for a typical youth team (2-20).',
+      '- Duration should be practical for a youth practice (5-20 minutes typical).',
+      '- If the description is vague, make reasonable, sport-appropriate assumptions.',
+    ].join('\n'),
+    user: [
+      `Design a ${params.sportName || 'basketball'} drill based on this description:`,
+      `"${params.description}"`,
+      '',
+      params.preferredCategory ? `Preferred category: ${params.preferredCategory}` : '',
+      params.preferredAgeGroup ? `Target age group: ${params.preferredAgeGroup}` : `Team age group: ${params.ageGroup || 'youth'}`,
+      params.preferredDuration ? `Target duration: ${params.preferredDuration} minutes` : '',
+      params.categories?.length ? `Available categories for this sport: ${params.categories.join(', ')}` : '',
+      '',
+      'Respond with JSON:',
+      '{ "name": "string", "description": "string (2-3 sentences)", "category": "string", "age_groups": ["string"], "duration_minutes": number, "player_count_min": number, "player_count_max": number|null, "equipment": ["string"], "setup_instructions": "string (paragraph)", "teaching_cues": ["string (short phrase)", ...], "variations": [{ "title": "string", "description": "string" }, ...] }',
+    ].filter(Boolean).join('\n'),
+  }),
 } as const;

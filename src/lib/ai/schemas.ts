@@ -195,3 +195,22 @@ export const seasonStorylineSchema = z.object({
 });
 
 export type SeasonStoryline = z.infer<typeof seasonStorylineSchema>;
+
+export const drillBuilderSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(10),
+  category: z.string().min(1),
+  age_groups: z.array(z.string()).min(1),
+  duration_minutes: z.number().positive(),
+  player_count_min: z.number().int().positive(),
+  player_count_max: z.number().int().positive().nullable().optional(),
+  equipment: z.array(z.string()).optional(),
+  setup_instructions: z.string().min(10),
+  teaching_cues: z.array(z.string()).min(1),
+  variations: z.array(z.object({
+    title: z.string(),
+    description: z.string(),
+  })).optional(),
+});
+
+export type DrillBuilderResult = z.infer<typeof drillBuilderSchema>;
