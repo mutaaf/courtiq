@@ -35,6 +35,7 @@ import {
   RefreshCw,
   TrendingUp,
   ClipboardList,
+  BarChart2,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
@@ -604,6 +605,14 @@ export default function SessionDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {(session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
+            <Link href={`/sessions/${sessionId}/game-tracker`}>
+              <Button variant="outline" size="sm" className="border-orange-500/40 text-orange-400 hover:bg-orange-500/10">
+                <BarChart2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Game Stats</span>
+              </Button>
+            </Link>
+          )}
           {(session.type === 'practice' || session.type === 'training' || session.type === 'scrimmage') && (
             <Link href={`/sessions/${sessionId}/timer`}>
               <Button variant="outline" size="sm" className="hidden sm:flex">
