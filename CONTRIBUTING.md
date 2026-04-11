@@ -49,7 +49,7 @@ You run every hour. Here's how to be effective.
 
 ### P3 — Data & Analytics
 - [x] Player comparison view (side-by-side skill radar) — /roster/compare; SVG radar chart (shared skills, up to 12 axes), side-by-side progress bars for all skills, per-player summary stats; Compare button in roster header when 2+ players
-- [ ] Team progress over time (line charts)
+- [x] Team progress over time (line charts) — SVG line chart in Analytics page: weekly health score % (emerald line, colour-coded dots) + observation volume (orange area), smoothed Bézier curves, gap handling for weeks with no data, trend delta label
 - [ ] Session-over-session improvement tracking
 - [ ] Practice-to-game transfer score visualization
 - [ ] Export data as PDF/CSV
