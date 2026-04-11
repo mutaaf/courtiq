@@ -44,7 +44,7 @@ You run every hour. Here's how to be effective.
 - [ ] Smart practice plan generation from observation data trends
 - [ ] Post-session auto-debrief improvements
 - [x] Drill recommendation engine based on skill gaps — analyzes needs-work observations (last 30 days), surfaces matching drills in a "Recommended for Your Team" carousel at the top of the Drills Library; sorted by gap severity, up to 6 drills
-- [ ] Game day prep based on opponent tendencies
+- [x] Game day prep based on opponent tendencies — dedicated form in Plans page: enter opponent name, strengths, weaknesses, key players; AI generates full prep sheet with scouting report (threat levels, defensive assignments), offensive/defensive game plan, set plays, lineup, halftime adjustments, and sideline reminders
 - [x] Auto-generate weekly parent newsletter from observations — AI-written team newsletter with player spotlights, home challenges, team highlight, and coaching note; saved as plan type `newsletter` with rich renderer; violet-themed generation button in Plans page
 
 ### P3 — Data & Analytics
