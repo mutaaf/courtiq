@@ -26,6 +26,10 @@ import {
   Send,
   Activity,
   TrendingUp,
+  Newspaper,
+  Star,
+  Home,
+  Users,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import type { Plan, PlanType } from '@/types/database';
@@ -42,6 +46,7 @@ const PLAN_TYPE_CONFIG: Record<
   parent_report: { label: 'Parent Report', icon: FileText, color: 'text-pink-400' },
   report_card: { label: 'Report Card', icon: FileText, color: 'text-amber-400' },
   custom: { label: 'Custom', icon: ClipboardList, color: 'text-zinc-400' },
+  newsletter: { label: 'Parent Newsletter', icon: Newspaper, color: 'text-violet-400' },
 };
 
 const SUGGESTION_CHIPS = [
@@ -63,6 +68,8 @@ export default function PlansPage() {
   const [prompt, setPrompt] = useState('');
   const [generatedPreview, setGeneratedPreview] = useState<unknown>(null);
   const [lastInsights, setLastInsights] = useState<ObservationInsights | null>(null);
+  const [generatingNewsletter, setGeneratingNewsletter] = useState(false);
+  const [newsletterStats, setNewsletterStats] = useState<{ sessionsIncluded: number; observationsIncluded: number; playerSpotlightsCount: number; dateRange: string } | null>(null);
 
   const { data: plans, isLoading, refetch: refetchPlans } = useQuery({
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
@@ -140,6 +147,32 @@ export default function PlansPage() {
     }
   };
 
+  const generateNewsletter = async () => {
+    if (!activeTeam) return;
+    setGeneratingNewsletter(true);
+    setError(null);
+    setNewsletterStats(null);
+    try {
+      const res = await fetch('/api/ai/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate newsletter');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      if (data.stats) setNewsletterStats(data.stats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Newsletter generation failed');
+    } finally {
+      setGeneratingNewsletter(false);
+    }
+  };
+
   const handleChipClick = (chip: string) => {
     setPrompt(chip);
     generateFromPrompt(chip);
@@ -202,6 +235,90 @@ export default function PlansPage() {
     }
 
     if (!structured) return <p className="text-sm text-zinc-500">No content available</p>;
+
+    // Newsletter renderer
+    if (structured.player_spotlights || structured.week_summary) {
+      return (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Newspaper className="h-5 w-5 text-violet-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-violet-400">Parent Newsletter</span>
+            </div>
+            {structured.title && (
+              <h2 className="text-xl font-bold text-zinc-100">{structured.title}</h2>
+            )}
+            {structured.date_range && (
+              <p className="text-xs text-zinc-500">{structured.date_range}</p>
+            )}
+          </div>
+
+          {/* Week Summary */}
+          {structured.week_summary && (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+              <p className="text-sm font-semibold text-zinc-300 mb-2">This Week</p>
+              <p className="text-sm text-zinc-400 leading-relaxed">{structured.week_summary}</p>
+            </div>
+          )}
+
+          {/* Team Highlight */}
+          {structured.team_highlight && (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="h-4 w-4 text-emerald-400" />
+                <p className="text-sm font-semibold text-emerald-300">Team Highlight</p>
+              </div>
+              <p className="text-sm text-zinc-300 leading-relaxed">{structured.team_highlight}</p>
+            </div>
+          )}
+
+          {/* Player Spotlights */}
+          {Array.isArray(structured.player_spotlights) && structured.player_spotlights.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Star className="h-4 w-4 text-yellow-400" />
+                <p className="text-sm font-semibold text-zinc-200">Player Spotlights</p>
+                <span className="text-xs text-zinc-600">({structured.player_spotlights.length} players)</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {structured.player_spotlights.map((spotlight: any, i: number) => (
+                  <div
+                    key={i}
+                    className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4 space-y-2"
+                  >
+                    <p className="text-sm font-semibold text-zinc-100">{spotlight.player_name}</p>
+                    <p className="text-xs text-zinc-400 leading-relaxed">{spotlight.highlight}</p>
+                    {spotlight.home_challenge && (
+                      <div className="flex items-start gap-2 rounded-lg bg-blue-500/10 border border-blue-500/20 p-2.5 mt-2">
+                        <Home className="h-3.5 w-3.5 text-blue-400 shrink-0 mt-0.5" />
+                        <p className="text-xs text-blue-300 leading-relaxed">{spotlight.home_challenge}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Upcoming Focus */}
+          {structured.upcoming_focus && (
+            <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
+              <p className="text-sm font-semibold text-orange-300 mb-2">Looking Ahead</p>
+              <p className="text-sm text-zinc-300 leading-relaxed">{structured.upcoming_focus}</p>
+            </div>
+          )}
+
+          {/* Coaching Note */}
+          {structured.coaching_note && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">From the Coach</p>
+              <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{structured.coaching_note}&rdquo;</p>
+            </div>
+          )}
+        </div>
+      );
+    }
 
     if (structured.warmup || structured.drills || structured.scrimmage || structured.cooldown) {
       return (
@@ -576,6 +693,26 @@ export default function PlansPage() {
               <TrendingUp className="h-4 w-4 text-orange-500/50 shrink-0" />
             </button>
 
+            {/* Weekly Parent Newsletter */}
+            <button
+              onClick={generateNewsletter}
+              disabled={generatingNewsletter || generating || !activeTeam}
+              className="flex w-full items-center gap-2.5 rounded-xl border border-violet-500/40 bg-gradient-to-r from-violet-500/15 to-violet-500/5 px-4 py-3 text-left transition-all hover:border-violet-500/60 hover:from-violet-500/20 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/25">
+                {generatingNewsletter ? (
+                  <Loader2 className="h-4 w-4 text-violet-400 animate-spin" />
+                ) : (
+                  <Newspaper className="h-4 w-4 text-violet-400" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-violet-300">Weekly Parent Newsletter</p>
+                <p className="text-xs text-zinc-500">AI-written summary of this week&apos;s sessions with player spotlights</p>
+              </div>
+              <Users className="h-4 w-4 text-violet-500/50 shrink-0" />
+            </button>
+
             {/* Generic suggestion chips */}
             <div className="flex flex-wrap gap-2">
               {SUGGESTION_CHIPS.map((chip) => (
@@ -599,6 +736,37 @@ export default function PlansPage() {
                 <p className="text-sm font-medium text-orange-300">Generating your plan...</p>
                 <p className="text-xs text-zinc-500">Analyzing your team&apos;s recent observations and creating a tailored practice plan</p>
               </div>
+            </div>
+          )}
+
+          {/* Newsletter generating indicator */}
+          {generatingNewsletter && (
+            <div className="flex items-center gap-3 rounded-lg border border-violet-500/20 bg-violet-500/5 p-3">
+              <Loader2 className="h-5 w-5 text-violet-400 animate-spin" />
+              <div>
+                <p className="text-sm font-medium text-violet-300">Writing parent newsletter...</p>
+                <p className="text-xs text-zinc-500">Gathering this week&apos;s sessions and crafting player spotlights</p>
+              </div>
+            </div>
+          )}
+
+          {/* Newsletter stats badge — shown after successful generation */}
+          {!generatingNewsletter && newsletterStats && (
+            <div className="flex items-start gap-3 rounded-lg border border-violet-500/20 bg-violet-500/5 p-3">
+              <Newspaper className="h-4 w-4 text-violet-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-violet-300">Newsletter generated</p>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  {newsletterStats.dateRange} &middot; {newsletterStats.sessionsIncluded} session{newsletterStats.sessionsIncluded !== 1 ? 's' : ''} &middot; {newsletterStats.observationsIncluded} observations &middot; {newsletterStats.playerSpotlightsCount} player spotlight{newsletterStats.playerSpotlightsCount !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => setNewsletterStats(null)}
+                className="text-zinc-600 hover:text-zinc-400 shrink-0"
+                aria-label="Dismiss"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
           )}
 

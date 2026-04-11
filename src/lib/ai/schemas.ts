@@ -143,3 +143,19 @@ export type DevelopmentCard = z.infer<typeof developmentCardSchema>;
 export type ReportCard = z.infer<typeof reportCardSchema>;
 export type ParentReport = z.infer<typeof parentReportSchema>;
 export type RosterImport = z.infer<typeof rosterImportSchema>;
+
+export const weeklyNewsletterSchema = z.object({
+  title: z.string(),
+  date_range: z.string(),
+  week_summary: z.string(),
+  team_highlight: z.string(),
+  player_spotlights: z.array(z.object({
+    player_name: z.string(),
+    highlight: z.string(),
+    home_challenge: z.string(),
+  })).min(1),
+  upcoming_focus: z.string(),
+  coaching_note: z.string(),
+});
+
+export type WeeklyNewsletter = z.infer<typeof weeklyNewsletterSchema>;

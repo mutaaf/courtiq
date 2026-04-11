@@ -45,7 +45,7 @@ You run every hour. Here's how to be effective.
 - [ ] Post-session auto-debrief improvements
 - [ ] Drill recommendation engine based on skill gaps
 - [ ] Game day prep based on opponent tendencies
-- [ ] Auto-generate weekly parent newsletter from observations
+- [x] Auto-generate weekly parent newsletter from observations — AI-written team newsletter with player spotlights, home challenges, team highlight, and coaching note; saved as plan type `newsletter` with rich renderer; violet-themed generation button in Plans page
 
 ### P3 — Data & Analytics
 - [ ] Player comparison view (side-by-side skill radar)

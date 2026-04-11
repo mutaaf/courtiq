@@ -206,4 +206,57 @@ export const PROMPT_REGISTRY = {
     system: 'You extract player information from roster screenshots. Return structured data with player names, jersey numbers, and positions when visible.',
     user: 'Extract all player information from this roster image. Respond with JSON: { "players": [{ "name", "jersey_number", "position" }] }',
   }),
+
+  weeklyNewsletter: (params: PromptParams & {
+    dateRange: string;
+    sessionSummaries: Array<{ date: string; type: string; observationCount: number }>;
+    playerSpotlights: Array<{
+      name: string;
+      positiveHighlights: string[];
+      needsWorkAreas: string[];
+    }>;
+    teamPositiveCount: number;
+    teamNeedsWorkCount: number;
+    topStrengthCategories: string[];
+    topFocusCategories: string[];
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You write warm, encouraging weekly newsletters for parents of youth athletes.',
+      'Rules:',
+      '- Write in a friendly, conversational tone parents will enjoy reading.',
+      '- ALWAYS lead with positives — celebrate growth and effort.',
+      '- Keep player spotlights focused on progress, not comparison.',
+      '- Use age-appropriate, jargon-free language (4th-grade reading level).',
+      '- Home challenges should be simple, fun, and doable in 5-10 minutes.',
+      '- Never single out any player for negative feedback in a shared newsletter.',
+      '- Maximum 600 words total.',
+    ].join('\n'),
+    user: [
+      `Generate a weekly parent newsletter for ${params.teamName || 'the team'}.`,
+      `Team: ${params.teamName || 'Team'} | Sport: ${params.sportName || 'basketball'} | Age group: ${params.ageGroup || 'youth'} | Season week: ${params.seasonWeek || 1}`,
+      `Date range: ${params.dateRange}`,
+      '',
+      params.sessionSummaries.length > 0
+        ? `Sessions this week:\n${params.sessionSummaries.map(s => `- ${s.type} on ${s.date} (${s.observationCount} coaching observations)`).join('\n')}`
+        : 'No formal sessions this week.',
+      '',
+      `Team observations: ${params.teamPositiveCount} positive, ${params.teamNeedsWorkCount} needing work`,
+      params.topStrengthCategories.length > 0
+        ? `Team strengths: ${params.topStrengthCategories.join(', ')}`
+        : '',
+      params.topFocusCategories.length > 0
+        ? `Areas we are developing: ${params.topFocusCategories.join(', ')}`
+        : '',
+      '',
+      params.playerSpotlights.length > 0
+        ? `Player spotlights (include one per player listed, positive highlights only):\n${params.playerSpotlights.map(p =>
+            `- ${p.name}: positives: ${p.positiveHighlights.slice(0, 3).join('; ')}${p.needsWorkAreas.length ? ` | growth areas: ${p.needsWorkAreas.slice(0, 2).join('; ')}` : ''}`
+          ).join('\n')}`
+        : '',
+      '',
+      'Respond with JSON:',
+      '{ "title": "string", "date_range": "string", "week_summary": "string (2-3 sentences)", "team_highlight": "string (1-2 sentences celebrating something the whole team did well)", "player_spotlights": [{ "player_name": "string", "highlight": "string (1-2 sentences, positive only)", "home_challenge": "string (simple at-home activity, 1 sentence)" }], "upcoming_focus": "string (what next week will focus on, 1-2 sentences)", "coaching_note": "string (warm personal note from the coach, 2-3 sentences)" }',
+    ].filter(Boolean).join('\n'),
+  }),
 } as const;
