@@ -55,37 +55,68 @@ You run every hour. Here's how to be effective.
 - [ ] Export data as PDF/CSV
 - [ ] Observation heatmap (which players get most attention)
 
-### P4 — New Features
-- [ ] Drill builder (AI-assisted, save custom drills)
-- [ ] Game stat tracker (live scoring during games)
-- [ ] Practice timer with drill rotation alerts
-- [ ] Team calendar/schedule
-- [ ] Coach-to-coach messaging within org
-- [ ] Player self-assessment (age 13+)
-- [ ] Season summary report generator
+### P4 — Innovative Features (Differentiators)
+- [ ] **"Quick Capture" widget** — floating mic button accessible from ANY page, not just /capture. One tap to record from roster, sessions, or home. Observations auto-associate with current context
+- [ ] **AI Practice Timer** — start a practice session timer that shows current drill, countdown, coaching cues, and auto-prompts "what did you observe?" between drills. Full guided practice mode
+- [ ] **Live Game Stat Tracker** — tap-based stat entry during games (made shot, miss, rebound, assist, steal, turnover). Per-player buttons, live box score, auto-generates game summary
+- [ ] **"Coach Replay"** — after a session, show a timeline of all observations with timestamps. Coach can re-listen to audio segments and add/edit observations in context
+- [ ] **Skill Challenge Cards** — AI generates weekly skill challenges for each player based on their growth areas. Shareable cards parents can use for at-home practice. Gamified with streak tracking
+- [ ] **Smart Substitution Planner** — input game length + player count, AI generates fair rotation ensuring equal playing time. Tracks actual minutes played
+- [ ] **Season Storyline** — AI generates a narrative arc of each player's season ("Marcus started exploring dribbling in Week 1 and by Week 8 was running pick-and-roll confidently"). Shareable end-of-season report
+- [ ] **Drill builder** — AI-assisted custom drill creator. Describe what you want, AI generates drill with setup, coaching cues, variations, and links to curriculum skills
+- [ ] **Team Calendar** — schedule practices/games, auto-populate session records, send reminders
+- [ ] **Player self-assessment** (age 13+) — players rate themselves on skills, compare with coach assessment for coaching conversations
 
-### P5 — Performance & PWA
+### P5 — GTM & Growth
+- [ ] **Referral system** — "Invite a coach, get 1 month free" with tracking link and reward
+- [ ] **In-app testimonial prompts** — after 10 observations, prompt coach for a review/rating
+- [ ] **Social sharing** — "Share your season stats" cards optimized for Instagram/Twitter/Facebook
+- [ ] **Onboarding email drip** — trigger emails: Day 1 (welcome), Day 3 (first capture tips), Day 7 (generate first plan), Day 14 (share with parents)
+- [ ] **Coach leaderboard** (opt-in) — gamify engagement: observations recorded, plans generated, parent shares sent. Badge system (Rookie Coach → Elite Coach)
+- [ ] **Program landing pages** — `/org/[slug]` white-label pages for YMCA branches to recruit coaches
+- [ ] **"SportsIQ Certified Coach" badge** — coaches who complete curriculum and hit observation thresholds get a shareable digital badge
+- [ ] **Seasonal promotions** — auto-detect season start (Sept/Jan/Apr) and show relevant onboarding: "New season? Import your roster and set up your curriculum"
+- [ ] **Parent viral loop** — parent portal includes "Is your coach using SportsIQ? Share this with them" CTA when they see how good the reports are
+- [ ] **Freemium upgrade nudges** — contextual upgrade prompts: "You've hit 5 observations this month. Upgrade to Coach for unlimited." Show value before asking
+
+### P6 — Strategic Platform Features
+- [ ] **Multi-season history** — archive past seasons, compare player progress across seasons
+- [ ] **Cross-team analytics (org)** — program directors see aggregate data: which skills are strongest/weakest across all teams, which coaches are most engaged
+- [ ] **Curriculum marketplace** — orgs can publish their custom curricula, other orgs can import them
+- [ ] **Parent engagement scoring** — track which parents open reports, view progress. Identify disengaged families for coach follow-up
+- [ ] **AI coaching tips** — proactive suggestions: "You haven't observed Sarah in 2 weeks" or "Your team's defense observations are declining — consider a defensive drill block"
+- [ ] **Export/print** — PDF report cards, practice plans, and season summaries for coaches without reliable internet
+- [ ] **Bulk operations** — select multiple players for group observations, bulk share links, bulk report cards
+- [ ] **Integration webhooks** — notify external systems (Slack, email, TeamSnap) on key events
+
+### P7 — Performance & PWA
 - [ ] Service worker for offline app shell
-- [ ] Install prompt (add to home screen)
-- [ ] Image/asset lazy loading
+- [ ] Install prompt (add to home screen) with custom banner
+- [ ] Image/asset lazy loading with blur placeholders
 - [ ] Code splitting for dashboard routes
-- [ ] Optimistic updates on mutations
-- [ ] Background sync for observations
+- [ ] Optimistic updates on mutations (instant UI feedback)
+- [ ] Background sync for observations captured offline
+- [ ] Prefetch adjacent pages on hover/focus
 
-### P6 — Accessibility
+### P8 — Accessibility
 - [ ] ARIA labels on all interactive elements
 - [ ] Keyboard navigation for all pages
-- [ ] Screen reader testing
+- [ ] Screen reader testing with VoiceOver/NVDA
 - [ ] Focus trap in modals/dialogs
-- [ ] Color contrast verification (WCAG AA)
+- [ ] Color contrast verification (WCAG AA minimum)
 - [ ] Reduce motion preference support
+- [ ] High contrast mode toggle
 
-### P7 — Testing
+### P9 — Testing & Reliability
 - [ ] Component tests for key UI (roster card, recording button, plan card)
-- [ ] Integration tests for API routes (config, segment, plan)
+- [ ] Integration tests for API routes (config, segment, plan, share)
 - [ ] E2E test: signup → onboarding → capture → review → save
-- [ ] E2E test: generate plan → view plan
+- [ ] E2E test: generate plan → view plan → delete plan
 - [ ] E2E test: create share link → view parent portal
+- [ ] E2E test: admin panel → invite coach → change role
+- [ ] Error boundary components on all pages
+- [ ] Sentry or similar error tracking integration
+- [ ] API rate limiting on AI endpoints
 
 ---
 
