@@ -50,7 +50,7 @@ You run every hour. Here's how to be effective.
 ### P3 — Data & Analytics
 - [x] Player comparison view (side-by-side skill radar) — /roster/compare; SVG radar chart (shared skills, up to 12 axes), side-by-side progress bars for all skills, per-player summary stats; Compare button in roster header when 2+ players
 - [x] Team progress over time (line charts) — SVG line chart in Analytics page: weekly health score % (emerald line, colour-coded dots) + observation volume (orange area), smoothed Bézier curves, gap handling for weeks with no data, trend delta label
-- [ ] Session-over-session improvement tracking
+- [x] Session-over-session improvement tracking — per-session health score chart in Analytics; purple line + type-colored dots (practice=orange, game=blue, scrimmage=purple, tournament=amber, training=teal), dot size = obs count, trend delta badge
 - [ ] Practice-to-game transfer score visualization
 - [ ] Export data as PDF/CSV
 - [x] Observation heatmap (which players get most attention) — player × week SVG grid in Analytics; cell colour = observation intensity (sqrt-scaled orange), count label inside cell, tooltip on hover, colour legend; top 14 players sorted by total obs
