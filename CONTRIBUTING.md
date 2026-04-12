@@ -86,7 +86,7 @@ You run every hour. Here's how to be effective.
 - [ ] **Parent engagement scoring** — track which parents open reports, view progress. Identify disengaged families for coach follow-up
 - [x] **AI coaching tips** — proactive suggestions: "You haven't observed Sarah in 2 weeks" or "Your team's defense observations are declining — consider a defensive drill block"; color-coded card on home dashboard (alert/suggestion/praise) with action links; 4-hour staleTime cache; shown after 5+ observations
 - [ ] **Export/print** — PDF report cards, practice plans, and season summaries for coaches without reliable internet
-- [ ] **Bulk operations** — select multiple players for group observations, bulk share links, bulk report cards
+- [x] **Bulk operations** — select multiple players for group observations, bulk share links, bulk report cards; CheckSquare Select toggle in roster header, circular checkboxes on cards, BulkActionsBar with "Add Observation" modal (batch insert per selected player) and "Share Reports" (batch share link generation + clipboard copy)
 - [ ] **Integration webhooks** — notify external systems (Slack, email, TeamSnap) on key events
 
 ### P7 — Performance & PWA
