@@ -68,7 +68,7 @@ You run every hour. Here's how to be effective.
 - [x] **Player self-assessment** (age 13+) — players rate themselves on skills (1–5 stars) per skill tracked in proficiency; coach sees self-rating vs coach level side-by-side; saved as plan type `self_assessment`; history with expand/collapse and +/- vs coach indicator; teal theme, COPPA-compliant framing
 
 ### P5 — GTM & Growth
-- [ ] **Referral system** — "Invite a coach, get 1 month free" with tracking link and reward
+- [x] **Referral system** — "Invite a coach, get 1 month free" with tracking link and reward; GET /api/referrals lazy-generates a 6-char code, counts referrals via preferences.referred_by_code; signup ?ref=CODE captured and stored on account creation; /settings/referrals page with Copy/Email/Share, stats, reward banner
 - [x] **In-app testimonial prompts** — after 10 observations, prompt coach for a review/rating; NPS-style 1-5 star modal; high ratings surface a "share with colleague" mailto CTA; low ratings open a feedback email; snoozed 30 days on Later, permanently dismissed on submit; state stored in localStorage by coachId
 - [x] **Social sharing** — "Share your season stats" card modal in Analytics page; preview card (health ring, obs/players/sessions, strengths/focus areas chips); Share button uses Web Share API on mobile, clipboard fallback on desktop; "Share" button in analytics header (disabled when no data)
 - [ ] **Onboarding email drip** — trigger emails: Day 1 (welcome), Day 3 (first capture tips), Day 7 (generate first plan), Day 14 (share with parents)
