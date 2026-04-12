@@ -28,6 +28,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
+import { TestimonialPrompt } from '@/components/onboarding/testimonial-prompt';
 
 // ─── AI Coaching Tips ─────────────────────────────────────────────────────────
 
@@ -314,7 +315,7 @@ function TeamPulseCard({ pulse }: { pulse: PulseStats }) {
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
-  const { activeTeam, teams } = useActiveTeam();
+  const { activeTeam, teams, coach } = useActiveTeam();
 
   const { data: stats, isLoading: isLoadingStats, refetch: refetchStats } = useQuery({
     queryKey: ['home-stats', activeTeam?.id],
@@ -457,6 +458,7 @@ export default function HomePage() {
   }
 
   return (
+    <>
     <PullToRefresh onRefresh={async () => { await Promise.all([refetchStats(), refetchPulse()]); }}>
     <div className="p-4 lg:p-8 space-y-6">
       <div>
@@ -627,5 +629,14 @@ export default function HomePage() {
       )}
     </div>
     </PullToRefresh>
+
+    {/* Testimonial prompt — shown after 10 observations */}
+    {coach && !isLoadingStats && stats && (
+      <TestimonialPrompt
+        coachId={coach.id}
+        observationCount={stats.observations}
+      />
+    )}
+    </>
   );
 }
