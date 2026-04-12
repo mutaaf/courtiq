@@ -15,6 +15,7 @@ import {
   Rocket,
   Trophy,
   Gift,
+  Award,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from '@/hooks/use-theme';
@@ -78,6 +79,13 @@ const SETTING_CARDS: SettingCard[] = [
     description: 'Invite a colleague — get 1 month free per referral',
     icon: Gift,
     iconColor: 'text-rose-400 bg-rose-500/20',
+  },
+  {
+    href: '/settings/certification',
+    label: 'Certified Coach Badge',
+    description: 'Earn your badge by hitting key coaching milestones',
+    icon: Award,
+    iconColor: 'text-amber-400 bg-amber-500/20',
   },
 ];
 
