@@ -7,6 +7,24 @@ import { Badge } from '@/components/ui/badge';
 import { formatDate, formatTime } from '@/lib/utils';
 import { RotateCcw } from 'lucide-react';
 
+function formatConfigValue(value: unknown): string {
+  if (value === null || value === undefined) return '(none)';
+  if (typeof value === 'string') return value || '(empty)';
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '(empty list)';
+    return value.map((v) => (typeof v === 'string' ? v : JSON.stringify(v))).join(', ');
+  }
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length === 0) return '(empty)';
+    // Show up to 3 key:value pairs inline; truncate rest
+    const parts = entries.slice(0, 3).map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`);
+    return parts.join(', ') + (entries.length > 3 ? ` (+${entries.length - 3} more)` : '');
+  }
+  return String(value);
+}
+
 interface AuditLogViewerProps {
   orgId: string;
   domain?: string;
@@ -59,7 +77,10 @@ export function AuditLogViewer({ orgId, domain }: AuditLogViewerProps) {
                 </p>
                 {log.previous_value !== null && (
                   <p className="mt-1 text-xs text-zinc-500">
-                    Changed: {JSON.stringify(log.previous_value)} &rarr; {JSON.stringify(log.new_value)}
+                    Changed:{' '}
+                    <span className="font-mono text-zinc-400">{formatConfigValue(log.previous_value)}</span>
+                    {' '}&rarr;{' '}
+                    <span className="font-mono text-emerald-400">{formatConfigValue(log.new_value)}</span>
                   </p>
                 )}
                 {log.change_reason && (

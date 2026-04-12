@@ -12,6 +12,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useTier } from '@/hooks/use-tier';
 import { useSwipeNavigation } from '@/hooks/use-swipe-navigation';
 import { QuickCaptureWidget } from '@/components/capture/quick-capture-widget';
+import { PwaInstallPrompt } from '@/components/ui/pwa-install-prompt';
 import type { Coach } from '@/types/database';
 
 // Bottom nav: Home | Roster | CAPTURE (center FAB) | Plans | Settings
@@ -185,6 +186,9 @@ export function DashboardShell({ coach, children }: Props) {
 
         {/* Quick Capture floating widget — accessible from any page */}
         <QuickCaptureWidget />
+
+        {/* PWA install prompt — shows on mobile after 2 visits when installable */}
+        <PwaInstallPrompt />
 
         {/* Mobile bottom nav — 5 items, Capture centered as FAB */}
         <nav className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-zinc-800 bg-zinc-900/95 backdrop-blur-sm lg:hidden safe-area-bottom">

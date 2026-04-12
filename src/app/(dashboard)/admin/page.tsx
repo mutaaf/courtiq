@@ -53,6 +53,7 @@ export default function AdminPage() {
   const [inviting, setInviting] = useState(false);
   const [inviteResult, setInviteResult] = useState<string | null>(null);
   const [updatingRole, setUpdatingRole] = useState<string | null>(null);
+  const [roleError, setRoleError] = useState<string | null>(null);
 
   const isAdminUser = coach?.role === 'admin';
 
@@ -103,18 +104,37 @@ export default function AdminPage() {
   }
 
   async function handleRoleChange(coachId: string, newRole: CoachRole) {
+    const previousRole = coaches.find((c) => c.id === coachId)?.role;
     setUpdatingRole(coachId);
+    setRoleError(null);
+    // Optimistic update
+    setCoaches((prev) =>
+      prev.map((c) => (c.id === coachId ? { ...c, role: newRole } : c))
+    );
     try {
-      await fetch('/api/admin/coaches', {
+      const res = await fetch('/api/admin/coaches', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ coachId, role: newRole }),
       });
-      setCoaches((prev) =>
-        prev.map((c) => (c.id === coachId ? { ...c, role: newRole } : c))
-      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        // Rollback optimistic update
+        if (previousRole) {
+          setCoaches((prev) =>
+            prev.map((c) => (c.id === coachId ? { ...c, role: previousRole } : c))
+          );
+        }
+        setRoleError(data.error || 'Failed to update role. Please try again.');
+      }
     } catch {
-      // silently fail
+      // Rollback optimistic update on network error
+      if (previousRole) {
+        setCoaches((prev) =>
+          prev.map((c) => (c.id === coachId ? { ...c, role: previousRole } : c))
+        );
+      }
+      setRoleError('Network error — role change not saved.');
     } finally {
       setUpdatingRole(null);
     }
@@ -172,6 +192,11 @@ export default function AdminPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          {roleError && (
+            <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+              {roleError}
+            </p>
+          )}
           {loading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
