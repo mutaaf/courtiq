@@ -85,7 +85,7 @@ You run every hour. Here's how to be effective.
 - [ ] **Curriculum marketplace** — orgs can publish their custom curricula, other orgs can import them
 - [ ] **Parent engagement scoring** — track which parents open reports, view progress. Identify disengaged families for coach follow-up
 - [x] **AI coaching tips** — proactive suggestions: "You haven't observed Sarah in 2 weeks" or "Your team's defense observations are declining — consider a defensive drill block"; color-coded card on home dashboard (alert/suggestion/praise) with action links; 4-hour staleTime cache; shown after 5+ observations
-- [ ] **Export/print** — PDF report cards, practice plans, and season summaries for coaches without reliable internet
+- [x] **Export/print** — Print / Save as PDF for report cards, practice plans (all types), and analytics summary; PrintButton component; @media print CSS converts dark zinc theme to white/black, hides nav chrome and interactive buttons, keeps accent colours; "Print / PDF" button on Report Card tab, plan detail view, and Analytics page header
 - [x] **Bulk operations** — select multiple players for group observations, bulk share links, bulk report cards; CheckSquare Select toggle in roster header, circular checkboxes on cards, BulkActionsBar with "Add Observation" modal (batch insert per selected player) and "Share Reports" (batch share link generation + clipboard copy)
 - [ ] **Integration webhooks** — notify external systems (Slack, email, TeamSnap) on key events
 
