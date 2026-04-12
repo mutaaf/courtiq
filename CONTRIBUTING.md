@@ -84,7 +84,7 @@ You run every hour. Here's how to be effective.
 - [ ] **Cross-team analytics (org)** — program directors see aggregate data: which skills are strongest/weakest across all teams, which coaches are most engaged
 - [ ] **Curriculum marketplace** — orgs can publish their custom curricula, other orgs can import them
 - [ ] **Parent engagement scoring** — track which parents open reports, view progress. Identify disengaged families for coach follow-up
-- [ ] **AI coaching tips** — proactive suggestions: "You haven't observed Sarah in 2 weeks" or "Your team's defense observations are declining — consider a defensive drill block"
+- [x] **AI coaching tips** — proactive suggestions: "You haven't observed Sarah in 2 weeks" or "Your team's defense observations are declining — consider a defensive drill block"; color-coded card on home dashboard (alert/suggestion/praise) with action links; 4-hour staleTime cache; shown after 5+ observations
 - [ ] **Export/print** — PDF report cards, practice plans, and season summaries for coaches without reliable internet
 - [ ] **Bulk operations** — select multiple players for group observations, bulk share links, bulk report cards
 - [ ] **Integration webhooks** — notify external systems (Slack, email, TeamSnap) on key events
