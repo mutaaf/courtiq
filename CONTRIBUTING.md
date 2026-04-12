@@ -31,9 +31,9 @@ You run every hour. Here's how to be effective.
 
 ### P1 — Core UX Polish
 - [ ] Ensure all buttons/links on every page lead to real functionality
-- [ ] Remove any remaining `[object Object]` or raw JSON in UI
+- [x] Remove any remaining `[object Object]` or raw JSON in UI — audit log viewer now uses formatConfigValue helper (human-readable inline format for strings/arrays/objects); plans page renderObjectFields already guarded
 - [x] Fix any broken navigation or dead links — UpgradeGate "View Plans" was pointing to /settings with no pricing; now routes to /settings/upgrade
-- [ ] Ensure all forms save data correctly
+- [x] Ensure all forms save data correctly — admin role-change now rolls back optimistic update + shows error if PATCH fails (was silently leaving UI in wrong state)
 - [x] Improve loading states (skeleton screens, not blank pages) — home page stats + Team Pulse skeleton done
 - [x] Add pull-to-refresh on mobile pages — PullToRefresh component on Home, Sessions, Roster, Plans; haptic feedback at threshold + on complete
 - [x] Add swipe gestures for navigation — useSwipeNavigation hook; left/right swipe cycles Home→Assistant→Capture→Plans→Settings; 80px threshold + vertical-ratio guard avoids conflict with scroll and pull-to-refresh
@@ -91,7 +91,7 @@ You run every hour. Here's how to be effective.
 
 ### P7 — Performance & PWA
 - [ ] Service worker for offline app shell
-- [ ] Install prompt (add to home screen) with custom banner
+- [x] Install prompt (add to home screen) with custom banner — PwaInstallPrompt component: listens for beforeinstallprompt, shows after 2 visits, dismissible for 14 days, positioned above mobile bottom nav
 - [ ] Image/asset lazy loading with blur placeholders
 - [ ] Code splitting for dashboard routes
 - [x] Optimistic updates on mutations (instant UI feedback) — game tracker stat/undo mutations; `onMutate` updates cache instantly, `onSettled` syncs; stat buttons no longer blocked while pending; error haptic on failure; undo hidden for un-persisted optimistic entries
