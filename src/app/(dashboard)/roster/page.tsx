@@ -10,15 +10,32 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlayerCard } from '@/components/roster/player-card';
-import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareArrows } from 'lucide-react';
+import { BulkActionsBar } from '@/components/roster/bulk-actions-bar';
+import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareArrows, CheckSquare } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import type { Player } from '@/types/database';
 
 export default function RosterPage() {
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, coach } = useActiveTeam();
   const [search, setSearch] = useState('');
   const [positionFilter, setPositionFilter] = useState<string>('all');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  function toggleSelect(playerId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(playerId)) next.delete(playerId);
+      else next.add(playerId);
+      return next;
+    });
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }
 
   const { data: players = [], isLoading, refetch: refetchPlayers } = useQuery({
     queryKey: queryKeys.players.all(activeTeam?.id ?? ''),
@@ -100,33 +117,46 @@ export default function RosterPage() {
             {players.length} player{players.length !== 1 ? 's' : ''} on {activeTeam.name}
           </p>
         </div>
-        <div className="hidden sm:flex items-center gap-2">
+        <div className="flex items-center gap-2">
           {players.length >= 2 && (
-            <Link href="/roster/compare">
+            <Button
+              variant={selectMode ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+              className={selectMode ? 'bg-orange-500 hover:bg-orange-600' : ''}
+            >
+              <CheckSquare className="h-4 w-4" />
+              <span className="hidden sm:inline">{selectMode ? `${selectedIds.size} selected` : 'Select'}</span>
+            </Button>
+          )}
+          <div className="hidden sm:flex items-center gap-2">
+            {players.length >= 2 && (
+              <Link href="/roster/compare">
+                <Button variant="outline" size="sm">
+                  <GitCompareArrows className="h-4 w-4" />
+                  Compare
+                </Button>
+              </Link>
+            )}
+            <Link href="/roster/import-photo">
               <Button variant="outline" size="sm">
-                <GitCompareArrows className="h-4 w-4" />
-                Compare
+                <Camera className="h-4 w-4" />
+                Photo Import
               </Button>
             </Link>
-          )}
-          <Link href="/roster/import-photo">
-            <Button variant="outline" size="sm">
-              <Camera className="h-4 w-4" />
-              Photo Import
-            </Button>
-          </Link>
-          <Link href="/roster/import">
-            <Button variant="outline" size="sm">
-              <Upload className="h-4 w-4" />
-              Import
-            </Button>
-          </Link>
-          <Link href="/roster/add">
-            <Button size="sm">
-              <Plus className="h-4 w-4" />
-              Add Player
-            </Button>
-          </Link>
+            <Link href="/roster/import">
+              <Button variant="outline" size="sm">
+                <Upload className="h-4 w-4" />
+                Import
+              </Button>
+            </Link>
+            <Link href="/roster/add">
+              <Button size="sm">
+                <Plus className="h-4 w-4" />
+                Add Player
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -215,9 +245,22 @@ export default function RosterPage() {
               key={player.id}
               player={player}
               observationCount={obsCounts[player.id] || 0}
+              selectMode={selectMode}
+              selected={selectedIds.has(player.id)}
+              onSelect={toggleSelect}
             />
           ))}
         </div>
+      )}
+
+      {/* Bulk Actions Bar */}
+      {selectMode && coach && activeTeam && (
+        <BulkActionsBar
+          selectedPlayers={players.filter((p) => selectedIds.has(p.id))}
+          teamId={activeTeam.id}
+          coachId={coach.id}
+          onClear={exitSelectMode}
+        />
       )}
 
       {/* Mobile FAB - Add Player */}

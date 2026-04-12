@@ -4,11 +4,15 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { Check } from 'lucide-react';
 import type { Player } from '@/types/database';
 
 interface PlayerCardProps {
   player: Player;
   observationCount?: number;
+  selectMode?: boolean;
+  selected?: boolean;
+  onSelect?: (playerId: string) => void;
 }
 
 function getInitials(name: string): string {
@@ -29,15 +33,35 @@ const positionColors: Record<string, string> = {
   Flex: 'bg-zinc-700 text-zinc-300',
 };
 
-export function PlayerCard({ player, observationCount = 0 }: PlayerCardProps) {
+export function PlayerCard({ player, observationCount = 0, selectMode = false, selected = false, onSelect }: PlayerCardProps) {
   const router = useRouter();
+
+  function handleClick() {
+    if (selectMode && onSelect) {
+      onSelect(player.id);
+    } else {
+      router.push(`/roster/${player.id}`);
+    }
+  }
 
   return (
     <Card
-      className="cursor-pointer transition-all hover:border-orange-500/50 hover:bg-zinc-900/80"
-      onClick={() => router.push(`/roster/${player.id}`)}
+      className={cn(
+        'cursor-pointer transition-all hover:border-orange-500/50 hover:bg-zinc-900/80',
+        selected && 'border-orange-500 bg-orange-500/5',
+      )}
+      onClick={handleClick}
     >
       <CardContent className="flex items-center gap-4 p-4">
+        {/* Selection checkbox */}
+        {selectMode && (
+          <div className={cn(
+            'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+            selected ? 'border-orange-500 bg-orange-500' : 'border-zinc-500 bg-transparent',
+          )}>
+            {selected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+          </div>
+        )}
         {/* Avatar */}
         <div className="relative flex-shrink-0">
           {player.photo_url ? (
