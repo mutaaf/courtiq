@@ -70,7 +70,7 @@ You run every hour. Here's how to be effective.
 ### P5 — GTM & Growth
 - [ ] **Referral system** — "Invite a coach, get 1 month free" with tracking link and reward
 - [x] **In-app testimonial prompts** — after 10 observations, prompt coach for a review/rating; NPS-style 1-5 star modal; high ratings surface a "share with colleague" mailto CTA; low ratings open a feedback email; snoozed 30 days on Later, permanently dismissed on submit; state stored in localStorage by coachId
-- [ ] **Social sharing** — "Share your season stats" cards optimized for Instagram/Twitter/Facebook
+- [x] **Social sharing** — "Share your season stats" card modal in Analytics page; preview card (health ring, obs/players/sessions, strengths/focus areas chips); Share button uses Web Share API on mobile, clipboard fallback on desktop; "Share" button in analytics header (disabled when no data)
 - [ ] **Onboarding email drip** — trigger emails: Day 1 (welcome), Day 3 (first capture tips), Day 7 (generate first plan), Day 14 (share with parents)
 - [ ] **Coach leaderboard** (opt-in) — gamify engagement: observations recorded, plans generated, parent shares sent. Badge system (Rookie Coach → Elite Coach)
 - [ ] **Program landing pages** — `/org/[slug]` white-label pages for YMCA branches to recruit coaches

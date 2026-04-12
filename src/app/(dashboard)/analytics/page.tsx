@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, TrendingDown, Minus, Users, Eye, Calendar, Target, AlertTriangle, CheckCircle2, Activity, LineChart as LineChartIcon, LayoutGrid, BarChart2, ArrowRight, Download, ChevronDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Users, Eye, Calendar, Target, AlertTriangle, CheckCircle2, Activity, LineChart as LineChartIcon, LayoutGrid, BarChart2, ArrowRight, Download, ChevronDown, Share2, X, Copy, Check } from 'lucide-react';
 import { UpgradeGate } from '@/components/ui/upgrade-gate';
 import type { Observation, Player, Session, Sentiment } from '@/types/database';
 
@@ -695,6 +695,222 @@ function TransferScoreChart({
 
 // ── Export menu ──────────────────────────────────────────────────────────────
 
+// ─── Share Stats Modal ────────────────────────────────────────────────────────
+
+interface ShareStats {
+  teamName: string;
+  season: string | null;
+  currentWeek: number;
+  healthScore: number;
+  healthTrend: 'up' | 'down' | 'flat';
+  totalObs: number;
+  totalPlayers: number;
+  totalSessions: number;
+  positiveObs: number;
+  topStrengths: string[];
+  topFocusAreas: string[];
+}
+
+function ShareStatsModal({ stats, onClose }: { stats: ShareStats; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState(false);
+
+  const trendLabel = stats.healthTrend === 'up' ? '↑ Improving' : stats.healthTrend === 'down' ? '↓ Declining' : '→ Stable';
+  const trendColor = stats.healthTrend === 'up' ? '#10b981' : stats.healthTrend === 'down' ? '#f87171' : '#a1a1aa';
+
+  const shareText = [
+    `🏆 ${stats.teamName} — Season ${stats.season ?? 'Stats'}`,
+    ``,
+    `📊 Health Score: ${stats.healthScore}% (${trendLabel})`,
+    `👁 ${stats.totalObs.toLocaleString()} observations captured`,
+    `👥 ${stats.totalPlayers} players coached`,
+    `📅 ${stats.totalSessions} sessions completed`,
+    stats.topStrengths.length > 0 ? `⭐ Strengths: ${stats.topStrengths.join(', ')}` : null,
+    stats.topFocusAreas.length > 0 ? `🎯 Focus areas: ${stats.topFocusAreas.join(', ')}` : null,
+    ``,
+    `Tracked with SportsIQ #CoachSmarter`,
+  ].filter(Boolean).join('\n');
+
+  async function handleShare() {
+    if (typeof navigator !== 'undefined' && 'share' in navigator) {
+      try {
+        await navigator.share({ title: `${stats.teamName} Season Stats`, text: shareText });
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      } catch {
+        // user cancelled or share failed — fall through to copy
+        handleCopy();
+      }
+    } else {
+      handleCopy();
+    }
+  }
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard unavailable
+    }
+  }
+
+  const healthRingColor = stats.healthScore >= 70 ? '#10b981' : stats.healthScore >= 50 ? '#F97316' : '#f59e0b';
+  const ringR = 36;
+  const ringCirc = 2 * Math.PI * ringR;
+  const ringOffset = ringCirc * (1 - Math.min(1, stats.healthScore / 100));
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Modal */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Share Season Stats"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      >
+        <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden">
+          {/* Modal header bar */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+            <span className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
+              <Share2 className="h-4 w-4 text-orange-500" />
+              Share Season Stats
+            </span>
+            <button
+              onClick={onClose}
+              className="p-1 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors touch-manipulation"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Card preview */}
+          <div className="p-4">
+            <div className="rounded-xl overflow-hidden border border-zinc-700 bg-zinc-900">
+              {/* Card orange header */}
+              <div className="bg-gradient-to-r from-orange-600 to-orange-500 px-4 py-3">
+                <p className="text-xs font-semibold text-orange-100 uppercase tracking-wider">Season Report</p>
+                <p className="text-lg font-bold text-white truncate">{stats.teamName}</p>
+                <p className="text-xs text-orange-100">
+                  {stats.season ? `Season ${stats.season}` : 'This Season'} · Week {stats.currentWeek}
+                </p>
+              </div>
+
+              {/* Card body */}
+              <div className="p-4 space-y-4">
+                {/* Health score + stats row */}
+                <div className="flex items-center gap-4">
+                  {/* Mini ring */}
+                  <div className="relative shrink-0" style={{ width: 80, height: 80 }}>
+                    <svg width={80} height={80} className="-rotate-90">
+                      <circle cx={40} cy={40} r={ringR} fill="none" stroke="#27272a" strokeWidth={8} />
+                      <circle
+                        cx={40} cy={40} r={ringR}
+                        fill="none"
+                        stroke={healthRingColor}
+                        strokeWidth={8}
+                        strokeDasharray={ringCirc}
+                        strokeDashoffset={ringOffset}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-lg font-bold text-zinc-100 leading-none">{stats.healthScore}%</span>
+                      <span className="text-[9px] text-zinc-400 leading-none mt-0.5">health</span>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 grid grid-cols-2 gap-2">
+                    <div className="bg-zinc-800/60 rounded-lg p-2 text-center">
+                      <p className="text-lg font-bold text-orange-400">{stats.totalObs.toLocaleString()}</p>
+                      <p className="text-[9px] text-zinc-500">observations</p>
+                    </div>
+                    <div className="bg-zinc-800/60 rounded-lg p-2 text-center">
+                      <p className="text-lg font-bold text-zinc-100">{stats.totalPlayers}</p>
+                      <p className="text-[9px] text-zinc-500">players</p>
+                    </div>
+                    <div className="bg-zinc-800/60 rounded-lg p-2 text-center">
+                      <p className="text-lg font-bold text-zinc-100">{stats.totalSessions}</p>
+                      <p className="text-[9px] text-zinc-500">sessions</p>
+                    </div>
+                    <div className="bg-zinc-800/60 rounded-lg p-2 text-center">
+                      <p className="text-lg font-bold leading-none" style={{ color: trendColor }}>
+                        {trendLabel.split(' ')[1]}
+                      </p>
+                      <p className="text-[9px] text-zinc-500">trend</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Strengths */}
+                {stats.topStrengths.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider mb-1">Top Strengths</p>
+                    <div className="flex flex-wrap gap-1">
+                      {stats.topStrengths.map((s) => (
+                        <span key={s} className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 capitalize">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Focus areas */}
+                {stats.topFocusAreas.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider mb-1">Focus Areas</p>
+                    <div className="flex flex-wrap gap-1">
+                      {stats.topFocusAreas.map((s) => (
+                        <span key={s} className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/20 capitalize">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Branding */}
+                <p className="text-[10px] text-zinc-600 text-right">Tracked with SportsIQ</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Share / copy actions */}
+          <div className="px-4 pb-4 flex gap-2">
+            {'share' in (typeof navigator !== 'undefined' ? navigator : {}) ? (
+              <Button
+                className="flex-1 gap-2 bg-orange-500 hover:bg-orange-600 text-white touch-manipulation active:scale-[0.98]"
+                onClick={handleShare}
+              >
+                {shared ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+                {shared ? 'Shared!' : 'Share'}
+              </Button>
+            ) : null}
+            <Button
+              variant="outline"
+              className="flex-1 gap-2 touch-manipulation active:scale-[0.98]"
+              onClick={handleCopy}
+            >
+              {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+              {copied ? 'Copied!' : 'Copy Stats'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 type ExportType = 'observations' | 'roster' | 'sessions';
 
 const EXPORT_OPTIONS: { type: ExportType; label: string }[] = [
@@ -766,6 +982,7 @@ function ExportMenu({ teamId }: { teamId: string }) {
 
 export default function AnalyticsPage() {
   const { activeTeam } = useActiveTeam();
+  const [showShare, setShowShare] = useState(false);
 
   const { data: observations = [], isLoading: obsLoading } = useQuery({
     queryKey: ['analytics-observations', activeTeam?.id],
@@ -1106,8 +1323,27 @@ export default function AnalyticsPage() {
       ? '#F97316'
       : '#f59e0b';
 
+  const shareStats: ShareStats = {
+    teamName: activeTeam.name,
+    season: activeTeam.season ?? null,
+    currentWeek: activeTeam.current_week,
+    healthScore: analytics.healthScore,
+    healthTrend: analytics.healthTrend,
+    totalObs: analytics.total,
+    totalPlayers: players.length,
+    totalSessions: sessions.length,
+    positiveObs: analytics.positive,
+    topStrengths: analytics.sortedCategories
+      .filter((c) => c.positive > 0)
+      .sort((a, b) => b.positive - a.positive)
+      .slice(0, 3)
+      .map((c) => c.name),
+    topFocusAreas: analytics.needsWorkByCategory.slice(0, 2).map((c) => c.name),
+  };
+
   return (
     <UpgradeGate feature="analytics" featureLabel="Team Analytics">
+    {showShare && <ShareStatsModal stats={shareStats} onClose={() => setShowShare(false)} />}
     <div className="p-4 lg:p-8 space-y-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
@@ -1118,7 +1354,20 @@ export default function AnalyticsPage() {
             {activeTeam.current_week}
           </p>
         </div>
-        <ExportMenu teamId={activeTeam.id} />
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setShowShare(true)}
+            disabled={isLoading || analytics.total === 0}
+            aria-label="Share season stats"
+          >
+            <Share2 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Share</span>
+          </Button>
+          <ExportMenu teamId={activeTeam.id} />
+        </div>
       </div>
 
       {/* Top stats row */}
