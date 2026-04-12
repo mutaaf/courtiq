@@ -32,7 +32,7 @@ You run every hour. Here's how to be effective.
 ### P1 — Core UX Polish
 - [ ] Ensure all buttons/links on every page lead to real functionality
 - [ ] Remove any remaining `[object Object]` or raw JSON in UI
-- [ ] Fix any broken navigation or dead links
+- [x] Fix any broken navigation or dead links — UpgradeGate "View Plans" was pointing to /settings with no pricing; now routes to /settings/upgrade
 - [ ] Ensure all forms save data correctly
 - [x] Improve loading states (skeleton screens, not blank pages) — home page stats + Team Pulse skeleton done
 - [x] Add pull-to-refresh on mobile pages — PullToRefresh component on Home, Sessions, Roster, Plans; haptic feedback at threshold + on complete
@@ -77,7 +77,7 @@ You run every hour. Here's how to be effective.
 - [ ] **"SportsIQ Certified Coach" badge** — coaches who complete curriculum and hit observation thresholds get a shareable digital badge
 - [ ] **Seasonal promotions** — auto-detect season start (Sept/Jan/Apr) and show relevant onboarding: "New season? Import your roster and set up your curriculum"
 - [ ] **Parent viral loop** — parent portal includes "Is your coach using SportsIQ? Share this with them" CTA when they see how good the reports are
-- [ ] **Freemium upgrade nudges** — contextual upgrade prompts: "You've hit 5 observations this month. Upgrade to Coach for unlimited." Show value before asking
+- [x] **Freemium upgrade nudges** — /settings/upgrade pricing page (tier cards + desktop feature-matrix table); Plans & Pricing card in settings hub; UpgradeGate "View Plans" link fixed; FreemiumNudge banner on home page with contextual message (player-limit, AI-usage, generic) dismissible 3 days via localStorage
 
 ### P6 — Strategic Platform Features
 - [ ] **Multi-season history** — archive past seasons, compare player progress across seasons
