@@ -473,3 +473,35 @@ export interface Webhook {
   created_at: string;
   updated_at: string;
 }
+
+// ─── Season Archives ──────────────────────────────────────────────────────────
+
+export interface SeasonArchiveSkill {
+  name: string;
+  category: string;
+  level: ProficiencyLevel;
+  trend: Trend | null;
+}
+
+export interface SeasonArchivePlayer {
+  player_id: string;
+  player_name: string;
+  skills: SeasonArchiveSkill[];
+}
+
+export interface SeasonArchive {
+  id: string;
+  org_id: string;
+  team_id: string;
+  coach_id: string;
+  season_name: string;
+  start_date: string | null;
+  end_date: string | null;
+  session_count: number;
+  observation_count: number;
+  player_count: number;
+  player_snapshot: SeasonArchivePlayer[];
+  notes: string | null;
+  archived_at: string;
+  created_at: string;
+}

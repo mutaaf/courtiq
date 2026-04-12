@@ -17,6 +17,7 @@ import {
   Gift,
   Award,
   Webhook,
+  History,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from '@/hooks/use-theme';
@@ -95,6 +96,13 @@ const SETTING_CARDS: SettingCard[] = [
     icon: Webhook,
     iconColor: 'text-sky-400 bg-sky-500/20',
     adminOnly: true,
+  },
+  {
+    href: '/settings/seasons',
+    label: 'Season History',
+    description: 'Archive seasons and compare player progress over time',
+    icon: History,
+    iconColor: 'text-indigo-400 bg-indigo-500/20',
   },
 ];
 
