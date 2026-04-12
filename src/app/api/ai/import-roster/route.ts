@@ -3,6 +3,7 @@ import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/serv
 import { callAIWithJSON } from '@/lib/ai/client';
 import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { rosterImportSchema, type RosterImport } from '@/lib/ai/schemas';
+import { handleAIError } from '@/lib/ai/error';
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabase();
@@ -94,8 +95,7 @@ export async function POST(request: Request) {
       total_extracted: validated.players.length,
       interactionId: result.interactionId,
     });
-  } catch (error: any) {
-    console.error('Roster import error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleAIError(error, 'Roster import');
   }
 }

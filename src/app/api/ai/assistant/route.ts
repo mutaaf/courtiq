@@ -3,6 +3,7 @@ import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/serv
 import { callAIWithJSON } from '@/lib/ai/client';
 import { buildAIContext } from '@/lib/ai/context-builder';
 import type { ConversationMessage } from '@/lib/ai/client';
+import { handleAIError } from '@/lib/ai/error';
 
 type AssistantResponseType = 'plan' | 'drill' | 'report' | 'analysis' | 'general';
 
@@ -140,8 +141,7 @@ export async function POST(request: Request) {
       suggestions: content.suggestions || [],
       interactionId: result.interactionId,
     });
-  } catch (error: any) {
-    console.error('Assistant error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleAIError(error, 'Assistant');
   }
 }

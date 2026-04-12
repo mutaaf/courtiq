@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { callAIWithJSON } from '@/lib/ai/client';
+import { handleAIError } from '@/lib/ai/error';
 
 export interface CoachingTip {
   type: 'alert' | 'suggestion' | 'praise';
@@ -213,8 +214,7 @@ export async function POST(request: Request) {
     const tips = Array.isArray(result.parsed) ? result.parsed.slice(0, 3) : [];
 
     return NextResponse.json({ tips });
-  } catch (error: any) {
-    console.error('Coaching tips error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleAIError(error, 'Coaching tips');
   }
 }

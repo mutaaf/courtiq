@@ -4,6 +4,7 @@ import { callAIWithJSON } from '@/lib/ai/client';
 import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { buildAIContext } from '@/lib/ai/context-builder';
 import { seasonStorylineSchema, type SeasonStoryline } from '@/lib/ai/schemas';
+import { handleAIError } from '@/lib/ai/error';
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabase();
@@ -172,10 +173,6 @@ export async function POST(request: Request) {
       },
     });
   } catch (error: unknown) {
-    console.error('Season storyline error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    );
+    return handleAIError(error, 'Season storyline');
   }
 }

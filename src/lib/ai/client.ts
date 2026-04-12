@@ -4,6 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createHash } from 'crypto';
 import { redis } from '@/lib/cache/redis';
 import { cacheKeys } from '@/lib/cache/keys';
+import { checkAIRateLimit, RateLimitError } from '@/lib/rate-limit';
 import type { AIInteractionType } from '@/types/database';
 
 // ---------------------------------------------------------------------------
@@ -323,6 +324,12 @@ export async function callAI(options: AICallOptions, supabase: any): Promise<AIC
     temperature = 0.7,
     conversationHistory,
   } = options;
+
+  // Enforce per-coach hourly rate limit before any expensive operations
+  const rateCheck = await checkAIRateLimit(coachId);
+  if (!rateCheck.allowed) {
+    throw new RateLimitError(rateCheck.limit, rateCheck.resetAt);
+  }
 
   // Check dedup cache for cacheable types
   const cacheable = CACHEABLE_TYPES.includes(interactionType);

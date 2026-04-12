@@ -4,6 +4,7 @@ import { callAIWithJSON } from '@/lib/ai/client';
 import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { buildAIContext } from '@/lib/ai/context-builder';
 import { practicePlanSchema, gamedaySheetSchema } from '@/lib/ai/schemas';
+import { handleAIError } from '@/lib/ai/error';
 
 export interface TrendEntry {
   category: string;
@@ -256,10 +257,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ plan, content: validated, observationInsights });
   } catch (error: unknown) {
-    console.error('Plan error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    );
+    return handleAIError(error, 'Plan');
   }
 }

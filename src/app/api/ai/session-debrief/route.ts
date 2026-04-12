@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { callAIWithJSON } from '@/lib/ai/client';
+import { handleAIError } from '@/lib/ai/error';
 
 export interface SessionDebriefResult {
   session_summary: string;
@@ -235,8 +236,7 @@ export async function POST(request: Request) {
       .eq('id', sessionId);
 
     return NextResponse.json({ debrief, interactionId: result.interactionId });
-  } catch (error: any) {
-    console.error('Session debrief error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleAIError(error, 'Session debrief');
   }
 }

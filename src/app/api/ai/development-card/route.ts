@@ -4,6 +4,7 @@ import { callAIWithJSON } from '@/lib/ai/client';
 import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { buildAIContext } from '@/lib/ai/context-builder';
 import { developmentCardSchema, type DevelopmentCard } from '@/lib/ai/schemas';
+import { handleAIError } from '@/lib/ai/error';
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabase();
@@ -95,8 +96,7 @@ export async function POST(request: Request) {
     }).select().single();
 
     return NextResponse.json({ plan, content: validated, interactionId: result.interactionId });
-  } catch (error: any) {
-    console.error('Development card error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleAIError(error, 'Development card');
   }
 }

@@ -4,6 +4,7 @@ import { callAIWithJSON } from '@/lib/ai/client';
 import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { buildAIContext } from '@/lib/ai/context-builder';
 import { segmentedObservationSchema, type SegmentedObservations } from '@/lib/ai/schemas';
+import { handleAIError } from '@/lib/ai/error';
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabase();
@@ -72,9 +73,7 @@ export async function POST(request: Request) {
         warning: 'AI output validation was relaxed',
       });
     }
-  } catch (error: any) {
-    console.error('Segment error:', error);
-    const message = error.message || 'AI segmentation failed';
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleAIError(error, 'Segment');
   }
 }
