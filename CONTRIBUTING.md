@@ -116,7 +116,7 @@ You run every hour. Here's how to be effective.
 - [ ] E2E test: admin panel → invite coach → change role
 - [x] Error boundary components on all pages — global-error.tsx (layout-level), app/error.tsx (public pages), (dashboard)/error.tsx (all dashboard pages), (auth)/error.tsx (login/signup/onboarding); AlertTriangle + reset() + home link; prevents blank-page crashes
 - [ ] Sentry or similar error tracking integration
-- [ ] API rate limiting on AI endpoints
+- [x] API rate limiting on AI endpoints — 20 req/hour per coach (configurable via AI_RATE_LIMIT_PER_HOUR); Redis sliding window with in-memory fallback; RateLimitError → 429 + Retry-After header; handleAIError() shared handler across all 14 AI routes; 10 unit tests
 
 ---
 
