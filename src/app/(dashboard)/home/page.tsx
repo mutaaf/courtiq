@@ -20,11 +20,125 @@ import {
   Zap,
   AlertTriangle,
   Target,
+  Lightbulb,
+  Star,
+  ChevronRight,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
+
+// ─── AI Coaching Tips ─────────────────────────────────────────────────────────
+
+interface CoachingTip {
+  type: 'alert' | 'suggestion' | 'praise';
+  message: string;
+  action_label?: string;
+  action_href?: string;
+}
+
+const TIP_CONFIG: Record<
+  CoachingTip['type'],
+  { icon: React.ComponentType<{ className?: string }>; color: string; bg: string; border: string }
+> = {
+  alert: {
+    icon: AlertTriangle,
+    color: 'text-red-400',
+    bg: 'bg-red-500/10',
+    border: 'border-l-red-500',
+  },
+  suggestion: {
+    icon: Lightbulb,
+    color: 'text-blue-400',
+    bg: 'bg-blue-500/10',
+    border: 'border-l-blue-500',
+  },
+  praise: {
+    icon: Star,
+    color: 'text-amber-400',
+    bg: 'bg-amber-500/10',
+    border: 'border-l-amber-500',
+  },
+};
+
+function CoachingTipsCard({ teamId }: { teamId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['coaching-tips', teamId],
+    queryFn: async (): Promise<CoachingTip[]> => {
+      const res = await fetch('/api/ai/coaching-tips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId }),
+      });
+      if (!res.ok) throw new Error('Failed to load tips');
+      const json = await res.json();
+      return json.tips || [];
+    },
+    staleTime: 4 * 60 * 60 * 1000, // 4 hours — regenerate once per session block
+    retry: false,
+  });
+
+  if (isLoading) {
+    return (
+      <Card className="overflow-hidden border-zinc-800">
+        <CardHeader className="pb-3 pt-4 px-5">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-7 w-7 rounded-lg" />
+            <Skeleton className="h-4 w-28 rounded" />
+          </div>
+        </CardHeader>
+        <CardContent className="px-5 pb-5 space-y-3">
+          <Skeleton className="h-14 rounded-xl" />
+          <Skeleton className="h-14 rounded-xl" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data || data.length === 0) return null;
+
+  return (
+    <Card className="overflow-hidden border-zinc-800">
+      <CardHeader className="pb-2 pt-4 px-5">
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold text-zinc-300">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500/15">
+            <Sparkles className="h-4 w-4 text-orange-400" />
+          </div>
+          AI Coach Tips
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-5 pb-4 space-y-2.5">
+        {data.map((tip, i) => {
+          const cfg = TIP_CONFIG[tip.type] ?? TIP_CONFIG.suggestion;
+          const Icon = cfg.icon;
+          return (
+            <div
+              key={i}
+              className={`flex items-start gap-3 rounded-xl border border-l-4 border-zinc-800 ${cfg.border} p-3.5`}
+            >
+              <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${cfg.bg}`}>
+                <Icon className={`h-4 w-4 ${cfg.color}`} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-zinc-200 leading-snug">{tip.message}</p>
+                {tip.action_label && tip.action_href && (
+                  <Link
+                    href={tip.action_href}
+                    className={`mt-1.5 inline-flex items-center gap-0.5 text-xs font-medium ${cfg.color} hover:underline`}
+                  >
+                    {tip.action_label}
+                    <ChevronRight className="h-3 w-3" />
+                  </Link>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
 
 // ─── Team Pulse ────────────────────────────────────────────────────────────────
 
@@ -464,6 +578,11 @@ export default function HomePage() {
         </Card>
       ) : (
         pulse && <TeamPulseCard pulse={pulse} />
+      )}
+
+      {/* AI Coaching Tips — proactive suggestions shown when there's enough data */}
+      {!isLoadingStats && stats && stats.observations >= 5 && (
+        <CoachingTipsCard teamId={activeTeam.id} />
       )}
 
       {/* Empty state prompt for new users — only shown after data loads */}
