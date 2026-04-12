@@ -76,7 +76,7 @@ You run every hour. Here's how to be effective.
 - [ ] **Program landing pages** — `/org/[slug]` white-label pages for YMCA branches to recruit coaches
 - [ ] **"SportsIQ Certified Coach" badge** — coaches who complete curriculum and hit observation thresholds get a shareable digital badge
 - [x] **Seasonal promotions** — auto-detect season start (Sept/Jan/Apr) and show relevant onboarding: "New season? Import your roster and set up your curriculum"; SeasonalPromo component shown on home dashboard for first 21 days of Sept/Jan/Apr; 3 actions (Import Roster, Set Up Curriculum, Generate Plan); roster-aware messaging; per-season localStorage dismissal
-- [ ] **Parent viral loop** — parent portal includes "Is your coach using SportsIQ? Share this with them" CTA when they see how good the reports are
+- [x] **Parent viral loop** — parent portal includes "Is your coach using SportsIQ? Share this with them" CTA when they see how good the reports are
 - [x] **Freemium upgrade nudges** — /settings/upgrade pricing page (tier cards + desktop feature-matrix table); Plans & Pricing card in settings hub; UpgradeGate "View Plans" link fixed; FreemiumNudge banner on home page with contextual message (player-limit, AI-usage, generic) dismissible 3 days via localStorage
 
 ### P6 — Strategic Platform Features
