@@ -12,12 +12,13 @@ import {
   BarChart3,
   FileText,
   Save,
-  Share2,
   Plus,
   Bot,
   User,
   History,
   Trash2,
+  CheckCircle2,
+  Copy,
 } from 'lucide-react';
 import { UpgradeGate } from '@/components/ui/upgrade-gate';
 
@@ -218,8 +219,12 @@ export default function AssistantPage() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedDrillIds, setSavedDrillIds] = useState<Set<string>>(new Set());
+  const [copiedReportIds, setCopiedReportIds] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -304,6 +309,61 @@ export default function AssistantPage() {
   const handleSuggestionClick = (suggestion: string) => {
     setInput(suggestion);
     sendMessage(suggestion);
+  };
+
+  const showToast = (msg: string, ok = true) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ msg, ok });
+    toastTimerRef.current = setTimeout(() => setToast(null), 3000);
+  };
+
+  const addToDrills = async (message: ChatMessage) => {
+    if (!activeTeam || !message.structured_data || savedDrillIds.has(message.id)) return;
+    try {
+      const res = await fetch('/api/ai/save-drill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id, drill: message.structured_data }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to save drill');
+      }
+      setSavedDrillIds((prev) => new Set([...prev, message.id]));
+      showToast('Drill saved to your library!');
+    } catch {
+      showToast('Failed to save drill', false);
+    }
+  };
+
+  const shareWithParents = async (message: ChatMessage) => {
+    if (!message.structured_data || copiedReportIds.has(message.id)) return;
+    const data = message.structured_data;
+    const lines: string[] = [];
+    if (data.title) lines.push(String(data.title), '');
+    for (const [key, value] of Object.entries(data)) {
+      if (key === 'title') continue;
+      lines.push(key.replace(/_/g, ' ').toUpperCase() + ':');
+      if (typeof value === 'string') {
+        lines.push(value, '');
+      } else if (Array.isArray(value)) {
+        (value as unknown[]).forEach((v) =>
+          lines.push('• ' + (typeof v === 'string' ? v : JSON.stringify(v)))
+        );
+        lines.push('');
+      } else if (typeof value === 'object' && value !== null) {
+        lines.push(JSON.stringify(value, null, 2), '');
+      } else {
+        lines.push(String(value), '');
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      setCopiedReportIds((prev) => new Set([...prev, message.id]));
+      showToast('Report copied — paste it into your messaging app!');
+    } catch {
+      showToast('Could not copy to clipboard', false);
+    }
   };
 
   const saveAsPlan = async (message: ChatMessage) => {
@@ -436,18 +496,40 @@ export default function AssistantPage() {
               </button>
               {message.type === 'report' && (
                 <button
-                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-700 transition-colors"
+                  onClick={() => shareWithParents(message)}
+                  disabled={copiedReportIds.has(message.id)}
+                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-700 transition-colors disabled:opacity-60"
                 >
-                  <Share2 className="h-3 w-3" />
-                  Share with Parents
+                  {copiedReportIds.has(message.id) ? (
+                    <>
+                      <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                      <span className="text-emerald-400">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3 w-3" />
+                      Share with Parents
+                    </>
+                  )}
                 </button>
               )}
               {message.type === 'drill' && (
                 <button
-                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-700 transition-colors"
+                  onClick={() => addToDrills(message)}
+                  disabled={savedDrillIds.has(message.id)}
+                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-700 transition-colors disabled:opacity-60"
                 >
-                  <Plus className="h-3 w-3" />
-                  Add to Drills
+                  {savedDrillIds.has(message.id) ? (
+                    <>
+                      <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                      <span className="text-emerald-400">Saved!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-3 w-3" />
+                      Add to Drills
+                    </>
+                  )}
                 </button>
               )}
             </div>
@@ -611,6 +693,20 @@ export default function AssistantPage() {
         </div>
       </div>
     </div>
+
+    {/* Toast notification */}
+    {toast && (
+      <div
+        className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium shadow-lg transition-all ${
+          toast.ok
+            ? 'bg-emerald-500 text-white'
+            : 'bg-red-500 text-white'
+        }`}
+      >
+        {toast.ok ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : null}
+        {toast.msg}
+      </div>
+    )}
     </UpgradeGate>
   );
 }
