@@ -16,6 +16,7 @@ import {
   Trophy,
   Gift,
   Award,
+  Webhook,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from '@/hooks/use-theme';
@@ -86,6 +87,14 @@ const SETTING_CARDS: SettingCard[] = [
     description: 'Earn your badge by hitting key coaching milestones',
     icon: Award,
     iconColor: 'text-amber-400 bg-amber-500/20',
+  },
+  {
+    href: '/settings/webhooks',
+    label: 'Webhooks',
+    description: 'Push events to Slack, Zapier, or your own systems',
+    icon: Webhook,
+    iconColor: 'text-sky-400 bg-sky-500/20',
+    adminOnly: true,
   },
 ];
 

@@ -18,6 +18,12 @@ export type ConfigAuditAction = 'create' | 'update' | 'delete' | 'reset';
 export type CVProcessingStatus = 'none' | 'pending' | 'processing' | 'complete' | 'failed';
 export type CVJobStatus = 'queued' | 'processing' | 'complete' | 'failed' | 'cancelled';
 export type CVJobPriority = 'high' | 'medium' | 'low' | 'batch';
+export type WebhookEvent =
+  | 'observation.created'
+  | 'session.created'
+  | 'session.updated'
+  | 'plan.created'
+  | 'player.created';
 
 export type AIInteractionType =
   | 'segment_transcript'
@@ -452,4 +458,18 @@ export interface SyncLog {
   error_message: string | null;
   created_at: string;
   synced_at: string | null;
+}
+
+export interface Webhook {
+  id: string;
+  org_id: string;
+  coach_id: string;
+  url: string;
+  events: WebhookEvent[];
+  secret: string;
+  is_active: boolean;
+  last_triggered_at: string | null;
+  last_status: number | null;
+  created_at: string;
+  updated_at: string;
 }
