@@ -114,7 +114,7 @@ You run every hour. Here's how to be effective.
 - [ ] E2E test: generate plan → view plan → delete plan
 - [ ] E2E test: create share link → view parent portal
 - [ ] E2E test: admin panel → invite coach → change role
-- [ ] Error boundary components on all pages
+- [x] Error boundary components on all pages — global-error.tsx (layout-level), app/error.tsx (public pages), (dashboard)/error.tsx (all dashboard pages), (auth)/error.tsx (login/signup/onboarding); AlertTriangle + reset() + home link; prevents blank-page crashes
 - [ ] Sentry or similar error tracking integration
 - [ ] API rate limiting on AI endpoints
 
