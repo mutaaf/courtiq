@@ -40,7 +40,7 @@ You run every hour. Here's how to be effective.
 - [x] Smooth page transitions/animations — CSS fade-in + slide-up via PageTransition component, respects prefers-reduced-motion
 
 ### P2 — AI Intelligence
-- [ ] Better phonetic matching in observation segmentation
+- [x] Better phonetic matching in observation segmentation — `src/lib/player-match.ts` (Soundex + Levenshtein); replaces inline `findPlayerId` in capture/review and quick-capture-widget; 26 unit tests
 - [x] Smart practice plan generation from observation data trends — two-window trend analysis (last 7 vs prior 7 days) classifies skills as Declining/Persistent/Improving; AI prompt gets prioritised drill-time rules; Plans page badge shows colour-coded trend pills
 - [x] Post-session auto-debrief improvements — multi-session trend context: fetches last 3 prior debriefs, AI generates trend_note comparing to recent history, recurring areas flagged with badge + persistent focus areas chip row
 - [x] Drill recommendation engine based on skill gaps — analyzes needs-work observations (last 30 days), surfaces matching drills in a "Recommended for Your Team" carousel at the top of the Drills Library; sorted by gap severity, up to 6 drills
