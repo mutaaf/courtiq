@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ParentViralCTA } from '@/components/share/parent-viral-cta';
 
 async function getShareData(token: string) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -259,6 +260,9 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             </CardContent>
           </Card>
         )}
+
+        {/* Parent viral loop — invite other coaches */}
+        <ParentViralCTA coachName={coachName} teamName={team?.name} />
 
         <p className="text-center text-xs text-zinc-600">Powered by SportsIQ</p>
       </div>
