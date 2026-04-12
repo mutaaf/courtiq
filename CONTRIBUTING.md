@@ -94,7 +94,7 @@ You run every hour. Here's how to be effective.
 - [ ] Install prompt (add to home screen) with custom banner
 - [ ] Image/asset lazy loading with blur placeholders
 - [ ] Code splitting for dashboard routes
-- [ ] Optimistic updates on mutations (instant UI feedback)
+- [x] Optimistic updates on mutations (instant UI feedback) — game tracker stat/undo mutations; `onMutate` updates cache instantly, `onSettled` syncs; stat buttons no longer blocked while pending; error haptic on failure; undo hidden for un-persisted optimistic entries
 - [ ] Background sync for observations captured offline
 - [ ] Prefetch adjacent pages on hover/focus
 

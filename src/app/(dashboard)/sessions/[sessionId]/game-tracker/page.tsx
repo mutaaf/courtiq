@@ -279,7 +279,33 @@ export default function GameTrackerPage() {
         },
       });
     },
-    onSuccess: () => {
+    onMutate: async ({ playerId, stat }) => {
+      // Cancel outgoing refetches so they don't overwrite the optimistic entry
+      await queryClient.cancelQueries({ queryKey: ['game-stats', sessionId] });
+
+      // Immediately add a placeholder observation to the cache
+      const tempId = `optimistic-${Date.now()}-${Math.random()}`;
+      queryClient.setQueryData(
+        ['game-stats', sessionId],
+        (old: any[] = []) => [
+          {
+            id: tempId,
+            player_id: playerId,
+            event_type: stat,
+            created_at: new Date().toISOString(),
+            category: 'Game Stats',
+            _optimistic: true,
+          },
+          ...old,
+        ]
+      );
+    },
+    onError: () => {
+      // Error haptic so coach knows the tap didn't register
+      if ('vibrate' in navigator) navigator.vibrate([80, 40, 80]);
+    },
+    onSettled: () => {
+      // Always sync with server to replace/remove the temp entry
       queryClient.invalidateQueries({ queryKey: ['game-stats', sessionId] });
     },
   });
@@ -292,7 +318,18 @@ export default function GameTrackerPage() {
         filters: { id: obsId },
       });
     },
-    onSuccess: () => {
+    onMutate: async (obsId: string) => {
+      await queryClient.cancelQueries({ queryKey: ['game-stats', sessionId] });
+      // Immediately remove the stat from the list
+      queryClient.setQueryData(
+        ['game-stats', sessionId],
+        (old: any[] = []) => old.filter((obs) => obs.id !== obsId)
+      );
+    },
+    onError: () => {
+      if ('vibrate' in navigator) navigator.vibrate([80, 40, 80]);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['game-stats', sessionId] });
     },
   });
@@ -439,8 +476,7 @@ export default function GameTrackerPage() {
                 <button
                   key={stat}
                   onClick={() => handleStatTap(stat)}
-                  disabled={addStatMutation.isPending}
-                  className={`touch-manipulation flex flex-col items-center justify-center rounded-2xl border py-5 transition-all min-h-[80px] font-semibold ${cfg.bgClass} ${cfg.colorClass} disabled:opacity-50`}
+                  className={`touch-manipulation flex flex-col items-center justify-center rounded-2xl border py-5 transition-all min-h-[80px] font-semibold ${cfg.bgClass} ${cfg.colorClass}`}
                 >
                   <span className="text-2xl font-black">{cfg.short}</span>
                   <span className="text-xs mt-1 opacity-75">{cfg.label}</span>
@@ -458,8 +494,8 @@ export default function GameTrackerPage() {
         </div>
       )}
 
-      {/* Last Action + Undo */}
-      {lastStat && lastStatPlayer && (
+      {/* Last Action + Undo — only show for persisted (non-optimistic) stats */}
+      {lastStat && lastStatPlayer && !lastStat._optimistic && (
         <div className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3">
           <div>
             <p className="text-xs text-zinc-500 mb-0.5">Last stat</p>
