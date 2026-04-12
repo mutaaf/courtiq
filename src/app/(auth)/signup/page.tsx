@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
 
 export default function SignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-zinc-950">
+          <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        </div>
+      }
+    >
+      <SignupForm />
+    </Suspense>
+  );
+}
+
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const refCode = searchParams.get('ref') ?? '';
+
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -54,7 +71,7 @@ export default function SignupPage() {
       await fetch('/api/auth/setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fullName }),
+        body: JSON.stringify({ fullName, referredByCode: refCode || undefined }),
       });
       router.push('/onboarding/sport');
       router.refresh();
@@ -85,9 +102,17 @@ export default function SignupPage() {
             <img src="/logo.svg" alt="SportsIQ" width={32} height={32} className="invert" />
           </div>
           <CardTitle className="text-2xl">Create your account</CardTitle>
-          <CardDescription>Start coaching smarter with SportsIQ</CardDescription>
+          <CardDescription>
+            {refCode ? 'You were invited by a fellow coach!' : 'Start coaching smarter with SportsIQ'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
+          {refCode && (
+            <div className="mb-4 flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3 text-sm text-emerald-400">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              Referral applied — your coach connection will be tracked
+            </div>
+          )}
           <form onSubmit={handleSignup} className="space-y-4">
             {error && (
               <div className="flex items-center gap-2 rounded-lg bg-red-500/10 p-3 text-sm text-red-400">

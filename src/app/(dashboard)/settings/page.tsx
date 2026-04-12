@@ -14,6 +14,7 @@ import {
   Moon,
   Rocket,
   Trophy,
+  Gift,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from '@/hooks/use-theme';
@@ -70,6 +71,13 @@ const SETTING_CARDS: SettingCard[] = [
     description: 'Opt-in rankings: observations, plans, and shares',
     icon: Trophy,
     iconColor: 'text-amber-400 bg-amber-500/20',
+  },
+  {
+    href: '/settings/referrals',
+    label: 'Refer a Coach',
+    description: 'Invite a colleague — get 1 month free per referral',
+    icon: Gift,
+    iconColor: 'text-rose-400 bg-rose-500/20',
   },
 ];
 
