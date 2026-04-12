@@ -14,6 +14,7 @@ import { BulkActionsBar } from '@/components/roster/bulk-actions-bar';
 import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareArrows, CheckSquare } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
+import { ParentEngagementPanel } from '@/components/roster/parent-engagement-panel';
 import type { Player } from '@/types/database';
 
 export default function RosterPage() {
@@ -159,6 +160,11 @@ export default function RosterPage() {
           </div>
         </div>
       </div>
+
+      {/* Parent Engagement Panel — shown once there are players */}
+      {players.length > 0 && activeTeam && (
+        <ParentEngagementPanel teamId={activeTeam.id} />
+      )}
 
       {/* Search & Filter - sticky on mobile */}
       {players.length > 0 && (
