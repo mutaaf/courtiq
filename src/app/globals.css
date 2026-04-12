@@ -116,3 +116,85 @@ body {
     animation: none;
   }
 }
+
+/* ── Print styles ────────────────────────────────────────────────────────── */
+@media print {
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+
+  /* Base: white background, black text */
+  body {
+    background: white !important;
+    color: #111 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Remove full-screen height constraint so content flows naturally */
+  .h-screen { height: auto !important; }
+  .overflow-hidden { overflow: visible !important; }
+  .overflow-y-auto { overflow: visible !important; }
+  .pb-20 { padding-bottom: 0 !important; }
+  .fixed { position: static !important; }
+  * { box-shadow: none !important; }
+
+  /* Hide navigation chrome */
+  aside,
+  nav,
+  header {
+    display: none !important;
+  }
+
+  /* Hide interactive controls (tabs, action buttons, overlays) */
+  button {
+    display: none !important;
+  }
+
+  /* Background overrides */
+  .bg-zinc-950 { background-color: #ffffff !important; }
+  .bg-zinc-900 { background-color: #fafafa !important; }
+  .bg-zinc-900\/50 { background-color: #fafafa !important; }
+  .bg-zinc-900\/95 { background-color: #fafafa !important; }
+  .bg-zinc-900\/30 { background-color: #fafafa !important; }
+  .bg-zinc-800 { background-color: #f0f0f0 !important; }
+  .bg-zinc-800\/50 { background-color: #f0f0f0 !important; }
+  .bg-zinc-700 { background-color: #e0e0e0 !important; }
+
+  /* Border overrides */
+  .border-zinc-800 { border-color: #ddd !important; }
+  .border-zinc-700 { border-color: #ccc !important; }
+  .border-zinc-700\/50 { border-color: #ddd !important; }
+
+  /* Text overrides */
+  .text-zinc-100 { color: #111 !important; }
+  .text-zinc-200 { color: #222 !important; }
+  .text-zinc-300 { color: #333 !important; }
+  .text-zinc-400 { color: #555 !important; }
+  .text-zinc-500 { color: #666 !important; }
+  .text-zinc-600 { color: #777 !important; }
+
+  /* Keep accent colors legible */
+  .text-orange-500 { color: #c2410c !important; }
+  .text-orange-400 { color: #ea580c !important; }
+  .bg-orange-500 { background-color: #ea580c !important; }
+  .text-emerald-400,
+  .text-emerald-500 { color: #047857 !important; }
+  .text-amber-400,
+  .text-amber-500 { color: #b45309 !important; }
+  .text-red-400 { color: #b91c1c !important; }
+  .text-blue-400 { color: #1d4ed8 !important; }
+  .text-purple-400 { color: #7e22ce !important; }
+  .text-violet-400 { color: #6d28d9 !important; }
+  .text-teal-400 { color: #0f766e !important; }
+  .text-pink-400 { color: #be185d !important; }
+  .text-indigo-400 { color: #3730a3 !important; }
+
+  /* SVG ring track: dark gray → light gray */
+  circle[stroke="#27272a"] { stroke: #e0e0e0 !important; }
+
+  /* Page break helpers */
+  .print-break-before { break-before: page; }
+  .print-break-avoid { break-inside: avoid; }
+}

@@ -40,6 +40,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
+import { PrintButton } from '@/components/ui/print-button';
 import type { Plan, Player, PlanType } from '@/types/database';
 import type { ObservationInsights } from '@/app/api/ai/plan/route';
 
@@ -981,18 +982,21 @@ export default function PlansPage() {
               </div>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-            onClick={() => {
-              if (confirm('Delete this plan? This cannot be undone.')) {
-                deleteMutation.mutate(selectedPlan.id);
-              }
-            }}
-          >
-            <Trash2 className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <PrintButton label="Print / PDF" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+              onClick={() => {
+                if (confirm('Delete this plan? This cannot be undone.')) {
+                  deleteMutation.mutate(selectedPlan.id);
+                }
+              }}
+            >
+              <Trash2 className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
 
         <Card>

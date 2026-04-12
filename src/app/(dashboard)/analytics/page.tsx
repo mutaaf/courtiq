@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TrendingUp, TrendingDown, Minus, Users, Eye, Calendar, Target, AlertTriangle, CheckCircle2, Activity, LineChart as LineChartIcon, LayoutGrid, BarChart2, ArrowRight, Download, ChevronDown, Share2, X, Copy, Check } from 'lucide-react';
 import { UpgradeGate } from '@/components/ui/upgrade-gate';
+import { PrintButton } from '@/components/ui/print-button';
 import type { Observation, Player, Session, Sentiment } from '@/types/database';
 
 // --- Helpers ---
@@ -1355,6 +1356,7 @@ export default function AnalyticsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <PrintButton label="Print" />
           <Button
             variant="outline"
             size="sm"

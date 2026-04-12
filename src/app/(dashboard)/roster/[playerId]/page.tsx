@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
+import { PrintButton } from '@/components/ui/print-button';
 import type { Player, Observation, PlayerSkillProficiency, Plan, Sentiment } from '@/types/database';
 
 type Tab = 'overview' | 'observations' | 'report-card' | 'media' | 'share' | 'challenges' | 'storyline' | 'self-assessment';
@@ -782,10 +783,11 @@ export default function PlayerDetailPage({
 
           {reportCardData ? (
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                 <CardTitle className="text-base">
-                  Report Card - {player.name}
+                  Report Card — {player.name}
                 </CardTitle>
+                <PrintButton label="Print / PDF" />
               </CardHeader>
               <CardContent>
                 {renderReportCardContent(reportCardData)}
