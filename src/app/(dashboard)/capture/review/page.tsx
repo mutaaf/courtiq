@@ -26,6 +26,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
+import { findPlayerByName } from '@/lib/player-match';
 import type { Sentiment, ObservationSource } from '@/types/database';
 
 interface ParsedObservation {
@@ -194,19 +195,8 @@ export default function ReviewPage() {
         filters: { team_id: activeTeam.id, is_active: true },
       });
 
-      const findPlayerId = (name: string): string | null => {
-        if (!players) return null;
-        const lower = name.toLowerCase();
-        const match = players.find(
-          (p) =>
-            p.name.toLowerCase() === lower ||
-            p.nickname?.toLowerCase() === lower ||
-            p.name.toLowerCase().includes(lower) ||
-            lower.includes(p.name.toLowerCase()) ||
-            p.name_variants?.some((v: string) => v.toLowerCase() === lower)
-        );
-        return match?.id || null;
-      };
+      const findPlayerId = (name: string): string | null =>
+        findPlayerByName(name, players ?? []);
 
       const rows = toSave.map((obs) => ({
         team_id: activeTeam.id,

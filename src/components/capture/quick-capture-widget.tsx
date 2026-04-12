@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { Mic, X, CheckCircle2, Loader2, AlertCircle, Square, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { findPlayerByName } from '@/lib/player-match';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { mutate, query } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
@@ -192,20 +193,8 @@ export function QuickCaptureWidget() {
           filters: { team_id: activeTeam.id, is_active: true },
         });
 
-        const findPlayerId = (name: string): string | null => {
-          if (!players) return null;
-          const lower = name.toLowerCase();
-          return (
-            players.find(
-              (p) =>
-                p.name.toLowerCase() === lower ||
-                p.nickname?.toLowerCase() === lower ||
-                p.name.toLowerCase().includes(lower) ||
-                lower.includes(p.name.toLowerCase()) ||
-                p.name_variants?.some((v: string) => v.toLowerCase() === lower)
-            )?.id || null
-          );
-        };
+        const findPlayerId = (name: string): string | null =>
+          findPlayerByName(name, players ?? []);
 
         const rows = observations.map((obs) => ({
           team_id: activeTeam.id,
