@@ -89,6 +89,9 @@ export interface Curriculum {
   name: string;
   description: string | null;
   is_default: boolean;
+  is_public: boolean;
+  publisher_name: string | null;
+  import_count: number;
   config: Json;
   created_at: string;
   updated_at: string;

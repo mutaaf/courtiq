@@ -26,14 +26,14 @@ export const TIER_LIMITS: Record<Tier, {
     maxSports: 999,
     maxPlayersPerTeam: 999,
     maxAICallsPerMonth: 999999,
-    features: ['capture', 'roster', 'plans', 'report_cards', 'parent_sharing', 'sessions', 'assistant', 'analytics', 'media_upload', 'custom_prompts', 'tendencies'],
+    features: ['capture', 'roster', 'plans', 'report_cards', 'parent_sharing', 'sessions', 'assistant', 'analytics', 'media_upload', 'custom_prompts', 'tendencies', 'curriculum_publish'],
   },
   organization: {
     maxTeams: 999,
     maxSports: 999,
     maxPlayersPerTeam: 999,
     maxAICallsPerMonth: 999999,
-    features: ['capture', 'roster', 'plans', 'report_cards', 'parent_sharing', 'sessions', 'assistant', 'analytics', 'media_upload', 'custom_prompts', 'tendencies', 'multi_coach', 'org_analytics', 'custom_branding'],
+    features: ['capture', 'roster', 'plans', 'report_cards', 'parent_sharing', 'sessions', 'assistant', 'analytics', 'media_upload', 'custom_prompts', 'tendencies', 'multi_coach', 'org_analytics', 'custom_branding', 'curriculum_publish'],
   },
 };
 
