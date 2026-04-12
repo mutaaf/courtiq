@@ -12,6 +12,7 @@ import {
   Sparkles,
   Sun,
   Moon,
+  Rocket,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from '@/hooks/use-theme';
@@ -54,6 +55,13 @@ const SETTING_CARDS: SettingCard[] = [
     description: 'Positions, categories, and age groups',
     icon: Dumbbell,
     iconColor: 'text-orange-400 bg-orange-500/20',
+  },
+  {
+    href: '/settings/upgrade',
+    label: 'Plans & Pricing',
+    description: 'View tier features and upgrade your plan',
+    icon: Rocket,
+    iconColor: 'text-emerald-400 bg-emerald-500/20',
   },
 ];
 

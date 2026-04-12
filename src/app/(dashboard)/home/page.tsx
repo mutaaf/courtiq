@@ -29,6 +29,7 @@ import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { TestimonialPrompt } from '@/components/onboarding/testimonial-prompt';
+import { FreemiumNudge } from '@/components/ui/freemium-nudge';
 
 // ─── AI Coaching Tips ─────────────────────────────────────────────────────────
 
@@ -554,6 +555,14 @@ export default function HomePage() {
           </>
         )}
       </div>
+
+      {/* Freemium upgrade nudge — shown for free-tier coaches once there's some data */}
+      {!isLoadingStats && stats && (
+        <FreemiumNudge
+          playerCount={stats.players}
+          observationCount={stats.observations}
+        />
+      )}
 
       {/* Team Pulse — coaching intelligence card, shown once there's observation data */}
       {isLoadingPulse ? (

@@ -24,7 +24,7 @@ export function UpgradeGate({ feature, children, featureLabel }: {
             This feature requires a higher plan. Upgrade to unlock {featureLabel?.toLowerCase() || 'this feature'}.
           </p>
           <p className="text-xs text-zinc-500 mt-1">Current plan: <span className="capitalize text-orange-400">{tier.replace('_', ' ')}</span></p>
-          <Link href="/settings">
+          <Link href="/settings/upgrade">
             <Button className="mt-4">View Plans</Button>
           </Link>
         </CardContent>
