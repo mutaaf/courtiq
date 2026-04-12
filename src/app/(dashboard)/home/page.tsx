@@ -30,6 +30,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { TestimonialPrompt } from '@/components/onboarding/testimonial-prompt';
 import { FreemiumNudge } from '@/components/ui/freemium-nudge';
+import { SeasonalPromo } from '@/components/onboarding/seasonal-promo';
 
 // ─── AI Coaching Tips ─────────────────────────────────────────────────────────
 
@@ -555,6 +556,11 @@ export default function HomePage() {
           </>
         )}
       </div>
+
+      {/* Seasonal promotion — shown in the first 3 weeks of Sept/Jan/Apr */}
+      {!isLoadingStats && (
+        <SeasonalPromo playerCount={stats?.players} />
+      )}
 
       {/* Freemium upgrade nudge — shown for free-tier coaches once there's some data */}
       {!isLoadingStats && stats && (
