@@ -81,7 +81,7 @@ You run every hour. Here's how to be effective.
 
 ### P6 — Strategic Platform Features
 - [ ] **Multi-season history** — archive past seasons, compare player progress across seasons
-- [ ] **Cross-team analytics (org)** — program directors see aggregate data: which skills are strongest/weakest across all teams, which coaches are most engaged
+- [x] **Cross-team analytics (org)** — program directors see aggregate data: which skills are strongest/weakest across all teams, which coaches are most engaged; /admin/org-analytics with summary cards, team health rings, coach engagement leaderboard (weighted score: obs×1 + sessions×3 + plans×2), and cross-team skill breakdown with sentiment strips; linked from admin panel
 - [ ] **Curriculum marketplace** — orgs can publish their custom curricula, other orgs can import them
 - [ ] **Parent engagement scoring** — track which parents open reports, view progress. Identify disengaged families for coach follow-up
 - [x] **AI coaching tips** — proactive suggestions: "You haven't observed Sarah in 2 weeks" or "Your team's defense observations are declining — consider a defensive drill block"; color-coded card on home dashboard (alert/suggestion/praise) with action links; 4-hour staleTime cache; shown after 5+ observations

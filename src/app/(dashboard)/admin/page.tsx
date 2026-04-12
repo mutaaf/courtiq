@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useTier } from '@/hooks/use-tier';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +14,8 @@ import {
   UserPlus,
   Loader2,
   Crown,
+  BarChart2,
+  ArrowRight,
 } from 'lucide-react';
 import type { CoachRole } from '@/types/database';
 
@@ -176,10 +179,17 @@ export default function AdminPage() {
             Organization Plan
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex items-center gap-4">
           <Badge className={`text-sm capitalize ${roleBadgeColor('admin')}`}>
             {tier.replace('_', ' ')}
           </Badge>
+          <Link href="/admin/org-analytics" className="ml-auto">
+            <Button variant="outline" size="sm" className="gap-2 text-xs h-8">
+              <BarChart2 className="h-3.5 w-3.5 text-orange-400" />
+              Cross-Team Analytics
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </Link>
         </CardContent>
       </Card>
 
