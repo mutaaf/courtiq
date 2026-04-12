@@ -13,6 +13,7 @@ import {
   Sun,
   Moon,
   Rocket,
+  Trophy,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from '@/hooks/use-theme';
@@ -62,6 +63,13 @@ const SETTING_CARDS: SettingCard[] = [
     description: 'View tier features and upgrade your plan',
     icon: Rocket,
     iconColor: 'text-emerald-400 bg-emerald-500/20',
+  },
+  {
+    href: '/settings/leaderboard',
+    label: 'Coach Leaderboard',
+    description: 'Opt-in rankings: observations, plans, and shares',
+    icon: Trophy,
+    iconColor: 'text-amber-400 bg-amber-500/20',
   },
 ];
 

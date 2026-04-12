@@ -72,7 +72,7 @@ You run every hour. Here's how to be effective.
 - [x] **In-app testimonial prompts** — after 10 observations, prompt coach for a review/rating; NPS-style 1-5 star modal; high ratings surface a "share with colleague" mailto CTA; low ratings open a feedback email; snoozed 30 days on Later, permanently dismissed on submit; state stored in localStorage by coachId
 - [x] **Social sharing** — "Share your season stats" card modal in Analytics page; preview card (health ring, obs/players/sessions, strengths/focus areas chips); Share button uses Web Share API on mobile, clipboard fallback on desktop; "Share" button in analytics header (disabled when no data)
 - [ ] **Onboarding email drip** — trigger emails: Day 1 (welcome), Day 3 (first capture tips), Day 7 (generate first plan), Day 14 (share with parents)
-- [ ] **Coach leaderboard** (opt-in) — gamify engagement: observations recorded, plans generated, parent shares sent. Badge system (Rookie Coach → Elite Coach)
+- [x] **Coach leaderboard** (opt-in) — gamify engagement: observations recorded, plans generated, parent shares sent. Badge system (Rookie Coach → Elite Coach); /settings/leaderboard with opt-in toggle, personal stats card, org rankings with anonymized names, badge chips, score formula breakdown
 - [ ] **Program landing pages** — `/org/[slug]` white-label pages for YMCA branches to recruit coaches
 - [ ] **"SportsIQ Certified Coach" badge** — coaches who complete curriculum and hit observation thresholds get a shareable digital badge
 - [ ] **Seasonal promotions** — auto-detect season start (Sept/Jan/Apr) and show relevant onboarding: "New season? Import your roster and set up your curriculum"
