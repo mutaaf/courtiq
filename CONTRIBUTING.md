@@ -80,7 +80,7 @@ You run every hour. Here's how to be effective.
 - [x] **Freemium upgrade nudges** — /settings/upgrade pricing page (tier cards + desktop feature-matrix table); Plans & Pricing card in settings hub; UpgradeGate "View Plans" link fixed; FreemiumNudge banner on home page with contextual message (player-limit, AI-usage, generic) dismissible 3 days via localStorage
 
 ### P6 — Strategic Platform Features
-- [ ] **Multi-season history** — archive past seasons, compare player progress across seasons
+- [x] **Multi-season history** — archive past seasons, compare player progress across seasons; season_archives table with player-skill snapshot JSON; GET/POST /api/seasons; /settings/seasons page with archive form, stats strip, collapsible per-player skill snapshot (proficiency level + trend icons)
 - [x] **Cross-team analytics (org)** — program directors see aggregate data: which skills are strongest/weakest across all teams, which coaches are most engaged; /admin/org-analytics with summary cards, team health rings, coach engagement leaderboard (weighted score: obs×1 + sessions×3 + plans×2), and cross-team skill breakdown with sentiment strips; linked from admin panel
 - [ ] **Curriculum marketplace** — orgs can publish their custom curricula, other orgs can import them
 - [ ] **Parent engagement scoring** — track which parents open reports, view progress. Identify disengaged families for coach follow-up
