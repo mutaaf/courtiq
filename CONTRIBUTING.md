@@ -30,7 +30,7 @@ You run every hour. Here's how to be effective.
 - [ ] Fix any runtime errors reported in recent commits
 
 ### P1 — Core UX Polish
-- [ ] Ensure all buttons/links on every page lead to real functionality
+- [x] Ensure all buttons/links on every page lead to real functionality — AI assistant "Add to Drills" saves drill structured_data via /api/ai/save-drill; "Share with Parents" copies formatted report to clipboard; both show success state + toast
 - [x] Remove any remaining `[object Object]` or raw JSON in UI — audit log viewer now uses formatConfigValue helper (human-readable inline format for strings/arrays/objects); plans page renderObjectFields already guarded
 - [x] Fix any broken navigation or dead links — UpgradeGate "View Plans" was pointing to /settings with no pricing; now routes to /settings/upgrade
 - [x] Ensure all forms save data correctly — admin role-change now rolls back optimistic update + shows error if PATCH fails (was silently leaving UI in wrong state)
