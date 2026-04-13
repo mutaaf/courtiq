@@ -99,7 +99,7 @@ You run every hour. Here's how to be effective.
 - [x] Prefetch adjacent pages on hover/focus — usePrefetchAdjacentPages hook prefetches prev/next nav pages on mount; usePrefetchOnIntent factory wires onMouseEnter+onFocus to all sidebar links and onTouchStart to mobile bottom-nav links
 
 ### P8 — Accessibility
-- [ ] ARIA labels on all interactive elements
+- [x] ARIA labels on all interactive elements — recording button (aria-label + aria-pressed + aria-live timer), nav landmarks (aria-label + aria-current), team-switcher/bulk-actions/config-editor form controls, toggle switches (role=switch + aria-checked), plan/drill/session action buttons (delete/expand/filter with aria-pressed/aria-label/aria-expanded)
 - [ ] Keyboard navigation for all pages
 - [ ] Screen reader testing with VoiceOver/NVDA
 - [x] Focus trap in modals/dialogs — `useFocusTrap` hook; Tab/Shift+Tab cycling, Escape-to-close, focus restoration; applied to QuickCaptureWidget, TestimonialPrompt, WelcomeTour, BulkActionsBar; aria-labelledby on all dialogs; 25 unit tests
