@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
+import { RecurringSessionsPanel } from '@/components/sessions/recurring-sessions-panel';
 import type { Session, SessionType } from '@/types/database';
 
 const SESSION_TYPE_CONFIG: Record<SessionType, { label: string; color: string }> = {
@@ -204,6 +205,8 @@ export default function SessionsPage() {
           })}
         </div>
       )}
+      {/* Recurring Sessions */}
+      <RecurringSessionsPanel />
     </div>
     </PullToRefresh>
   );
