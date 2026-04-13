@@ -2,9 +2,10 @@
 
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Home, Mic, Users, ClipboardList, Settings, Calendar, CalendarDays, BookOpen, BarChart3, Sparkles, Sun, Moon, LineChart, LogOut, Lock, ShieldCheck, Store } from 'lucide-react';
+import { Home, Mic, Users, ClipboardList, Settings, Calendar, CalendarDays, BookOpen, BarChart3, Sparkles, Sun, Moon, LineChart, LogOut, Lock, ShieldCheck, Store, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TeamSwitcher } from '@/components/layout/team-switcher';
 import { SyncIndicator } from '@/components/layout/sync-indicator';
@@ -22,6 +23,12 @@ import type { Coach } from '@/types/database';
 // needed when the user taps the Zap FAB, so defer it to a separate chunk.
 const QuickCaptureWidget = dynamic(
   () => import('@/components/capture/quick-capture-widget').then((m) => ({ default: m.QuickCaptureWidget })),
+  { ssr: false }
+);
+
+// Lazy-loaded — command palette is only mounted when open (Cmd/Ctrl+K).
+const CommandPalette = dynamic(
+  () => import('@/components/command-palette').then((m) => ({ default: m.CommandPalette })),
   { ssr: false }
 );
 
@@ -64,6 +71,22 @@ export function DashboardShell({ coach, children }: Props) {
   const { navRef: sidebarNavRef, onKeyDown: sidebarKeyDown } = useArrowKeyNav();
   const { navRef: mobileNavRef, onKeyDown: mobileNavKeyDown } = useArrowKeyNav();
 
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const openCommandPalette = useCallback(() => setCommandPaletteOpen(true), []);
+  const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), []);
+
+  // Global Cmd+K / Ctrl+K shortcut
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen((prev) => !prev);
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Start background sync engine and wire up online/offline monitoring
   useSyncEngine();
 
@@ -84,6 +107,20 @@ export function DashboardShell({ coach, children }: Props) {
 
         <div className="border-b border-zinc-800 p-4">
           <TeamSwitcher />
+        </div>
+
+        {/* Search / Command Palette trigger */}
+        <div className="border-b border-zinc-800 px-4 py-2">
+          <button
+            onClick={openCommandPalette}
+            aria-label="Open command palette (⌘K)"
+            aria-keyshortcuts="Meta+K Control+K"
+            className="flex w-full items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-zinc-500 hover:border-zinc-600 hover:text-zinc-300 transition-colors"
+          >
+            <Search className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span className="flex-1 text-left text-xs">Search…</span>
+            <kbd className="hidden text-[10px] text-zinc-600 sm:inline">⌘K</kbd>
+          </button>
         </div>
 
         <nav
@@ -184,6 +221,14 @@ export function DashboardShell({ coach, children }: Props) {
           </div>
           <div className="flex items-center gap-2">
             <button
+              onClick={openCommandPalette}
+              aria-label="Search (⌘K)"
+              aria-keyshortcuts="Meta+K Control+K"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-100 transition-colors"
+            >
+              <Search className="h-4 w-4" />
+            </button>
+            <button
               onClick={toggleTheme}
               aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-100 transition-colors"
@@ -223,6 +268,9 @@ export function DashboardShell({ coach, children }: Props) {
 
         {/* PWA install prompt — shows on mobile after 2 visits when installable */}
         <PwaInstallPrompt />
+
+        {/* Command Palette — Cmd/Ctrl+K or search button */}
+        {commandPaletteOpen && <CommandPalette onClose={closeCommandPalette} />}
 
         {/* Mobile bottom nav — 5 items, Capture centered as FAB */}
         <nav
