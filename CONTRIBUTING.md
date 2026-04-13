@@ -104,7 +104,7 @@ You run every hour. Here's how to be effective.
 - [ ] Screen reader testing with VoiceOver/NVDA
 - [x] Focus trap in modals/dialogs — `useFocusTrap` hook; Tab/Shift+Tab cycling, Escape-to-close, focus restoration; applied to QuickCaptureWidget, TestimonialPrompt, WelcomeTour, BulkActionsBar; aria-labelledby on all dialogs; 25 unit tests
 - [ ] Color contrast verification (WCAG AA minimum)
-- [ ] Reduce motion preference support
+- [x] Reduce motion preference support — useReducedMotion hook (reactive, SSR-safe); global CSS `* { animation-duration: 0.01ms; transition-duration: 0.01ms }` disables all Tailwind transition-*/animate-* utilities; useHaptic skips navigator.vibrate(); PullToRefresh skips inline-style transitions + haptics; 13 unit tests
 - [ ] High contrast mode toggle
 
 ### P9 — Testing & Reliability
