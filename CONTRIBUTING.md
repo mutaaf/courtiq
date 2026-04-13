@@ -105,7 +105,7 @@ You run every hour. Here's how to be effective.
 - [x] Focus trap in modals/dialogs — `useFocusTrap` hook; Tab/Shift+Tab cycling, Escape-to-close, focus restoration; applied to QuickCaptureWidget, TestimonialPrompt, WelcomeTour, BulkActionsBar; aria-labelledby on all dialogs; 25 unit tests
 - [ ] Color contrast verification (WCAG AA minimum)
 - [x] Reduce motion preference support — useReducedMotion hook (reactive, SSR-safe); global CSS `* { animation-duration: 0.01ms; transition-duration: 0.01ms }` disables all Tailwind transition-*/animate-* utilities; useHaptic skips navigator.vibrate(); PullToRefresh skips inline-style transitions + haptics; 13 unit tests
-- [ ] High contrast mode toggle
+- [x] High contrast mode toggle — useHighContrast hook (localStorage, SSR-safe); .high-contrast CSS class lifts zinc surfaces/text to WCAG AA 4.5:1 (black bg, white text, #555 borders); Settings page Contrast icon toggle card with On/Off pill + aria-checked; 17 unit tests
 
 ### P9 — Testing & Reliability
 - [ ] Component tests for key UI (roster card, recording button, plan card)
