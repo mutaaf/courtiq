@@ -114,6 +114,7 @@ export default async function OrgLandingPage({
               src={logoUrl}
               alt={`${org.name} logo`}
               className="mx-auto mb-5 h-20 w-auto object-contain"
+              loading="lazy"
             />
           ) : (
             <div

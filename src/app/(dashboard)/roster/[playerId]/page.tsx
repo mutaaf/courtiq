@@ -7,6 +7,7 @@ import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { CACHE_PROFILES } from '@/lib/query/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -395,14 +396,6 @@ export default function PlayerDetailPage({
     );
   }
 
-  function getInitials(name: string): string {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  }
 
   function renderReportCardContent(rc: any) {
     if (!rc) return null;
@@ -573,17 +566,7 @@ export default function PlayerDetailPage({
       {/* Player Header */}
       <Card>
         <CardContent className="flex items-center gap-5 p-6">
-          {player.photo_url ? (
-            <img
-              src={player.photo_url}
-              alt={player.name}
-              className="h-20 w-20 rounded-full object-cover ring-2 ring-zinc-700"
-            />
-          ) : (
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-orange-500/20 text-2xl font-bold text-orange-400 ring-2 ring-zinc-700">
-              {getInitials(player.name)}
-            </div>
-          )}
+          <PlayerAvatar photoUrl={player.photo_url} name={player.name} size={80} />
           <div className="flex-1">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-zinc-100">{player.name}</h1>

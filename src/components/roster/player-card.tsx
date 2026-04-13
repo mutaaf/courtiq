@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Check } from 'lucide-react';
 import type { Player } from '@/types/database';
+import { PlayerAvatar } from '@/components/ui/player-avatar';
 
 interface PlayerCardProps {
   player: Player;
@@ -15,14 +16,6 @@ interface PlayerCardProps {
   onSelect?: (playerId: string) => void;
 }
 
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 const positionColors: Record<string, string> = {
   PG: 'bg-blue-500/20 text-blue-400',
@@ -64,17 +57,7 @@ export function PlayerCard({ player, observationCount = 0, selectMode = false, s
         )}
         {/* Avatar */}
         <div className="relative flex-shrink-0">
-          {player.photo_url ? (
-            <img
-              src={player.photo_url}
-              alt={player.name}
-              className="h-12 w-12 rounded-full object-cover ring-2 ring-zinc-700"
-            />
-          ) : (
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-500/20 text-sm font-bold text-orange-400 ring-2 ring-zinc-700">
-              {getInitials(player.name)}
-            </div>
-          )}
+          <PlayerAvatar photoUrl={player.photo_url} name={player.name} size={48} />
           {player.jersey_number !== null && (
             <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-800 text-[10px] font-bold text-zinc-300 ring-1 ring-zinc-600">
               {player.jersey_number}

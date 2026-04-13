@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ParentViralCTA } from '@/components/share/parent-viral-cta';
+import { PlayerAvatar } from '@/components/ui/player-avatar';
 
 async function getShareData(token: string) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -51,17 +52,12 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
       <div className="mx-auto max-w-lg space-y-6 py-6">
         {/* Header */}
         <div className="text-center">
-          {player?.photo_url ? (
-            <img
-              src={player.photo_url}
-              alt={player.name}
-              className="mx-auto mb-4 h-20 w-20 rounded-full object-cover ring-2 ring-zinc-700"
-            />
-          ) : (
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-orange-500/20 text-2xl font-bold text-orange-400">
-              {player?.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '?'}
-            </div>
-          )}
+          <PlayerAvatar
+            photoUrl={player?.photo_url}
+            name={player?.name || '?'}
+            size={80}
+            className="mx-auto mb-4"
+          />
           <h1 className="text-2xl font-bold text-zinc-100">{player?.name || 'Player'}</h1>
           <p className="text-sm text-zinc-400">
             {team?.name || 'Team'}
