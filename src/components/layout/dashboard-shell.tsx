@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -12,9 +13,15 @@ import { useTheme } from '@/hooks/use-theme';
 import { useTier } from '@/hooks/use-tier';
 import { useSwipeNavigation } from '@/hooks/use-swipe-navigation';
 import { useSyncEngine } from '@/hooks/use-sync-engine';
-import { QuickCaptureWidget } from '@/components/capture/quick-capture-widget';
 import { PwaInstallPrompt } from '@/components/ui/pwa-install-prompt';
 import type { Coach } from '@/types/database';
+
+// Lazy-loaded — uses Web Speech API + IndexedDB (browser-only) and is only
+// needed when the user taps the Zap FAB, so defer it to a separate chunk.
+const QuickCaptureWidget = dynamic(
+  () => import('@/components/capture/quick-capture-widget').then((m) => ({ default: m.QuickCaptureWidget })),
+  { ssr: false }
+);
 
 // Bottom nav: Home | Roster | CAPTURE (center FAB) | Plans | Settings
 const navItems = [
