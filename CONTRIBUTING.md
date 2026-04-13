@@ -95,7 +95,7 @@ You run every hour. Here's how to be effective.
 - [ ] Image/asset lazy loading with blur placeholders
 - [ ] Code splitting for dashboard routes
 - [x] Optimistic updates on mutations (instant UI feedback) — game tracker stat/undo mutations; `onMutate` updates cache instantly, `onSettled` syncs; stat buttons no longer blocked while pending; error haptic on failure; undo hidden for un-persisted optimistic entries
-- [ ] Background sync for observations captured offline
+- [x] Background sync for observations captured offline — useSyncEngine hook wires online/offline monitoring + periodic sync engine; review page falls back to IndexedDB when offline with amber "Saved Locally" success state; sync engine uses mutate() (API route) instead of direct Supabase client; service worker handles BackgroundSync 'sync' event and notifies open clients; 9 unit tests
 - [ ] Prefetch adjacent pages on hover/focus
 
 ### P8 — Accessibility

@@ -11,6 +11,7 @@ import { PageTransition } from '@/components/layout/page-transition';
 import { useTheme } from '@/hooks/use-theme';
 import { useTier } from '@/hooks/use-tier';
 import { useSwipeNavigation } from '@/hooks/use-swipe-navigation';
+import { useSyncEngine } from '@/hooks/use-sync-engine';
 import { QuickCaptureWidget } from '@/components/capture/quick-capture-widget';
 import { PwaInstallPrompt } from '@/components/ui/pwa-install-prompt';
 import type { Coach } from '@/types/database';
@@ -50,6 +51,9 @@ export function DashboardShell({ coach, children }: Props) {
   const { canAccess: canAccessFeature } = useTier();
   const { onTouchStart, onTouchEnd } = useSwipeNavigation();
   const isAdmin = coach.role === 'admin' && ((coach as any).organizations?.tier === 'organization');
+
+  // Start background sync engine and wire up online/offline monitoring
+  useSyncEngine();
 
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-100">

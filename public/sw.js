@@ -163,6 +163,25 @@ function getBestShellPage(pathname) {
   return '/home';
 }
 
+// ─── Background Sync ─────────────────────────────────────────────────────────
+//
+// When the device regains connectivity the browser fires a 'sync' event.
+// We post a message to all open clients so the in-page sync engine can flush
+// the IndexedDB observation queue back to the server without a full page reload.
+
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-observations') {
+    event.waitUntil(notifyClientsToSync());
+  }
+});
+
+async function notifyClientsToSync() {
+  const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  for (const client of clients) {
+    client.postMessage({ type: 'SYNC_OBSERVATIONS' });
+  }
+}
+
 // ─── Inline offline page (fallback when /offline isn't cached) ────────────────
 
 const OFFLINE_HTML = `<!DOCTYPE html>
