@@ -10,16 +10,37 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlayerCard } from '@/components/roster/player-card';
-import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera } from 'lucide-react';
+import { BulkActionsBar } from '@/components/roster/bulk-actions-bar';
+import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareArrows, CheckSquare, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
-import type { Player } from '@/types/database';
+import { PullToRefresh } from '@/components/ui/pull-to-refresh';
+import { ParentEngagementPanel } from '@/components/roster/parent-engagement-panel';
+import { TeamAttendancePanel } from '@/components/roster/team-attendance-panel';
+import { AvailabilityBadge } from '@/components/roster/availability-badge';
+import type { Player, PlayerAvailability } from '@/types/database';
 
 export default function RosterPage() {
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, coach } = useActiveTeam();
   const [search, setSearch] = useState('');
   const [positionFilter, setPositionFilter] = useState<string>('all');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const { data: players = [], isLoading } = useQuery({
+  function toggleSelect(playerId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(playerId)) next.delete(playerId);
+      else next.add(playerId);
+      return next;
+    });
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }
+
+  const { data: players = [], isLoading, refetch: refetchPlayers } = useQuery({
     queryKey: queryKeys.players.all(activeTeam?.id ?? ''),
     queryFn: async () => {
       const data = await query<Player[]>({
@@ -34,7 +55,7 @@ export default function RosterPage() {
     ...CACHE_PROFILES.roster,
   });
 
-  const { data: obsCounts = {} } = useQuery({
+  const { data: obsCounts = {}, refetch: refetchObs } = useQuery({
     queryKey: [...queryKeys.observations.all(activeTeam?.id ?? ''), 'counts'],
     queryFn: async () => {
       const data = await query<{ player_id: string }[]>({
@@ -52,6 +73,19 @@ export default function RosterPage() {
     },
     enabled: !!activeTeam,
     ...CACHE_PROFILES.observations,
+  });
+
+  // Fetch latest availability record per player
+  const { data: availabilityMap = {}, refetch: refetchAvailability } = useQuery({
+    queryKey: ['player-availability', activeTeam?.id ?? ''],
+    queryFn: async (): Promise<Record<string, PlayerAvailability>> => {
+      const res = await fetch(`/api/player-availability?team_id=${activeTeam!.id}`);
+      if (!res.ok) return {};
+      const json = await res.json();
+      return json.availability ?? {};
+    },
+    enabled: !!activeTeam,
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
   const positions = useMemo(() => {
@@ -76,6 +110,12 @@ export default function RosterPage() {
     return result;
   }, [players, search, positionFilter]);
 
+  // Summary: players with a non-available status
+  const unavailableCount = useMemo(
+    () => players.filter((p) => availabilityMap[p.id]?.status && availabilityMap[p.id].status !== 'available').length,
+    [players, availabilityMap],
+  );
+
   if (!activeTeam) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center min-h-[60vh]">
@@ -89,6 +129,7 @@ export default function RosterPage() {
   }
 
   return (
+    <PullToRefresh onRefresh={async () => { await Promise.all([refetchPlayers(), refetchObs(), refetchAvailability()]); }}>
     <div className="p-4 lg:p-8 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -98,27 +139,80 @@ export default function RosterPage() {
             {players.length} player{players.length !== 1 ? 's' : ''} on {activeTeam.name}
           </p>
         </div>
-        <div className="hidden sm:flex items-center gap-2">
-          <Link href="/roster/import-photo">
-            <Button variant="outline" size="sm">
-              <Camera className="h-4 w-4" />
-              Photo Import
+        <div className="flex items-center gap-2">
+          {players.length >= 2 && (
+            <Button
+              variant={selectMode ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+              className={selectMode ? 'bg-orange-500 hover:bg-orange-600' : ''}
+            >
+              <CheckSquare className="h-4 w-4" />
+              <span className="hidden sm:inline">{selectMode ? `${selectedIds.size} selected` : 'Select'}</span>
             </Button>
-          </Link>
-          <Link href="/roster/import">
-            <Button variant="outline" size="sm">
-              <Upload className="h-4 w-4" />
-              Import
-            </Button>
-          </Link>
-          <Link href="/roster/add">
-            <Button size="sm">
-              <Plus className="h-4 w-4" />
-              Add Player
-            </Button>
-          </Link>
+          )}
+          <div className="hidden sm:flex items-center gap-2">
+            {players.length >= 2 && (
+              <Link href="/roster/compare">
+                <Button variant="outline" size="sm">
+                  <GitCompareArrows className="h-4 w-4" />
+                  Compare
+                </Button>
+              </Link>
+            )}
+            <Link href="/roster/import-photo">
+              <Button variant="outline" size="sm">
+                <Camera className="h-4 w-4" />
+                Photo Import
+              </Button>
+            </Link>
+            <Link href="/roster/import">
+              <Button variant="outline" size="sm">
+                <Upload className="h-4 w-4" />
+                Import
+              </Button>
+            </Link>
+            <Link href="/roster/add">
+              <Button size="sm">
+                <Plus className="h-4 w-4" />
+                Add Player
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
+
+      {/* Availability Summary Strip — shown when any player is unavailable */}
+      {unavailableCount > 0 && (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+          <ShieldAlert className="h-5 w-5 flex-shrink-0 text-amber-400" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-amber-300">
+              {unavailableCount} player{unavailableCount !== 1 ? 's' : ''} with restricted availability
+            </p>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {players
+                .filter((p) => availabilityMap[p.id]?.status && availabilityMap[p.id].status !== 'available')
+                .map((p) => (
+                  <span key={p.id} className="inline-flex items-center gap-1 text-xs text-zinc-300">
+                    <span className="font-medium">{p.name.split(' ')[0]}</span>
+                    <AvailabilityBadge status={availabilityMap[p.id].status} size="dot" />
+                  </span>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Parent Engagement Panel — shown once there are players */}
+      {players.length > 0 && activeTeam && (
+        <ParentEngagementPanel teamId={activeTeam.id} />
+      )}
+
+      {/* Team Attendance Panel — shown once attendance has been tracked */}
+      {players.length > 0 && activeTeam && (
+        <TeamAttendancePanel teamId={activeTeam.id} />
+      )}
 
       {/* Search & Filter - sticky on mobile */}
       {players.length > 0 && (
@@ -205,9 +299,24 @@ export default function RosterPage() {
               key={player.id}
               player={player}
               observationCount={obsCounts[player.id] || 0}
+              selectMode={selectMode}
+              selected={selectedIds.has(player.id)}
+              onSelect={toggleSelect}
+              availability={availabilityMap[player.id] ?? null}
+              teamId={activeTeam.id}
             />
           ))}
         </div>
+      )}
+
+      {/* Bulk Actions Bar */}
+      {selectMode && coach && activeTeam && (
+        <BulkActionsBar
+          selectedPlayers={players.filter((p) => selectedIds.has(p.id))}
+          teamId={activeTeam.id}
+          coachId={coach.id}
+          onClear={exitSelectMode}
+        />
       )}
 
       {/* Mobile FAB - Add Player */}
@@ -218,5 +327,6 @@ export default function RosterPage() {
         <Plus className="h-7 w-7" />
       </Link>
     </div>
+    </PullToRefresh>
   );
 }

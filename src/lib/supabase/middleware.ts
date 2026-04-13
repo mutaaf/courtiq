@@ -42,6 +42,7 @@ export async function updateSession(request: NextRequest) {
     '/signup',
     '/onboarding',
     '/demo',
+    '/offline',
   ];
   if (pathname === '/' || publicPaths.some((p) => pathname.startsWith(p))) {
     return supabaseResponse;

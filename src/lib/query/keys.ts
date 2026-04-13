@@ -30,6 +30,7 @@ export const queryKeys = {
   },
   drills: {
     all: (sportId: string) => ['drills', sportId] as const,
+    detail: (drillId: string) => ['drills', 'detail', drillId] as const,
   },
   branding: {
     org: (orgId: string) => ['branding', orgId] as const,
@@ -42,5 +43,12 @@ export const queryKeys = {
   },
   coach: {
     current: () => ['coach', 'current'] as const,
+  },
+  selfAssessments: {
+    player: (playerId: string) => ['selfAssessments', 'player', playerId] as const,
+  },
+  seasons: {
+    all: (orgId: string) => ['seasons', orgId] as const,
+    team: (teamId: string) => ['seasons', 'team', teamId] as const,
   },
 } as const;

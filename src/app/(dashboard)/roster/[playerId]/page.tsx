@@ -1,12 +1,13 @@
 'use client';
 
 import { use, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { query } from '@/lib/api';
+import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { CACHE_PROFILES } from '@/lib/query/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,12 +25,25 @@ import {
   CheckCircle2,
   Copy,
   ExternalLink,
+  Zap,
+  Clock,
+  Sparkles,
+  Trophy,
+  BookOpen,
+  TrendingUp,
+  Star,
+  ClipboardCheck,
+  ChevronDown,
+  ChevronUp,
+  CalendarCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
-import type { Player, Observation, PlayerSkillProficiency, Sentiment } from '@/types/database';
+import { PrintButton } from '@/components/ui/print-button';
+import type { Player, Observation, PlayerSkillProficiency, Plan, Sentiment } from '@/types/database';
+import type { PlayerAttendanceStat } from '@/app/api/attendance-stats/route';
 
-type Tab = 'overview' | 'observations' | 'report-card' | 'media' | 'share';
+type Tab = 'overview' | 'observations' | 'report-card' | 'media' | 'share' | 'challenges' | 'storyline' | 'self-assessment';
 
 const sentimentVariant: Record<Sentiment, 'success' | 'destructive' | 'secondary'> = {
   positive: 'success',
@@ -49,7 +63,8 @@ export default function PlayerDetailPage({
   params: Promise<{ playerId: string }>;
 }) {
   const { playerId } = use(params);
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, coach } = useActiveTeam();
+  const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
 
   // Report card state
@@ -62,6 +77,26 @@ export default function PlayerDetailPage({
   const [shareLinkError, setShareLinkError] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+
+  // Skill challenge state
+  const [challengeLoading, setChallengeLoading] = useState(false);
+  const [challengeError, setChallengeError] = useState<string | null>(null);
+  const [challengeData, setChallengeData] = useState<any>(null);
+  const [challengeTextCopied, setChallengeTextCopied] = useState(false);
+
+  // Season storyline state
+  const [storylineLoading, setStorylineLoading] = useState(false);
+  const [storylineError, setStorylineError] = useState<string | null>(null);
+  const [storylineData, setStorylineData] = useState<any>(null);
+
+  // Self-assessment state
+  const [selfRatings, setSelfRatings] = useState<Record<string, number>>({});
+  const [selfNotes, setSelfNotes] = useState('');
+  const [selfOverall, setSelfOverall] = useState(3);
+  const [selfSaving, setSelfSaving] = useState(false);
+  const [selfError, setSelfError] = useState<string | null>(null);
+  const [selfSuccess, setSelfSuccess] = useState(false);
+  const [expandedAssessment, setExpandedAssessment] = useState<string | null>(null);
 
   const { data: player, isLoading: playerLoading } = useQuery({
     queryKey: queryKeys.players.detail(playerId),
@@ -108,6 +143,35 @@ export default function PlayerDetailPage({
     ...CACHE_PROFILES.proficiency,
   });
 
+  const { data: selfAssessments = [] } = useQuery({
+    queryKey: queryKeys.selfAssessments.player(playerId),
+    queryFn: async () => {
+      const data = await query<Plan[]>({
+        table: 'plans',
+        select: '*',
+        filters: { player_id: playerId, type: 'self_assessment' },
+        order: { column: 'created_at', ascending: false },
+        limit: 10,
+      });
+      return data || [];
+    },
+    enabled: activeTab === 'self-assessment',
+    ...CACHE_PROFILES.roster,
+  });
+
+  // Attendance stats for this player
+  const { data: attendanceStat } = useQuery<PlayerAttendanceStat>({
+    queryKey: ['attendance-stats-player', playerId],
+    queryFn: async () => {
+      const res = await fetch(`/api/attendance-stats?player_id=${playerId}`);
+      if (!res.ok) throw new Error('Failed to load attendance stats');
+      return res.json();
+    },
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    enabled: activeTab === 'overview',
+  });
+
   // Category breakdown
   const categoryBreakdown = observations.reduce<Record<string, number>>((acc, obs) => {
     acc[obs.category] = (acc[obs.category] || 0) + 1;
@@ -123,6 +187,9 @@ export default function PlayerDetailPage({
     { id: 'overview', label: 'Overview', icon: <BarChart3 className="h-4 w-4" /> },
     { id: 'observations', label: 'Observations', icon: <Eye className="h-4 w-4" /> },
     { id: 'report-card', label: 'Report Card', icon: <FileText className="h-4 w-4" /> },
+    { id: 'challenges', label: 'Challenges', icon: <Zap className="h-4 w-4" /> },
+    { id: 'storyline', label: 'Storyline', icon: <BookOpen className="h-4 w-4" /> },
+    { id: 'self-assessment', label: 'Self-Assessment', icon: <ClipboardCheck className="h-4 w-4" /> },
     { id: 'media', label: 'Media', icon: <ImageIcon className="h-4 w-4" /> },
     { id: 'share', label: 'Share', icon: <Share2 className="h-4 w-4" /> },
   ];
@@ -147,6 +214,133 @@ export default function PlayerDetailPage({
       setReportCardError(err instanceof Error ? err.message : 'Generation failed');
     } finally {
       setReportCardLoading(false);
+    }
+  }
+
+  async function handleGenerateChallenges() {
+    if (!activeTeam || !player) return;
+    setChallengeLoading(true);
+    setChallengeError(null);
+    try {
+      const res = await fetch('/api/ai/skill-challenge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id, playerId: player.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate challenges');
+      }
+      const data = await res.json();
+      setChallengeData(data.content);
+    } catch (err) {
+      setChallengeError(err instanceof Error ? err.message : 'Generation failed');
+    } finally {
+      setChallengeLoading(false);
+    }
+  }
+
+  async function copyChallengeText() {
+    if (!challengeData) return;
+    const challenges = Array.isArray(challengeData.challenges) ? challengeData.challenges : [];
+    const lines = [
+      `🏀 ${challengeData.week_label ?? 'Weekly'} Skill Challenges for ${player?.name ?? 'your player'}`,
+      '',
+      ...challenges.flatMap((c: any, i: number) => [
+        `Challenge ${i + 1}: ${c.title} (${c.skill_area})`,
+        `⏱ ${c.minutes_per_day} min/day  •  ${c.difficulty}`,
+        c.description,
+        ...((c.steps ?? []) as string[]).map((s: string, si: number) => `  ${si + 1}. ${s}`),
+        `✅ Success: ${c.success_criteria}`,
+        `💬 ${c.encouragement}`,
+        '',
+      ]),
+      challengeData.parent_note ? `Note for parents: ${challengeData.parent_note}` : '',
+    ].filter((l) => l !== undefined);
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      setChallengeTextCopied(true);
+      setTimeout(() => setChallengeTextCopied(false), 2000);
+    } catch {
+      // clipboard not available
+    }
+  }
+
+  async function handleGenerateStoryline() {
+    if (!activeTeam || !player) return;
+    setStorylineLoading(true);
+    setStorylineError(null);
+    try {
+      const res = await fetch('/api/ai/season-storyline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id, playerId: player.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate season storyline');
+      }
+      const data = await res.json();
+      setStorylineData(data.content);
+    } catch (err) {
+      setStorylineError(err instanceof Error ? err.message : 'Generation failed');
+    } finally {
+      setStorylineLoading(false);
+    }
+  }
+
+  async function handleSaveSelfAssessment() {
+    if (!activeTeam || !player || !coach) return;
+    setSelfSaving(true);
+    setSelfError(null);
+    setSelfSuccess(false);
+
+    const skillRatings = proficiencies
+      .filter((prof) => selfRatings[prof.skill_id] && selfRatings[prof.skill_id] > 0)
+      .map((prof) => ({
+        skill_id: prof.skill_id,
+        skill_name: prof.curriculum_skills?.name || prof.skill_id,
+        category: prof.curriculum_skills?.category || '',
+        self_rating: selfRatings[prof.skill_id],
+        coach_level: prof.proficiency_level,
+      }));
+
+    if (skillRatings.length === 0) {
+      setSelfError('Please rate at least one skill before saving.');
+      setSelfSaving(false);
+      return;
+    }
+
+    try {
+      await mutate({
+        table: 'plans',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          player_id: playerId,
+          type: 'self_assessment',
+          title: `Self-Assessment — ${player.name} — ${new Date().toLocaleDateString()}`,
+          content: JSON.stringify({ skill_ratings: skillRatings, overall_confidence: selfOverall, player_notes: selfNotes }),
+          content_structured: {
+            submitted_at: new Date().toISOString(),
+            skill_ratings: skillRatings,
+            overall_confidence: selfOverall,
+            player_notes: selfNotes || null,
+          },
+          skills_targeted: proficiencies.map((p) => p.skill_id),
+        },
+      });
+      setSelfSuccess(true);
+      setSelfRatings({});
+      setSelfNotes('');
+      setSelfOverall(3);
+      qc.invalidateQueries({ queryKey: queryKeys.selfAssessments.player(playerId) });
+      setTimeout(() => setSelfSuccess(false), 4000);
+    } catch (err) {
+      setSelfError(err instanceof Error ? err.message : 'Failed to save self-assessment');
+    } finally {
+      setSelfSaving(false);
     }
   }
 
@@ -217,14 +411,6 @@ export default function PlayerDetailPage({
     );
   }
 
-  function getInitials(name: string): string {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  }
 
   function renderReportCardContent(rc: any) {
     if (!rc) return null;
@@ -245,7 +431,7 @@ export default function PlayerDetailPage({
               {rc.strengths.map((s: any, i: number) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
                   <CheckCircle2 className="h-4 w-4 mt-0.5 text-emerald-500 shrink-0" />
-                  {typeof s === 'string' ? s : s.skill || s.description || s.name || s.text || String(s)}
+                  {typeof s === 'string' ? s : s.skill || s.description || s.name || s.text || (typeof s === 'object' ? Object.values(s).filter(v => typeof v === 'string').join(' — ') : String(s))}
                 </li>
               ))}
             </ul>
@@ -259,7 +445,7 @@ export default function PlayerDetailPage({
               {rc.areas_for_improvement.map((a: any, i: number) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
                   <AlertCircle className="h-4 w-4 mt-0.5 text-orange-500 shrink-0" />
-                  {typeof a === 'string' ? a : a.skill || a.description || a.name || a.text || String(a)}
+                  {typeof a === 'string' ? a : a.skill || a.description || a.name || a.text || (typeof a === 'object' ? Object.values(a).filter(v => typeof v === 'string').join(' — ') : String(a))}
                 </li>
               ))}
             </ul>
@@ -297,16 +483,62 @@ export default function PlayerDetailPage({
           </div>
         )}
 
-        {rc.coach_message && (
+        {/* Skills with proficiency */}
+        {rc.skills && Array.isArray(rc.skills) && rc.skills.length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-purple-400 mb-2">Coach Message</h3>
-            <p className="text-sm text-zinc-300 italic">{rc.coach_message}</p>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-blue-400 mb-3">Skills</h3>
+            <div className="space-y-2">
+              {rc.skills.map((s: any, i: number) => (
+                <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-zinc-200">{s.skill_name || s.name || s.skill || `Skill ${i + 1}`}</span>
+                    {(s.proficiency_level || s.level || s.grade) && (
+                      <Badge variant="secondary">{s.proficiency_level || s.level || s.grade}</Badge>
+                    )}
+                  </div>
+                  {s.narrative && <p className="text-xs text-zinc-400 leading-relaxed">{s.narrative}</p>}
+                  {s.description && !s.narrative && <p className="text-xs text-zinc-400 leading-relaxed">{s.description}</p>}
+                  {s.trend && <p className="text-xs text-zinc-500 mt-1">Trend: <span className={s.trend === 'improving' || s.trend === 'positive' ? 'text-emerald-400' : 'text-zinc-400'}>{s.trend}</span></p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Growth areas */}
+        {rc.growth_areas && Array.isArray(rc.growth_areas) && rc.growth_areas.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-orange-400 mb-2">Growth Areas</h3>
+            <ul className="space-y-1.5">
+              {rc.growth_areas.map((g: any, i: number) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
+                  <AlertCircle className="h-4 w-4 mt-0.5 text-orange-500 shrink-0" />
+                  {typeof g === 'string' ? g : g.description || g.text || g.name || (typeof g === 'object' ? Object.values(g).filter(v => typeof v === 'string').join(' — ') : String(g))}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Coach note */}
+        {(rc.coach_note || rc.coach_message) && (
+          <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-purple-400 mb-2">Coach&apos;s Note</h3>
+            <p className="text-sm text-zinc-300 italic leading-relaxed">{rc.coach_note || rc.coach_message}</p>
+          </div>
+        )}
+
+        {/* Home practice suggestion */}
+        {rc.home_practice_suggestion && (
+          <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-blue-400 mb-2">Home Practice</h3>
+            <p className="text-sm text-zinc-300 leading-relaxed">{rc.home_practice_suggestion}</p>
           </div>
         )}
 
         {/* Fallback: render any other top-level keys */}
         {Object.entries(rc)
-          .filter(([key]) => !['summary', 'strengths', 'areas_for_improvement', 'grades', 'recommendations', 'coach_message', 'title', 'player_name'].includes(key))
+          .filter(([key]) => !['summary', 'skills', 'strengths', 'growth_areas', 'areas_for_improvement', 'grades', 'recommendations', 'coach_note', 'coach_message', 'home_practice_suggestion', 'season_summary', 'title', 'player_name'].includes(key))
           .map(([key, value]) => (
             <div key={key}>
               <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400 mb-2">
@@ -318,7 +550,7 @@ export default function PlayerDetailPage({
                   : Array.isArray(value)
                   ? (value as any[]).map((item: any, i: number) => (
                       <p key={i} className="mb-1">
-                        - {typeof item === 'string' ? item : item?.name || item?.text || item?.description || String(item)}
+                        - {typeof item === 'string' ? item : item?.name || item?.text || item?.description || item?.narrative || item?.skill_name || (typeof item === 'object' ? Object.values(item).filter((v: unknown) => typeof v === 'string').join(' — ') : String(item))}
                       </p>
                     ))
                   : typeof value === 'object' && value !== null
@@ -349,17 +581,7 @@ export default function PlayerDetailPage({
       {/* Player Header */}
       <Card>
         <CardContent className="flex items-center gap-5 p-6">
-          {player.photo_url ? (
-            <img
-              src={player.photo_url}
-              alt={player.name}
-              className="h-20 w-20 rounded-full object-cover ring-2 ring-zinc-700"
-            />
-          ) : (
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-orange-500/20 text-2xl font-bold text-orange-400 ring-2 ring-zinc-700">
-              {getInitials(player.name)}
-            </div>
-          )}
+          <PlayerAvatar photoUrl={player.photo_url} name={player.name} size={80} />
           <div className="flex-1">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-zinc-100">{player.name}</h1>
@@ -465,6 +687,87 @@ export default function PlayerDetailPage({
             </CardContent>
           </Card>
 
+          {/* Attendance Summary */}
+          {attendanceStat && attendanceStat.totalSessions > 0 && (
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CalendarCheck className="h-4 w-4 text-orange-400" />
+                  Attendance
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                  {/* Big % */}
+                  <div className="flex flex-col items-center justify-center shrink-0 h-20 w-20 rounded-full border-4 border-zinc-800 bg-zinc-900 mx-auto sm:mx-0"
+                    style={{
+                      borderColor: attendanceStat.pct >= 80 ? 'rgb(16 185 129 / 0.5)' : attendanceStat.pct >= 60 ? 'rgb(251 191 36 / 0.5)' : 'rgb(239 68 68 / 0.5)',
+                    }}
+                  >
+                    <span className={`text-2xl font-bold tabular-nums ${attendanceStat.pct >= 80 ? 'text-emerald-400' : attendanceStat.pct >= 60 ? 'text-amber-400' : 'text-red-400'}`}>
+                      {attendanceStat.pct}%
+                    </span>
+                    <span className="text-[10px] text-zinc-500 mt-0.5">present</span>
+                  </div>
+
+                  {/* Stats + dots */}
+                  <div className="flex-1 space-y-3">
+                    {/* Session counts */}
+                    <div className="flex items-center gap-4 text-sm">
+                      <span className="flex items-center gap-1.5 text-emerald-400">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {attendanceStat.present} present
+                      </span>
+                      {attendanceStat.excused > 0 && (
+                        <span className="flex items-center gap-1.5 text-amber-400">
+                          <Clock className="h-3.5 w-3.5" />
+                          {attendanceStat.excused} excused
+                        </span>
+                      )}
+                      {attendanceStat.absent > 0 && (
+                        <span className="text-red-400">{attendanceStat.absent} absent</span>
+                      )}
+                    </div>
+
+                    {/* Recent session dots */}
+                    {attendanceStat.recentSessions.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs text-zinc-500">Last {attendanceStat.recentSessions.length} sessions</p>
+                        <div className="flex items-center gap-1.5" aria-label="Recent session attendance">
+                          {attendanceStat.recentSessions.map((s, i) => (
+                            <span
+                              key={i}
+                              title={`${s.date}: ${s.status}`}
+                              className={`h-3 w-3 rounded-full shrink-0 ${
+                                s.status === 'present'
+                                  ? 'bg-emerald-500'
+                                  : s.status === 'excused'
+                                    ? 'bg-amber-400'
+                                    : 'bg-red-500'
+                              }`}
+                            />
+                          ))}
+                          <span className="text-xs text-zinc-600 ml-1">← newest</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Bar */}
+                    <div className="h-2 w-full rounded-full bg-zinc-800 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          attendanceStat.pct >= 80 ? 'bg-emerald-500' : attendanceStat.pct >= 60 ? 'bg-amber-400' : 'bg-red-500'
+                        }`}
+                        style={{ width: `${attendanceStat.pct}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-zinc-500">{attendanceStat.totalSessions} session{attendanceStat.totalSessions !== 1 ? 's' : ''} tracked this season</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Recent Observations */}
           <Card className="lg:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between">
@@ -559,10 +862,11 @@ export default function PlayerDetailPage({
 
           {reportCardData ? (
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                 <CardTitle className="text-base">
-                  Report Card - {player.name}
+                  Report Card — {player.name}
                 </CardTitle>
+                <PrintButton label="Print / PDF" />
               </CardHeader>
               <CardContent>
                 {renderReportCardContent(reportCardData)}
@@ -609,6 +913,627 @@ export default function PlayerDetailPage({
                 </Button>
               </CardContent>
             </Card>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'challenges' && (
+        <div className="space-y-4">
+          {challengeError && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{challengeError}</span>
+            </div>
+          )}
+
+          {challengeData ? (
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-amber-400" />
+                    <h2 className="text-lg font-bold text-zinc-100">
+                      {challengeData.week_label ?? 'This Week\'s Challenges'}
+                    </h2>
+                  </div>
+                  <p className="mt-0.5 text-sm text-zinc-500">{player.name}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={copyChallengeText}
+                  >
+                    {challengeTextCopied ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 mr-1.5 text-emerald-500" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 mr-1.5" />
+                        Copy for parents
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleGenerateChallenges}
+                    disabled={challengeLoading}
+                  >
+                    {challengeLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Challenge Cards */}
+              <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-3">
+                {(Array.isArray(challengeData.challenges) ? challengeData.challenges : []).map((c: any, i: number) => {
+                  const diffColor =
+                    c.difficulty === 'advanced'
+                      ? 'text-red-400 bg-red-500/10 border-red-500/20'
+                      : c.difficulty === 'intermediate'
+                      ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                      : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+                  const cardAccent =
+                    i === 0
+                      ? 'border-orange-500/30 from-orange-500/5'
+                      : i === 1
+                      ? 'border-blue-500/30 from-blue-500/5'
+                      : 'border-purple-500/30 from-purple-500/5';
+                  return (
+                    <Card
+                      key={i}
+                      className={`bg-gradient-to-b ${cardAccent} to-zinc-900/50 border`}
+                    >
+                      <CardHeader className="pb-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 text-xs font-bold text-zinc-300">
+                              {i + 1}
+                            </div>
+                            <CardTitle className="text-base leading-tight">{c.title}</CardTitle>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <span className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-xs font-medium text-zinc-300">
+                            {c.skill_area}
+                          </span>
+                          <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${diffColor}`}>
+                            {c.difficulty}
+                          </span>
+                          {c.minutes_per_day && (
+                            <span className="flex items-center gap-1 rounded-full bg-zinc-800 px-2.5 py-0.5 text-xs text-zinc-400">
+                              <Clock className="h-3 w-3" />
+                              {c.minutes_per_day} min/day
+                            </span>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4 pt-0">
+                        {c.description && (
+                          <p className="text-sm text-zinc-400 leading-relaxed">{c.description}</p>
+                        )}
+
+                        {Array.isArray(c.steps) && c.steps.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Steps</p>
+                            <ol className="space-y-1.5">
+                              {(c.steps as string[]).map((step, si) => (
+                                <li key={si} className="flex items-start gap-2 text-sm text-zinc-300">
+                                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-xs font-bold text-zinc-400">
+                                    {si + 1}
+                                  </span>
+                                  {step}
+                                </li>
+                              ))}
+                            </ol>
+                          </div>
+                        )}
+
+                        {c.success_criteria && (
+                          <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+                            <Trophy className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-0.5">Success Goal</p>
+                              <p className="text-sm text-zinc-300">{c.success_criteria}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {c.encouragement && (
+                          <p className="text-xs text-zinc-500 italic leading-relaxed">
+                            &ldquo;{c.encouragement}&rdquo;
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              {/* Parent Note */}
+              {challengeData.parent_note && (
+                <Card className="border-zinc-700/50 bg-zinc-900/30">
+                  <CardContent className="flex items-start gap-3 p-4">
+                    <MessageSquare className="h-4 w-4 shrink-0 text-zinc-500 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1">Note for Parents</p>
+                      <p className="text-sm text-zinc-400 leading-relaxed">{challengeData.parent_note}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center p-8 text-center">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/10">
+                  <Zap className="h-8 w-8 text-amber-400" />
+                </div>
+                <h3 className="font-semibold text-zinc-200">Weekly Skill Challenges</h3>
+                <p className="mt-2 max-w-sm text-sm text-zinc-500 leading-relaxed">
+                  AI analyzes {player.name}&apos;s recent coaching observations and generates
+                  personalized at-home challenges to accelerate their growth.
+                </p>
+                <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs text-zinc-600">
+                  <span className="flex items-center gap-1 rounded-full bg-zinc-800/60 px-2.5 py-1">
+                    <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Personalized per player
+                  </span>
+                  <span className="flex items-center gap-1 rounded-full bg-zinc-800/60 px-2.5 py-1">
+                    <Copy className="h-3 w-3 text-blue-400" /> Shareable with parents
+                  </span>
+                  <span className="flex items-center gap-1 rounded-full bg-zinc-800/60 px-2.5 py-1">
+                    <Clock className="h-3 w-3 text-amber-400" /> 5-15 min/day
+                  </span>
+                </div>
+                <Button
+                  className="mt-6"
+                  onClick={handleGenerateChallenges}
+                  disabled={challengeLoading || !activeTeam}
+                >
+                  {challengeLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Generating challenges...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4 mr-2" />
+                      Generate This Week&apos;s Challenges
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'storyline' && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BookOpen className="h-5 w-5 text-indigo-400" />
+                Season Storyline
+              </CardTitle>
+              <p className="text-sm text-zinc-500">
+                AI-generated narrative arc of {player?.name}&apos;s season journey — from their first observations to where they are today.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {storylineError && (
+                <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>{storylineError}</span>
+                </div>
+              )}
+              {!storylineData && !storylineLoading && (
+                <Button
+                  onClick={handleGenerateStoryline}
+                  disabled={storylineLoading}
+                  className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium touch-manipulation active:scale-[0.98]"
+                >
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Generate Season Storyline
+                </Button>
+              )}
+              {storylineLoading && (
+                <div className="flex items-center gap-3 rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-4">
+                  <Loader2 className="h-5 w-5 text-indigo-400 animate-spin shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-indigo-300">Writing season storyline...</p>
+                    <p className="text-xs text-zinc-500">Analyzing all observations and crafting the narrative arc</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {storylineData && (
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="rounded-xl border border-indigo-500/30 bg-gradient-to-b from-indigo-500/10 to-transparent p-5 text-center space-y-1">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <BookOpen className="h-5 w-5 text-indigo-400" />
+                  <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Season Storyline</span>
+                </div>
+                <h2 className="text-xl font-bold text-zinc-100">{storylineData.player_name}</h2>
+                {storylineData.season_label && (
+                  <p className="text-xs text-zinc-500">{storylineData.season_label}</p>
+                )}
+              </div>
+
+              {/* Opening */}
+              {storylineData.opening && (
+                <Card className="border-indigo-500/20">
+                  <CardContent className="p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-indigo-400 mb-2">The Beginning</p>
+                    <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{storylineData.opening}&rdquo;</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Chapters */}
+              {Array.isArray(storylineData.chapters) && storylineData.chapters.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-zinc-300 px-1">Season Arc</p>
+                  {storylineData.chapters.map((chapter: any, i: number) => (
+                    <Card key={i} className="border-zinc-800">
+                      <CardContent className="p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-zinc-100">{chapter.phase}</p>
+                          {chapter.weeks && (
+                            <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">{chapter.weeks}</span>
+                          )}
+                        </div>
+                        {chapter.narrative && (
+                          <p className="text-sm text-zinc-400 leading-relaxed">{chapter.narrative}</p>
+                        )}
+                        {Array.isArray(chapter.highlights) && chapter.highlights.length > 0 && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Highlights</p>
+                            {chapter.highlights.map((h: string, j: number) => (
+                              <p key={j} className="text-xs text-zinc-400 flex gap-2"><span className="text-emerald-500">+</span>{h}</p>
+                            ))}
+                          </div>
+                        )}
+                        {Array.isArray(chapter.growth_moments) && chapter.growth_moments.length > 0 && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Growth Moments</p>
+                            {chapter.growth_moments.map((g: string, j: number) => (
+                              <p key={j} className="text-xs text-zinc-400 flex gap-2"><span className="text-amber-500">→</span>{g}</p>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {/* Current Strengths */}
+              {Array.isArray(storylineData.current_strengths) && storylineData.current_strengths.length > 0 && (
+                <Card className="border-emerald-500/20 bg-emerald-500/5">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Star className="h-4 w-4 text-emerald-400" />
+                      <p className="text-sm font-semibold text-emerald-300">Current Strengths</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {storylineData.current_strengths.map((s: string, i: number) => (
+                        <span key={i} className="text-xs bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 rounded-full px-2.5 py-1">{s}</span>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Trajectory */}
+              {storylineData.trajectory && (
+                <Card className="border-orange-500/20 bg-orange-500/5">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="h-4 w-4 text-orange-400" />
+                      <p className="text-sm font-semibold text-orange-300">Where They&apos;re Headed</p>
+                    </div>
+                    <p className="text-sm text-zinc-300 leading-relaxed">{storylineData.trajectory}</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Coach Reflection */}
+              {storylineData.coach_reflection && (
+                <Card className="border-zinc-700">
+                  <CardContent className="p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Coach&apos;s Reflection</p>
+                    <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{storylineData.coach_reflection}&rdquo;</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Button
+                variant="outline"
+                onClick={() => { setStorylineData(null); setStorylineError(null); }}
+                className="w-full"
+              >
+                Generate New Storyline
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'self-assessment' && (
+        <div className="space-y-5">
+          {/* Intro Card */}
+          <Card className="border-teal-500/20 bg-gradient-to-b from-teal-500/10 to-transparent">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-500/15">
+                  <ClipboardCheck className="h-5 w-5 text-teal-400" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-zinc-100">Player Self-Assessment</h2>
+                  <p className="text-xs text-teal-400">Ages 13+ · Coaching conversation tool</p>
+                </div>
+              </div>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Have {player.name} rate their own skills (1–5 stars) during a 1-on-1 conversation.
+                Compare their self-perception with your coaching assessment to spark meaningful discussions.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Error / Success */}
+          {selfError && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{selfError}</span>
+            </div>
+          )}
+          {selfSuccess && (
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-400">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>Self-assessment saved! Great coaching conversation.</span>
+            </div>
+          )}
+
+          {/* Skill Rating Form */}
+          {proficiencies.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center p-8 text-center">
+                <ClipboardCheck className="mb-3 h-10 w-10 text-zinc-700" />
+                <h3 className="font-semibold text-zinc-300">No skills to assess yet</h3>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Record some observations for {player.name} first so skills appear here.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Rate Each Skill</CardTitle>
+                <p className="text-xs text-zinc-500">
+                  Ask {player.name} to rate themselves honestly — 1 = just starting, 5 = game-ready
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {proficiencies.slice(0, 12).map((prof) => {
+                  const skillName = prof.curriculum_skills?.name || prof.skill_id;
+                  const category = prof.curriculum_skills?.category || '';
+                  const coachLevelLabel: Record<string, string> = {
+                    insufficient_data: 'Not enough data',
+                    exploring: 'Exploring',
+                    practicing: 'Practicing',
+                    got_it: 'Got It',
+                    game_ready: 'Game Ready',
+                  };
+                  const coachLevelColor: Record<string, string> = {
+                    insufficient_data: 'text-zinc-500',
+                    exploring: 'text-blue-400',
+                    practicing: 'text-amber-400',
+                    got_it: 'text-emerald-400',
+                    game_ready: 'text-orange-400',
+                  };
+                  const currentRating = selfRatings[prof.skill_id] || 0;
+                  return (
+                    <div key={prof.skill_id} className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium text-zinc-200">{skillName}</p>
+                          {category && <p className="text-xs text-zinc-500">{category}</p>}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs text-zinc-500">Coach says</p>
+                          <p className={`text-xs font-semibold ${coachLevelColor[prof.proficiency_level] || 'text-zinc-400'}`}>
+                            {coachLevelLabel[prof.proficiency_level] || prof.proficiency_level}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() =>
+                              setSelfRatings((prev) => ({
+                                ...prev,
+                                [prof.skill_id]: prev[prof.skill_id] === star ? 0 : star,
+                              }))
+                            }
+                            className="touch-manipulation p-1 transition-transform active:scale-90"
+                            aria-label={`Rate ${skillName} ${star} stars`}
+                          >
+                            <Star
+                              className={`h-7 w-7 transition-colors ${
+                                star <= currentRating
+                                  ? 'fill-teal-400 text-teal-400'
+                                  : 'text-zinc-700 hover:text-zinc-500'
+                              }`}
+                            />
+                          </button>
+                        ))}
+                        {currentRating > 0 && (
+                          <span className="ml-2 text-xs text-teal-400 font-medium">
+                            {currentRating === 1 ? 'Just starting' : currentRating === 2 ? 'Getting there' : currentRating === 3 ? 'Making progress' : currentRating === 4 ? 'Feeling confident' : 'I\'ve got this!'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Overall confidence */}
+                <div className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-4 space-y-3">
+                  <p className="text-sm font-medium text-zinc-200">Overall Confidence</p>
+                  <p className="text-xs text-zinc-500">How confident does {player.name} feel about their game overall?</p>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setSelfOverall(star)}
+                        className="touch-manipulation p-1 transition-transform active:scale-90"
+                        aria-label={`Overall confidence ${star} stars`}
+                      >
+                        <Star
+                          className={`h-7 w-7 transition-colors ${
+                            star <= selfOverall
+                              ? 'fill-orange-400 text-orange-400'
+                              : 'text-zinc-700 hover:text-zinc-500'
+                          }`}
+                        />
+                      </button>
+                    ))}
+                    <span className="ml-2 text-xs text-orange-400 font-medium">
+                      {selfOverall}/5
+                    </span>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2 block">
+                    Player Notes (optional)
+                  </label>
+                  <textarea
+                    value={selfNotes}
+                    onChange={(e) => setSelfNotes(e.target.value)}
+                    placeholder={`What does ${player.name} want to work on? What are they proud of?`}
+                    rows={3}
+                    className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-teal-500/50 focus:ring-1 focus:ring-teal-500/20 resize-none"
+                  />
+                </div>
+
+                <Button
+                  onClick={handleSaveSelfAssessment}
+                  disabled={selfSaving || !activeTeam || !coach}
+                  className="w-full h-12 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-medium touch-manipulation active:scale-[0.98]"
+                >
+                  {selfSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <ClipboardCheck className="h-4 w-4 mr-2" />
+                      Save Self-Assessment
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Past Assessments */}
+          {selfAssessments.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-zinc-300 px-1">Previous Assessments</p>
+              {selfAssessments.map((assessment) => {
+                const structured = assessment.content_structured as any;
+                const ratings = structured?.skill_ratings || [];
+                const isExpanded = expandedAssessment === assessment.id;
+                return (
+                  <Card key={assessment.id} className="border-zinc-800">
+                    <CardContent className="p-4">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedAssessment(isExpanded ? null : assessment.id)}
+                        className="flex items-center justify-between w-full text-left touch-manipulation"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-zinc-200">
+                            {assessment.title?.replace('Self-Assessment — ', '') || formatDate(assessment.created_at)}
+                          </p>
+                          <p className="text-xs text-zinc-500">
+                            {ratings.length} skill{ratings.length !== 1 ? 's' : ''} rated
+                            {structured?.overall_confidence ? ` · Overall: ${structured.overall_confidence}/5` : ''}
+                          </p>
+                        </div>
+                        {isExpanded ? (
+                          <ChevronUp className="h-4 w-4 text-zinc-500 shrink-0" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-zinc-500 shrink-0" />
+                        )}
+                      </button>
+
+                      {isExpanded && (
+                        <div className="mt-4 space-y-3">
+                          {ratings.map((r: any, i: number) => {
+                            const coachLevelMap: Record<string, number> = {
+                              exploring: 1,
+                              practicing: 3,
+                              got_it: 4,
+                              game_ready: 5,
+                            };
+                            const coachNumeric = coachLevelMap[r.coach_level] || 0;
+                            const diff = r.self_rating - coachNumeric;
+                            return (
+                              <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div>
+                                    <p className="text-sm font-medium text-zinc-200">{r.skill_name}</p>
+                                    {r.category && <p className="text-xs text-zinc-500">{r.category}</p>}
+                                  </div>
+                                  {coachNumeric > 0 && (
+                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${diff > 0 ? 'bg-amber-500/15 text-amber-400' : diff < 0 ? 'bg-blue-500/15 text-blue-400' : 'bg-zinc-700/50 text-zinc-400'}`}>
+                                      {diff > 0 ? `+${diff} vs coach` : diff < 0 ? `${diff} vs coach` : 'Aligned'}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <div className="flex gap-0.5">
+                                    {[1, 2, 3, 4, 5].map((s) => (
+                                      <Star key={s} className={`h-4 w-4 ${s <= r.self_rating ? 'fill-teal-400 text-teal-400' : 'text-zinc-700'}`} />
+                                    ))}
+                                  </div>
+                                  <span className="text-xs text-zinc-500">Player self-rating</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {structured?.player_notes && (
+                            <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1">Player Notes</p>
+                              <p className="text-sm text-zinc-300 italic leading-relaxed">&ldquo;{structured.player_notes}&rdquo;</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
           )}
         </div>
       )}

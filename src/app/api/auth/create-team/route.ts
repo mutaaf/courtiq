@@ -1,5 +1,6 @@
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { TIER_LIMITS, type Tier } from '@/lib/tier';
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabase();
@@ -14,8 +15,24 @@ export async function POST(request: Request) {
   const { data: coach } = await admin.from('coaches').select('org_id').eq('id', user.id).single();
   if (!coach) return NextResponse.json({ error: 'Coach not found' }, { status: 404 });
 
-  // Get org's selected sport
-  const { data: org } = await admin.from('organizations').select('sport_config').eq('id', coach.org_id).single();
+  // Get org's selected sport and tier
+  const { data: org } = await admin.from('organizations').select('sport_config, tier').eq('id', coach.org_id).single();
+
+  // Tier check: count existing teams for this org
+  const orgTier = ((org as any)?.tier || 'free') as Tier;
+  const tierLimits = TIER_LIMITS[orgTier];
+
+  const { count: existingTeamCount } = await admin
+    .from('teams')
+    .select('id', { count: 'exact', head: true })
+    .eq('org_id', coach.org_id);
+
+  if ((existingTeamCount || 0) >= tierLimits.maxTeams) {
+    return NextResponse.json({
+      error: `Your ${orgTier.replace('_', ' ')} plan allows up to ${tierLimits.maxTeams} team${tierLimits.maxTeams === 1 ? '' : 's'}. Please upgrade to add more teams.`,
+      upgrade: true,
+    }, { status: 403 });
+  }
   const sportSlug = (org?.sport_config as any)?.default_sport_slug || 'basketball';
 
   const { data: sport } = await admin.from('sports').select('id').eq('slug', sportSlug).single();

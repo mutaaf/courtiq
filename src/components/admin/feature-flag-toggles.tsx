@@ -69,6 +69,9 @@ export function FeatureFlagToggles({ orgId }: FeatureFlagTogglesProps) {
               </p>
             </div>
             <button
+              role="switch"
+              aria-checked={flag.enabled}
+              aria-label={`Toggle ${flag.name}`}
               onClick={() => toggleMutation.mutate({ flagKey: flag.flag_key, enabled: !flag.enabled })}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                 flag.enabled ? 'bg-orange-500' : 'bg-zinc-700'

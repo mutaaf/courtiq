@@ -56,12 +56,14 @@ export function RecordingButton({ isRecording, onToggle, disabled = false }: Rec
     <div className="flex flex-col items-center gap-4">
       {/* Timer */}
       <div
+        aria-live="polite"
+        aria-atomic="true"
         className={cn(
           'text-3xl sm:text-2xl font-mono font-bold tabular-nums transition-opacity duration-300',
           isRecording ? 'text-red-400 opacity-100' : 'text-zinc-600 opacity-0'
         )}
       >
-        {formatTimer(elapsed)}
+        {isRecording ? formatTimer(elapsed) : ''}
       </div>
 
       {/* Button */}
@@ -69,6 +71,8 @@ export function RecordingButton({ isRecording, onToggle, disabled = false }: Rec
         type="button"
         onClick={handleClick}
         disabled={disabled}
+        aria-label={isRecording ? 'Stop recording' : 'Start recording'}
+        aria-pressed={isRecording}
         className={cn(
           'relative flex h-32 w-32 sm:h-28 md:h-24 md:w-24 sm:w-28 items-center justify-center rounded-full transition-all duration-200',
           'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange-500/50',

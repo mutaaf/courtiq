@@ -1,5 +1,19 @@
 import type { Player, CurriculumSkill, Team } from '@/types/database';
 
+export interface ObservationInsightsParam {
+  totalObs: number;
+  daysOfData: number;
+  topNeedsWork: Array<{ category: string; count: number }>;
+  topStrengths: Array<{ category: string; count: number }>;
+  trendData?: {
+    declining: Array<{ category: string; recentCount: number; priorCount: number }>;
+    improving: Array<{ category: string; recentCount: number; priorCount: number }>;
+    persistent: string[];
+    totalRecentObs: number;
+    totalPriorObs: number;
+  };
+}
+
 interface PromptParams {
   sportName?: string;
   sportPreamble?: string;
@@ -18,7 +32,7 @@ interface PromptParams {
 
 function buildSystemPreamble(params: PromptParams): string {
   const parts = [
-    `You are an expert youth ${params.sportName || 'basketball'} coach and AI coaching assistant for CourtIQ.`,
+    `You are an expert youth ${params.sportName || 'basketball'} coach and AI coaching assistant for SportsIQ.`,
     params.sportPreamble || '',
     'You work with volunteer coaches at organizations like the YMCA.',
     'Your communication style is encouraging, growth-mindset oriented, and age-appropriate.',
@@ -73,33 +87,137 @@ export const PROMPT_REGISTRY = {
     ].join('\n'),
   }),
 
-  practicePlan: (params: PromptParams & { proficiencyData?: unknown; focusSkills?: string[] }) => ({
-    system: [
-      buildSystemPreamble(params),
-      'You generate age-appropriate, curriculum-aligned practice plans.',
-      `Age group: ${params.ageGroup || '8-10'}`,
-      `Practice duration: ${params.practiceDuration || 60} minutes`,
-      `Season week: ${params.seasonWeek || 1}`,
-      `Player count: ${params.playerCount || 10}`,
-    ].join('\n'),
-    user: [
-      `Generate a practice plan for ${params.teamName || 'the team'}.`,
-      params.focusSkills?.length ? `Focus skills this week: ${params.focusSkills.join(', ')}` : '',
-      params.proficiencyData ? `Team proficiency data: ${JSON.stringify(params.proficiencyData)}` : '',
-      'Respond with JSON: { "title", "duration_minutes", "warmup": { "name", "duration_minutes", "description" }, "drills": [{ "name", "skill_id", "duration_minutes", "description", "coaching_cues" }], "scrimmage": { "duration_minutes", "focus" }, "cooldown": { "duration_minutes", "notes" } }',
-    ].filter(Boolean).join('\n'),
-  }),
+  practicePlan: (params: PromptParams & {
+    proficiencyData?: unknown;
+    focusSkills?: string[];
+    observationInsights?: ObservationInsightsParam;
+  }) => {
+    const insights = params.observationInsights;
+    const hasInsights = insights && insights.totalObs > 0;
 
-  gamedaySheet: (params: PromptParams & { opponent?: string; gameNotes?: string }) => ({
+    const td = insights?.trendData;
+    const hasTrends = td && (td.declining.length > 0 || td.improving.length > 0 || td.persistent.length > 0);
+
+    const trendBlock = hasTrends && td
+      ? [
+          '',
+          `TREND ANALYSIS — comparing last 7 days (${td.totalRecentObs} obs) vs prior 7 days (${td.totalPriorObs} obs):`,
+          td.declining.length > 0
+            ? `⚠ DECLINING (getting worse — HIGHEST priority for drill time):\n${td.declining
+                .map((e) => e.priorCount === 0
+                  ? `  - ${e.category}: new issue, ${e.recentCount} needs-work observations this week`
+                  : `  - ${e.category}: ${e.priorCount} → ${e.recentCount} needs-work (↑${e.recentCount - e.priorCount} more)`)
+                .join('\n')}`
+            : '',
+          td.persistent.length > 0
+            ? `⚡ PERSISTENT ISSUES (consistently struggling — steady focus needed):\n${td.persistent
+                .map((c) => `  - ${c}`)
+                .join('\n')}`
+            : '',
+          td.improving.length > 0
+            ? `✓ IMPROVING (getting better — light reinforcement only):\n${td.improving
+                .map((e) => e.recentCount === 0
+                  ? `  - ${e.category}: resolved this week (was ${e.priorCount} needs-work)`
+                  : `  - ${e.category}: ${e.priorCount} → ${e.recentCount} needs-work (↓${e.priorCount - e.recentCount} fewer)`)
+                .join('\n')}`
+            : '',
+          '',
+          'DRILL TIME ALLOCATION RULE: Spend the most time on DECLINING areas, then PERSISTENT areas. IMPROVING areas only need a brief review drill.',
+        ]
+        .filter(Boolean)
+        .join('\n')
+      : '';
+
+    const insightsBlock = hasInsights
+      ? [
+          '',
+          `REAL TEAM PERFORMANCE DATA (last ${insights.daysOfData} days, ${insights.totalObs} observations):`,
+          trendBlock || (insights.topNeedsWork.length > 0
+            ? `Areas most needing improvement:\n${insights.topNeedsWork
+                .map((c) => `  - ${c.category}: ${c.count} needs-work observation${c.count !== 1 ? 's' : ''}`)
+                .join('\n')}`
+            : ''),
+          insights.topStrengths.length > 0
+            ? `Team strengths to reinforce:\n${insights.topStrengths
+                .map((c) => `  - ${c.category}: ${c.count} positive observation${c.count !== 1 ? 's' : ''}`)
+                .join('\n')}`
+            : '',
+          '',
+          'IMPORTANT: Use this real performance data to make this plan highly specific to this team.',
+          !hasTrends && insights.topNeedsWork.length > 0
+            ? `Allocate at least 50% of drill time to the top ${Math.min(2, insights.topNeedsWork.length)} needs-improvement area(s) listed above.`
+            : '',
+          insights.topStrengths.length > 0
+            ? `Include at least one drill that celebrates and builds on the team\'s strengths.`
+            : '',
+        ]
+        .filter(Boolean)
+        .join('\n')
+      : '';
+
+    return {
+      system: [
+        buildSystemPreamble(params),
+        'You generate age-appropriate, curriculum-aligned practice plans.',
+        `Age group: ${params.ageGroup || '8-10'}`,
+        `Practice duration: ${params.practiceDuration || 60} minutes`,
+        `Season week: ${params.seasonWeek || 1}`,
+        `Player count: ${params.playerCount || 10}`,
+      ].join('\n'),
+      user: [
+        `Generate a practice plan for ${params.teamName || 'the team'}.`,
+        params.focusSkills?.length ? `Requested focus skills: ${params.focusSkills.join(', ')}` : '',
+        insightsBlock,
+        params.proficiencyData ? `Additional proficiency data: ${JSON.stringify(params.proficiencyData)}` : '',
+        'Respond with JSON: { "title", "duration_minutes", "warmup": { "name", "duration_minutes", "description" }, "drills": [{ "name", "skill_id", "duration_minutes", "description", "coaching_cues" }], "scrimmage": { "duration_minutes", "focus" }, "cooldown": { "duration_minutes", "notes" } }',
+      ].filter(Boolean).join('\n'),
+    };
+  },
+
+  gamedaySheet: (params: PromptParams & {
+    opponent?: string;
+    gameNotes?: string;
+    opponentStrengths?: string[];
+    opponentWeaknesses?: string[];
+    keyOpponentPlayers?: string[];
+  }) => ({
     system: [
       buildSystemPreamble(params),
-      'You generate game day preparation sheets for youth coaches.',
+      'You generate comprehensive game day preparation sheets for youth coaches.',
+      'Use specific scouting information to create actionable, opponent-specific strategies.',
+      'Keep strategies accessible for volunteer coaches, not just elite-level staff.',
+      'Always lead with positivity — build team confidence while preparing smart.',
     ].join('\n'),
     user: [
-      `Generate a game day sheet for ${params.teamName || 'the team'}.`,
-      params.opponent ? `Opponent: ${params.opponent}` : '',
-      params.gameNotes || '',
-      'Respond with JSON: { "title", "opponent", "game_plan": { "offensive_focus": [], "defensive_focus": [] }, "substitution_plan", "halftime_adjustments": [] }',
+      `Generate a complete game day prep sheet for ${params.teamName || 'the team'}.`,
+      params.opponent ? `Opponent: ${params.opponent}` : 'Opponent: TBD',
+      params.opponentStrengths?.length
+        ? `Opponent Strengths (what they do well): ${params.opponentStrengths.join('; ')}`
+        : '',
+      params.opponentWeaknesses?.length
+        ? `Opponent Weaknesses (areas to exploit): ${params.opponentWeaknesses.join('; ')}`
+        : '',
+      params.keyOpponentPlayers?.length
+        ? `Key Opponent Players to Watch: ${params.keyOpponentPlayers.join('; ')}`
+        : '',
+      params.gameNotes ? `Additional Notes: ${params.gameNotes}` : '',
+      params.roster?.length
+        ? `\nOur Roster (${params.roster.length} players): ${params.roster
+            .map((p) => `${p.name} #${p.jersey_number || '?'} (${p.position})`)
+            .join(', ')}`
+        : '',
+      '',
+      'Create a comprehensive prep sheet with:',
+      '1. An energizing pregame_message for the team (2-3 sentences, confidence-building)',
+      '2. scouting_report with opponent_strengths, opponent_weaknesses, and key_players_to_watch (each with name, threat_level: high/medium/low, defensive_assignment, notes)',
+      '3. game_plan with offensive_focus (3-5 items), defensive_focus (3-5 items), key_matchups, and set_plays (name, description, use_when)',
+      '4. lineup suggestions (player_name, position, focus_areas)',
+      '5. substitution_plan (rotation strategy as a string)',
+      '6. halftime_adjustments (3-4 items to consider based on opponent)',
+      '7. coaching_reminders (4-6 quick sideline reminders)',
+      '',
+      'Respond with JSON:',
+      '{ "title", "opponent", "pregame_message", "scouting_report": { "opponent_strengths": [], "opponent_weaknesses": [], "key_players_to_watch": [{ "name", "threat_level", "defensive_assignment", "notes" }] }, "game_plan": { "offensive_focus": [], "defensive_focus": [], "key_matchups": [], "set_plays": [{ "name", "description", "use_when" }] }, "lineup": [{ "player_name", "position", "focus_areas": [] }], "substitution_plan", "halftime_adjustments": [], "coaching_reminders": [] }',
     ].filter(Boolean).join('\n'),
   }),
 
@@ -161,5 +279,179 @@ export const PROMPT_REGISTRY = {
   importRoster: () => ({
     system: 'You extract player information from roster screenshots. Return structured data with player names, jersey numbers, and positions when visible.',
     user: 'Extract all player information from this roster image. Respond with JSON: { "players": [{ "name", "jersey_number", "position" }] }',
+  }),
+
+  weeklyNewsletter: (params: PromptParams & {
+    dateRange: string;
+    sessionSummaries: Array<{ date: string; type: string; observationCount: number }>;
+    playerSpotlights: Array<{
+      name: string;
+      positiveHighlights: string[];
+      needsWorkAreas: string[];
+    }>;
+    teamPositiveCount: number;
+    teamNeedsWorkCount: number;
+    topStrengthCategories: string[];
+    topFocusCategories: string[];
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You write warm, encouraging weekly newsletters for parents of youth athletes.',
+      'Rules:',
+      '- Write in a friendly, conversational tone parents will enjoy reading.',
+      '- ALWAYS lead with positives — celebrate growth and effort.',
+      '- Keep player spotlights focused on progress, not comparison.',
+      '- Use age-appropriate, jargon-free language (4th-grade reading level).',
+      '- Home challenges should be simple, fun, and doable in 5-10 minutes.',
+      '- Never single out any player for negative feedback in a shared newsletter.',
+      '- Maximum 600 words total.',
+    ].join('\n'),
+    user: [
+      `Generate a weekly parent newsletter for ${params.teamName || 'the team'}.`,
+      `Team: ${params.teamName || 'Team'} | Sport: ${params.sportName || 'basketball'} | Age group: ${params.ageGroup || 'youth'} | Season week: ${params.seasonWeek || 1}`,
+      `Date range: ${params.dateRange}`,
+      '',
+      params.sessionSummaries.length > 0
+        ? `Sessions this week:\n${params.sessionSummaries.map(s => `- ${s.type} on ${s.date} (${s.observationCount} coaching observations)`).join('\n')}`
+        : 'No formal sessions this week.',
+      '',
+      `Team observations: ${params.teamPositiveCount} positive, ${params.teamNeedsWorkCount} needing work`,
+      params.topStrengthCategories.length > 0
+        ? `Team strengths: ${params.topStrengthCategories.join(', ')}`
+        : '',
+      params.topFocusCategories.length > 0
+        ? `Areas we are developing: ${params.topFocusCategories.join(', ')}`
+        : '',
+      '',
+      params.playerSpotlights.length > 0
+        ? `Player spotlights (include one per player listed, positive highlights only):\n${params.playerSpotlights.map(p =>
+            `- ${p.name}: positives: ${p.positiveHighlights.slice(0, 3).join('; ')}${p.needsWorkAreas.length ? ` | growth areas: ${p.needsWorkAreas.slice(0, 2).join('; ')}` : ''}`
+          ).join('\n')}`
+        : '',
+      '',
+      'Respond with JSON:',
+      '{ "title": "string", "date_range": "string", "week_summary": "string (2-3 sentences)", "team_highlight": "string (1-2 sentences celebrating something the whole team did well)", "player_spotlights": [{ "player_name": "string", "highlight": "string (1-2 sentences, positive only)", "home_challenge": "string (simple at-home activity, 1 sentence)" }], "upcoming_focus": "string (what next week will focus on, 1-2 sentences)", "coaching_note": "string (warm personal note from the coach, 2-3 sentences)" }',
+    ].filter(Boolean).join('\n'),
+  }),
+
+  skillChallenge: (params: PromptParams & {
+    playerName: string;
+    ageGroup?: string;
+    growthAreas: string[];
+    recentNeedsWorkObs: string[];
+    weekLabel: string;
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You create personalized weekly skill challenge cards for youth athletes.',
+      'Rules:',
+      '- Challenges must be safe, age-appropriate, and doable at home without a coach.',
+      '- Each challenge should target a specific growth area observed in recent practices.',
+      '- Keep steps simple and concrete (3-5 numbered steps per challenge).',
+      '- Write success criteria that are MEASURABLE (e.g., "Make 7 out of 10 free throws").',
+      '- The encouragement message should feel personal and motivating.',
+      '- Parent note should be warm, brief, and include safety tips if relevant.',
+      '- Difficulty: match to player age and skill level.',
+      '- Max 3 challenges per week — focused beats exhaustive.',
+    ].join('\n'),
+    user: [
+      `Create a weekly skill challenge card for ${params.playerName}.`,
+      `Sport: ${params.sportName || 'basketball'} | Age group: ${params.ageGroup || 'youth'} | Week: ${params.weekLabel}`,
+      '',
+      params.growthAreas.length > 0
+        ? `Growth areas identified by coach: ${params.growthAreas.join(', ')}`
+        : 'No specific growth areas on record yet.',
+      params.recentNeedsWorkObs.length > 0
+        ? `Recent coaching observations (needs-work):\n${params.recentNeedsWorkObs.map(o => `- ${o}`).join('\n')}`
+        : '',
+      '',
+      'Generate 1-3 challenges. Respond with JSON:',
+      '{ "player_name": "string", "week_label": "string", "challenges": [{ "title": "string", "skill_area": "string", "difficulty": "beginner|intermediate|advanced", "minutes_per_day": number, "description": "string (1 sentence)", "steps": ["string", ...], "success_criteria": "string", "encouragement": "string (1 sentence, personal to this player)" }], "parent_note": "string (2-3 sentences for parents)" }',
+    ].filter(Boolean).join('\n'),
+  }),
+  seasonStoryline: (params: PromptParams & {
+    playerName: string;
+    seasonLabel: string;
+    totalObservations: number;
+    weeklyBreakdown: Array<{
+      week: number;
+      positiveCount: number;
+      needsWorkCount: number;
+      categories: string[];
+      highlights: string[];
+    }>;
+    overallStrengths: string[];
+    overallGrowthAreas: string[];
+    firstObservationDate: string;
+    latestObservationDate: string;
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You write compelling season narrative arcs for individual youth athletes.',
+      'Rules:',
+      '- Write like a sportswriter telling a developmental story, not a clinical report.',
+      '- Every player has a story worth telling. Find the arc even if growth was slow.',
+      '- Use concrete observations to ground the narrative (e.g., "In the early weeks, Marcus struggled with…").',
+      '- Celebrate effort, courage, and small wins as much as skill milestones.',
+      '- Growth-mindset language throughout — "exploring", "building", "unlocking".',
+      '- The opening should set the scene from Week 1 — where did this player start?',
+      '- Each chapter should feel like a natural story beat (Early Season / Building / Breakthrough / etc.).',
+      '- coach_reflection should be a personal, heartfelt message the coach could share.',
+      '- Keep the full narrative under 800 words.',
+    ].join('\n'),
+    user: [
+      `Write a season storyline narrative for ${params.playerName}.`,
+      `Sport: ${params.sportName || 'basketball'} | Team: ${params.teamName || 'the team'} | Age group: ${params.ageGroup || 'youth'} | Season: ${params.seasonLabel}`,
+      `Season span: ${params.firstObservationDate} – ${params.latestObservationDate} | Total coaching observations: ${params.totalObservations}`,
+      '',
+      params.overallStrengths.length > 0
+        ? `Observed strengths: ${params.overallStrengths.join(', ')}`
+        : '',
+      params.overallGrowthAreas.length > 0
+        ? `Growth areas worked on: ${params.overallGrowthAreas.join(', ')}`
+        : '',
+      '',
+      params.weeklyBreakdown.length > 0
+        ? `Week-by-week coaching data:\n${params.weeklyBreakdown.map(w =>
+            `  Week ${w.week}: ${w.positiveCount} positive, ${w.needsWorkCount} needs-work` +
+            (w.categories.length ? ` | categories: ${w.categories.join(', ')}` : '') +
+            (w.highlights.length ? `\n    Notable: ${w.highlights.slice(0, 2).join(' | ')}` : '')
+          ).join('\n')}`
+        : 'Limited week-by-week data available — build the narrative from what is known.',
+      '',
+      'Write a season storyline with narrative chapters. Respond with JSON:',
+      '{ "player_name": "string", "season_label": "string", "opening": "string (2-3 sentences setting the scene from the start of season)", "chapters": [{ "phase": "string (e.g. Early Season, Building Momentum, Breakthrough, etc.)", "weeks": "string (e.g. Weeks 1-3)", "narrative": "string (3-5 sentences telling the story of this phase)", "highlights": ["string"], "growth_moments": ["string"] }], "current_strengths": ["string"], "trajectory": "string (2-3 sentences on where this player is headed)", "coach_reflection": "string (2-3 sentences — a personal, heartfelt coaching perspective)" }',
+    ].filter(Boolean).join('\n'),
+  }),
+  drillBuilder: (params: PromptParams & {
+    description: string;
+    preferredCategory?: string;
+    preferredAgeGroup?: string;
+    preferredDuration?: number;
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You design complete, ready-to-run youth sport drills from a coach\'s description.',
+      'Rules:',
+      '- Drills must be safe, age-appropriate, and require no specialized equipment unless described.',
+      '- Setup instructions should be concrete and easy to follow for a volunteer coach.',
+      '- Coaching cues should be short, memorable phrases coaches say DURING the drill.',
+      '- Include 2-3 progressions/variations so coaches can scale difficulty.',
+      '- Player count should be realistic for a typical youth team (2-20).',
+      '- Duration should be practical for a youth practice (5-20 minutes typical).',
+      '- If the description is vague, make reasonable, sport-appropriate assumptions.',
+    ].join('\n'),
+    user: [
+      `Design a ${params.sportName || 'basketball'} drill based on this description:`,
+      `"${params.description}"`,
+      '',
+      params.preferredCategory ? `Preferred category: ${params.preferredCategory}` : '',
+      params.preferredAgeGroup ? `Target age group: ${params.preferredAgeGroup}` : `Team age group: ${params.ageGroup || 'youth'}`,
+      params.preferredDuration ? `Target duration: ${params.preferredDuration} minutes` : '',
+      params.categories?.length ? `Available categories for this sport: ${params.categories.join(', ')}` : '',
+      '',
+      'Respond with JSON:',
+      '{ "name": "string", "description": "string (2-3 sentences)", "category": "string", "age_groups": ["string"], "duration_minutes": number, "player_count_min": number, "player_count_max": number|null, "equipment": ["string"], "setup_instructions": "string (paragraph)", "teaching_cues": ["string (short phrase)", ...], "variations": [{ "title": "string", "description": "string" }, ...] }',
+    ].filter(Boolean).join('\n'),
   }),
 } as const;

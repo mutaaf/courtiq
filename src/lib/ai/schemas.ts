@@ -61,18 +61,35 @@ export const practicePlanSchema = z.object({
 export const gamedaySheetSchema = z.object({
   title: z.string(),
   opponent: z.string().optional(),
+  pregame_message: z.string().optional(),
+  scouting_report: z.object({
+    opponent_strengths: z.array(z.string()).optional(),
+    opponent_weaknesses: z.array(z.string()).optional(),
+    key_players_to_watch: z.array(z.object({
+      name: z.string(),
+      threat_level: z.enum(['high', 'medium', 'low']).optional(),
+      defensive_assignment: z.string().optional(),
+      notes: z.string().optional(),
+    })).optional(),
+  }).optional(),
+  game_plan: z.object({
+    offensive_focus: z.array(z.string()),
+    defensive_focus: z.array(z.string()),
+    key_matchups: z.array(z.string()).optional(),
+    set_plays: z.array(z.object({
+      name: z.string(),
+      description: z.string(),
+      use_when: z.string().optional(),
+    })).optional(),
+  }),
   lineup: z.array(z.object({
     player_name: z.string(),
     position: z.string(),
     focus_areas: z.array(z.string()),
   })).optional(),
-  game_plan: z.object({
-    offensive_focus: z.array(z.string()),
-    defensive_focus: z.array(z.string()),
-    key_matchups: z.array(z.string()).optional(),
-  }),
   substitution_plan: z.string().optional(),
   halftime_adjustments: z.array(z.string()).optional(),
+  coaching_reminders: z.array(z.string()).optional(),
 });
 
 export const developmentCardSchema = z.object({
@@ -143,3 +160,74 @@ export type DevelopmentCard = z.infer<typeof developmentCardSchema>;
 export type ReportCard = z.infer<typeof reportCardSchema>;
 export type ParentReport = z.infer<typeof parentReportSchema>;
 export type RosterImport = z.infer<typeof rosterImportSchema>;
+
+export const weeklyNewsletterSchema = z.object({
+  title: z.string(),
+  date_range: z.string(),
+  week_summary: z.string(),
+  team_highlight: z.string(),
+  player_spotlights: z.array(z.object({
+    player_name: z.string(),
+    highlight: z.string(),
+    home_challenge: z.string(),
+  })).min(1),
+  upcoming_focus: z.string(),
+  coaching_note: z.string(),
+});
+
+export type WeeklyNewsletter = z.infer<typeof weeklyNewsletterSchema>;
+
+export const skillChallengeSchema = z.object({
+  player_name: z.string(),
+  week_label: z.string(),
+  challenges: z.array(z.object({
+    title: z.string(),
+    skill_area: z.string(),
+    difficulty: z.enum(['beginner', 'intermediate', 'advanced']),
+    minutes_per_day: z.number().positive(),
+    description: z.string(),
+    steps: z.array(z.string()).min(1),
+    success_criteria: z.string(),
+    encouragement: z.string(),
+  })).min(1).max(3),
+  parent_note: z.string(),
+});
+
+export type SkillChallenge = z.infer<typeof skillChallengeSchema>;
+
+export const seasonStorylineSchema = z.object({
+  player_name: z.string(),
+  season_label: z.string(),
+  opening: z.string(),
+  chapters: z.array(z.object({
+    phase: z.string(),
+    weeks: z.string(),
+    narrative: z.string(),
+    highlights: z.array(z.string()),
+    growth_moments: z.array(z.string()),
+  })).min(1),
+  current_strengths: z.array(z.string()).min(1),
+  trajectory: z.string(),
+  coach_reflection: z.string(),
+});
+
+export type SeasonStoryline = z.infer<typeof seasonStorylineSchema>;
+
+export const drillBuilderSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(10),
+  category: z.string().min(1),
+  age_groups: z.array(z.string()).min(1),
+  duration_minutes: z.number().positive(),
+  player_count_min: z.number().int().positive(),
+  player_count_max: z.number().int().positive().nullable().optional(),
+  equipment: z.array(z.string()).optional(),
+  setup_instructions: z.string().min(10),
+  teaching_cues: z.array(z.string()).min(1),
+  variations: z.array(z.object({
+    title: z.string(),
+    description: z.string(),
+  })).optional(),
+});
+
+export type DrillBuilderResult = z.infer<typeof drillBuilderSchema>;

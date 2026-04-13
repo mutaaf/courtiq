@@ -3,6 +3,7 @@ import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/serv
 import { callAI } from '@/lib/ai/client';
 import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { buildAIContext } from '@/lib/ai/context-builder';
+import { handleAIError } from '@/lib/ai/error';
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabase();
@@ -61,8 +62,7 @@ export async function POST(request: Request) {
       analysis: result.text,
       interactionId: result.interactionId,
     });
-  } catch (error: any) {
-    console.error('Photo analysis error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleAIError(error, 'Photo analysis');
   }
 }

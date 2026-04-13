@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   ClipboardList,
+  ClipboardCheck,
   Dumbbell,
   Trophy,
   Loader2,
@@ -24,8 +25,24 @@ import {
   AlertCircle,
   Trash2,
   Send,
+  Activity,
+  TrendingUp,
+  Newspaper,
+  Star,
+  Home,
+  Users,
+  BookOpen,
+  Shield,
+  Swords,
+  Eye,
+  MessageSquare,
+  Zap,
+  ChevronUp,
 } from 'lucide-react';
-import type { Plan, PlanType } from '@/types/database';
+import { PullToRefresh } from '@/components/ui/pull-to-refresh';
+import { PrintButton } from '@/components/ui/print-button';
+import type { Plan, Player, PlanType } from '@/types/database';
+import type { ObservationInsights } from '@/app/api/ai/plan/route';
 
 const PLAN_TYPE_CONFIG: Record<
   string,
@@ -38,6 +55,9 @@ const PLAN_TYPE_CONFIG: Record<
   parent_report: { label: 'Parent Report', icon: FileText, color: 'text-pink-400' },
   report_card: { label: 'Report Card', icon: FileText, color: 'text-amber-400' },
   custom: { label: 'Custom', icon: ClipboardList, color: 'text-zinc-400' },
+  newsletter: { label: 'Parent Newsletter', icon: Newspaper, color: 'text-violet-400' },
+  season_storyline: { label: 'Season Storyline', icon: BookOpen, color: 'text-indigo-400' },
+  self_assessment: { label: 'Self-Assessment', icon: ClipboardCheck, color: 'text-teal-400' },
 };
 
 const SUGGESTION_CHIPS = [
@@ -57,9 +77,24 @@ export default function PlansPage() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
-  const [generatedPreview, setGeneratedPreview] = useState<any>(null);
+  const [generatedPreview, setGeneratedPreview] = useState<unknown>(null);
+  const [lastInsights, setLastInsights] = useState<ObservationInsights | null>(null);
+  const [generatingNewsletter, setGeneratingNewsletter] = useState(false);
+  const [newsletterStats, setNewsletterStats] = useState<{ sessionsIncluded: number; observationsIncluded: number; playerSpotlightsCount: number; dateRange: string } | null>(null);
+  const [generatingStoryline, setGeneratingStoryline] = useState(false);
+  const [storylinePlayerId, setStorylinePlayerId] = useState<string>('');
+  const [storylineStats, setStorylineStats] = useState<{ totalObservations: number; weeksOfData: number; firstObservationDate: string; latestObservationDate: string } | null>(null);
 
-  const { data: plans, isLoading } = useQuery({
+  // Game Day Prep state
+  const [showGamedayForm, setShowGamedayForm] = useState(false);
+  const [generatingGameday, setGeneratingGameday] = useState(false);
+  const [gamedayOpponent, setGamedayOpponent] = useState('');
+  const [gamedayStrengths, setGamedayStrengths] = useState('');
+  const [gamedayWeaknesses, setGamedayWeaknesses] = useState('');
+  const [gamedayKeyPlayers, setGamedayKeyPlayers] = useState('');
+  const [gamedayNotes, setGamedayNotes] = useState('');
+
+  const { data: plans, isLoading, refetch: refetchPlans } = useQuery({
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
     queryFn: async () => {
       if (!activeTeam) return [];
@@ -73,6 +108,21 @@ export default function PlansPage() {
     },
     enabled: !!activeTeam,
     ...CACHE_PROFILES.plans,
+  });
+
+  const { data: players } = useQuery({
+    queryKey: queryKeys.players.all(activeTeam?.id || ''),
+    queryFn: async () => {
+      if (!activeTeam) return [];
+      const data = await query<Player[]>({
+        table: 'players',
+        select: 'id, name',
+        filters: { team_id: activeTeam.id, is_active: true },
+        order: { column: 'name', ascending: true },
+      });
+      return data || [];
+    },
+    enabled: !!activeTeam,
   });
 
   const deleteMutation = useMutation({
@@ -91,20 +141,21 @@ export default function PlansPage() {
     },
   });
 
-  const generateFromPrompt = async (text: string) => {
-    if (!activeTeam || !text.trim()) return;
+  const generateFromPrompt = async (text: string, smartMode = false) => {
+    if (!activeTeam || (!text.trim() && !smartMode)) return;
     setGenerating(true);
     setError(null);
     setGeneratedPreview(null);
+    setLastInsights(null);
 
     // Determine type from prompt text
     const lowerText = text.toLowerCase();
     const isGameday = lowerText.includes('game day') || lowerText.includes('gameday') || lowerText.includes('game sheet');
     const type = isGameday ? 'gameday' : 'practice';
 
-    // Extract focus skills from the prompt
+    // Extract explicit focus skills from the prompt (smart mode lets AI decide from data)
     const skillKeywords = ['ball handling', 'passing', 'shooting', 'defense', 'rebounding', 'footwork', 'teamwork', 'conditioning', 'dribbling'];
-    const focusSkills = skillKeywords.filter(skill => lowerText.includes(skill));
+    const focusSkills = smartMode ? [] : skillKeywords.filter(skill => lowerText.includes(skill));
 
     try {
       const res = await fetch('/api/ai/plan', {
@@ -123,11 +174,105 @@ export default function PlansPage() {
       const data = await res.json();
       qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
       setSelectedPlan(data.plan);
+      if (data.observationInsights && data.observationInsights.totalObs > 0) {
+        setLastInsights(data.observationInsights as ObservationInsights);
+      }
       setPrompt('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Generation failed');
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const generateNewsletter = async () => {
+    if (!activeTeam) return;
+    setGeneratingNewsletter(true);
+    setError(null);
+    setNewsletterStats(null);
+    try {
+      const res = await fetch('/api/ai/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate newsletter');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      if (data.stats) setNewsletterStats(data.stats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Newsletter generation failed');
+    } finally {
+      setGeneratingNewsletter(false);
+    }
+  };
+
+  const generateStoryline = async () => {
+    if (!activeTeam || !storylinePlayerId) return;
+    setGeneratingStoryline(true);
+    setError(null);
+    setStorylineStats(null);
+    try {
+      const res = await fetch('/api/ai/season-storyline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id, playerId: storylinePlayerId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate season storyline');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      if (data.stats) setStorylineStats(data.stats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Season storyline generation failed');
+    } finally {
+      setGeneratingStoryline(false);
+    }
+  };
+
+  const generateGamedayPrep = async () => {
+    if (!activeTeam || !gamedayOpponent.trim()) return;
+    setGeneratingGameday(true);
+    setError(null);
+    const splitLine = (s: string) => s.split(',').map((x) => x.trim()).filter(Boolean);
+    try {
+      const res = await fetch('/api/ai/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId: activeTeam.id,
+          type: 'gameday',
+          opponent: gamedayOpponent.trim(),
+          opponentStrengths: splitLine(gamedayStrengths),
+          opponentWeaknesses: splitLine(gamedayWeaknesses),
+          keyOpponentPlayers: splitLine(gamedayKeyPlayers),
+          gameNotes: gamedayNotes.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate game day prep');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      setShowGamedayForm(false);
+      setGamedayOpponent('');
+      setGamedayStrengths('');
+      setGamedayWeaknesses('');
+      setGamedayKeyPlayers('');
+      setGamedayNotes('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Game day prep generation failed');
+    } finally {
+      setGeneratingGameday(false);
     }
   };
 
@@ -176,11 +321,411 @@ export default function PlansPage() {
   }
 
   function renderStructuredContent(plan: Plan) {
-    const structured = plan.content_structured as any;
-    if (!structured) {
+    let structured = plan.content_structured as any;
+
+    // If no structured content, try to parse content as JSON
+    if (!structured && plan.content) {
+      try {
+        structured = JSON.parse(plan.content);
+      } catch {
+        // Not JSON — render as plain text
+        return (
+          <div className="prose prose-invert prose-sm max-w-none whitespace-pre-wrap">
+            {plan.content}
+          </div>
+        );
+      }
+    }
+
+    if (!structured) return <p className="text-sm text-zinc-500">No content available</p>;
+
+    // Newsletter renderer
+    if (structured.player_spotlights || structured.week_summary) {
       return (
-        <div className="prose prose-invert prose-sm max-w-none whitespace-pre-wrap">
-          {plan.content}
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Newspaper className="h-5 w-5 text-violet-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-violet-400">Parent Newsletter</span>
+            </div>
+            {structured.title && (
+              <h2 className="text-xl font-bold text-zinc-100">{structured.title}</h2>
+            )}
+            {structured.date_range && (
+              <p className="text-xs text-zinc-500">{structured.date_range}</p>
+            )}
+          </div>
+
+          {/* Week Summary */}
+          {structured.week_summary && (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+              <p className="text-sm font-semibold text-zinc-300 mb-2">This Week</p>
+              <p className="text-sm text-zinc-400 leading-relaxed">{structured.week_summary}</p>
+            </div>
+          )}
+
+          {/* Team Highlight */}
+          {structured.team_highlight && (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="h-4 w-4 text-emerald-400" />
+                <p className="text-sm font-semibold text-emerald-300">Team Highlight</p>
+              </div>
+              <p className="text-sm text-zinc-300 leading-relaxed">{structured.team_highlight}</p>
+            </div>
+          )}
+
+          {/* Player Spotlights */}
+          {Array.isArray(structured.player_spotlights) && structured.player_spotlights.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Star className="h-4 w-4 text-yellow-400" />
+                <p className="text-sm font-semibold text-zinc-200">Player Spotlights</p>
+                <span className="text-xs text-zinc-600">({structured.player_spotlights.length} players)</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {structured.player_spotlights.map((spotlight: any, i: number) => (
+                  <div
+                    key={i}
+                    className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4 space-y-2"
+                  >
+                    <p className="text-sm font-semibold text-zinc-100">{spotlight.player_name}</p>
+                    <p className="text-xs text-zinc-400 leading-relaxed">{spotlight.highlight}</p>
+                    {spotlight.home_challenge && (
+                      <div className="flex items-start gap-2 rounded-lg bg-blue-500/10 border border-blue-500/20 p-2.5 mt-2">
+                        <Home className="h-3.5 w-3.5 text-blue-400 shrink-0 mt-0.5" />
+                        <p className="text-xs text-blue-300 leading-relaxed">{spotlight.home_challenge}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Upcoming Focus */}
+          {structured.upcoming_focus && (
+            <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
+              <p className="text-sm font-semibold text-orange-300 mb-2">Looking Ahead</p>
+              <p className="text-sm text-zinc-300 leading-relaxed">{structured.upcoming_focus}</p>
+            </div>
+          )}
+
+          {/* Coaching Note */}
+          {structured.coaching_note && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">From the Coach</p>
+              <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{structured.coaching_note}&rdquo;</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Season Storyline renderer
+    if (structured.chapters || structured.opening || structured.trajectory) {
+      return (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <BookOpen className="h-5 w-5 text-indigo-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Season Storyline</span>
+            </div>
+            {structured.player_name && (
+              <h2 className="text-xl font-bold text-zinc-100">{structured.player_name}</h2>
+            )}
+            {structured.season_label && (
+              <p className="text-xs text-zinc-500">{structured.season_label}</p>
+            )}
+          </div>
+
+          {/* Opening */}
+          {structured.opening && (
+            <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4">
+              <p className="text-sm font-semibold text-indigo-300 mb-2">The Beginning</p>
+              <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{structured.opening}&rdquo;</p>
+            </div>
+          )}
+
+          {/* Chapters */}
+          {Array.isArray(structured.chapters) && structured.chapters.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-zinc-200">Season Arc</p>
+              {structured.chapters.map((chapter: any, i: number) => (
+                <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-zinc-100">{chapter.phase}</p>
+                    {chapter.weeks && (
+                      <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">{chapter.weeks}</span>
+                    )}
+                  </div>
+                  {chapter.narrative && (
+                    <p className="text-sm text-zinc-400 leading-relaxed">{chapter.narrative}</p>
+                  )}
+                  {Array.isArray(chapter.highlights) && chapter.highlights.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Highlights</p>
+                      {chapter.highlights.map((h: string, j: number) => (
+                        <p key={j} className="text-xs text-zinc-400 flex gap-2"><span className="text-emerald-500">+</span>{h}</p>
+                      ))}
+                    </div>
+                  )}
+                  {Array.isArray(chapter.growth_moments) && chapter.growth_moments.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Growth Moments</p>
+                      {chapter.growth_moments.map((g: string, j: number) => (
+                        <p key={j} className="text-xs text-zinc-400 flex gap-2"><span className="text-amber-500">→</span>{g}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Current Strengths */}
+          {Array.isArray(structured.current_strengths) && structured.current_strengths.length > 0 && (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Star className="h-4 w-4 text-emerald-400" />
+                <p className="text-sm font-semibold text-emerald-300">Current Strengths</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {structured.current_strengths.map((s: string, i: number) => (
+                  <span key={i} className="text-xs bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 rounded-full px-2.5 py-1">{s}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Trajectory */}
+          {structured.trajectory && (
+            <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="h-4 w-4 text-orange-400" />
+                <p className="text-sm font-semibold text-orange-300">Where They&apos;re Headed</p>
+              </div>
+              <p className="text-sm text-zinc-300 leading-relaxed">{structured.trajectory}</p>
+            </div>
+          )}
+
+          {/* Coach Reflection */}
+          {structured.coach_reflection && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Coach&apos;s Reflection</p>
+              <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{structured.coach_reflection}&rdquo;</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Game Day Sheet renderer
+    if (structured.game_plan && (structured.opponent !== undefined || structured.pregame_message !== undefined || structured.scouting_report !== undefined)) {
+      const gp = structured.game_plan;
+      const sr = structured.scouting_report;
+      const threatColor = (level: string) => {
+        if (level === 'high') return 'text-red-400 bg-red-500/10 border-red-500/20';
+        if (level === 'medium') return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+        return 'text-zinc-400 bg-zinc-800 border-zinc-700';
+      };
+      return (
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Trophy className="h-5 w-5 text-emerald-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Game Day Prep</span>
+            </div>
+            {structured.title && <h2 className="text-xl font-bold text-zinc-100">{structured.title}</h2>}
+            {structured.opponent && <p className="text-sm text-zinc-400">vs. {structured.opponent}</p>}
+          </div>
+
+          {/* Pregame Message */}
+          {structured.pregame_message && (
+            <div className="rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <MessageSquare className="h-4 w-4 text-emerald-400" />
+                <p className="text-sm font-semibold text-emerald-300">Pregame Message</p>
+              </div>
+              <p className="text-sm text-zinc-200 leading-relaxed italic">&ldquo;{structured.pregame_message}&rdquo;</p>
+            </div>
+          )}
+
+          {/* Scouting Report */}
+          {sr && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Eye className="h-4 w-4 text-amber-400" />
+                <p className="text-sm font-semibold text-zinc-200">Scouting Report</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {Array.isArray(sr.opponent_strengths) && sr.opponent_strengths.length > 0 && (
+                  <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Swords className="h-3.5 w-3.5 text-red-400" />
+                      <p className="text-xs font-semibold text-red-300 uppercase tracking-wider">Their Strengths</p>
+                    </div>
+                    <ul className="space-y-1">
+                      {sr.opponent_strengths.map((s: string, i: number) => (
+                        <li key={i} className="text-xs text-zinc-400 flex gap-2 items-start"><span className="text-red-500 mt-0.5 shrink-0">!</span>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {Array.isArray(sr.opponent_weaknesses) && sr.opponent_weaknesses.length > 0 && (
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Shield className="h-3.5 w-3.5 text-emerald-400" />
+                      <p className="text-xs font-semibold text-emerald-300 uppercase tracking-wider">Exploit</p>
+                    </div>
+                    <ul className="space-y-1">
+                      {sr.opponent_weaknesses.map((w: string, i: number) => (
+                        <li key={i} className="text-xs text-zinc-400 flex gap-2 items-start"><span className="text-emerald-500 mt-0.5 shrink-0">✓</span>{w}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              {Array.isArray(sr.key_players_to_watch) && sr.key_players_to_watch.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Eye className="h-3.5 w-3.5" />Key Players to Watch
+                  </p>
+                  <div className="space-y-2">
+                    {sr.key_players_to_watch.map((kp: any, i: number) => (
+                      <div key={i} className={`rounded-lg border px-3 py-2.5 ${threatColor(kp.threat_level)}`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-semibold">{kp.name}</p>
+                          {kp.threat_level && (
+                            <span className="text-xs font-medium uppercase tracking-wider px-2 py-0.5 rounded-full border border-current">{kp.threat_level}</span>
+                          )}
+                        </div>
+                        {kp.defensive_assignment && <p className="text-xs opacity-80">Assignment: {kp.defensive_assignment}</p>}
+                        {kp.notes && <p className="text-xs opacity-70 mt-0.5">{kp.notes}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Game Plan */}
+          {gp && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {Array.isArray(gp.offensive_focus) && gp.offensive_focus.length > 0 && (
+                  <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Swords className="h-3.5 w-3.5 text-blue-400" />
+                      <p className="text-xs font-semibold text-blue-300 uppercase tracking-wider">Offensive Focus</p>
+                    </div>
+                    <ul className="space-y-1.5">
+                      {gp.offensive_focus.map((f: string, i: number) => (
+                        <li key={i} className="text-xs text-zinc-300 flex gap-2 items-start"><span className="text-blue-500 shrink-0 mt-0.5">→</span>{f}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {Array.isArray(gp.defensive_focus) && gp.defensive_focus.length > 0 && (
+                  <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-3 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Shield className="h-3.5 w-3.5 text-orange-400" />
+                      <p className="text-xs font-semibold text-orange-300 uppercase tracking-wider">Defensive Focus</p>
+                    </div>
+                    <ul className="space-y-1.5">
+                      {gp.defensive_focus.map((f: string, i: number) => (
+                        <li key={i} className="text-xs text-zinc-300 flex gap-2 items-start"><span className="text-orange-500 shrink-0 mt-0.5">→</span>{f}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              {Array.isArray(gp.key_matchups) && gp.key_matchups.length > 0 && (
+                <div className="rounded-xl border border-zinc-700 bg-zinc-900/30 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Key Matchups</p>
+                  <ul className="space-y-1">
+                    {gp.key_matchups.map((m: string, i: number) => (
+                      <li key={i} className="text-xs text-zinc-400 flex gap-2"><span className="text-zinc-600">⚡</span>{m}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {Array.isArray(gp.set_plays) && gp.set_plays.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-purple-300 uppercase tracking-wider">Set Plays</p>
+                  <div className="space-y-2">
+                    {gp.set_plays.map((play: any, i: number) => (
+                      <div key={i} className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3">
+                        <p className="text-sm font-semibold text-purple-300">{play.name}</p>
+                        <p className="text-xs text-zinc-400 mt-1">{play.description}</p>
+                        {play.use_when && <p className="text-xs text-purple-400/70 mt-1 italic">Use when: {play.use_when}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Lineup */}
+          {Array.isArray(structured.lineup) && structured.lineup.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Suggested Lineup</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {structured.lineup.map((p: any, i: number) => (
+                  <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-sm font-semibold text-zinc-100">{p.player_name}</p>
+                      <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">{p.position}</span>
+                    </div>
+                    {Array.isArray(p.focus_areas) && p.focus_areas.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {p.focus_areas.map((fa: string, j: number) => (
+                          <span key={j} className="text-xs text-zinc-400 bg-zinc-800 px-1.5 py-0.5 rounded">{fa}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Substitution Plan */}
+          {structured.substitution_plan && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/30 p-4">
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Substitution Plan</p>
+              <p className="text-sm text-zinc-300">{structured.substitution_plan}</p>
+            </div>
+          )}
+
+          {/* Halftime Adjustments */}
+          {Array.isArray(structured.halftime_adjustments) && structured.halftime_adjustments.length > 0 && (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
+              <p className="text-xs font-semibold text-amber-300 uppercase tracking-wider">Halftime Adjustments</p>
+              <ul className="space-y-1.5">
+                {structured.halftime_adjustments.map((a: string, i: number) => (
+                  <li key={i} className="text-xs text-zinc-300 flex gap-2 items-start"><span className="text-amber-500 shrink-0 mt-0.5">→</span>{a}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Coaching Reminders */}
+          {Array.isArray(structured.coaching_reminders) && structured.coaching_reminders.length > 0 && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/40 p-4 space-y-2">
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Sideline Reminders</p>
+              <div className="flex flex-wrap gap-2">
+                {structured.coaching_reminders.map((r: string, i: number) => (
+                  <span key={i} className="text-xs text-zinc-300 bg-zinc-800 border border-zinc-700 rounded-full px-3 py-1">{r}</span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -227,7 +772,7 @@ export default function PlansPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-zinc-300">{String(structured.warmup)}</p>
+                <p className="text-sm text-zinc-300">{typeof structured.warmup === 'string' ? structured.warmup : structured.warmup?.name || structured.warmup?.description || renderObjectFields(structured.warmup)}</p>
               )}
             </div>
           )}
@@ -285,7 +830,7 @@ export default function PlansPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-zinc-300">{String(structured.drills)}</p>
+                <p className="text-sm text-zinc-300">{typeof structured.drills === 'string' ? structured.drills : renderObjectFields(structured.drills)}</p>
               )}
             </div>
           )}
@@ -346,7 +891,7 @@ export default function PlansPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-zinc-300">{String(structured.cooldown)}</p>
+                <p className="text-sm text-zinc-300">{typeof structured.cooldown === 'string' ? structured.cooldown : structured.cooldown?.notes || structured.cooldown?.description || renderObjectFields(structured.cooldown)}</p>
               )}
             </div>
           )}
@@ -437,18 +982,21 @@ export default function PlansPage() {
               </div>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-            onClick={() => {
-              if (confirm('Delete this plan? This cannot be undone.')) {
-                deleteMutation.mutate(selectedPlan.id);
-              }
-            }}
-          >
-            <Trash2 className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <PrintButton label="Print / PDF" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+              onClick={() => {
+                if (confirm('Delete this plan? This cannot be undone.')) {
+                  deleteMutation.mutate(selectedPlan.id);
+                }
+              }}
+            >
+              <Trash2 className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
 
         <Card>
@@ -478,6 +1026,7 @@ export default function PlansPage() {
   }
 
   return (
+    <PullToRefresh onRefresh={async () => { await refetchPlans(); }}>
     <div className="p-4 lg:p-8 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Plans</h1>
@@ -492,6 +1041,7 @@ export default function PlansPage() {
           <button
             type="button"
             onClick={() => setError(null)}
+            aria-label="Dismiss error"
             className="ml-auto text-red-500 hover:text-red-300"
           >
             <X className="h-4 w-4" />
@@ -539,18 +1089,213 @@ export default function PlansPage() {
             </Button>
           </div>
 
-          {/* Suggestion chips */}
-          <div className="flex flex-wrap gap-2">
-            {SUGGESTION_CHIPS.map((chip) => (
+          {/* Smart Plan chip + suggestion chips */}
+          <div className="space-y-2">
+            {/* Smart Plan — data-driven, always first */}
+            <button
+              onClick={() => generateFromPrompt('', true)}
+              disabled={generating || !activeTeam}
+              className="flex w-full items-center gap-2.5 rounded-xl border border-orange-500/40 bg-gradient-to-r from-orange-500/15 to-orange-500/5 px-4 py-3 text-left transition-all hover:border-orange-500/60 hover:from-orange-500/20 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/25">
+                <Activity className="h-4 w-4 text-orange-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-orange-300">AI-Tailored Plan</p>
+                <p className="text-xs text-zinc-500">Auto-generated from your team&apos;s recent observation data</p>
+              </div>
+              <TrendingUp className="h-4 w-4 text-orange-500/50 shrink-0" />
+            </button>
+
+            {/* Weekly Parent Newsletter */}
+            <button
+              onClick={generateNewsletter}
+              disabled={generatingNewsletter || generating || !activeTeam}
+              className="flex w-full items-center gap-2.5 rounded-xl border border-violet-500/40 bg-gradient-to-r from-violet-500/15 to-violet-500/5 px-4 py-3 text-left transition-all hover:border-violet-500/60 hover:from-violet-500/20 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/25">
+                {generatingNewsletter ? (
+                  <Loader2 className="h-4 w-4 text-violet-400 animate-spin" />
+                ) : (
+                  <Newspaper className="h-4 w-4 text-violet-400" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-violet-300">Weekly Parent Newsletter</p>
+                <p className="text-xs text-zinc-500">AI-written summary of this week&apos;s sessions with player spotlights</p>
+              </div>
+              <Users className="h-4 w-4 text-violet-500/50 shrink-0" />
+            </button>
+
+            {/* Season Storyline — player-specific */}
+            <div className="rounded-xl border border-indigo-500/40 bg-gradient-to-r from-indigo-500/15 to-indigo-500/5 p-3 space-y-2.5">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/25">
+                  <BookOpen className="h-4 w-4 text-indigo-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-indigo-300">Season Storyline</p>
+                  <p className="text-xs text-zinc-500">AI narrative arc of a player&apos;s season journey</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <select
+                    value={storylinePlayerId}
+                    onChange={(e) => setStorylinePlayerId(e.target.value)}
+                    disabled={generatingStoryline || !activeTeam}
+                    className="w-full appearance-none rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 pr-8 focus:outline-none focus:border-indigo-500/50 disabled:opacity-50"
+                  >
+                    <option value="">Select a player...</option>
+                    {players?.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                </div>
+                <Button
+                  onClick={generateStoryline}
+                  disabled={!storylinePlayerId || generatingStoryline || !activeTeam}
+                  className="h-9 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-30 shrink-0"
+                >
+                  {generatingStoryline ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    'Generate'
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Game Day Prep — scouting-based */}
+            <div className="rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 to-emerald-500/5 overflow-hidden">
               <button
-                key={chip}
-                onClick={() => handleChipClick(chip)}
-                disabled={generating}
-                className="rounded-full border border-zinc-700 bg-zinc-800/50 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 hover:border-zinc-600 transition-colors disabled:opacity-50 touch-manipulation"
+                type="button"
+                onClick={() => setShowGamedayForm((v) => !v)}
+                disabled={generatingGameday || generating || !activeTeam}
+                className="flex w-full items-center gap-2.5 p-3 text-left transition-all hover:from-emerald-500/20 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
               >
-                {chip}
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/25">
+                  {generatingGameday ? (
+                    <Loader2 className="h-4 w-4 text-emerald-400 animate-spin" />
+                  ) : (
+                    <Trophy className="h-4 w-4 text-emerald-400" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-emerald-300">Game Day Prep</p>
+                  <p className="text-xs text-zinc-500">Scouting-based AI prep sheet with matchups &amp; strategy</p>
+                </div>
+                {showGamedayForm ? (
+                  <ChevronUp className="h-4 w-4 text-emerald-500/60 shrink-0" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-emerald-500/60 shrink-0" />
+                )}
               </button>
-            ))}
+
+              {showGamedayForm && (
+                <div className="border-t border-emerald-500/20 p-3 space-y-3">
+                  <div>
+                    <label className="text-xs font-medium text-zinc-400 mb-1 block">Opponent Name <span className="text-red-400">*</span></label>
+                    <input
+                      type="text"
+                      value={gamedayOpponent}
+                      onChange={(e) => setGamedayOpponent(e.target.value)}
+                      placeholder="e.g. Riverside Hawks"
+                      disabled={generatingGameday}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-zinc-400 mb-1 flex items-center gap-1.5">
+                      <Swords className="h-3 w-3 text-red-400" />
+                      Their Strengths <span className="text-zinc-600">(comma-separated)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={gamedayStrengths}
+                      onChange={(e) => setGamedayStrengths(e.target.value)}
+                      placeholder="e.g. fast breaks, strong post play, press defense"
+                      disabled={generatingGameday}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-zinc-400 mb-1 flex items-center gap-1.5">
+                      <Shield className="h-3 w-3 text-emerald-400" />
+                      Their Weaknesses <span className="text-zinc-600">(comma-separated)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={gamedayWeaknesses}
+                      onChange={(e) => setGamedayWeaknesses(e.target.value)}
+                      placeholder="e.g. weak perimeter shooting, poor ball handling under pressure"
+                      disabled={generatingGameday}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-zinc-400 mb-1 flex items-center gap-1.5">
+                      <Eye className="h-3 w-3 text-amber-400" />
+                      Key Opponent Players <span className="text-zinc-600">(comma-separated)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={gamedayKeyPlayers}
+                      onChange={(e) => setGamedayKeyPlayers(e.target.value)}
+                      placeholder="e.g. #23 tall center, #5 fast point guard"
+                      disabled={generatingGameday}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-zinc-400 mb-1 flex items-center gap-1.5">
+                      <MessageSquare className="h-3 w-3 text-zinc-400" />
+                      Additional Notes <span className="text-zinc-600">(optional)</span>
+                    </label>
+                    <textarea
+                      value={gamedayNotes}
+                      onChange={(e) => setGamedayNotes(e.target.value)}
+                      placeholder="Any other scouting notes, game location, weather, etc."
+                      disabled={generatingGameday}
+                      rows={2}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500/50 disabled:opacity-50 resize-none"
+                    />
+                  </div>
+                  <Button
+                    onClick={generateGamedayPrep}
+                    disabled={!gamedayOpponent.trim() || generatingGameday || !activeTeam}
+                    className="w-full h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium disabled:opacity-30 touch-manipulation active:scale-[0.98]"
+                  >
+                    {generatingGameday ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Generating prep sheet...
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <Zap className="h-4 w-4" />
+                        Generate Game Day Prep
+                      </span>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Generic suggestion chips */}
+            <div className="flex flex-wrap gap-2">
+              {SUGGESTION_CHIPS.map((chip) => (
+                <button
+                  key={chip}
+                  onClick={() => handleChipClick(chip)}
+                  disabled={generating}
+                  className="rounded-full border border-zinc-700 bg-zinc-800/50 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 hover:border-zinc-600 transition-colors disabled:opacity-50 touch-manipulation"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Generating indicator */}
@@ -559,8 +1304,153 @@ export default function PlansPage() {
               <Loader2 className="h-5 w-5 text-orange-400 animate-spin" />
               <div>
                 <p className="text-sm font-medium text-orange-300">Generating your plan...</p>
-                <p className="text-xs text-zinc-500">AI is creating a customized plan based on your roster and curriculum</p>
+                <p className="text-xs text-zinc-500">Analyzing your team&apos;s recent observations and creating a tailored practice plan</p>
               </div>
+            </div>
+          )}
+
+          {/* Newsletter generating indicator */}
+          {generatingNewsletter && (
+            <div className="flex items-center gap-3 rounded-lg border border-violet-500/20 bg-violet-500/5 p-3">
+              <Loader2 className="h-5 w-5 text-violet-400 animate-spin" />
+              <div>
+                <p className="text-sm font-medium text-violet-300">Writing parent newsletter...</p>
+                <p className="text-xs text-zinc-500">Gathering this week&apos;s sessions and crafting player spotlights</p>
+              </div>
+            </div>
+          )}
+
+          {/* Storyline generating indicator */}
+          {generatingStoryline && (
+            <div className="flex items-center gap-3 rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-3">
+              <Loader2 className="h-5 w-5 text-indigo-400 animate-spin" />
+              <div>
+                <p className="text-sm font-medium text-indigo-300">Writing season storyline...</p>
+                <p className="text-xs text-zinc-500">Analyzing the full season of observations and crafting the player&apos;s arc</p>
+              </div>
+            </div>
+          )}
+
+          {/* Game Day Prep generating indicator */}
+          {generatingGameday && (
+            <div className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+              <Loader2 className="h-5 w-5 text-emerald-400 animate-spin" />
+              <div>
+                <p className="text-sm font-medium text-emerald-300">Building game day prep sheet...</p>
+                <p className="text-xs text-zinc-500">Analyzing scouting notes and generating matchup strategies</p>
+              </div>
+            </div>
+          )}
+
+          {/* Storyline stats badge — shown after successful generation */}
+          {!generatingStoryline && storylineStats && (
+            <div className="flex items-start gap-3 rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-3">
+              <BookOpen className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-indigo-300">Season Storyline generated</p>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  {storylineStats.totalObservations} observations &middot; {storylineStats.weeksOfData} week{storylineStats.weeksOfData !== 1 ? 's' : ''} of data &middot; {storylineStats.firstObservationDate} – {storylineStats.latestObservationDate}
+                </p>
+              </div>
+              <button
+                onClick={() => setStorylineStats(null)}
+                className="text-zinc-600 hover:text-zinc-400 shrink-0"
+                aria-label="Dismiss"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Newsletter stats badge — shown after successful generation */}
+          {!generatingNewsletter && newsletterStats && (
+            <div className="flex items-start gap-3 rounded-lg border border-violet-500/20 bg-violet-500/5 p-3">
+              <Newspaper className="h-4 w-4 text-violet-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-violet-300">Newsletter generated</p>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  {newsletterStats.dateRange} &middot; {newsletterStats.sessionsIncluded} session{newsletterStats.sessionsIncluded !== 1 ? 's' : ''} &middot; {newsletterStats.observationsIncluded} observations &middot; {newsletterStats.playerSpotlightsCount} player spotlight{newsletterStats.playerSpotlightsCount !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => setNewsletterStats(null)}
+                className="text-zinc-600 hover:text-zinc-400 shrink-0"
+                aria-label="Dismiss"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Data-driven badge — shown after successful generation */}
+          {!generating && lastInsights && lastInsights.totalObs > 0 && (
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
+              <div className="flex items-start gap-3">
+                <Activity className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-emerald-300">
+                    Trend-driven plan generated
+                  </p>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    Analyzed {lastInsights.totalObs} observation{lastInsights.totalObs !== 1 ? 's' : ''} across two 7-day windows
+                    {lastInsights.trendData && (
+                      <> · {lastInsights.trendData.totalRecentObs} recent vs {lastInsights.trendData.totalPriorObs} prior</>
+                    )}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setLastInsights(null)}
+                  className="text-zinc-600 hover:text-zinc-400 shrink-0"
+                  aria-label="Dismiss"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              {lastInsights.trendData && (lastInsights.trendData.declining.length > 0 || lastInsights.trendData.persistent.length > 0 || lastInsights.trendData.improving.length > 0) && (
+                <div className="space-y-1.5 pl-7">
+                  {lastInsights.trendData.declining.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs font-semibold text-red-400 shrink-0 mt-0.5">↑ Declining</span>
+                      <div className="flex flex-wrap gap-1">
+                        {lastInsights.trendData.declining.map((e) => (
+                          <span key={e.category} className="text-xs bg-red-500/10 text-red-300 border border-red-500/20 rounded-full px-2 py-0.5">
+                            {e.category}
+                            {e.priorCount > 0 && <span className="text-red-500/60 ml-1">{e.priorCount}→{e.recentCount}</span>}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {lastInsights.trendData.persistent.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs font-semibold text-amber-400 shrink-0 mt-0.5">! Persistent</span>
+                      <div className="flex flex-wrap gap-1">
+                        {lastInsights.trendData.persistent.map((cat) => (
+                          <span key={cat} className="text-xs bg-amber-500/10 text-amber-300 border border-amber-500/20 rounded-full px-2 py-0.5">{cat}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {lastInsights.trendData.improving.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs font-semibold text-emerald-400 shrink-0 mt-0.5">↓ Improving</span>
+                      <div className="flex flex-wrap gap-1">
+                        {lastInsights.trendData.improving.map((e) => (
+                          <span key={e.category} className="text-xs bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-full px-2 py-0.5">
+                            {e.category}
+                            {e.recentCount > 0 && <span className="text-emerald-600/70 ml-1">{e.priorCount}→{e.recentCount}</span>}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {(!lastInsights.trendData || (lastInsights.trendData.declining.length === 0 && lastInsights.trendData.persistent.length === 0 && lastInsights.trendData.improving.length === 0)) && lastInsights.topNeedsWork.length > 0 && (
+                <p className="text-xs text-zinc-500 pl-7">
+                  Targeting: <span className="text-zinc-400">{lastInsights.topNeedsWork.slice(0, 3).map((c) => c.category).join(', ')}</span>
+                </p>
+              )}
             </div>
           )}
         </CardContent>
@@ -630,18 +1520,22 @@ export default function PlansPage() {
                               deleteMutation.mutate(plan.id);
                             }
                           }}
+                          aria-label={`Delete ${plan.title || typeConfig.label}`}
                           className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => setSelectedPlan(plan)}
+                          aria-label={`View ${plan.title || typeConfig.label}`}
                           className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-300 transition-colors"
                         >
                           <ChevronRight className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => setExpandedPlanId(isExpanded ? null : plan.id)}
+                          aria-label={isExpanded ? `Collapse ${plan.title || typeConfig.label}` : `Expand ${plan.title || typeConfig.label}`}
+                          aria-expanded={isExpanded}
                           className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-300 transition-colors"
                         >
                           <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
@@ -675,5 +1569,6 @@ export default function PlansPage() {
         )}
       </div>
     </div>
+    </PullToRefresh>
   );
 }

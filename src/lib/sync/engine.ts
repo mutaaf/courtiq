@@ -1,7 +1,7 @@
 'use client';
 
-import { localDB, type SyncQueueItem } from '@/lib/storage/local-db';
-import { createClient } from '@/lib/supabase/client';
+import { localDB } from '@/lib/storage/local-db';
+import { mutate } from '@/lib/api';
 
 const SYNC_INTERVAL = 30_000; // 30 seconds
 let syncTimer: NodeJS.Timeout | null = null;
@@ -28,6 +28,16 @@ export function stopSyncEngine() {
   if (syncTimer) {
     clearInterval(syncTimer);
     syncTimer = null;
+  }
+}
+
+/**
+ * Trigger an immediate sync pass. Called by useSyncEngine when it receives a
+ * SYNC_OBSERVATIONS message from the service worker's BackgroundSync handler.
+ */
+export async function triggerSync(onStatusChange?: (status: 'idle' | 'syncing' | 'error') => void) {
+  if (navigator.onLine) {
+    await runSync(onStatusChange);
   }
 }
 
@@ -66,36 +76,36 @@ async function pushObservations() {
 
   if (unsynced.length === 0) return;
 
-  const supabase = createClient();
-
   for (const obs of unsynced) {
     try {
-      const { error } = await supabase.from('observations').insert({
-        player_id: obs.playerId,
-        team_id: obs.teamId,
-        coach_id: obs.coachId,
-        session_id: obs.sessionId,
-        recording_id: obs.recordingId,
-        category: obs.category,
-        sentiment: obs.sentiment,
-        text: obs.text,
-        raw_text: obs.rawText,
-        source: obs.source,
-        ai_parsed: obs.aiParsed,
-        skill_id: obs.skillId,
-        result: obs.result,
-        local_id: obs.localId,
-        is_synced: true,
+      await mutate({
+        table: 'observations',
+        operation: 'insert',
+        data: {
+          player_id: obs.playerId,
+          team_id: obs.teamId,
+          coach_id: obs.coachId,
+          session_id: obs.sessionId,
+          recording_id: obs.recordingId,
+          category: obs.category,
+          sentiment: obs.sentiment,
+          text: obs.text,
+          raw_text: obs.rawText,
+          source: obs.source,
+          ai_parsed: obs.aiParsed,
+          skill_id: obs.skillId,
+          result: obs.result,
+          local_id: obs.localId,
+          is_synced: true,
+        },
       });
 
-      if (!error) {
-        await localDB.observations.update(obs.localId, {
-          isSynced: true,
-          syncedAt: new Date().toISOString(),
-        });
-      }
-    } catch (err) {
-      console.error('Failed to sync observation:', obs.localId, err);
+      await localDB.observations.update(obs.localId, {
+        isSynced: true,
+        syncedAt: new Date().toISOString(),
+      });
+    } catch {
+      console.error('Failed to sync observation:', obs.localId);
     }
   }
 }
@@ -110,6 +120,9 @@ async function pushRecordings() {
 
   if (unsynced.length === 0) return;
 
+  // Audio blob upload requires direct Supabase Storage access.
+  // Import client lazily so this module stays server-safe at the top level.
+  const { createClient } = await import('@/lib/supabase/client');
   const supabase = createClient();
 
   for (const rec of unsynced) {
@@ -125,25 +138,25 @@ async function pushRecordings() {
 
       if (uploadError) throw uploadError;
 
-      // Create recording record
-      const { error } = await supabase.from('recordings').insert({
-        team_id: rec.teamId,
-        coach_id: rec.coachId,
-        session_id: rec.sessionId,
-        storage_path: fileName,
-        mime_type: rec.mimeType,
-        raw_transcript: rec.rawTranscript,
-        status: 'uploaded',
-        duration_seconds: Math.round(rec.duration),
+      // Persist the recording row via the API route
+      await mutate({
+        table: 'recordings',
+        operation: 'insert',
+        data: {
+          team_id: rec.teamId,
+          coach_id: rec.coachId,
+          session_id: rec.sessionId,
+          storage_path: fileName,
+          mime_type: rec.mimeType,
+          raw_transcript: rec.rawTranscript,
+          status: 'uploaded',
+          duration_seconds: Math.round(rec.duration),
+        },
       });
 
-      if (!error) {
-        await localDB.recordings.update(rec.localId, {
-          isSynced: true,
-        });
-      }
-    } catch (err) {
-      console.error('Failed to sync recording:', rec.localId, err);
+      await localDB.recordings.update(rec.localId, { isSynced: true });
+    } catch {
+      console.error('Failed to sync recording:', rec.localId);
     }
   }
 }
@@ -156,31 +169,23 @@ async function processSyncQueue() {
     .equals('pending')
     .toArray();
 
-  const supabase = createClient();
-
   for (const item of pending) {
     try {
       await localDB.syncQueue.update(item.id!, { status: 'syncing' });
 
       const payload = item.payload as Record<string, unknown>;
+      // SyncQueueItem uses 'create'; mutate() uses 'insert'
+      const op = item.operation === 'create' ? 'insert' : item.operation;
 
-      switch (item.operation) {
-        case 'create':
-          await supabase.from(item.entityType).insert(payload);
-          break;
-        case 'update':
-          await supabase
-            .from(item.entityType)
-            .update(payload)
-            .eq('id', item.entityId);
-          break;
-        case 'delete':
-          await supabase.from(item.entityType).delete().eq('id', item.entityId);
-          break;
-      }
+      await mutate({
+        table: item.entityType,
+        operation: op,
+        data: payload,
+        ...(op !== 'insert' && { filters: { id: item.entityId } }),
+      });
 
       await localDB.syncQueue.delete(item.id!);
-    } catch (err) {
+    } catch {
       const retryCount = (item.retryCount || 0) + 1;
       await localDB.syncQueue.update(item.id!, {
         status: retryCount >= 5 ? 'failed' : 'pending',

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQueryClient } from '@tanstack/react-query';
 import { mutate } from '@/lib/api';
@@ -21,11 +21,14 @@ const SESSION_TYPES: { value: SessionType; label: string; description: string; i
 
 export default function NewSessionPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { activeTeam, coach } = useActiveTeam();
   const queryClient = useQueryClient();
 
   const [type, setType] = useState<SessionType>('practice');
-  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(
+    () => searchParams.get('date') || new Date().toISOString().split('T')[0]
+  );
   const [startTime, setStartTime] = useState('');
   const [location, setLocation] = useState('');
   const [opponent, setOpponent] = useState('');
@@ -74,7 +77,7 @@ export default function NewSessionPage() {
   return (
     <div className="p-4 lg:p-8 space-y-6 max-w-2xl mx-auto">
       <div className="flex items-center gap-3">
-        <Link href="/sessions">
+        <Link href={searchParams.get('date') ? '/calendar' : '/sessions'}>
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-5 w-5" />
           </Button>

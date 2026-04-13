@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -10,16 +10,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
 
 export default function SignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-zinc-950">
+          <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        </div>
+      }
+    >
+      <SignupForm />
+    </Suspense>
+  );
+}
+
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const refCode = searchParams.get('ref') ?? '';
+
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
+    if (!ageConfirmed) {
+      setError('You must confirm you are 13 years or older to create an account.');
+      return;
+    }
     setError('');
     setLoading(true);
 
@@ -49,7 +71,7 @@ export default function SignupPage() {
       await fetch('/api/auth/setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fullName }),
+        body: JSON.stringify({ fullName, referredByCode: refCode || undefined }),
       });
       router.push('/onboarding/sport');
       router.refresh();
@@ -76,13 +98,21 @@ export default function SignupPage() {
     <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-orange-500 text-2xl">
-            🏀
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-orange-500 p-2">
+            <img src="/logo.svg" alt="SportsIQ" width={32} height={32} className="invert" />
           </div>
           <CardTitle className="text-2xl">Create your account</CardTitle>
-          <CardDescription>Start coaching smarter with CourtIQ</CardDescription>
+          <CardDescription>
+            {refCode ? 'You were invited by a fellow coach!' : 'Start coaching smarter with SportsIQ'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
+          {refCode && (
+            <div className="mb-4 flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3 text-sm text-emerald-400">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              Referral applied — your coach connection will be tracked
+            </div>
+          )}
           <form onSubmit={handleSignup} className="space-y-4">
             {error && (
               <div className="flex items-center gap-2 rounded-lg bg-red-500/10 p-3 text-sm text-red-400">
@@ -121,7 +151,18 @@ export default function SignupPage() {
                 minLength={6}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={ageConfirmed}
+                onChange={(e) => setAgeConfirmed(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-orange-500 focus:ring-orange-500"
+              />
+              <span className="text-xs text-zinc-400">
+                I confirm I am 13 years or older
+              </span>
+            </label>
+            <Button type="submit" className="w-full" disabled={loading || !ageConfirmed}>
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               Create Account
             </Button>

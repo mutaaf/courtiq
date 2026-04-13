@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { fullName } = body;
+  const { fullName, referredByCode } = body;
   const name = fullName || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Coach';
 
   const adminSupabase = await createServiceSupabase();
@@ -40,7 +40,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to create organization' }, { status: 500 });
   }
 
-  // Create coach
+  // Create coach (store referral source in preferences if present)
+  const initialPrefs: Record<string, string> = {};
+  if (referredByCode && typeof referredByCode === 'string') {
+    initialPrefs.referred_by_code = referredByCode.toUpperCase().slice(0, 10);
+  }
+
   const { error: coachError } = await adminSupabase.from('coaches').insert({
     id: user.id,
     org_id: org.id,
@@ -48,6 +53,7 @@ export async function POST(request: Request) {
     email: user.email!,
     role: 'admin',
     avatar_url: user.user_metadata?.avatar_url,
+    preferences: initialPrefs,
   });
 
   if (coachError) {

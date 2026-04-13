@@ -60,6 +60,10 @@
 /* Focus-within overrides for light mode */
 .light .focus-within\:border-orange-500\/50:focus-within { border-color: rgba(249, 115, 22, 0.5); }
 
+/* Focus ring: use orange-700 in light mode (5.18:1 on white, WCAG AA ✓)
+   orange-500 on white is only 2.8:1 which fails the 3:1 non-text contrast threshold */
+.light :focus-visible { outline-color: #c2410c; }
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -71,4 +75,258 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Page transition animation */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-page-enter {
+  animation: page-enter 0.22s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-page-enter {
+    animation: none;
+  }
+}
+
+/* Quick Capture slide-up animation */
+@keyframes quick-capture-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-quick-capture-enter {
+  animation: quick-capture-enter 0.25s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-quick-capture-enter {
+    animation: none;
+  }
+}
+
+/* ── High contrast mode ──────────────────────────────────────────────────
+ *
+ * Applied when the user enables the high-contrast toggle in Settings.
+ * Targets the zinc design tokens used throughout the app so that the
+ * overall layout chrome doesn't need individual component changes.
+ *
+ * Goals: WCAG AA 4.5:1 minimum contrast on all text/background combos.
+ * - Background: pure black (#000)
+ * - Surfaces:   very dark (#0a0a0a / #111)
+ * - Text:       pure white (#fff) — muted text lifted to light grey
+ * - Borders:    brighter (#555 → #888) for clear edge visibility
+ * - Accent:     orange-500 kept as-is (already high-contrast on black)
+ */
+
+.high-contrast {
+  --background: #000000;
+  --foreground: #ffffff;
+  --bg: #000000;
+  --card-bg: #111111;
+  --border: #555555;
+  --text: #ffffff;
+  --text-muted: #cccccc;
+}
+
+/* Backgrounds */
+.high-contrast .bg-zinc-950 { background-color: #000000; }
+.high-contrast .bg-zinc-900 { background-color: #111111; }
+.high-contrast .bg-zinc-900\/50 { background-color: #111111; }
+.high-contrast .bg-zinc-900\/95 { background-color: #111111; }
+.high-contrast .bg-zinc-900\/30 { background-color: #111111; }
+.high-contrast .bg-zinc-800 { background-color: #1a1a1a; }
+.high-contrast .bg-zinc-800\/50 { background-color: #1a1a1a; }
+.high-contrast .bg-zinc-700 { background-color: #2a2a2a; }
+.high-contrast .bg-zinc-700\/50 { background-color: #2a2a2a; }
+
+/* Borders */
+.high-contrast .border-zinc-800 { border-color: #555555; }
+.high-contrast .border-zinc-700 { border-color: #666666; }
+.high-contrast .border-zinc-700\/50 { border-color: #444444; }
+.high-contrast .border-zinc-600 { border-color: #777777; }
+
+/* Text — lift muted shades to meet AA contrast on black */
+.high-contrast .text-zinc-100 { color: #ffffff; }
+.high-contrast .text-zinc-200 { color: #f0f0f0; }
+.high-contrast .text-zinc-300 { color: #e0e0e0; }
+.high-contrast .text-zinc-400 { color: #cccccc; }
+.high-contrast .text-zinc-500 { color: #bbbbbb; }
+.high-contrast .text-zinc-600 { color: #aaaaaa; }
+
+/* Placeholders */
+.high-contrast .placeholder\:text-zinc-500::placeholder { color: #aaaaaa; }
+
+/* Hover states */
+.high-contrast .hover\:bg-zinc-700:hover { background-color: #2a2a2a; }
+.high-contrast .hover\:bg-zinc-800:hover { background-color: #1a1a1a; }
+.high-contrast .hover\:border-zinc-700:hover { border-color: #666666; }
+.high-contrast .hover\:border-zinc-600:hover { border-color: #777777; }
+.high-contrast .hover\:text-zinc-200:hover { color: #f0f0f0; }
+.high-contrast .hover\:text-zinc-300:hover { color: #e0e0e0; }
+
+/* Ring */
+.high-contrast .ring-zinc-700 { --tw-ring-color: #666666; }
+
+/* Focus */
+.high-contrast .focus-within\:border-orange-500\/50:focus-within { border-color: rgba(249, 115, 22, 0.8); }
+
+/* ── Reduced motion: globally disable transitions + animations ───────────
+ *
+ * Catches every Tailwind utility class (transition-*, animate-spin,
+ * animate-ping, animate-pulse, etc.) and any custom CSS not covered by the
+ * specific keyframe blocks above. Uses 0.01ms rather than 0ms so that
+ * event-driven logic that listens for `transitionend` still fires.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Keyboard navigation ─────────────────────────────────────────────────── */
+
+/**
+ * Skip-to-content link — visually hidden until focused via keyboard.
+ * Placed as the first element in <body>; jumps to #main-content.
+ */
+.skip-to-content {
+  position: fixed;
+  top: -100%;
+  left: 1rem;
+  z-index: 9999;
+  padding: 0.5rem 1.25rem;
+  background: #f97316;
+  color: #09090b; /* zinc-950: 7.1:1 contrast on orange-500 — WCAG AA ✓ */
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 0 0 0.5rem 0.5rem;
+  text-decoration: none;
+  transition: top 0.15s ease;
+}
+
+.skip-to-content:focus-visible {
+  top: 0;
+  outline: 2px solid #fff;
+  outline-offset: -4px;
+}
+
+/**
+ * Global visible focus indicator for keyboard navigation.
+ *
+ * Uses :focus-visible so the ring only appears when navigating by keyboard
+ * (or other non-pointer input) — mouse/touch clicks stay ring-free.
+ *
+ * Specificity note: Tailwind utility classes like `focus-visible:outline-none`
+ * produce selectors of the form `.class:focus-visible { outline-style: none }`,
+ * which have higher specificity than the bare `:focus-visible` pseudo-class
+ * defined here. Components (Button, Input, Textarea, etc.) that already set
+ * their own focus-visible ring via Tailwind therefore override this rule and
+ * are unaffected — only elements without explicit focus styling pick it up.
+ */
+:focus-visible {
+  outline: 2px solid #f97316; /* orange-500 */
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Print styles ────────────────────────────────────────────────────────── */
+@media print {
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+
+  /* Base: white background, black text */
+  body {
+    background: white !important;
+    color: #111 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Remove full-screen height constraint so content flows naturally */
+  .h-screen { height: auto !important; }
+  .overflow-hidden { overflow: visible !important; }
+  .overflow-y-auto { overflow: visible !important; }
+  .pb-20 { padding-bottom: 0 !important; }
+  .fixed { position: static !important; }
+  * { box-shadow: none !important; }
+
+  /* Hide navigation chrome */
+  aside,
+  nav,
+  header {
+    display: none !important;
+  }
+
+  /* Hide interactive controls (tabs, action buttons, overlays) */
+  button {
+    display: none !important;
+  }
+
+  /* Background overrides */
+  .bg-zinc-950 { background-color: #ffffff !important; }
+  .bg-zinc-900 { background-color: #fafafa !important; }
+  .bg-zinc-900\/50 { background-color: #fafafa !important; }
+  .bg-zinc-900\/95 { background-color: #fafafa !important; }
+  .bg-zinc-900\/30 { background-color: #fafafa !important; }
+  .bg-zinc-800 { background-color: #f0f0f0 !important; }
+  .bg-zinc-800\/50 { background-color: #f0f0f0 !important; }
+  .bg-zinc-700 { background-color: #e0e0e0 !important; }
+
+  /* Border overrides */
+  .border-zinc-800 { border-color: #ddd !important; }
+  .border-zinc-700 { border-color: #ccc !important; }
+  .border-zinc-700\/50 { border-color: #ddd !important; }
+
+  /* Text overrides */
+  .text-zinc-100 { color: #111 !important; }
+  .text-zinc-200 { color: #222 !important; }
+  .text-zinc-300 { color: #333 !important; }
+  .text-zinc-400 { color: #555 !important; }
+  .text-zinc-500 { color: #666 !important; }
+  .text-zinc-600 { color: #777 !important; }
+
+  /* Keep accent colors legible */
+  .text-orange-500 { color: #c2410c !important; }
+  .text-orange-400 { color: #ea580c !important; }
+  .bg-orange-500 { background-color: #ea580c !important; }
+  .text-emerald-400,
+  .text-emerald-500 { color: #047857 !important; }
+  .text-amber-400,
+  .text-amber-500 { color: #b45309 !important; }
+  .text-red-400 { color: #b91c1c !important; }
+  .text-blue-400 { color: #1d4ed8 !important; }
+  .text-purple-400 { color: #7e22ce !important; }
+  .text-violet-400 { color: #6d28d9 !important; }
+  .text-teal-400 { color: #0f766e !important; }
+  .text-pink-400 { color: #be185d !important; }
+  .text-indigo-400 { color: #3730a3 !important; }
+
+  /* SVG ring track: dark gray → light gray */
+  circle[stroke="#27272a"] { stroke: #e0e0e0 !important; }
+
+  /* Page break helpers */
+  .print-break-before { break-before: page; }
+  .print-break-avoid { break-inside: avoid; }
 }

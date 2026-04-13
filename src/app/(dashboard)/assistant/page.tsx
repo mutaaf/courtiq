@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import {
   Sparkles,
   Send,
@@ -13,12 +12,15 @@ import {
   BarChart3,
   FileText,
   Save,
-  Share2,
   Plus,
-  ArrowLeft,
   Bot,
   User,
+  History,
+  Trash2,
+  CheckCircle2,
+  Copy,
 } from 'lucide-react';
+import { UpgradeGate } from '@/components/ui/upgrade-gate';
 
 interface ChatMessage {
   id: string;
@@ -29,6 +31,160 @@ interface ChatMessage {
   suggestions?: string[];
   timestamp: Date;
 }
+
+// ---------------------------------------------------------------------------
+// Markdown renderer — parses common coaching AI response patterns
+// ---------------------------------------------------------------------------
+
+/** Renders inline markdown: **bold**, *italic*, `code` */
+function renderInline(text: string): ReactNode {
+  const INLINE_RE = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/;
+  const parts = text.split(INLINE_RE);
+  if (parts.length === 1) return text;
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**') && part.length > 4)
+          return <strong key={i} className="font-semibold text-zinc-100">{part.slice(2, -2)}</strong>;
+        if (part.startsWith('*') && part.endsWith('*') && part.length > 2)
+          return <em key={i} className="italic">{part.slice(1, -1)}</em>;
+        if (part.startsWith('`') && part.endsWith('`') && part.length > 2)
+          return <code key={i} className="rounded bg-zinc-900 px-1 py-0.5 font-mono text-[11px] text-orange-300">{part.slice(1, -1)}</code>;
+        return part;
+      })}
+    </>
+  );
+}
+
+/** Block-level markdown renderer for AI assistant messages */
+function MarkdownContent({ content }: { content: string }) {
+  const lines = content.split('\n');
+  const nodes: ReactNode[] = [];
+  let i = 0;
+  let k = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Skip blank lines between blocks
+    if (!line.trim()) { i++; continue; }
+
+    // Headings
+    if (line.startsWith('### ')) {
+      nodes.push(
+        <h3 key={k++} className="mt-3 mb-1 text-[13px] font-semibold text-orange-300 uppercase tracking-wider">
+          {renderInline(line.slice(4))}
+        </h3>
+      );
+      i++; continue;
+    }
+    if (line.startsWith('## ')) {
+      nodes.push(
+        <h2 key={k++} className="mt-3 mb-1 text-sm font-bold text-zinc-100">
+          {renderInline(line.slice(3))}
+        </h2>
+      );
+      i++; continue;
+    }
+    if (line.startsWith('# ')) {
+      nodes.push(
+        <h1 key={k++} className="mt-3 mb-1 text-base font-bold text-zinc-100">
+          {renderInline(line.slice(2))}
+        </h1>
+      );
+      i++; continue;
+    }
+
+    // Horizontal rule
+    if (/^---+$/.test(line.trim())) {
+      nodes.push(<hr key={k++} className="my-2 border-zinc-700" />);
+      i++; continue;
+    }
+
+    // Unordered list — collect consecutive items
+    if (/^[-*] /.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^[-*] /.test(lines[i])) {
+        items.push(lines[i].slice(2));
+        i++;
+      }
+      nodes.push(
+        <ul key={k++} className="my-1.5 space-y-1">
+          {items.map((item, j) => (
+            <li key={j} className="flex items-start gap-2">
+              <span className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400" />
+              <span>{renderInline(item)}</span>
+            </li>
+          ))}
+        </ul>
+      );
+      continue;
+    }
+
+    // Ordered list — collect consecutive items
+    if (/^\d+\. /.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^\d+\. /.test(lines[i])) {
+        items.push(lines[i].replace(/^\d+\. /, ''));
+        i++;
+      }
+      nodes.push(
+        <ol key={k++} className="my-1.5 space-y-1">
+          {items.map((item, j) => (
+            <li key={j} className="flex items-start gap-2">
+              <span className="shrink-0 min-w-[1.25rem] text-[11px] font-semibold text-orange-400">{j + 1}.</span>
+              <span>{renderInline(item)}</span>
+            </li>
+          ))}
+        </ol>
+      );
+      continue;
+    }
+
+    // Fenced code block
+    if (line.startsWith('```')) {
+      const codeLines: string[] = [];
+      i++;
+      while (i < lines.length && !lines[i].startsWith('```')) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      i++; // consume closing ```
+      nodes.push(
+        <pre key={k++} className="my-2 overflow-x-auto rounded-lg bg-zinc-900 p-3 text-xs text-zinc-300">
+          <code>{codeLines.join('\n')}</code>
+        </pre>
+      );
+      continue;
+    }
+
+    // Regular paragraph — collect consecutive "plain" lines
+    const paraLines: string[] = [];
+    while (
+      i < lines.length &&
+      lines[i].trim() !== '' &&
+      !/^#{1,3} /.test(lines[i]) &&
+      !/^[-*] /.test(lines[i]) &&
+      !/^\d+\. /.test(lines[i]) &&
+      !lines[i].startsWith('```') &&
+      !/^---+$/.test(lines[i].trim())
+    ) {
+      paraLines.push(lines[i]);
+      i++;
+    }
+    if (paraLines.length > 0) {
+      nodes.push(
+        <p key={k++} className="leading-relaxed">
+          {renderInline(paraLines.join(' '))}
+        </p>
+      );
+    }
+  }
+
+  return <div className="space-y-0.5 text-sm">{nodes}</div>;
+}
+
+// ---------------------------------------------------------------------------
 
 const QUICK_ACTIONS = [
   {
@@ -63,8 +219,12 @@ export default function AssistantPage() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedDrillIds, setSavedDrillIds] = useState<Set<string>>(new Set());
+  const [copiedReportIds, setCopiedReportIds] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -88,6 +248,11 @@ export default function AssistantPage() {
       timestamp: new Date(),
     };
 
+    // Capture history BEFORE adding the new user message (last 10 turns = 20 messages max)
+    const historySnapshot = messages
+      .slice(-20)
+      .map((m) => ({ role: m.role, content: m.content }));
+
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
@@ -100,6 +265,7 @@ export default function AssistantPage() {
         body: JSON.stringify({
           message: text.trim(),
           teamId: activeTeam.id,
+          history: historySnapshot,
         }),
       });
 
@@ -143,6 +309,61 @@ export default function AssistantPage() {
   const handleSuggestionClick = (suggestion: string) => {
     setInput(suggestion);
     sendMessage(suggestion);
+  };
+
+  const showToast = (msg: string, ok = true) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ msg, ok });
+    toastTimerRef.current = setTimeout(() => setToast(null), 3000);
+  };
+
+  const addToDrills = async (message: ChatMessage) => {
+    if (!activeTeam || !message.structured_data || savedDrillIds.has(message.id)) return;
+    try {
+      const res = await fetch('/api/ai/save-drill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id, drill: message.structured_data }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to save drill');
+      }
+      setSavedDrillIds((prev) => new Set([...prev, message.id]));
+      showToast('Drill saved to your library!');
+    } catch {
+      showToast('Failed to save drill', false);
+    }
+  };
+
+  const shareWithParents = async (message: ChatMessage) => {
+    if (!message.structured_data || copiedReportIds.has(message.id)) return;
+    const data = message.structured_data;
+    const lines: string[] = [];
+    if (data.title) lines.push(String(data.title), '');
+    for (const [key, value] of Object.entries(data)) {
+      if (key === 'title') continue;
+      lines.push(key.replace(/_/g, ' ').toUpperCase() + ':');
+      if (typeof value === 'string') {
+        lines.push(value, '');
+      } else if (Array.isArray(value)) {
+        (value as unknown[]).forEach((v) =>
+          lines.push('• ' + (typeof v === 'string' ? v : JSON.stringify(v)))
+        );
+        lines.push('');
+      } else if (typeof value === 'object' && value !== null) {
+        lines.push(JSON.stringify(value, null, 2), '');
+      } else {
+        lines.push(String(value), '');
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      setCopiedReportIds((prev) => new Set([...prev, message.id]));
+      showToast('Report copied — paste it into your messaging app!');
+    } catch {
+      showToast('Could not copy to clipboard', false);
+    }
   };
 
   const saveAsPlan = async (message: ChatMessage) => {
@@ -252,7 +473,11 @@ export default function AssistantPage() {
                 : 'bg-zinc-800 text-zinc-200 rounded-bl-md'
             }`}
           >
-            <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+            {isUser ? (
+              <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+            ) : (
+              <MarkdownContent content={message.content} />
+            )}
 
             {message.structured_data && Object.keys(message.structured_data).length > 0 && (
               renderStructuredData(message.structured_data)
@@ -271,18 +496,40 @@ export default function AssistantPage() {
               </button>
               {message.type === 'report' && (
                 <button
-                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-700 transition-colors"
+                  onClick={() => shareWithParents(message)}
+                  disabled={copiedReportIds.has(message.id)}
+                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-700 transition-colors disabled:opacity-60"
                 >
-                  <Share2 className="h-3 w-3" />
-                  Share with Parents
+                  {copiedReportIds.has(message.id) ? (
+                    <>
+                      <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                      <span className="text-emerald-400">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3 w-3" />
+                      Share with Parents
+                    </>
+                  )}
                 </button>
               )}
               {message.type === 'drill' && (
                 <button
-                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-700 transition-colors"
+                  onClick={() => addToDrills(message)}
+                  disabled={savedDrillIds.has(message.id)}
+                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-700 transition-colors disabled:opacity-60"
                 >
-                  <Plus className="h-3 w-3" />
-                  Add to Drills
+                  {savedDrillIds.has(message.id) ? (
+                    <>
+                      <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                      <span className="text-emerald-400">Saved!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-3 w-3" />
+                      Add to Drills
+                    </>
+                  )}
                 </button>
               )}
             </div>
@@ -320,6 +567,7 @@ export default function AssistantPage() {
   const hasMessages = messages.length > 0;
 
   return (
+    <UpgradeGate feature="assistant" featureLabel="AI Coach Assistant">
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="border-b border-zinc-800 px-4 py-3 lg:px-8">
@@ -327,12 +575,32 @@ export default function AssistantPage() {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/20">
             <Sparkles className="h-5 w-5 text-orange-400" />
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold">AI Coach Assistant</h1>
             <p className="text-xs text-zinc-500">
               {activeTeam ? `Coaching ${activeTeam.name}` : 'Select a team to get started'}
             </p>
           </div>
+          {messages.length > 0 && (
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 px-2.5 py-1">
+                <History className="h-3 w-3 text-orange-400" />
+                <span className="text-[10px] font-medium text-orange-400">
+                  {messages.length} turn{messages.length !== 1 ? 's' : ''} remembered
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setMessages([]);
+                  setError(null);
+                }}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+                title="Clear conversation"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -425,5 +693,20 @@ export default function AssistantPage() {
         </div>
       </div>
     </div>
+
+    {/* Toast notification */}
+    {toast && (
+      <div
+        className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium shadow-lg transition-all ${
+          toast.ok
+            ? 'bg-emerald-500 text-white'
+            : 'bg-red-500 text-white'
+        }`}
+      >
+        {toast.ok ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : null}
+        {toast.msg}
+      </div>
+    )}
+    </UpgradeGate>
   );
 }

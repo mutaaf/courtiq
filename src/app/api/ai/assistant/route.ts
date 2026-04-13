@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { callAIWithJSON } from '@/lib/ai/client';
 import { buildAIContext } from '@/lib/ai/context-builder';
+import type { ConversationMessage } from '@/lib/ai/client';
+import { handleAIError } from '@/lib/ai/error';
 
 type AssistantResponseType = 'plan' | 'drill' | 'report' | 'analysis' | 'general';
 
@@ -20,11 +22,26 @@ export async function POST(request: Request) {
   const admin = await createServiceSupabase();
 
   const body = await request.json();
-  const { message, teamId } = body;
+  const { message, teamId, history } = body;
 
   if (!message || !teamId) {
     return NextResponse.json({ error: 'message and teamId required' }, { status: 400 });
   }
+
+  // Validate and cap conversation history to last 10 messages (5 turns)
+  const conversationHistory: ConversationMessage[] = Array.isArray(history)
+    ? history
+        .filter(
+          (m: unknown) =>
+            m !== null &&
+            typeof m === 'object' &&
+            'role' in (m as object) &&
+            'content' in (m as object) &&
+            ((m as ConversationMessage).role === 'user' || (m as ConversationMessage).role === 'assistant') &&
+            typeof (m as ConversationMessage).content === 'string'
+        )
+        .slice(-10)
+    : [];
 
   try {
     // Get coach org_id for AI provider resolution
@@ -52,7 +69,7 @@ export async function POST(request: Request) {
       .eq('is_active', true);
 
     const systemPrompt = [
-      `You are CourtIQ's AI coaching assistant for youth ${context.sportName}.`,
+      `You are SportsIQ's AI coaching assistant for youth ${context.sportName}.`,
       'You help volunteer coaches with:',
       '- Generating practice plans and game day preparations',
       '- Creating age-appropriate drills',
@@ -97,6 +114,7 @@ export async function POST(request: Request) {
         systemPrompt,
         userPrompt: message,
         orgId: coach?.org_id || '',
+        conversationHistory: conversationHistory.length > 0 ? conversationHistory : undefined,
       },
       admin
     );
@@ -123,8 +141,7 @@ export async function POST(request: Request) {
       suggestions: content.suggestions || [],
       interactionId: result.interactionId,
     });
-  } catch (error: any) {
-    console.error('Assistant error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleAIError(error, 'Assistant');
   }
 }

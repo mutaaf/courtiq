@@ -1,4 +1,4 @@
-// CourtIQ Database Types — Generated from schema
+// SportsIQ Database Types — Generated from schema
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
@@ -8,7 +8,7 @@ export type Sentiment = 'positive' | 'needs-work' | 'neutral';
 export type ObservationSource = 'voice' | 'typed' | 'photo' | 'video' | 'cv' | 'import' | 'debrief';
 export type RecordingStatus = 'recorded' | 'uploading' | 'uploaded' | 'transcribing' | 'transcribed' | 'parsing' | 'parsed' | 'reviewed' | 'failed';
 export type MediaType = 'photo' | 'screenshot' | 'video' | 'game_film' | 'document';
-export type PlanType = 'practice' | 'gameday' | 'weekly' | 'development_card' | 'parent_report' | 'report_card' | 'custom';
+export type PlanType = 'practice' | 'gameday' | 'weekly' | 'development_card' | 'parent_report' | 'report_card' | 'custom' | 'newsletter' | 'skill_challenge' | 'season_storyline' | 'self_assessment';
 export type ProficiencyLevel = 'insufficient_data' | 'exploring' | 'practicing' | 'got_it' | 'game_ready';
 export type Trend = 'improving' | 'plateau' | 'regressing' | 'new';
 export type SyncOperation = 'create' | 'update' | 'delete';
@@ -18,6 +18,15 @@ export type ConfigAuditAction = 'create' | 'update' | 'delete' | 'reset';
 export type CVProcessingStatus = 'none' | 'pending' | 'processing' | 'complete' | 'failed';
 export type CVJobStatus = 'queued' | 'processing' | 'complete' | 'failed' | 'cancelled';
 export type CVJobPriority = 'high' | 'medium' | 'low' | 'batch';
+export type AttendanceStatus = 'present' | 'absent' | 'excused';
+export type AvailabilityStatus = 'available' | 'limited' | 'injured' | 'sick' | 'unavailable';
+export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6; // 0=Sun … 6=Sat
+export type WebhookEvent =
+  | 'observation.created'
+  | 'session.created'
+  | 'session.updated'
+  | 'plan.created'
+  | 'player.created';
 
 export type AIInteractionType =
   | 'segment_transcript'
@@ -33,6 +42,7 @@ export type AIInteractionType =
   | 'roster_import'
   | 'cv_coaching_event_extraction'
   | 'cv_identity_resolution'
+  | 'generate_season_storyline'
   | 'custom';
 
 export interface Organization {
@@ -82,6 +92,9 @@ export interface Curriculum {
   name: string;
   description: string | null;
   is_default: boolean;
+  is_public: boolean;
+  publisher_name: string | null;
+  import_count: number;
   config: Json;
   created_at: string;
   updated_at: string;
@@ -165,6 +178,43 @@ export interface Session {
   cv_source_files: Json | null;
   coach_debrief_text: string | null;
   coach_debrief_extracts: Json | null;
+  created_at: string;
+}
+
+export interface SessionAttendance {
+  id: string;
+  session_id: string;
+  player_id: string;
+  status: AttendanceStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlayerAvailability {
+  id: string;
+  player_id: string;
+  team_id: string;
+  status: AvailabilityStatus;
+  reason: string | null;
+  expected_return: string | null; // ISO date YYYY-MM-DD
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RecurringSession {
+  id: string;
+  team_id: string;
+  coach_id: string;
+  type: SessionType;
+  day_of_week: DayOfWeek;
+  start_time: string | null;  // HH:MM
+  end_time: string | null;    // HH:MM
+  location: string | null;
+  start_date: string;         // YYYY-MM-DD
+  end_date: string;           // YYYY-MM-DD
   created_at: string;
 }
 
@@ -451,4 +501,50 @@ export interface SyncLog {
   error_message: string | null;
   created_at: string;
   synced_at: string | null;
+}
+
+export interface Webhook {
+  id: string;
+  org_id: string;
+  coach_id: string;
+  url: string;
+  events: WebhookEvent[];
+  secret: string;
+  is_active: boolean;
+  last_triggered_at: string | null;
+  last_status: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─── Season Archives ──────────────────────────────────────────────────────────
+
+export interface SeasonArchiveSkill {
+  name: string;
+  category: string;
+  level: ProficiencyLevel;
+  trend: Trend | null;
+}
+
+export interface SeasonArchivePlayer {
+  player_id: string;
+  player_name: string;
+  skills: SeasonArchiveSkill[];
+}
+
+export interface SeasonArchive {
+  id: string;
+  org_id: string;
+  team_id: string;
+  coach_id: string;
+  season_name: string;
+  start_date: string | null;
+  end_date: string | null;
+  session_count: number;
+  observation_count: number;
+  player_count: number;
+  player_snapshot: SeasonArchivePlayer[];
+  notes: string | null;
+  archived_at: string;
+  created_at: string;
 }

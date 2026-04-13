@@ -8,7 +8,7 @@ import { Mic, BarChart3, Share2, Check, ArrowRight, Brain, Users, Shield, Trophy
 export default function LandingContent() {
   const [annual, setAnnual] = useState(false);
 
-  const monthlyPrices = [0, 9.99, 24.99, 49.99];
+  const monthlyPrices = [0, 9.99, 24.99];
   const annualPrices = monthlyPrices.map(p => +(p * 0.8).toFixed(2));
   const prices = annual ? annualPrices : monthlyPrices;
   const period = annual ? '/mo (billed yearly)' : '/month';
@@ -19,9 +19,9 @@ export default function LandingContent() {
       <nav className="flex items-center justify-between px-6 py-4 max-w-6xl mx-auto">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500 p-1.5 shadow-lg shadow-orange-500/20">
-            <Image src="/logo.svg" alt="CourtIQ" width={28} height={28} className="invert" />
+            <Image src="/logo.svg" alt="SportsIQ" width={28} height={28} className="invert" />
           </div>
-          <span className="font-bold text-xl">CourtIQ</span>
+          <span className="font-bold text-xl">SportsIQ</span>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/login" className="text-sm font-medium text-zinc-400 hover:text-zinc-100 transition-colors">
@@ -157,7 +157,7 @@ export default function LandingContent() {
             </div>
             <h3 className="text-lg font-semibold">For Volunteer Coaches</h3>
             <p className="mt-3 text-sm text-zinc-400 leading-relaxed">
-              No coaching degree required. CourtIQ&apos;s curriculum engine guides you through age-appropriate skill development.
+              No coaching degree required. SportsIQ&apos;s curriculum engine guides you through age-appropriate skill development.
             </p>
           </div>
           {/* Parents */}
@@ -209,9 +209,9 @@ export default function LandingContent() {
               <span className="text-4xl font-bold">$0</span>
               <span className="text-zinc-500">/month</span>
             </div>
-            <p className="mt-3 text-sm text-zinc-400">Perfect for trying CourtIQ</p>
+            <p className="mt-3 text-sm text-zinc-400">Try SportsIQ risk-free</p>
             <ul className="mt-6 space-y-3">
-              {['1 team, 10 players', '5 AI-powered observations/month', 'Basic practice plans', 'Community support'].map(f => (
+              {['1 team, 1 sport', '10 players per team', '5 AI observations per month', 'Basic practice plans'].map(f => (
                 <li key={f} className="flex items-start gap-2 text-sm text-zinc-300">
                   <Check className="h-4 w-4 mt-0.5 text-zinc-500 shrink-0" />
                   {f}
@@ -233,7 +233,7 @@ export default function LandingContent() {
             </div>
             <p className="mt-3 text-sm text-zinc-400">For individual coaches</p>
             <ul className="mt-6 space-y-3">
-              {['Unlimited teams & players', 'Unlimited AI observations', 'Practice plans & game day sheets', 'Player report cards', 'Parent sharing portal'].map(f => (
+              {['3 teams, 1 sport', 'Unlimited players', 'Unlimited AI observations', 'Practice plans & game day sheets', 'Player report cards', 'Parent sharing portal'].map(f => (
                 <li key={f} className="flex items-start gap-2 text-sm text-zinc-300">
                   <Check className="h-4 w-4 mt-0.5 text-orange-500 shrink-0" />
                   {f}
@@ -254,7 +254,7 @@ export default function LandingContent() {
             </div>
             <p className="mt-3 text-sm text-zinc-400">For serious coaches</p>
             <ul className="mt-6 space-y-3">
-              {['Everything in Coach', 'Advanced analytics & tendencies', 'Custom AI prompts', 'Priority AI processing', 'Video upload & analysis'].map(f => (
+              {['Unlimited teams & sports', 'Everything in Coach', 'AI Coach Assistant', 'Player analytics & tendencies', 'Session media upload', 'Custom AI prompts'].map(f => (
                 <li key={f} className="flex items-start gap-2 text-sm text-zinc-300">
                   <Check className="h-4 w-4 mt-0.5 text-zinc-500 shrink-0" />
                   {f}
@@ -266,16 +266,15 @@ export default function LandingContent() {
             </Link>
           </div>
 
-          {/* Program */}
+          {/* Organization */}
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-8">
-            <h3 className="text-lg font-semibold">Program</h3>
+            <h3 className="text-lg font-semibold">Organization</h3>
             <div className="mt-3 flex items-baseline gap-1">
-              <span className="text-4xl font-bold">${prices[3]}</span>
-              <span className="text-zinc-500">{period}</span>
+              <span className="text-4xl font-bold">Custom</span>
             </div>
             <p className="mt-3 text-sm text-zinc-400">For leagues &amp; programs</p>
             <ul className="mt-6 space-y-3">
-              {['Everything in Pro Coach', 'Multi-coach collaboration', 'Organization dashboard', 'Custom branding', 'API access'].map(f => (
+              {['Everything in Pro Coach', 'Multi-coach collaboration', 'Program-wide analytics', 'Custom branding', 'Priority support'].map(f => (
                 <li key={f} className="flex items-start gap-2 text-sm text-zinc-300">
                   <Check className="h-4 w-4 mt-0.5 text-zinc-500 shrink-0" />
                   {f}
@@ -283,7 +282,7 @@ export default function LandingContent() {
               ))}
             </ul>
             <Link href="/demo" className="mt-8 flex h-11 items-center justify-center rounded-xl border border-zinc-700 text-sm font-medium text-zinc-300 hover:bg-zinc-800 transition">
-              Contact Sales
+              Contact Us
             </Link>
           </div>
         </div>
@@ -356,8 +355,16 @@ export default function LandingContent() {
       </div>
 
       {/* Footer */}
-      <div className="border-t border-zinc-800 py-8 text-center text-sm text-zinc-500">
-        CourtIQ -- Coaching Intelligence Platform
+      <div className="border-t border-zinc-800 py-8 text-center">
+        <p className="text-sm text-zinc-500">SportsIQ -- Coaching Intelligence Platform</p>
+        <div className="mt-3 flex items-center justify-center gap-4 text-xs text-zinc-600">
+          <Link href="/privacy" className="hover:text-zinc-400 transition-colors">Privacy Policy</Link>
+          <span>&middot;</span>
+          <span className="flex items-center gap-1">
+            <Shield className="h-3 w-3 text-emerald-500" />
+            COPPA Compliant
+          </span>
+        </div>
       </div>
     </div>
   );

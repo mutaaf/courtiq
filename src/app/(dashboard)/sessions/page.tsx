@@ -12,6 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { PullToRefresh } from '@/components/ui/pull-to-refresh';
+import { RecurringSessionsPanel } from '@/components/sessions/recurring-sessions-panel';
 import type { Session, SessionType } from '@/types/database';
 
 const SESSION_TYPE_CONFIG: Record<SessionType, { label: string; color: string }> = {
@@ -35,7 +37,7 @@ export default function SessionsPage() {
   const { activeTeam } = useActiveTeam();
   const [typeFilter, setTypeFilter] = useState<SessionType | 'all'>('all');
 
-  const { data: sessions, isLoading } = useQuery({
+  const { data: sessions, isLoading, refetch } = useQuery({
     queryKey: [...queryKeys.sessions.all(activeTeam?.id || ''), typeFilter],
     queryFn: async () => {
       if (!activeTeam) return [];
@@ -74,6 +76,7 @@ export default function SessionsPage() {
   }
 
   return (
+    <PullToRefresh onRefresh={async () => { await refetch(); }}>
     <div className="p-4 lg:p-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -97,6 +100,7 @@ export default function SessionsPage() {
           <button
             key={opt.value}
             onClick={() => setTypeFilter(opt.value)}
+            aria-pressed={typeFilter === opt.value}
             className={`shrink-0 rounded-full px-4 py-2 sm:px-3 sm:py-1 text-sm sm:text-xs font-medium transition-colors touch-manipulation ${
               typeFilter === opt.value
                 ? 'bg-orange-500 text-white'
@@ -201,6 +205,9 @@ export default function SessionsPage() {
           })}
         </div>
       )}
+      {/* Recurring Sessions */}
+      <RecurringSessionsPanel />
     </div>
+    </PullToRefresh>
   );
 }

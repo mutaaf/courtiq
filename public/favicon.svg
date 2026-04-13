@@ -1,13 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <!-- Clipboard body -->
-  <rect x="6" y="8" width="20" height="22" rx="3" stroke="#F97316" stroke-width="2" fill="none"/>
-  <!-- Clipboard clip -->
-  <rect x="11" y="4" width="10" height="6" rx="2" stroke="#F97316" stroke-width="2" fill="none"/>
-  <!-- Lines -->
-  <line x1="11" y1="17" x2="19" y2="17" stroke="#F97316" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="11" y1="21" x2="17" y2="21" stroke="#F97316" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Stylized "S" -->
+  <path d="M20 6C14.5 6 10 9 10 13C10 17 16 17.8 19 19C22 20.2 23 22 23 24C23 27.5 19 30 14 30" stroke="#F97316" stroke-width="2.5" stroke-linecap="round" fill="none"/>
   <!-- AI sparkle -->
-  <g transform="translate(26, 6)">
+  <g transform="translate(27, 6)">
     <path d="M0 -4 L1 -1 L4 0 L1 1 L0 4 L-1 1 L-4 0 L-1 -1Z" fill="#F97316"/>
   </g>
 </svg>

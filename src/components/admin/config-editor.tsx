@@ -133,6 +133,9 @@ export function ConfigEditor({ domain, orgId, teamId, fields, values, sources, o
 
             {field.type === 'boolean' && (
               <button
+                role="switch"
+                aria-checked={!!getValue(field.key)}
+                aria-label={field.label}
                 onClick={() => setValue(field.key, !getValue(field.key))}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                   getValue(field.key) ? 'bg-orange-500' : 'bg-zinc-700'
@@ -157,6 +160,7 @@ export function ConfigEditor({ domain, orgId, teamId, fields, values, sources, o
               <div className="flex items-center gap-2">
                 <input
                   type="color"
+                  aria-label={`${field.label} color picker`}
                   value={(getValue(field.key) as string) || '#F97316'}
                   onChange={(e) => setValue(field.key, e.target.value)}
                   className="h-10 w-10 cursor-pointer rounded border border-zinc-700"
@@ -224,7 +228,10 @@ function StringArrayEditor({ value, onChange }: { value: string[]; onChange: (va
         {value.map((item, i) => (
           <span key={i} className="flex items-center gap-1 rounded-full bg-zinc-800 px-3 py-1 text-sm">
             {item}
-            <button onClick={() => onChange(value.filter((_, j) => j !== i))}>
+            <button
+              aria-label={`Remove ${item}`}
+              onClick={() => onChange(value.filter((_, j) => j !== i))}
+            >
               <X className="h-3 w-3 text-zinc-500 hover:text-zinc-300" />
             </button>
           </span>

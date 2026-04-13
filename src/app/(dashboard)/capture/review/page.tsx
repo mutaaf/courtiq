@@ -19,6 +19,7 @@ import {
   Save,
   Loader2,
   CheckCircle2,
+  CloudOff,
   Mic,
   Keyboard,
   AlertCircle,
@@ -26,6 +27,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
+import { findPlayerByName } from '@/lib/player-match';
+import { localDB } from '@/lib/storage/local-db';
 import type { Sentiment, ObservationSource } from '@/types/database';
 
 interface ParsedObservation {
@@ -62,6 +65,7 @@ export default function ReviewPage() {
   const [source, setSource] = useState<ObservationSource>('voice');
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState<number | null>(null);
+  const [savedOffline, setSavedOffline] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
   const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
@@ -194,19 +198,8 @@ export default function ReviewPage() {
         filters: { team_id: activeTeam.id, is_active: true },
       });
 
-      const findPlayerId = (name: string): string | null => {
-        if (!players) return null;
-        const lower = name.toLowerCase();
-        const match = players.find(
-          (p) =>
-            p.name.toLowerCase() === lower ||
-            p.nickname?.toLowerCase() === lower ||
-            p.name.toLowerCase().includes(lower) ||
-            lower.includes(p.name.toLowerCase()) ||
-            p.name_variants?.some((v: string) => v.toLowerCase() === lower)
-        );
-        return match?.id || null;
-      };
+      const findPlayerId = (name: string): string | null =>
+        findPlayerByName(name, players ?? []);
 
       const rows = toSave.map((obs) => ({
         team_id: activeTeam.id,
@@ -250,7 +243,54 @@ export default function ReviewPage() {
 
       setSavedCount(toSave.length);
     } catch (err: any) {
-      setError(err.message || 'Failed to save observations.');
+      // If offline, fall back to local IndexedDB so the coach doesn't lose work.
+      // The sync engine will push these to the server when connectivity returns.
+      if (!navigator.onLine && localDB && coach) {
+        try {
+          // Re-resolve players from whatever we have (may be empty array offline)
+          const cachedPlayers = await query<{ id: string; name: string; nickname: string | null; name_variants: string[] | null }[]>({
+            table: 'players',
+            select: 'id, name, nickname, name_variants',
+            filters: { team_id: activeTeam.id, is_active: true },
+          }).catch(() => []);
+
+          for (const obs of toSave) {
+            await localDB.observations.add({
+              localId: crypto.randomUUID(),
+              playerId: findPlayerByName(obs.player_name, cachedPlayers ?? []),
+              teamId: activeTeam.id,
+              coachId: coach.id,
+              sessionId: null,
+              recordingId,
+              category: obs.category,
+              sentiment: obs.sentiment,
+              text: obs.text,
+              rawText: obs.text,
+              source,
+              aiParsed: true,
+              skillId: obs.skill_id || null,
+              result: null,
+              isSynced: false,
+              syncedAt: null,
+              createdAt: new Date().toISOString(),
+            });
+          }
+
+          // Register BackgroundSync so observations upload the moment network returns
+          if ('serviceWorker' in navigator) {
+            const reg = await navigator.serviceWorker.ready;
+            await (reg as any).sync?.register('sync-observations').catch(() => {});
+          }
+
+          sessionStorage.removeItem('pending_observations');
+          setSavedOffline(true);
+          setSavedCount(toSave.length);
+        } catch {
+          setError('Failed to save observations locally. Please try again.');
+        }
+      } else {
+        setError(err.message || 'Failed to save observations.');
+      }
     } finally {
       setSaving(false);
     }
@@ -264,7 +304,34 @@ export default function ReviewPage() {
     );
   }
 
-  // Success state
+  // Offline success state
+  if (savedCount !== null && savedOffline) {
+    return (
+      <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center p-4">
+        <Card className="max-w-md border-amber-500/30">
+          <CardContent className="flex flex-col items-center p-8 text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/20">
+              <CloudOff className="h-8 w-8 text-amber-400" />
+            </div>
+            <h2 className="text-xl font-bold text-zinc-100">Saved Locally</h2>
+            <p className="mt-2 text-zinc-400">
+              {savedCount} observation{savedCount !== 1 ? 's' : ''} saved to your device.
+              They&apos;ll sync automatically when you&apos;re back online.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <Button variant="outline" onClick={() => router.push('/capture')}>
+                <Mic className="h-4 w-4" />
+                Capture More
+              </Button>
+              <Button onClick={() => router.push('/home')}>Go Home</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Online success state
   if (savedCount !== null) {
     return (
       <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center p-4">

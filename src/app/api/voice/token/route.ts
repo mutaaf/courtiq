@@ -20,7 +20,7 @@ export async function POST(request: Request) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        comment: `CourtIQ temp key for ${user.id}`,
+        comment: `SportsIQ temp key for ${user.id}`,
         scopes: ['usage:write'],
         time_to_live_in_seconds: 300, // 5 minutes
       }),

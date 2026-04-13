@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
+import { WelcomeTour } from '@/components/onboarding/welcome-tour';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServerSupabase();
@@ -20,5 +21,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!coach) redirect('/onboarding/sport');
   if (!coach.onboarding_complete) redirect('/onboarding/sport');
 
-  return <DashboardShell coach={coach}>{children}</DashboardShell>;
+  return (
+    <DashboardShell coach={coach}>
+      {children}
+      <WelcomeTour />
+    </DashboardShell>
+  );
 }
