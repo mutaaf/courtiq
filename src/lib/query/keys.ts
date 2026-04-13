@@ -51,4 +51,8 @@ export const queryKeys = {
     all: (orgId: string) => ['seasons', orgId] as const,
     team: (teamId: string) => ['seasons', 'team', teamId] as const,
   },
+  achievements: {
+    player: (playerId: string) => ['achievements', 'player', playerId] as const,
+    team: (teamId: string) => ['achievements', 'team', teamId] as const,
+  },
 } as const;

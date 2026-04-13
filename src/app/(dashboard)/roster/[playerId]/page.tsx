@@ -40,6 +40,7 @@ import {
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 import { PrintButton } from '@/components/ui/print-button';
+import { AchievementBadgesPanel } from '@/components/player/achievement-badges';
 import type { Player, Observation, PlayerSkillProficiency, Plan, Sentiment } from '@/types/database';
 import type { PlayerAttendanceStat } from '@/app/api/attendance-stats/route';
 
@@ -766,6 +767,13 @@ export default function PlayerDetailPage({
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Achievement Badges */}
+          {coach && (
+            <div className="lg:col-span-2">
+              <AchievementBadgesPanel playerId={playerId} coachId={coach.id} />
+            </div>
           )}
 
           {/* Recent Observations */}

@@ -21,6 +21,17 @@ export type CVJobPriority = 'high' | 'medium' | 'low' | 'batch';
 export type AttendanceStatus = 'present' | 'absent' | 'excused';
 export type AvailabilityStatus = 'available' | 'limited' | 'injured' | 'sick' | 'unavailable';
 export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6; // 0=Sun … 6=Sat
+export type AchievementBadgeType =
+  | 'first_star'        // first positive observation
+  | 'team_player'       // 10+ positive observations
+  | 'grinder'           // 25+ total observations
+  | 'all_rounder'       // 4+ unique skill categories
+  | 'breakthrough'      // any skill reaches game_ready
+  | 'game_changer'      // positive obs in a game/scrimmage
+  | 'session_regular'   // attended 10+ sessions
+  | 'coach_pick'        // manually awarded — general recognition
+  | 'most_improved'     // manually awarded
+  | 'rising_star';      // manually awarded
 export type WebhookEvent =
   | 'observation.created'
   | 'session.created'
@@ -546,5 +557,16 @@ export interface SeasonArchive {
   player_snapshot: SeasonArchivePlayer[];
   notes: string | null;
   archived_at: string;
+  created_at: string;
+}
+
+export interface PlayerAchievement {
+  id: string;
+  player_id: string;
+  team_id: string;
+  badge_type: AchievementBadgeType;
+  earned_at: string;
+  awarded_by: string | null;
+  note: string | null;
   created_at: string;
 }
