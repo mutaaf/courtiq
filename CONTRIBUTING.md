@@ -108,7 +108,7 @@ You run every hour. Here's how to be effective.
 - [x] High contrast mode toggle — useHighContrast hook (localStorage, SSR-safe); .high-contrast CSS class lifts zinc surfaces/text to WCAG AA 4.5:1 (black bg, white text, #555 borders); Settings page Contrast icon toggle card with On/Off pill + aria-checked; 17 unit tests
 
 ### P9 — Testing & Reliability
-- [ ] Component tests for key UI (roster card, recording button, plan card)
+- [x] Component tests for key UI (roster card, recording button, plan card) — 93 new tests in tests/player-card.test.tsx (25), tests/recording-button.test.tsx (35), tests/plan-type-config.test.ts (33); total suite now 251 tests
 - [ ] Integration tests for API routes (config, segment, plan, share)
 - [ ] E2E test: signup → onboarding → capture → review → save
 - [ ] E2E test: generate plan → view plan → delete plan
