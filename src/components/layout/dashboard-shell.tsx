@@ -13,6 +13,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useTier } from '@/hooks/use-tier';
 import { useSwipeNavigation } from '@/hooks/use-swipe-navigation';
 import { useSyncEngine } from '@/hooks/use-sync-engine';
+import { usePrefetchAdjacentPages, usePrefetchOnIntent } from '@/hooks/use-prefetch-navigation';
 import { PwaInstallPrompt } from '@/components/ui/pwa-install-prompt';
 import type { Coach } from '@/types/database';
 
@@ -58,9 +59,14 @@ export function DashboardShell({ coach, children }: Props) {
   const { canAccess: canAccessFeature } = useTier();
   const { onTouchStart, onTouchEnd } = useSwipeNavigation();
   const isAdmin = coach.role === 'admin' && ((coach as any).organizations?.tier === 'organization');
+  const prefetchOnIntent = usePrefetchOnIntent();
 
   // Start background sync engine and wire up online/offline monitoring
   useSyncEngine();
+
+  // Proactively prefetch the pages adjacent to the current one so that the
+  // most common "next tap" destinations are already in the router cache.
+  usePrefetchAdjacentPages();
 
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-100">
@@ -81,11 +87,14 @@ export function DashboardShell({ coach, children }: Props) {
           {sidebarItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
             const isLocked = item.feature ? !canAccessFeature(item.feature) : false;
+            const prefetch = prefetchOnIntent(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 data-tour={item.tourId}
+                onMouseEnter={prefetch}
+                onFocus={prefetch}
                 className={cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                   isActive
@@ -102,6 +111,8 @@ export function DashboardShell({ coach, children }: Props) {
           {isAdmin && (
             <Link
               href="/admin"
+              onMouseEnter={prefetchOnIntent('/admin')}
+              onFocus={prefetchOnIntent('/admin')}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 pathname.startsWith('/admin')
@@ -210,6 +221,9 @@ export function DashboardShell({ coach, children }: Props) {
               <Link
                 key={item.href}
                 href={item.href}
+                onMouseEnter={prefetchOnIntent(item.href)}
+                onFocus={prefetchOnIntent(item.href)}
+                onTouchStart={prefetchOnIntent(item.href)}
                 className={cn(
                   'flex flex-1 flex-col items-center gap-1 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-[11px] font-medium touch-manipulation',
                   item.primary && !isActive && 'text-orange-500',
