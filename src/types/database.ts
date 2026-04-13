@@ -19,6 +19,7 @@ export type CVProcessingStatus = 'none' | 'pending' | 'processing' | 'complete' 
 export type CVJobStatus = 'queued' | 'processing' | 'complete' | 'failed' | 'cancelled';
 export type CVJobPriority = 'high' | 'medium' | 'low' | 'batch';
 export type AttendanceStatus = 'present' | 'absent' | 'excused';
+export type AvailabilityStatus = 'available' | 'limited' | 'injured' | 'sick' | 'unavailable';
 export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6; // 0=Sun … 6=Sat
 export type WebhookEvent =
   | 'observation.created'
@@ -186,6 +187,19 @@ export interface SessionAttendance {
   player_id: string;
   status: AttendanceStatus;
   notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlayerAvailability {
+  id: string;
+  player_id: string;
+  team_id: string;
+  status: AvailabilityStatus;
+  reason: string | null;
+  expected_return: string | null; // ISO date YYYY-MM-DD
+  notes: string | null;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 }

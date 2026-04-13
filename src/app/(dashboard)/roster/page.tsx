@@ -11,12 +11,13 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlayerCard } from '@/components/roster/player-card';
 import { BulkActionsBar } from '@/components/roster/bulk-actions-bar';
-import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareArrows, CheckSquare } from 'lucide-react';
+import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareArrows, CheckSquare, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { ParentEngagementPanel } from '@/components/roster/parent-engagement-panel';
 import { TeamAttendancePanel } from '@/components/roster/team-attendance-panel';
-import type { Player } from '@/types/database';
+import { AvailabilityBadge } from '@/components/roster/availability-badge';
+import type { Player, PlayerAvailability } from '@/types/database';
 
 export default function RosterPage() {
   const { activeTeam, coach } = useActiveTeam();
@@ -74,6 +75,19 @@ export default function RosterPage() {
     ...CACHE_PROFILES.observations,
   });
 
+  // Fetch latest availability record per player
+  const { data: availabilityMap = {}, refetch: refetchAvailability } = useQuery({
+    queryKey: ['player-availability', activeTeam?.id ?? ''],
+    queryFn: async (): Promise<Record<string, PlayerAvailability>> => {
+      const res = await fetch(`/api/player-availability?team_id=${activeTeam!.id}`);
+      if (!res.ok) return {};
+      const json = await res.json();
+      return json.availability ?? {};
+    },
+    enabled: !!activeTeam,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+
   const positions = useMemo(() => {
     const set = new Set(players.map((p) => p.position));
     return Array.from(set).sort();
@@ -96,6 +110,12 @@ export default function RosterPage() {
     return result;
   }, [players, search, positionFilter]);
 
+  // Summary: players with a non-available status
+  const unavailableCount = useMemo(
+    () => players.filter((p) => availabilityMap[p.id]?.status && availabilityMap[p.id].status !== 'available').length,
+    [players, availabilityMap],
+  );
+
   if (!activeTeam) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center min-h-[60vh]">
@@ -109,7 +129,7 @@ export default function RosterPage() {
   }
 
   return (
-    <PullToRefresh onRefresh={async () => { await Promise.all([refetchPlayers(), refetchObs()]); }}>
+    <PullToRefresh onRefresh={async () => { await Promise.all([refetchPlayers(), refetchObs(), refetchAvailability()]); }}>
     <div className="p-4 lg:p-8 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -161,6 +181,28 @@ export default function RosterPage() {
           </div>
         </div>
       </div>
+
+      {/* Availability Summary Strip — shown when any player is unavailable */}
+      {unavailableCount > 0 && (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+          <ShieldAlert className="h-5 w-5 flex-shrink-0 text-amber-400" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-amber-300">
+              {unavailableCount} player{unavailableCount !== 1 ? 's' : ''} with restricted availability
+            </p>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {players
+                .filter((p) => availabilityMap[p.id]?.status && availabilityMap[p.id].status !== 'available')
+                .map((p) => (
+                  <span key={p.id} className="inline-flex items-center gap-1 text-xs text-zinc-300">
+                    <span className="font-medium">{p.name.split(' ')[0]}</span>
+                    <AvailabilityBadge status={availabilityMap[p.id].status} size="dot" />
+                  </span>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Parent Engagement Panel — shown once there are players */}
       {players.length > 0 && activeTeam && (
@@ -260,6 +302,8 @@ export default function RosterPage() {
               selectMode={selectMode}
               selected={selectedIds.has(player.id)}
               onSelect={toggleSelect}
+              availability={availabilityMap[player.id] ?? null}
+              teamId={activeTeam.id}
             />
           ))}
         </div>

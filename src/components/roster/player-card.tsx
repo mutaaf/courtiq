@@ -1,12 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Check } from 'lucide-react';
-import type { Player } from '@/types/database';
+import type { Player, PlayerAvailability } from '@/types/database';
 import { PlayerAvatar } from '@/components/ui/player-avatar';
+import { AvailabilityBadge } from '@/components/roster/availability-badge';
+import { PlayerAvailabilityModal } from '@/components/roster/player-availability-modal';
 
 interface PlayerCardProps {
   player: Player;
@@ -14,8 +17,9 @@ interface PlayerCardProps {
   selectMode?: boolean;
   selected?: boolean;
   onSelect?: (playerId: string) => void;
+  availability?: PlayerAvailability | null;
+  teamId?: string;
 }
-
 
 const positionColors: Record<string, string> = {
   PG: 'bg-blue-500/20 text-blue-400',
@@ -26,8 +30,17 @@ const positionColors: Record<string, string> = {
   Flex: 'bg-zinc-700 text-zinc-300',
 };
 
-export function PlayerCard({ player, observationCount = 0, selectMode = false, selected = false, onSelect }: PlayerCardProps) {
+export function PlayerCard({
+  player,
+  observationCount = 0,
+  selectMode = false,
+  selected = false,
+  onSelect,
+  availability,
+  teamId,
+}: PlayerCardProps) {
   const router = useRouter();
+  const [showAvailability, setShowAvailability] = useState(false);
 
   function handleClick() {
     if (selectMode && onSelect) {
@@ -37,60 +50,108 @@ export function PlayerCard({ player, observationCount = 0, selectMode = false, s
     }
   }
 
-  return (
-    <Card
-      className={cn(
-        'cursor-pointer transition-all hover:border-orange-500/50 hover:bg-zinc-900/80',
-        selected && 'border-orange-500 bg-orange-500/5',
-      )}
-      onClick={handleClick}
-    >
-      <CardContent className="flex items-center gap-4 p-4">
-        {/* Selection checkbox */}
-        {selectMode && (
-          <div className={cn(
-            'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors',
-            selected ? 'border-orange-500 bg-orange-500' : 'border-zinc-500 bg-transparent',
-          )}>
-            {selected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
-          </div>
-        )}
-        {/* Avatar */}
-        <div className="relative flex-shrink-0">
-          <PlayerAvatar photoUrl={player.photo_url} name={player.name} size={48} />
-          {player.jersey_number !== null && (
-            <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-800 text-[10px] font-bold text-zinc-300 ring-1 ring-zinc-600">
-              {player.jersey_number}
-            </span>
-          )}
-        </div>
+  function handleAvailabilityClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (teamId) setShowAvailability(true);
+  }
 
-        {/* Info */}
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-zinc-100">{player.name}</p>
-          <div className="mt-1 flex items-center gap-2">
-            <Badge
-              className={cn(
-                'text-[10px]',
-                positionColors[player.position] || 'bg-zinc-700 text-zinc-300'
-              )}
-            >
-              {player.position}
-            </Badge>
-            {player.age_group && (
-              <span className="text-xs text-zinc-500">{player.age_group}</span>
+  const status = availability?.status ?? 'available';
+  const showBadge = status !== 'available';
+
+  return (
+    <>
+      <Card
+        className={cn(
+          'cursor-pointer transition-all hover:border-orange-500/50 hover:bg-zinc-900/80',
+          selected && 'border-orange-500 bg-orange-500/5',
+        )}
+        onClick={handleClick}
+      >
+        <CardContent className="flex items-center gap-4 p-4">
+          {/* Selection checkbox */}
+          {selectMode && (
+            <div className={cn(
+              'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+              selected ? 'border-orange-500 bg-orange-500' : 'border-zinc-500 bg-transparent',
+            )}>
+              {selected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+            </div>
+          )}
+          {/* Avatar */}
+          <div className="relative flex-shrink-0">
+            <PlayerAvatar photoUrl={player.photo_url} name={player.name} size={48} />
+            {player.jersey_number !== null && (
+              <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-800 text-[10px] font-bold text-zinc-300 ring-1 ring-zinc-600">
+                {player.jersey_number}
+              </span>
             )}
           </div>
-        </div>
 
-        {/* Observation count */}
-        {observationCount > 0 && (
-          <div className="flex flex-col items-center">
-            <span className="text-lg font-bold text-orange-500">{observationCount}</span>
-            <span className="text-[10px] text-zinc-500">obs</span>
+          {/* Info */}
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-semibold text-zinc-100">{player.name}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <Badge
+                className={cn(
+                  'text-[10px]',
+                  positionColors[player.position] || 'bg-zinc-700 text-zinc-300'
+                )}
+              >
+                {player.position}
+              </Badge>
+              {player.age_group && (
+                <span className="text-xs text-zinc-500">{player.age_group}</span>
+              )}
+              {/* Availability badge — only shown when NOT available */}
+              {showBadge && (
+                <button
+                  onClick={handleAvailabilityClick}
+                  className="touch-manipulation"
+                  aria-label={`Set availability for ${player.name}`}
+                >
+                  <AvailabilityBadge status={status} />
+                </button>
+              )}
+            </div>
+            {/* Return date hint */}
+            {availability?.expected_return && status !== 'available' && (
+              <p className="mt-1 text-[10px] text-zinc-500">
+                Returns {availability.expected_return}
+              </p>
+            )}
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          {/* Right side: obs count + availability toggle when available */}
+          <div className="flex flex-col items-end gap-2">
+            {observationCount > 0 && (
+              <div className="flex flex-col items-center">
+                <span className="text-lg font-bold text-orange-500">{observationCount}</span>
+                <span className="text-[10px] text-zinc-500">obs</span>
+              </div>
+            )}
+            {/* Tap when "available" to set a restriction */}
+            {!showBadge && teamId && !selectMode && (
+              <button
+                onClick={handleAvailabilityClick}
+                className="touch-manipulation rounded-full p-1 text-zinc-600 hover:bg-zinc-800 hover:text-zinc-400"
+                aria-label={`Set availability for ${player.name}`}
+                title="Set availability"
+              >
+                <AvailabilityBadge status="available" size="dot" />
+              </button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {showAvailability && teamId && (
+        <PlayerAvailabilityModal
+          player={player}
+          teamId={teamId}
+          current={availability ?? null}
+          onClose={() => setShowAvailability(false)}
+        />
+      )}
+    </>
   );
 }

@@ -20,6 +20,7 @@ export async function POST(request: Request) {
       'curriculum_skills', 'player_skill_proficiency', 'parent_shares',
       'config_overrides', 'feature_flags', 'org_feature_flags', 'org_branding',
       'ai_interactions', 'organizations', 'season_archives', 'session_attendance',
+      'player_availability',
     ];
 
     if (!allowed.includes(table)) {
