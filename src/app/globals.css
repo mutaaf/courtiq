@@ -117,6 +117,52 @@ body {
   }
 }
 
+/* ── Keyboard navigation ─────────────────────────────────────────────────── */
+
+/**
+ * Skip-to-content link — visually hidden until focused via keyboard.
+ * Placed as the first element in <body>; jumps to #main-content.
+ */
+.skip-to-content {
+  position: fixed;
+  top: -100%;
+  left: 1rem;
+  z-index: 9999;
+  padding: 0.5rem 1.25rem;
+  background: #f97316;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 0 0 0.5rem 0.5rem;
+  text-decoration: none;
+  transition: top 0.15s ease;
+}
+
+.skip-to-content:focus-visible {
+  top: 0;
+  outline: 2px solid #fff;
+  outline-offset: -4px;
+}
+
+/**
+ * Global visible focus indicator for keyboard navigation.
+ *
+ * Uses :focus-visible so the ring only appears when navigating by keyboard
+ * (or other non-pointer input) — mouse/touch clicks stay ring-free.
+ *
+ * Specificity note: Tailwind utility classes like `focus-visible:outline-none`
+ * produce selectors of the form `.class:focus-visible { outline-style: none }`,
+ * which have higher specificity than the bare `:focus-visible` pseudo-class
+ * defined here. Components (Button, Input, Textarea, etc.) that already set
+ * their own focus-visible ring via Tailwind therefore override this rule and
+ * are unaffected — only elements without explicit focus styling pick it up.
+ */
+:focus-visible {
+  outline: 2px solid #f97316; /* orange-500 */
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 /* ── Print styles ────────────────────────────────────────────────────────── */
 @media print {
   @page {

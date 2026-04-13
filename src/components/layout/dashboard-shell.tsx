@@ -14,6 +14,7 @@ import { useTier } from '@/hooks/use-tier';
 import { useSwipeNavigation } from '@/hooks/use-swipe-navigation';
 import { useSyncEngine } from '@/hooks/use-sync-engine';
 import { usePrefetchAdjacentPages, usePrefetchOnIntent } from '@/hooks/use-prefetch-navigation';
+import { useArrowKeyNav } from '@/hooks/use-arrow-key-nav';
 import { PwaInstallPrompt } from '@/components/ui/pwa-install-prompt';
 import type { Coach } from '@/types/database';
 
@@ -60,6 +61,8 @@ export function DashboardShell({ coach, children }: Props) {
   const { onTouchStart, onTouchEnd } = useSwipeNavigation();
   const isAdmin = coach.role === 'admin' && ((coach as any).organizations?.tier === 'organization');
   const prefetchOnIntent = usePrefetchOnIntent();
+  const { navRef: sidebarNavRef, onKeyDown: sidebarKeyDown } = useArrowKeyNav();
+  const { navRef: mobileNavRef, onKeyDown: mobileNavKeyDown } = useArrowKeyNav();
 
   // Start background sync engine and wire up online/offline monitoring
   useSyncEngine();
@@ -83,7 +86,12 @@ export function DashboardShell({ coach, children }: Props) {
           <TeamSwitcher />
         </div>
 
-        <nav aria-label="Main" className="flex-1 space-y-1 p-4">
+        <nav
+          ref={(el) => { sidebarNavRef.current = el; }}
+          aria-label="Main"
+          className="flex-1 space-y-1 p-4"
+          onKeyDown={sidebarKeyDown}
+        >
           {sidebarItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
             const isLocked = item.feature ? !canAccessFeature(item.feature) : false;
@@ -165,7 +173,7 @@ export function DashboardShell({ coach, children }: Props) {
       </aside>
 
       {/* Main content */}
-      <main className="flex flex-1 flex-col overflow-hidden">
+      <main id="main-content" tabIndex={-1} className="flex flex-1 flex-col overflow-hidden">
         {/* Mobile header */}
         <header className="flex h-14 items-center justify-between border-b border-zinc-800 px-4 lg:hidden">
           <div className="flex items-center gap-2">
@@ -217,7 +225,12 @@ export function DashboardShell({ coach, children }: Props) {
         <PwaInstallPrompt />
 
         {/* Mobile bottom nav — 5 items, Capture centered as FAB */}
-        <nav aria-label="Mobile navigation" className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-zinc-800 bg-zinc-900/95 backdrop-blur-sm lg:hidden safe-area-bottom">
+        <nav
+          ref={(el) => { mobileNavRef.current = el; }}
+          aria-label="Mobile navigation"
+          className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-zinc-800 bg-zinc-900/95 backdrop-blur-sm lg:hidden safe-area-bottom"
+          onKeyDown={mobileNavKeyDown}
+        >
           {navItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
             return (

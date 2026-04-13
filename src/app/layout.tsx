@@ -43,6 +43,10 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
       <body className="min-h-full bg-zinc-950 text-zinc-100">
+        {/* Skip-to-content: visible only on keyboard focus; jumps past nav to main content */}
+        <a href="#main-content" className="skip-to-content">
+          Skip to main content
+        </a>
         <SwRegister />
         <Providers>{children}</Providers>
       </body>
