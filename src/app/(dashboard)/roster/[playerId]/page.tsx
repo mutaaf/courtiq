@@ -36,15 +36,17 @@ import {
   ChevronDown,
   ChevronUp,
   CalendarCheck,
+  Target,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 import { PrintButton } from '@/components/ui/print-button';
 import { AchievementBadgesPanel } from '@/components/player/achievement-badges';
+import { PlayerGoalsPanel } from '@/components/player/player-goals-panel';
 import type { Player, Observation, PlayerSkillProficiency, Plan, Sentiment } from '@/types/database';
 import type { PlayerAttendanceStat } from '@/app/api/attendance-stats/route';
 
-type Tab = 'overview' | 'observations' | 'report-card' | 'media' | 'share' | 'challenges' | 'storyline' | 'self-assessment';
+type Tab = 'overview' | 'observations' | 'report-card' | 'media' | 'share' | 'challenges' | 'storyline' | 'self-assessment' | 'goals';
 
 const sentimentVariant: Record<Sentiment, 'success' | 'destructive' | 'secondary'> = {
   positive: 'success',
@@ -188,6 +190,7 @@ export default function PlayerDetailPage({
     { id: 'overview', label: 'Overview', icon: <BarChart3 className="h-4 w-4" /> },
     { id: 'observations', label: 'Observations', icon: <Eye className="h-4 w-4" /> },
     { id: 'report-card', label: 'Report Card', icon: <FileText className="h-4 w-4" /> },
+    { id: 'goals', label: 'Goals', icon: <Target className="h-4 w-4" /> },
     { id: 'challenges', label: 'Challenges', icon: <Zap className="h-4 w-4" /> },
     { id: 'storyline', label: 'Storyline', icon: <BookOpen className="h-4 w-4" /> },
     { id: 'self-assessment', label: 'Self-Assessment', icon: <ClipboardCheck className="h-4 w-4" /> },
@@ -1556,6 +1559,10 @@ export default function PlayerDetailPage({
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {activeTab === 'goals' && activeTeam && (
+        <PlayerGoalsPanel playerId={playerId} teamId={activeTeam.id} />
       )}
 
       {activeTab === 'share' && (

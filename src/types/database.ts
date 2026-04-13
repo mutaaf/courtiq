@@ -20,6 +20,7 @@ export type CVJobStatus = 'queued' | 'processing' | 'complete' | 'failed' | 'can
 export type CVJobPriority = 'high' | 'medium' | 'low' | 'batch';
 export type AttendanceStatus = 'present' | 'absent' | 'excused';
 export type AvailabilityStatus = 'available' | 'limited' | 'injured' | 'sick' | 'unavailable';
+export type GoalStatus = 'active' | 'achieved' | 'stalled' | 'archived';
 export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6; // 0=Sun … 6=Sat
 export type AchievementBadgeType =
   | 'first_star'        // first positive observation
@@ -569,4 +570,19 @@ export interface PlayerAchievement {
   awarded_by: string | null;
   note: string | null;
   created_at: string;
+}
+
+export interface PlayerGoal {
+  id: string;
+  player_id: string;
+  team_id: string;
+  coach_id: string | null;
+  skill: string;
+  goal_text: string;
+  target_level: ProficiencyLevel | null;
+  target_date: string | null;
+  status: GoalStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
