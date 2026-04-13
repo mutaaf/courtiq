@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { captureException } from '@/lib/error-tracking';
 
 export default function GlobalError({
   error,
@@ -11,7 +12,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error('Global error:', error);
+    captureException(error, { boundary: 'global', digest: error.digest });
   }, [error]);
 
   return (

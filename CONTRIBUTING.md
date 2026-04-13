@@ -115,7 +115,7 @@ You run every hour. Here's how to be effective.
 - [x] E2E test: create share link → view parent portal — `tests/e2e/share-flow.spec.ts`; parent portal tests run without auth (public route); share creation tests require credentials
 - [x] E2E test: admin panel → invite coach → change role — `tests/e2e/admin-flow.spec.ts`; mocks `/api/admin/coaches` GET/POST/PATCH; includes non-admin access guard test
 - [x] Error boundary components on all pages — global-error.tsx (layout-level), app/error.tsx (public pages), (dashboard)/error.tsx (all dashboard pages), (auth)/error.tsx (login/signup/onboarding); AlertTriangle + reset() + home link; prevents blank-page crashes
-- [ ] Sentry or similar error tracking integration
+- [x] Sentry or similar error tracking integration — lightweight self-hosted tracker: `src/lib/error-tracking.ts` (captureException/captureMessage/initErrorTracking, batched fetch with 600ms debounce, sessionStorage session ID); POST /api/errors (IP rate-limit 100/hr, Supabase persistence with graceful fallback, structured console logs); ErrorTrackingInit component in root layout (window.onerror + unhandledrejection); all 4 error boundaries (global/root/dashboard/auth) wired up; migration 013_error_tracking.sql; 23 unit tests
 - [x] API rate limiting on AI endpoints — 20 req/hour per coach (configurable via AI_RATE_LIMIT_PER_HOUR); Redis sliding window with in-memory fallback; RateLimitError → 429 + Retry-After header; handleAIError() shared handler across all 14 AI routes; 10 unit tests
 
 ---

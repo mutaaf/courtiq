@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Providers } from '@/components/providers';
 import { SwRegister } from '@/components/ui/sw-register';
+import { ErrorTrackingInit } from '@/components/ui/error-tracking-init';
 import './globals.css';
 
 const geistSans = Geist({
@@ -48,6 +49,7 @@ export default function RootLayout({
           Skip to main content
         </a>
         <SwRegister />
+        <ErrorTrackingInit />
         <Providers>{children}</Providers>
       </body>
     </html>

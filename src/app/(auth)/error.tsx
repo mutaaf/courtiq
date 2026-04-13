@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { captureException } from '@/lib/error-tracking';
 
 export default function AuthError({
   error,
@@ -11,7 +12,7 @@ export default function AuthError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error('Auth error:', error);
+    captureException(error, { boundary: 'auth', digest: error.digest });
   }, [error]);
 
   return (
