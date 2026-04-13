@@ -117,6 +117,22 @@ body {
   }
 }
 
+/* ── Reduced motion: globally disable transitions + animations ───────────
+ *
+ * Catches every Tailwind utility class (transition-*, animate-spin,
+ * animate-ping, animate-pulse, etc.) and any custom CSS not covered by the
+ * specific keyframe blocks above. Uses 0.01ms rather than 0ms so that
+ * event-driven logic that listens for `transitionend` still fires.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ── Keyboard navigation ─────────────────────────────────────────────────── */
 
 /**
