@@ -100,7 +100,7 @@ You run every hour. Here's how to be effective.
 
 ### P8 — Accessibility
 - [x] ARIA labels on all interactive elements — recording button (aria-label + aria-pressed + aria-live timer), nav landmarks (aria-label + aria-current), team-switcher/bulk-actions/config-editor form controls, toggle switches (role=switch + aria-checked), plan/drill/session action buttons (delete/expand/filter with aria-pressed/aria-label/aria-expanded)
-- [ ] Keyboard navigation for all pages
+- [x] Keyboard navigation for all pages — global :focus-visible orange ring (globals.css); skip-to-content link in root layout; #main-content id + tabIndex on <main>; useArrowKeyNav hook wired into sidebar and mobile bottom nav (Up/Down/Home/End)
 - [ ] Screen reader testing with VoiceOver/NVDA
 - [x] Focus trap in modals/dialogs — `useFocusTrap` hook; Tab/Shift+Tab cycling, Escape-to-close, focus restoration; applied to QuickCaptureWidget, TestimonialPrompt, WelcomeTour, BulkActionsBar; aria-labelledby on all dialogs; 25 unit tests
 - [ ] Color contrast verification (WCAG AA minimum)
