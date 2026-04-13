@@ -1041,6 +1041,7 @@ export default function PlansPage() {
           <button
             type="button"
             onClick={() => setError(null)}
+            aria-label="Dismiss error"
             className="ml-auto text-red-500 hover:text-red-300"
           >
             <X className="h-4 w-4" />
@@ -1519,18 +1520,22 @@ export default function PlansPage() {
                               deleteMutation.mutate(plan.id);
                             }
                           }}
+                          aria-label={`Delete ${plan.title || typeConfig.label}`}
                           className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => setSelectedPlan(plan)}
+                          aria-label={`View ${plan.title || typeConfig.label}`}
                           className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-300 transition-colors"
                         >
                           <ChevronRight className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => setExpandedPlanId(isExpanded ? null : plan.id)}
+                          aria-label={isExpanded ? `Collapse ${plan.title || typeConfig.label}` : `Expand ${plan.title || typeConfig.label}`}
+                          aria-expanded={isExpanded}
                           className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-300 transition-colors"
                         >
                           <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />

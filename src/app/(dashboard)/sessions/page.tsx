@@ -99,6 +99,7 @@ export default function SessionsPage() {
           <button
             key={opt.value}
             onClick={() => setTypeFilter(opt.value)}
+            aria-pressed={typeFilter === opt.value}
             className={`shrink-0 rounded-full px-4 py-2 sm:px-3 sm:py-1 text-sm sm:text-xs font-medium transition-colors touch-manipulation ${
               typeFilter === opt.value
                 ? 'bg-orange-500 text-white'

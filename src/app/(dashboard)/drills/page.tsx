@@ -282,6 +282,7 @@ export default function DrillsPage() {
         {search && (
           <button
             onClick={() => setSearch('')}
+            aria-label="Clear search"
             className="absolute right-3 top-1/2 -translate-y-1/2"
           >
             <X className="h-4 w-4 text-zinc-500 hover:text-zinc-300" />
@@ -297,6 +298,7 @@ export default function DrillsPage() {
           <span className="text-xs text-zinc-500 shrink-0">Category:</span>
           <button
             onClick={() => setCategoryFilter(null)}
+            aria-pressed={!categoryFilter}
             className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
               !categoryFilter
                 ? 'bg-orange-500 text-white'
@@ -309,6 +311,7 @@ export default function DrillsPage() {
             <button
               key={cat}
               onClick={() => setCategoryFilter(cat === categoryFilter ? null : cat)}
+              aria-pressed={categoryFilter === cat}
               className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 categoryFilter === cat
                   ? 'bg-orange-500 text-white'
@@ -326,6 +329,7 @@ export default function DrillsPage() {
           <span className="text-xs text-zinc-500 shrink-0">Ages:</span>
           <button
             onClick={() => setAgeFilter(null)}
+            aria-pressed={!ageFilter}
             className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
               !ageFilter
                 ? 'bg-orange-500 text-white'
@@ -338,6 +342,7 @@ export default function DrillsPage() {
             <button
               key={ag}
               onClick={() => setAgeFilter(ag === ageFilter ? null : ag)}
+              aria-pressed={ageFilter === ag}
               className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 ageFilter === ag
                   ? 'bg-orange-500 text-white'
@@ -467,6 +472,7 @@ export default function DrillsPage() {
               <button
                 onClick={handleCloseBuilder}
                 disabled={building}
+                aria-label="Close drill builder"
                 className="text-zinc-500 hover:text-zinc-300 disabled:opacity-40"
               >
                 <X className="h-5 w-5" />

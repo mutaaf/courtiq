@@ -47,6 +47,7 @@ export function TeamSwitcher({ compact }: { compact?: boolean }) {
     <div className="space-y-2">
       <div className="relative">
         <select
+          aria-label="Active team"
           value={activeTeam?.id || ''}
           onChange={(e) => {
             if (e.target.value === '__create__') {
@@ -76,6 +77,7 @@ export function TeamSwitcher({ compact }: { compact?: boolean }) {
         <div className="rounded-lg border border-zinc-700 bg-zinc-800 p-3 space-y-2">
           <input
             type="text"
+            aria-label="New team name"
             placeholder="Team name"
             value={newTeamName}
             onChange={(e) => setNewTeamName(e.target.value)}
@@ -84,6 +86,7 @@ export function TeamSwitcher({ compact }: { compact?: boolean }) {
             onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }}
           />
           <select
+            aria-label="Age group"
             value={newAgeGroup}
             onChange={(e) => setNewAgeGroup(e.target.value)}
             className="w-full rounded-md border border-zinc-600 bg-zinc-900 px-2.5 py-1.5 text-sm text-zinc-100"

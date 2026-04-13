@@ -745,6 +745,7 @@ export default function PracticeTimerPage({
                     type="number"
                     min="1"
                     max="60"
+                    aria-label={`Duration for ${item.name} in minutes`}
                     value={Math.round(item.durationSecs / 60)}
                     onChange={(e) => updateDuration(item.id, e.target.value)}
                     className="w-10 bg-zinc-800 border border-zinc-700 rounded px-1.5 py-0.5 text-xs text-zinc-300 text-center"
@@ -753,6 +754,7 @@ export default function PracticeTimerPage({
                 </div>
                 <button
                   onClick={() => removeFromQueue(item.id)}
+                  aria-label={`Remove ${item.name} from queue`}
                   className="shrink-0 text-zinc-600 hover:text-red-400 transition-colors"
                 >
                   <X className="h-4 w-4" />

@@ -71,7 +71,7 @@ export function DashboardShell({ coach, children }: Props) {
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-100">
       {/* Desktop Sidebar */}
-      <aside className="hidden w-64 flex-col border-r border-zinc-800 bg-zinc-900/50 lg:flex">
+      <aside aria-label="Sidebar" className="hidden w-64 flex-col border-r border-zinc-800 bg-zinc-900/50 lg:flex">
         <div className="flex h-16 items-center gap-3 border-b border-zinc-800 px-6">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500 p-1">
             <Image src="/logo.svg" alt="SportsIQ" width={24} height={24} className="invert" />
@@ -83,7 +83,7 @@ export function DashboardShell({ coach, children }: Props) {
           <TeamSwitcher />
         </div>
 
-        <nav className="flex-1 space-y-1 p-4">
+        <nav aria-label="Main" className="flex-1 space-y-1 p-4">
           {sidebarItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
             const isLocked = item.feature ? !canAccessFeature(item.feature) : false;
@@ -95,6 +95,7 @@ export function DashboardShell({ coach, children }: Props) {
                 data-tour={item.tourId}
                 onMouseEnter={prefetch}
                 onFocus={prefetch}
+                aria-current={isActive ? 'page' : undefined}
                 className={cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                   isActive
@@ -176,6 +177,7 @@ export function DashboardShell({ coach, children }: Props) {
           <div className="flex items-center gap-2">
             <button
               onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-100 transition-colors"
             >
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -188,6 +190,7 @@ export function DashboardShell({ coach, children }: Props) {
                 window.location.href = '/login';
               }}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:text-red-400 transition-colors"
+              aria-label="Sign out"
               title="Sign Out"
             >
               <LogOut className="h-4 w-4" />
@@ -214,7 +217,7 @@ export function DashboardShell({ coach, children }: Props) {
         <PwaInstallPrompt />
 
         {/* Mobile bottom nav — 5 items, Capture centered as FAB */}
-        <nav className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-zinc-800 bg-zinc-900/95 backdrop-blur-sm lg:hidden safe-area-bottom">
+        <nav aria-label="Mobile navigation" className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-zinc-800 bg-zinc-900/95 backdrop-blur-sm lg:hidden safe-area-bottom">
           {navItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
             return (
@@ -224,6 +227,7 @@ export function DashboardShell({ coach, children }: Props) {
                 onMouseEnter={prefetchOnIntent(item.href)}
                 onFocus={prefetchOnIntent(item.href)}
                 onTouchStart={prefetchOnIntent(item.href)}
+                aria-current={isActive ? 'page' : undefined}
                 className={cn(
                   'flex flex-1 flex-col items-center gap-1 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-[11px] font-medium touch-manipulation',
                   item.primary && !isActive && 'text-orange-500',

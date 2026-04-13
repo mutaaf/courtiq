@@ -173,12 +173,13 @@ export function BulkActionsBar({ selectedPlayers, teamId, coachId, onClear }: Bu
               <h3 id="bulk-obs-title" className="text-base font-semibold text-zinc-100">
                 Add observation for {count} player{count !== 1 ? 's' : ''}
               </h3>
-              <button onClick={() => setObsModal(false)} className="text-zinc-400 hover:text-zinc-200 p-1">
+              <button onClick={() => setObsModal(false)} aria-label="Close" className="text-zinc-400 hover:text-zinc-200 p-1">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <textarea
+              aria-label="Observation text"
               className="w-full h-28 rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
               placeholder="Describe what you observed (applied to all selected players)…"
               value={obsText}
@@ -188,6 +189,7 @@ export function BulkActionsBar({ selectedPlayers, teamId, coachId, onClear }: Bu
 
             <div className="flex gap-2">
               <select
+                aria-label="Observation category"
                 value={obsCategory}
                 onChange={(e) => setObsCategory(e.target.value)}
                 className="flex-1 h-10 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -201,6 +203,7 @@ export function BulkActionsBar({ selectedPlayers, teamId, coachId, onClear }: Bu
                 <option value="skill">Skill</option>
               </select>
               <select
+                aria-label="Observation sentiment"
                 value={obsSentiment}
                 onChange={(e) => setObsSentiment(e.target.value as any)}
                 className="flex-1 h-10 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500"

@@ -197,6 +197,8 @@ export function ParentEngagementPanel({ teamId }: ParentEngagementPanelProps) {
       <CardHeader className="p-4 pb-0">
         <button
           onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          aria-controls="parent-engagement-panel"
           className="flex items-center justify-between w-full text-left touch-manipulation"
         >
           <CardTitle className="text-sm font-semibold text-zinc-300 flex items-center gap-2">
@@ -217,7 +219,7 @@ export function ParentEngagementPanel({ teamId }: ParentEngagementPanelProps) {
       </CardHeader>
 
       {expanded && (
-        <CardContent className="p-4 pt-0 space-y-3">
+        <CardContent id="parent-engagement-panel" className="p-4 pt-0 space-y-3">
           {/* Tab toggle */}
           <div className="flex gap-2">
             <Button
