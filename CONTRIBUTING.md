@@ -102,7 +102,7 @@ You run every hour. Here's how to be effective.
 - [ ] ARIA labels on all interactive elements
 - [ ] Keyboard navigation for all pages
 - [ ] Screen reader testing with VoiceOver/NVDA
-- [ ] Focus trap in modals/dialogs
+- [x] Focus trap in modals/dialogs — `useFocusTrap` hook; Tab/Shift+Tab cycling, Escape-to-close, focus restoration; applied to QuickCaptureWidget, TestimonialPrompt, WelcomeTour, BulkActionsBar; aria-labelledby on all dialogs; 25 unit tests
 - [ ] Color contrast verification (WCAG AA minimum)
 - [ ] Reduce motion preference support
 - [ ] High contrast mode toggle
