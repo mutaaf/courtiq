@@ -109,7 +109,7 @@ You run every hour. Here's how to be effective.
 
 ### P10 — Coach Operations & Logistics
 - [x] **Session attendance tracking** — coaches mark present/absent/excused for each player per session; `/sessions/[id]/attendance` page with summary strip (counts + %), quick "mark all" buttons, per-player toggle row, delete-then-insert save; `session_attendance` table + migration; `AttendanceStatus` + `SessionAttendance` types; Attendance button in session detail header; 8 unit tests
-- [ ] **Attendance trend report** — show each player's attendance % over the season in their profile and in a team attendance summary panel
+- [x] **Attendance trend report** — GET /api/attendance-stats (team + player modes); TeamAttendancePanel on roster page with summary bar, session-dot sparklines, color-coded % bars; attendance ring + dots + breakdown in player detail overview; 19 unit tests
 - [ ] **Recurring session scheduler** — create a weekly recurring session (e.g. every Tuesday 4-5pm) that auto-generates sessions for the whole season
 
 ### P9 — Testing & Reliability
