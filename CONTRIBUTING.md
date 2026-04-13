@@ -90,7 +90,7 @@ You run every hour. Here's how to be effective.
 - [x] **Integration webhooks** — notify external systems (Slack, email, TeamSnap) on key events; HMAC-SHA256 signed POST to registered HTTPS endpoints; events: observation.created, session.created/updated, plan.created, player.created; /settings/webhooks with test ping, active toggle, one-time secret reveal
 
 ### P7 — Performance & PWA
-- [ ] Service worker for offline app shell
+- [x] Service worker for offline app shell — vanilla SW (public/sw.js): Cache-First for _next/static and images, Network-First for pages with /offline fallback, Network-Only for /api; SwRegister in root layout; /offline public page added to middleware allowlist
 - [x] Install prompt (add to home screen) with custom banner — PwaInstallPrompt component: listens for beforeinstallprompt, shows after 2 visits, dismissible for 14 days, positioned above mobile bottom nav
 - [ ] Image/asset lazy loading with blur placeholders
 - [ ] Code splitting for dashboard routes
