@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Send, Keyboard, Mic, AlertCircle, Sparkles, Upload, FileAudio } from 'lucide-react';
 import { generateId } from '@/lib/utils';
 import Link from 'next/link';
+import { QuickTemplates } from '@/components/capture/quick-templates';
 
 type CaptureState = 'idle' | 'recording' | 'processing' | 'error';
 
@@ -683,6 +684,22 @@ export default function CapturePage() {
                 </CardContent>
               </Card>
             )}
+          </>
+        )}
+
+        {/* Quick Templates — one-tap observations, shown in idle state */}
+        {captureState === 'idle' && uploadState === 'idle' && coach && (
+          <>
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-zinc-800" />
+              <span className="text-xs text-zinc-600">or use templates</span>
+              <div className="h-px flex-1 bg-zinc-800" />
+            </div>
+            <QuickTemplates
+              teamId={activeTeam.id}
+              coachId={coach.id}
+              sessionId={null}
+            />
           </>
         )}
       </div>
