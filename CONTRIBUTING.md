@@ -103,7 +103,7 @@ You run every hour. Here's how to be effective.
 - [x] Keyboard navigation for all pages — global :focus-visible orange ring (globals.css); skip-to-content link in root layout; #main-content id + tabIndex on <main>; useArrowKeyNav hook wired into sidebar and mobile bottom nav (Up/Down/Home/End)
 - [ ] Screen reader testing with VoiceOver/NVDA
 - [x] Focus trap in modals/dialogs — `useFocusTrap` hook; Tab/Shift+Tab cycling, Escape-to-close, focus restoration; applied to QuickCaptureWidget, TestimonialPrompt, WelcomeTour, BulkActionsBar; aria-labelledby on all dialogs; 25 unit tests
-- [ ] Color contrast verification (WCAG AA minimum)
+- [x] Color contrast verification (WCAG AA minimum) — `src/lib/color-contrast.ts` utility (hexToRgb, relativeLuminance, contrastRatio, passesAA/AALarge/AAA); 56 tests across dark/light/high-contrast themes; fixed `button.tsx` default variant (`text-white`→`text-zinc-950` on orange: 2.8→7.1:1); fixed `skip-to-content` link (dark text on orange: 7.1:1); added `.light :focus-visible { outline-color: #c2410c }` (orange-700, 5.18:1 on white, was 2.8:1)
 - [x] Reduce motion preference support — useReducedMotion hook (reactive, SSR-safe); global CSS `* { animation-duration: 0.01ms; transition-duration: 0.01ms }` disables all Tailwind transition-*/animate-* utilities; useHaptic skips navigator.vibrate(); PullToRefresh skips inline-style transitions + haptics; 13 unit tests
 - [x] High contrast mode toggle — useHighContrast hook (localStorage, SSR-safe); .high-contrast CSS class lifts zinc surfaces/text to WCAG AA 4.5:1 (black bg, white text, #555 borders); Settings page Contrast icon toggle card with On/Off pill + aria-checked; 17 unit tests
 
