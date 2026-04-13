@@ -21,7 +21,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import Link from 'next/link';
-import { WEBHOOK_EVENTS } from '@/lib/webhooks';
+import { WEBHOOK_EVENTS } from '@/lib/webhook-events';
 import type { WebhookEvent } from '@/types/database';
 
 interface WebhookRow {
