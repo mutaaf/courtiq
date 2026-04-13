@@ -110,10 +110,10 @@ You run every hour. Here's how to be effective.
 ### P9 — Testing & Reliability
 - [x] Component tests for key UI (roster card, recording button, plan card) — 93 new tests in tests/player-card.test.tsx (25), tests/recording-button.test.tsx (35), tests/plan-type-config.test.ts (33); total suite now 251 tests
 - [x] Integration tests for API routes (config, segment, plan, share) — 44 tests: config resolver pure functions, handleAIError, config GET/PUT/DELETE route auth+validation, share [token] GET (404/410/403/200), share create POST (401/400/404/200); Supabase mocked via vi.hoisted; suite now 295 tests
-- [ ] E2E test: signup → onboarding → capture → review → save
-- [ ] E2E test: generate plan → view plan → delete plan
-- [ ] E2E test: create share link → view parent portal
-- [ ] E2E test: admin panel → invite coach → change role
+- [x] E2E test: signup → onboarding → capture → review → save — `tests/e2e/signup-onboarding-capture.spec.ts`; public flows (signup form, onboarding sport/team) run unconditionally; auth-gated flows use `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD` env vars with graceful skip
+- [x] E2E test: generate plan → view plan → delete plan — `tests/e2e/plans-flow.spec.ts`; mocks `/api/me`, `/api/data`, `/api/ai/plan`, `/api/data/mutate`
+- [x] E2E test: create share link → view parent portal — `tests/e2e/share-flow.spec.ts`; parent portal tests run without auth (public route); share creation tests require credentials
+- [x] E2E test: admin panel → invite coach → change role — `tests/e2e/admin-flow.spec.ts`; mocks `/api/admin/coaches` GET/POST/PATCH; includes non-admin access guard test
 - [x] Error boundary components on all pages — global-error.tsx (layout-level), app/error.tsx (public pages), (dashboard)/error.tsx (all dashboard pages), (auth)/error.tsx (login/signup/onboarding); AlertTriangle + reset() + home link; prevents blank-page crashes
 - [ ] Sentry or similar error tracking integration
 - [x] API rate limiting on AI endpoints — 20 req/hour per coach (configurable via AI_RATE_LIMIT_PER_HOUR); Redis sliding window with in-memory fallback; RateLimitError → 429 + Retry-After header; handleAIError() shared handler across all 14 AI routes; 10 unit tests
