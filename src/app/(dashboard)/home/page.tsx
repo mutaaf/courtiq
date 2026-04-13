@@ -23,7 +23,12 @@ import {
   Lightbulb,
   Star,
   ChevronRight,
+  Trophy,
+  Award,
+  CheckCircle2,
 } from 'lucide-react';
+import { formatTimeAgo } from '@/lib/team-wins-utils';
+import type { TeamWin } from '@/lib/team-wins-utils';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -138,6 +143,107 @@ function CoachingTipsCard({ teamId }: { teamId: string }) {
             </div>
           );
         })}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Team Wins Feed ───────────────────────────────────────────────────────────
+
+function TeamWinsCard({ teamId }: { teamId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['team-wins', teamId],
+    queryFn: async (): Promise<TeamWin[]> => {
+      const res = await fetch(`/api/team-wins?team_id=${encodeURIComponent(teamId)}&days=14`);
+      if (!res.ok) throw new Error('Failed to load wins');
+      const json = await res.json();
+      return json.wins ?? [];
+    },
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    retry: false,
+  });
+
+  if (isLoading) {
+    return (
+      <Card className="overflow-hidden border-zinc-800">
+        <CardHeader className="pb-3 pt-4 px-5">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-7 w-7 rounded-lg" />
+            <Skeleton className="h-4 w-24 rounded" />
+          </div>
+        </CardHeader>
+        <CardContent className="px-5 pb-5 space-y-2.5">
+          <Skeleton className="h-12 rounded-xl" />
+          <Skeleton className="h-12 rounded-xl" />
+          <Skeleton className="h-12 rounded-xl" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data || data.length === 0) return null;
+
+  return (
+    <Card className="overflow-hidden border-zinc-800">
+      <CardHeader className="pb-2 pt-4 px-5">
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold text-zinc-300">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/15">
+            <Trophy className="h-4 w-4 text-amber-400" />
+          </div>
+          Team Wins
+          <span className="ml-auto text-xs font-normal text-zinc-500">last 14 days</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-5 pb-4 space-y-2">
+        {data.slice(0, 8).map((win, i) => {
+          const isBadge = win.type === 'badge';
+          const date = isBadge ? (win as any).earned_at : (win as any).achieved_at;
+          return (
+            <Link
+              key={i}
+              href={`/roster/${win.player_id}`}
+              className="group flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3 transition-all hover:border-zinc-700 hover:bg-zinc-800/60 active:scale-[0.98] touch-manipulation"
+            >
+              {/* Icon */}
+              <div
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                  isBadge ? 'bg-amber-500/15' : 'bg-emerald-500/15'
+                }`}
+              >
+                {isBadge ? (
+                  <Award className="h-4 w-4 text-amber-400" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                )}
+              </div>
+
+              {/* Text */}
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-zinc-200 truncate">
+                  {win.player_jersey != null && (
+                    <span className="mr-1 text-zinc-500 text-xs">#{win.player_jersey}</span>
+                  )}
+                  {win.player_name.split(' ')[0]}
+                  {' '}
+                  <span className={isBadge ? 'text-amber-400' : 'text-emerald-400'}>
+                    {isBadge ? `earned ${(win as any).badge_name}` : 'achieved goal'}
+                  </span>
+                </p>
+                <p className="text-xs text-zinc-500 truncate">
+                  {isBadge ? (win as any).badge_description : (win as any).goal_text}
+                </p>
+              </div>
+
+              {/* Time */}
+              <span className="shrink-0 text-[10px] text-zinc-600">{formatTimeAgo(date)}</span>
+            </Link>
+          );
+        })}
+        {data.length > 8 && (
+          <p className="text-center text-xs text-zinc-600 pt-1">
+            +{data.length - 8} more this fortnight
+          </p>
+        )}
       </CardContent>
     </Card>
   );
@@ -600,6 +706,11 @@ export default function HomePage() {
       {/* AI Coaching Tips — proactive suggestions shown when there's enough data */}
       {!isLoadingStats && stats && stats.observations >= 5 && (
         <CoachingTipsCard teamId={activeTeam.id} />
+      )}
+
+      {/* Team Wins — recent badge achievements and achieved goals */}
+      {!isLoadingStats && stats && stats.players > 0 && (
+        <TeamWinsCard teamId={activeTeam.id} />
       )}
 
       {/* Empty state prompt for new users — only shown after data loads */}
