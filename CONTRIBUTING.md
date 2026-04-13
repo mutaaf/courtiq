@@ -93,7 +93,7 @@ You run every hour. Here's how to be effective.
 - [x] Service worker for offline app shell — vanilla SW (public/sw.js): Cache-First for _next/static and images, Network-First for pages with /offline fallback, Network-Only for /api; SwRegister in root layout; /offline public page added to middleware allowlist
 - [x] Install prompt (add to home screen) with custom banner — PwaInstallPrompt component: listens for beforeinstallprompt, shows after 2 visits, dismissible for 14 days, positioned above mobile bottom nav
 - [ ] Image/asset lazy loading with blur placeholders
-- [ ] Code splitting for dashboard routes
+- [x] Code splitting for dashboard routes — `next/dynamic` for 4 analytics charts (LineChart, SessionTrendChart, HeatmapGrid, TransferScoreChart) extracted to `src/components/analytics/`; shared types/helpers in `chart-utils.ts`; QuickCaptureWidget lazy-loaded in DashboardShell (ssr:false); analytics page 1924→1365 lines
 - [x] Optimistic updates on mutations (instant UI feedback) — game tracker stat/undo mutations; `onMutate` updates cache instantly, `onSettled` syncs; stat buttons no longer blocked while pending; error haptic on failure; undo hidden for un-persisted optimistic entries
 - [x] Background sync for observations captured offline — useSyncEngine hook wires online/offline monitoring + periodic sync engine; review page falls back to IndexedDB when offline with amber "Saved Locally" success state; sync engine uses mutate() (API route) instead of direct Supabase client; service worker handles BackgroundSync 'sync' event and notifies open clients; 9 unit tests
 - [ ] Prefetch adjacent pages on hover/focus
