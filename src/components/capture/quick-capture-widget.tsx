@@ -6,6 +6,7 @@ import { Mic, X, CheckCircle2, Loader2, AlertCircle, Square, Zap } from 'lucide-
 import { cn } from '@/lib/utils';
 import { findPlayerByName } from '@/lib/player-match';
 import { useActiveTeam } from '@/hooks/use-active-team';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { mutate, query } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query/keys';
@@ -29,6 +30,14 @@ export function QuickCaptureWidget() {
   const recognitionRef = useRef<any>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const trapRef = useFocusTrap<HTMLDivElement>({
+    enabled: isOpen,
+    onEscape: () => {
+      const busy = widgetState === 'recording' || widgetState === 'processing';
+      if (!busy) close();
+    },
+  });
 
   const cleanupMedia = useCallback(() => {
     if (recognitionRef.current) {
@@ -273,10 +282,11 @@ export function QuickCaptureWidget() {
       {/* Modal overlay */}
       {isOpen && (
         <div
+          ref={trapRef}
           className="fixed inset-0 z-50 flex items-end justify-center"
           role="dialog"
           aria-modal="true"
-          aria-label="Quick Capture"
+          aria-labelledby="quick-capture-title"
         >
           {/* Backdrop */}
           <div
@@ -293,7 +303,7 @@ export function QuickCaptureWidget() {
             <div className="mb-5 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Zap className="h-4 w-4 text-orange-500" />
-                <span className="text-sm font-semibold text-zinc-100">Quick Capture</span>
+                <span id="quick-capture-title" className="text-sm font-semibold text-zinc-100">Quick Capture</span>
                 {activeTeam && (
                   <span className="text-xs text-zinc-500">· {activeTeam.name}</span>
                 )}

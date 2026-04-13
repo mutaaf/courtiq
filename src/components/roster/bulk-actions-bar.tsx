@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { MessageSquarePlus, Share2, X, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { mutate } from '@/lib/api';
 import type { Player } from '@/types/database';
 
@@ -27,6 +28,11 @@ export function BulkActionsBar({ selectedPlayers, teamId, coachId, onClear }: Bu
   const [shareMessage, setShareMessage] = useState('');
 
   const count = selectedPlayers.length;
+
+  const obsTrapRef = useFocusTrap<HTMLDivElement>({
+    enabled: obsModal,
+    onEscape: () => setObsModal(false),
+  });
 
   async function handleBulkObservation() {
     if (!obsText.trim()) return;
@@ -162,9 +168,9 @@ export function BulkActionsBar({ selectedPlayers, teamId, coachId, onClear }: Bu
       {/* Observation Modal */}
       {obsModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setObsModal(false)}>
-          <div className="w-full max-w-md rounded-2xl bg-zinc-900 border border-zinc-700 p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div ref={obsTrapRef} role="dialog" aria-modal="true" aria-labelledby="bulk-obs-title" className="w-full max-w-md rounded-2xl bg-zinc-900 border border-zinc-700 p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-zinc-100">
+              <h3 id="bulk-obs-title" className="text-base font-semibold text-zinc-100">
                 Add observation for {count} player{count !== 1 ? 's' : ''}
               </h3>
               <button onClick={() => setObsModal(false)} className="text-zinc-400 hover:text-zinc-200 p-1">

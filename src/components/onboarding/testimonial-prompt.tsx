@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { X, Star, Heart, MessageSquare, Share2 } from 'lucide-react';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 
 const PROMPT_KEY_PREFIX = 'sportsiq-nps-';
 const SNOOZE_DAYS = 30;
@@ -47,6 +48,11 @@ export function TestimonialPrompt({ coachId, observationCount }: Props) {
   const [selectedStar, setSelectedStar] = useState(0);
   const [feedback, setFeedback] = useState('');
 
+  const trapRef = useFocusTrap<HTMLDivElement>({
+    enabled: visible,
+    onEscape: () => close(false),
+  });
+
   useEffect(() => {
     if (observationCount < 10) return;
     if (!shouldShowPrompt(coachId)) return;
@@ -88,7 +94,7 @@ export function TestimonialPrompt({ coachId, observationCount }: Props) {
   const displayStars = hoveredStar || selectedStar;
 
   return (
-    <div className="fixed inset-0 z-[100]" aria-modal="true" role="dialog">
+    <div ref={trapRef} className="fixed inset-0 z-[100]" aria-modal="true" role="dialog" aria-labelledby="testimonial-title">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
@@ -112,7 +118,7 @@ export function TestimonialPrompt({ coachId, observationCount }: Props) {
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-500/15">
               <Star className="h-6 w-6 text-orange-400" />
             </div>
-            <h3 className="text-lg font-bold text-zinc-100">
+            <h3 id="testimonial-title" className="text-lg font-bold text-zinc-100">
               Enjoying SportsIQ?
             </h3>
             <p className="mt-1.5 text-sm text-zinc-400 leading-relaxed">

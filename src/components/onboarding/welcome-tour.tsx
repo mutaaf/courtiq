@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { X, ChevronRight, Mic, Users, Sparkles, Settings } from 'lucide-react';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 
 const TOUR_STORAGE_KEY = 'sportsiq-tour-complete';
 
@@ -108,6 +109,11 @@ export function WelcomeTour() {
     setVisible(false);
   }, []);
 
+  const trapRef = useFocusTrap<HTMLDivElement>({
+    enabled: visible,
+    onEscape: completeTour,
+  });
+
   const nextStep = useCallback(() => {
     if (currentStep >= TOUR_STEPS.length - 1) {
       completeTour();
@@ -140,7 +146,7 @@ export function WelcomeTour() {
   }
 
   return (
-    <div className="fixed inset-0 z-[100]" aria-modal="true" role="dialog">
+    <div ref={trapRef} className="fixed inset-0 z-[100]" aria-modal="true" role="dialog" aria-labelledby="tour-title">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
 
@@ -176,7 +182,7 @@ export function WelcomeTour() {
           <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/20">
             <Icon className="h-5 w-5 text-orange-500" />
           </div>
-          <h3 className="text-lg font-semibold text-zinc-100">{step.title}</h3>
+          <h3 id="tour-title" className="text-lg font-semibold text-zinc-100">{step.title}</h3>
           <p className="mt-1.5 text-sm text-zinc-400 leading-relaxed">
             {step.description}
           </p>
