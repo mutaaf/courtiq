@@ -117,6 +117,72 @@ body {
   }
 }
 
+/* ── High contrast mode ──────────────────────────────────────────────────
+ *
+ * Applied when the user enables the high-contrast toggle in Settings.
+ * Targets the zinc design tokens used throughout the app so that the
+ * overall layout chrome doesn't need individual component changes.
+ *
+ * Goals: WCAG AA 4.5:1 minimum contrast on all text/background combos.
+ * - Background: pure black (#000)
+ * - Surfaces:   very dark (#0a0a0a / #111)
+ * - Text:       pure white (#fff) — muted text lifted to light grey
+ * - Borders:    brighter (#555 → #888) for clear edge visibility
+ * - Accent:     orange-500 kept as-is (already high-contrast on black)
+ */
+
+.high-contrast {
+  --background: #000000;
+  --foreground: #ffffff;
+  --bg: #000000;
+  --card-bg: #111111;
+  --border: #555555;
+  --text: #ffffff;
+  --text-muted: #cccccc;
+}
+
+/* Backgrounds */
+.high-contrast .bg-zinc-950 { background-color: #000000; }
+.high-contrast .bg-zinc-900 { background-color: #111111; }
+.high-contrast .bg-zinc-900\/50 { background-color: #111111; }
+.high-contrast .bg-zinc-900\/95 { background-color: #111111; }
+.high-contrast .bg-zinc-900\/30 { background-color: #111111; }
+.high-contrast .bg-zinc-800 { background-color: #1a1a1a; }
+.high-contrast .bg-zinc-800\/50 { background-color: #1a1a1a; }
+.high-contrast .bg-zinc-700 { background-color: #2a2a2a; }
+.high-contrast .bg-zinc-700\/50 { background-color: #2a2a2a; }
+
+/* Borders */
+.high-contrast .border-zinc-800 { border-color: #555555; }
+.high-contrast .border-zinc-700 { border-color: #666666; }
+.high-contrast .border-zinc-700\/50 { border-color: #444444; }
+.high-contrast .border-zinc-600 { border-color: #777777; }
+
+/* Text — lift muted shades to meet AA contrast on black */
+.high-contrast .text-zinc-100 { color: #ffffff; }
+.high-contrast .text-zinc-200 { color: #f0f0f0; }
+.high-contrast .text-zinc-300 { color: #e0e0e0; }
+.high-contrast .text-zinc-400 { color: #cccccc; }
+.high-contrast .text-zinc-500 { color: #bbbbbb; }
+.high-contrast .text-zinc-600 { color: #aaaaaa; }
+
+/* Placeholders */
+.high-contrast .placeholder\:text-zinc-500::placeholder { color: #aaaaaa; }
+
+/* Hover states */
+.high-contrast .hover\:bg-zinc-700:hover { background-color: #2a2a2a; }
+.high-contrast .hover\:bg-zinc-800:hover { background-color: #1a1a1a; }
+.high-contrast .hover\:border-zinc-700:hover { border-color: #666666; }
+.high-contrast .hover\:border-zinc-600:hover { border-color: #777777; }
+.high-contrast .hover\:text-zinc-200:hover { color: #f0f0f0; }
+.high-contrast .hover\:text-zinc-300:hover { color: #e0e0e0; }
+
+/* Ring */
+.high-contrast .ring-zinc-700 { --tw-ring-color: #666666; }
+
+/* Focus */
+.high-contrast .focus-within\:border-orange-500\/50:focus-within { border-color: rgba(249, 115, 22, 0.8); }
+
 /* ── Reduced motion: globally disable transitions + animations ───────────
  *
  * Catches every Tailwind utility class (transition-*, animate-spin,

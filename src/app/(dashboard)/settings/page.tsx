@@ -6,7 +6,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import {
   User,
   Building2,
-  Shield,
   ChevronRight,
   Dumbbell,
   Sparkles,
@@ -18,9 +17,11 @@ import {
   Award,
   Webhook,
   History,
+  Contrast,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from '@/hooks/use-theme';
+import { useHighContrast } from '@/hooks/use-high-contrast';
 
 interface SettingCard {
   href: string;
@@ -108,6 +109,7 @@ const SETTING_CARDS: SettingCard[] = [
 
 export default function SettingsPage() {
   const { theme, toggleTheme } = useTheme();
+  const { highContrast, toggleHighContrast } = useHighContrast();
 
   const { data: coach } = useQuery({
     queryKey: queryKeys.coach.current(),
@@ -175,6 +177,36 @@ export default function SettingsPage() {
             </div>
             <div className="flex h-8 items-center rounded-full bg-zinc-800 px-3 text-xs font-medium text-zinc-400">
               {theme === 'dark' ? 'Dark' : 'Light'}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* High contrast toggle card */}
+        <Card
+          className="h-full cursor-pointer transition-colors hover:border-zinc-700 active:scale-[0.98] touch-manipulation"
+          onClick={toggleHighContrast}
+          role="switch"
+          aria-checked={highContrast}
+          aria-label="High contrast mode"
+        >
+          <CardContent className="flex items-center gap-4 p-5 sm:p-4">
+            <div className={`flex h-12 w-12 sm:h-10 sm:w-10 items-center justify-center rounded-lg shrink-0 ${
+              highContrast ? 'text-white bg-zinc-700' : 'text-zinc-400 bg-zinc-800/50'
+            }`}>
+              <Contrast className="h-6 w-6 sm:h-5 sm:w-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-base sm:text-sm">High Contrast</p>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                {highContrast ? 'High contrast is on — pure black/white' : 'Increase contrast for better readability'}
+              </p>
+            </div>
+            <div className={`flex h-8 items-center rounded-full px-3 text-xs font-medium transition-colors ${
+              highContrast
+                ? 'bg-orange-500 text-white'
+                : 'bg-zinc-800 text-zinc-400'
+            }`}>
+              {highContrast ? 'On' : 'Off'}
             </div>
           </CardContent>
         </Card>
