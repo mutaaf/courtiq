@@ -40,6 +40,7 @@ import {
   Play,
   Shuffle,
   Repeat2,
+  Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
@@ -681,6 +682,12 @@ export default function SessionDetailPage() {
               </Button>
             </Link>
           )}
+          <Link href={`/sessions/${sessionId}/attendance`}>
+            <Button variant="outline" size="sm" className="border-zinc-700 text-zinc-400 hover:bg-zinc-800">
+              <Users className="h-4 w-4" />
+              <span className="hidden sm:inline">Attendance</span>
+            </Button>
+          </Link>
           <Link href={`/sessions/${sessionId}/replay`}>
             <Button variant="outline" size="sm" className="border-zinc-700 text-zinc-400 hover:bg-zinc-800">
               <Play className="h-4 w-4" />

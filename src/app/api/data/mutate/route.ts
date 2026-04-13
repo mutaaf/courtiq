@@ -17,6 +17,7 @@ export async function POST(request: Request) {
     'players', 'observations', 'sessions', 'plans', 'recordings',
     'media', 'teams', 'coaches', 'team_coaches', 'parent_shares',
     'config_overrides', 'organizations', 'drills', 'season_archives',
+    'session_attendance',
   ];
 
   if (!allowed.includes(table)) {

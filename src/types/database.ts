@@ -18,6 +18,7 @@ export type ConfigAuditAction = 'create' | 'update' | 'delete' | 'reset';
 export type CVProcessingStatus = 'none' | 'pending' | 'processing' | 'complete' | 'failed';
 export type CVJobStatus = 'queued' | 'processing' | 'complete' | 'failed' | 'cancelled';
 export type CVJobPriority = 'high' | 'medium' | 'low' | 'batch';
+export type AttendanceStatus = 'present' | 'absent' | 'excused';
 export type WebhookEvent =
   | 'observation.created'
   | 'session.created'
@@ -176,6 +177,16 @@ export interface Session {
   coach_debrief_text: string | null;
   coach_debrief_extracts: Json | null;
   created_at: string;
+}
+
+export interface SessionAttendance {
+  id: string;
+  session_id: string;
+  player_id: string;
+  status: AttendanceStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Observation {

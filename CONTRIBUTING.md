@@ -107,6 +107,11 @@ You run every hour. Here's how to be effective.
 - [x] Reduce motion preference support — useReducedMotion hook (reactive, SSR-safe); global CSS `* { animation-duration: 0.01ms; transition-duration: 0.01ms }` disables all Tailwind transition-*/animate-* utilities; useHaptic skips navigator.vibrate(); PullToRefresh skips inline-style transitions + haptics; 13 unit tests
 - [x] High contrast mode toggle — useHighContrast hook (localStorage, SSR-safe); .high-contrast CSS class lifts zinc surfaces/text to WCAG AA 4.5:1 (black bg, white text, #555 borders); Settings page Contrast icon toggle card with On/Off pill + aria-checked; 17 unit tests
 
+### P10 — Coach Operations & Logistics
+- [x] **Session attendance tracking** — coaches mark present/absent/excused for each player per session; `/sessions/[id]/attendance` page with summary strip (counts + %), quick "mark all" buttons, per-player toggle row, delete-then-insert save; `session_attendance` table + migration; `AttendanceStatus` + `SessionAttendance` types; Attendance button in session detail header; 8 unit tests
+- [ ] **Attendance trend report** — show each player's attendance % over the season in their profile and in a team attendance summary panel
+- [ ] **Recurring session scheduler** — create a weekly recurring session (e.g. every Tuesday 4-5pm) that auto-generates sessions for the whole season
+
 ### P9 — Testing & Reliability
 - [x] Component tests for key UI (roster card, recording button, plan card) — 93 new tests in tests/player-card.test.tsx (25), tests/recording-button.test.tsx (35), tests/plan-type-config.test.ts (33); total suite now 251 tests
 - [x] Integration tests for API routes (config, segment, plan, share) — 44 tests: config resolver pure functions, handleAIError, config GET/PUT/DELETE route auth+validation, share [token] GET (404/410/403/200), share create POST (401/400/404/200); Supabase mocked via vi.hoisted; suite now 295 tests
