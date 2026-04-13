@@ -15,6 +15,7 @@ import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareAr
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { ParentEngagementPanel } from '@/components/roster/parent-engagement-panel';
+import { TeamAttendancePanel } from '@/components/roster/team-attendance-panel';
 import type { Player } from '@/types/database';
 
 export default function RosterPage() {
@@ -164,6 +165,11 @@ export default function RosterPage() {
       {/* Parent Engagement Panel — shown once there are players */}
       {players.length > 0 && activeTeam && (
         <ParentEngagementPanel teamId={activeTeam.id} />
+      )}
+
+      {/* Team Attendance Panel — shown once attendance has been tracked */}
+      {players.length > 0 && activeTeam && (
+        <TeamAttendancePanel teamId={activeTeam.id} />
       )}
 
       {/* Search & Filter - sticky on mobile */}

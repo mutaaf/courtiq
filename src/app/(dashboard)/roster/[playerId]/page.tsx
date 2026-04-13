@@ -35,11 +35,13 @@ import {
   ClipboardCheck,
   ChevronDown,
   ChevronUp,
+  CalendarCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 import { PrintButton } from '@/components/ui/print-button';
 import type { Player, Observation, PlayerSkillProficiency, Plan, Sentiment } from '@/types/database';
+import type { PlayerAttendanceStat } from '@/app/api/attendance-stats/route';
 
 type Tab = 'overview' | 'observations' | 'report-card' | 'media' | 'share' | 'challenges' | 'storyline' | 'self-assessment';
 
@@ -155,6 +157,19 @@ export default function PlayerDetailPage({
     },
     enabled: activeTab === 'self-assessment',
     ...CACHE_PROFILES.roster,
+  });
+
+  // Attendance stats for this player
+  const { data: attendanceStat } = useQuery<PlayerAttendanceStat>({
+    queryKey: ['attendance-stats-player', playerId],
+    queryFn: async () => {
+      const res = await fetch(`/api/attendance-stats?player_id=${playerId}`);
+      if (!res.ok) throw new Error('Failed to load attendance stats');
+      return res.json();
+    },
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    enabled: activeTab === 'overview',
   });
 
   // Category breakdown
@@ -671,6 +686,87 @@ export default function PlayerDetailPage({
               )}
             </CardContent>
           </Card>
+
+          {/* Attendance Summary */}
+          {attendanceStat && attendanceStat.totalSessions > 0 && (
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CalendarCheck className="h-4 w-4 text-orange-400" />
+                  Attendance
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                  {/* Big % */}
+                  <div className="flex flex-col items-center justify-center shrink-0 h-20 w-20 rounded-full border-4 border-zinc-800 bg-zinc-900 mx-auto sm:mx-0"
+                    style={{
+                      borderColor: attendanceStat.pct >= 80 ? 'rgb(16 185 129 / 0.5)' : attendanceStat.pct >= 60 ? 'rgb(251 191 36 / 0.5)' : 'rgb(239 68 68 / 0.5)',
+                    }}
+                  >
+                    <span className={`text-2xl font-bold tabular-nums ${attendanceStat.pct >= 80 ? 'text-emerald-400' : attendanceStat.pct >= 60 ? 'text-amber-400' : 'text-red-400'}`}>
+                      {attendanceStat.pct}%
+                    </span>
+                    <span className="text-[10px] text-zinc-500 mt-0.5">present</span>
+                  </div>
+
+                  {/* Stats + dots */}
+                  <div className="flex-1 space-y-3">
+                    {/* Session counts */}
+                    <div className="flex items-center gap-4 text-sm">
+                      <span className="flex items-center gap-1.5 text-emerald-400">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {attendanceStat.present} present
+                      </span>
+                      {attendanceStat.excused > 0 && (
+                        <span className="flex items-center gap-1.5 text-amber-400">
+                          <Clock className="h-3.5 w-3.5" />
+                          {attendanceStat.excused} excused
+                        </span>
+                      )}
+                      {attendanceStat.absent > 0 && (
+                        <span className="text-red-400">{attendanceStat.absent} absent</span>
+                      )}
+                    </div>
+
+                    {/* Recent session dots */}
+                    {attendanceStat.recentSessions.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs text-zinc-500">Last {attendanceStat.recentSessions.length} sessions</p>
+                        <div className="flex items-center gap-1.5" aria-label="Recent session attendance">
+                          {attendanceStat.recentSessions.map((s, i) => (
+                            <span
+                              key={i}
+                              title={`${s.date}: ${s.status}`}
+                              className={`h-3 w-3 rounded-full shrink-0 ${
+                                s.status === 'present'
+                                  ? 'bg-emerald-500'
+                                  : s.status === 'excused'
+                                    ? 'bg-amber-400'
+                                    : 'bg-red-500'
+                              }`}
+                            />
+                          ))}
+                          <span className="text-xs text-zinc-600 ml-1">← newest</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Bar */}
+                    <div className="h-2 w-full rounded-full bg-zinc-800 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          attendanceStat.pct >= 80 ? 'bg-emerald-500' : attendanceStat.pct >= 60 ? 'bg-amber-400' : 'bg-red-500'
+                        }`}
+                        style={{ width: `${attendanceStat.pct}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-zinc-500">{attendanceStat.totalSessions} session{attendanceStat.totalSessions !== 1 ? 's' : ''} tracked this season</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Recent Observations */}
           <Card className="lg:col-span-2">
