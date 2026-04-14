@@ -37,16 +37,18 @@ import {
   ChevronUp,
   CalendarCheck,
   Target,
+  StickyNote,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 import { PrintButton } from '@/components/ui/print-button';
 import { AchievementBadgesPanel } from '@/components/player/achievement-badges';
 import { PlayerGoalsPanel } from '@/components/player/player-goals-panel';
+import { PlayerNotesPanel } from '@/components/player/player-notes-panel';
 import type { Player, Observation, PlayerSkillProficiency, Plan, Sentiment } from '@/types/database';
 import type { PlayerAttendanceStat } from '@/app/api/attendance-stats/route';
 
-type Tab = 'overview' | 'observations' | 'report-card' | 'media' | 'share' | 'challenges' | 'storyline' | 'self-assessment' | 'goals';
+type Tab = 'overview' | 'observations' | 'report-card' | 'media' | 'share' | 'challenges' | 'storyline' | 'self-assessment' | 'goals' | 'notes';
 
 const sentimentVariant: Record<Sentiment, 'success' | 'destructive' | 'secondary'> = {
   positive: 'success',
@@ -191,6 +193,7 @@ export default function PlayerDetailPage({
     { id: 'observations', label: 'Observations', icon: <Eye className="h-4 w-4" /> },
     { id: 'report-card', label: 'Report Card', icon: <FileText className="h-4 w-4" /> },
     { id: 'goals', label: 'Goals', icon: <Target className="h-4 w-4" /> },
+    { id: 'notes', label: 'Notes', icon: <StickyNote className="h-4 w-4" /> },
     { id: 'challenges', label: 'Challenges', icon: <Zap className="h-4 w-4" /> },
     { id: 'storyline', label: 'Storyline', icon: <BookOpen className="h-4 w-4" /> },
     { id: 'self-assessment', label: 'Self-Assessment', icon: <ClipboardCheck className="h-4 w-4" /> },
@@ -1563,6 +1566,10 @@ export default function PlayerDetailPage({
 
       {activeTab === 'goals' && activeTeam && (
         <PlayerGoalsPanel playerId={playerId} teamId={activeTeam.id} />
+      )}
+
+      {activeTab === 'notes' && activeTeam && (
+        <PlayerNotesPanel playerId={playerId} teamId={activeTeam.id} />
       )}
 
       {activeTab === 'share' && (

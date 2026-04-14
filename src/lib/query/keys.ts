@@ -58,4 +58,7 @@ export const queryKeys = {
   goals: {
     player: (playerId: string) => ['goals', 'player', playerId] as const,
   },
+  playerNotes: {
+    player: (playerId: string) => ['playerNotes', 'player', playerId] as const,
+  },
 } as const;

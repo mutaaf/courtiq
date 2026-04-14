@@ -586,3 +586,16 @@ export interface PlayerGoal {
   created_at: string;
   updated_at: string;
 }
+
+// ─── Player Notes (Private Coach Journal) ────────────────────────────────────
+
+export interface PlayerNote {
+  id: string;
+  player_id: string;
+  team_id: string;
+  coach_id: string | null;
+  content: string;
+  pinned: boolean;
+  created_at: string;
+  updated_at: string;
+}
