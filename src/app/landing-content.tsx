@@ -38,18 +38,18 @@ export default function LandingContent() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+    <div className="min-h-screen bg-white text-zinc-900">
       {/* ── Nav ── */}
-      <nav className="sticky top-0 z-50 border-b border-zinc-800/60 bg-zinc-950/80 backdrop-blur-lg">
+      <nav className="sticky top-0 z-50 border-b border-zinc-200 bg-white/80 backdrop-blur-lg">
         <div className="flex items-center justify-between px-4 py-3 max-w-6xl mx-auto">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-500 p-1.5 shadow-lg shadow-orange-500/20">
               <Image src="/logo.svg" alt="SportsIQ" width={24} height={24} className="invert" />
             </div>
-            <span className="font-bold text-lg">SportsIQ</span>
+            <span className="font-bold text-lg text-zinc-900">SportsIQ</span>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/login" className="hidden sm:inline-flex text-sm font-medium text-zinc-400 hover:text-zinc-100 transition-colors px-3 py-2">
+            <Link href="/login" className="hidden sm:inline-flex text-sm font-medium text-zinc-400 hover:text-zinc-700 transition-colors px-3 py-2">
               Sign in
             </Link>
             <Button asChild size="sm">
@@ -61,7 +61,7 @@ export default function LandingContent() {
 
       {/* ── Hero ── */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-orange-500/5 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-orange-50 via-transparent to-transparent pointer-events-none" />
         <div className="relative flex flex-col items-center px-4 pt-12 pb-16 sm:pt-20 sm:pb-24 text-center max-w-3xl mx-auto">
           <Badge className="mb-6">Used by 50+ youth coaches across YMCA, AAU &amp; rec leagues</Badge>
 
@@ -81,7 +81,7 @@ export default function LandingContent() {
                 <ArrowRight className="ml-1.5 h-5 w-5" />
               </Link>
             </Button>
-            <Button asChild variant="outline" size="xl" className="border-zinc-700">
+            <Button asChild variant="outline" size="xl" className="border-zinc-300">
               <button onClick={() => scrollTo('how-it-works')}>
                 Watch how it works
                 <ChevronDown className="ml-1.5 h-4 w-4" />
@@ -89,12 +89,12 @@ export default function LandingContent() {
             </Button>
           </div>
 
-          <p className="mt-4 text-xs text-zinc-500">20-second demo. No signup required.</p>
+          <p className="mt-4 text-xs text-zinc-400">20-second demo. No signup required.</p>
         </div>
       </section>
 
       {/* ── Problem Statement ── */}
-      <section className="border-y border-zinc-800/50 bg-zinc-900/30 py-14 sm:py-20">
+      <section className="border-y border-zinc-200 bg-zinc-50/50 py-14 sm:py-20">
         <div className="mx-auto max-w-4xl px-4">
           <h2 className="text-center text-2xl font-bold sm:text-3xl mb-10">Sound familiar?</h2>
           <div className="grid gap-6 sm:grid-cols-3">
@@ -115,8 +115,8 @@ export default function LandingContent() {
                 detail: 'You see the progress in real time, but you have no record of it. Season-end reports are guesswork.',
               },
             ].map((p) => (
-              <Card key={p.pain} className="p-6 text-center hover:border-zinc-700 transition-colors">
-                <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-orange-500/10">
+              <Card key={p.pain} className="p-6 text-center hover:border-zinc-300 transition-colors">
+                <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50">
                   <p.icon className="h-5 w-5 text-orange-500" />
                 </div>
                 <p className="font-semibold text-sm text-orange-400 mb-2">{p.pain}</p>
@@ -142,7 +142,7 @@ export default function LandingContent() {
               color: 'orange',
               title: 'Record',
               desc: 'Hit record during practice and talk naturally. "Marcus needs work on his left hand." We handle the rest.',
-              ring: 'ring-orange-500/30 bg-orange-500/15',
+              ring: 'ring-orange-500/30 bg-orange-100',
               badge: 'bg-orange-500',
               iconColor: 'text-orange-500',
             },
@@ -152,7 +152,7 @@ export default function LandingContent() {
               color: 'blue',
               title: 'AI Analyzes',
               desc: 'Your words become per-player observations, sorted by skill, linked to your curriculum. Automatically.',
-              ring: 'ring-blue-500/30 bg-blue-500/15',
+              ring: 'ring-blue-500/30 bg-blue-50',
               badge: 'bg-blue-500',
               iconColor: 'text-blue-500',
             },
@@ -191,7 +191,7 @@ export default function LandingContent() {
       </section>
 
       {/* ── For Coaches ── */}
-      <section className="border-y border-zinc-800/50 bg-zinc-900/30 py-16 sm:py-24">
+      <section className="border-y border-zinc-200 bg-zinc-50/50 py-16 sm:py-24">
         <div className="mx-auto max-w-4xl px-4">
           <div className="text-center mb-12">
             <h2 className="text-2xl font-bold sm:text-3xl">Built for coaches like you</h2>
@@ -199,11 +199,11 @@ export default function LandingContent() {
           </div>
 
           {/* Testimonial */}
-          <Card className="p-6 sm:p-8 mb-10 border-orange-500/20 bg-zinc-900/80">
-            <blockquote className="text-base sm:text-lg text-zinc-200 leading-relaxed italic text-center">
+          <Card className="p-6 sm:p-8 mb-10 border-orange-200 bg-zinc-50">
+            <blockquote className="text-base sm:text-lg text-zinc-800 leading-relaxed italic text-center">
               &ldquo;I used to forget what I wanted to work on by the time I got home. Now everything&apos;s captured before I even leave the gym.&rdquo;
             </blockquote>
-            <p className="mt-4 text-sm text-zinc-500 text-center">-- A YMCA Youth Basketball Coach</p>
+            <p className="mt-4 text-sm text-zinc-400 text-center">-- A YMCA Youth Basketball Coach</p>
           </Card>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -213,8 +213,8 @@ export default function LandingContent() {
               { icon: BarChart3, label: 'Player report cards', desc: 'Beautiful progress reports parents love.' },
               { icon: Smartphone, label: 'No tech skills required', desc: 'If you can press record, you\'re good.' },
             ].map((b) => (
-              <div key={b.label} className="flex items-start gap-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-5 hover:border-zinc-700 transition-colors">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-500/10">
+              <div key={b.label} className="flex items-start gap-4 rounded-xl border border-zinc-200 bg-zinc-50 p-5 hover:border-zinc-300 transition-colors">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-50">
                   <b.icon className="h-5 w-5 text-orange-500" />
                 </div>
                 <div>
@@ -241,8 +241,8 @@ export default function LandingContent() {
             { icon: Users, label: 'Coach engagement', desc: 'See which coaches are actively recording and tracking.' },
             { icon: BarChart3, label: 'Standardized reporting', desc: 'Consistent progress reports across your entire program.' },
           ].map((b) => (
-            <Card key={b.label} className="p-6 text-center hover:border-zinc-700 transition-colors">
-              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10">
+            <Card key={b.label} className="p-6 text-center hover:border-zinc-300 transition-colors">
+              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
                 <b.icon className="h-5 w-5 text-emerald-500" />
               </div>
               <p className="font-semibold text-sm">{b.label}</p>
@@ -258,15 +258,15 @@ export default function LandingContent() {
       </section>
 
       {/* ── Demo Preview ── */}
-      <section className="border-y border-zinc-800/50 bg-zinc-900/30 py-16 sm:py-20">
+      <section className="border-y border-zinc-200 bg-zinc-50/50 py-16 sm:py-20">
         <div className="mx-auto max-w-3xl px-4 text-center">
           <h2 className="text-2xl font-bold sm:text-3xl mb-4">See it in action</h2>
           <p className="text-zinc-400 mb-8">Try the live recording demo. 20 seconds, no account needed.</p>
 
-          <Card className="p-8 sm:p-10 border-orange-500/20 hover:border-orange-500/40 transition-colors">
+          <Card className="p-8 sm:p-10 border-orange-200 hover:border-orange-500/40 transition-colors">
             <div className="flex flex-col items-center gap-5">
               <div className="relative">
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-orange-500/15 ring-2 ring-orange-500/30">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-orange-100 ring-2 ring-orange-500/30">
                   <Mic className="h-10 w-10 text-orange-500" />
                 </div>
                 <span className="absolute -top-1 -right-1 flex h-5 w-5">
@@ -295,14 +295,14 @@ export default function LandingContent() {
           <p className="mt-3 text-zinc-400">Start free. Upgrade when you&apos;re ready.</p>
 
           <div className="mt-6 flex items-center justify-center gap-3">
-            <span className={`text-sm font-medium ${!annual ? 'text-zinc-100' : 'text-zinc-500'}`}>Monthly</span>
+            <span className={`text-sm font-medium ${!annual ? 'text-zinc-900' : 'text-zinc-400'}`}>Monthly</span>
             <button
               onClick={() => setAnnual(!annual)}
-              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${annual ? 'bg-orange-500' : 'bg-zinc-700'}`}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${annual ? 'bg-orange-500' : 'bg-zinc-300'}`}
             >
               <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${annual ? 'translate-x-6' : 'translate-x-1'}`} />
             </button>
-            <span className={`text-sm font-medium ${annual ? 'text-zinc-100' : 'text-zinc-500'}`}>Annual</span>
+            <span className={`text-sm font-medium ${annual ? 'text-zinc-900' : 'text-zinc-400'}`}>Annual</span>
             {annual && <Badge variant="success" className="ml-1">Save 20%</Badge>}
           </div>
         </div>
@@ -313,13 +313,13 @@ export default function LandingContent() {
             <h3 className="text-lg font-semibold">Free</h3>
             <div className="mt-2 flex items-baseline gap-1">
               <span className="text-3xl font-bold">$0</span>
-              <span className="text-zinc-500 text-sm">/month</span>
+              <span className="text-zinc-400 text-sm">/month</span>
             </div>
             <p className="mt-2 text-sm text-zinc-400">Perfect for trying it out</p>
             <ul className="mt-5 space-y-2.5 flex-1">
               {['1 team, 1 sport', '10 players per team', '5 AI observations/month', 'Basic practice plans'].map((f) => (
-                <li key={f} className="flex items-start gap-2 text-sm text-zinc-300">
-                  <Check className="h-4 w-4 mt-0.5 text-zinc-500 shrink-0" />
+                <li key={f} className="flex items-start gap-2 text-sm text-zinc-700">
+                  <Check className="h-4 w-4 mt-0.5 text-zinc-400 shrink-0" />
                   {f}
                 </li>
               ))}
@@ -337,12 +337,12 @@ export default function LandingContent() {
             <h3 className="text-lg font-semibold">Coach</h3>
             <div className="mt-2 flex items-baseline gap-1">
               <span className="text-3xl font-bold text-orange-500">${prices[1]}</span>
-              <span className="text-zinc-500 text-sm">{period}</span>
+              <span className="text-zinc-400 text-sm">{period}</span>
             </div>
             <p className="mt-2 text-sm text-zinc-400">For individual coaches</p>
             <ul className="mt-5 space-y-2.5 flex-1">
               {['3 teams, 1 sport', 'Unlimited players', 'Unlimited AI observations', 'Practice plans & game sheets', 'Player report cards', 'Parent sharing portal'].map((f) => (
-                <li key={f} className="flex items-start gap-2 text-sm text-zinc-300">
+                <li key={f} className="flex items-start gap-2 text-sm text-zinc-700">
                   <Check className="h-4 w-4 mt-0.5 text-orange-500 shrink-0" />
                   {f}
                 </li>
@@ -358,13 +358,13 @@ export default function LandingContent() {
             <h3 className="text-lg font-semibold">Pro Coach</h3>
             <div className="mt-2 flex items-baseline gap-1">
               <span className="text-3xl font-bold">${prices[2]}</span>
-              <span className="text-zinc-500 text-sm">{period}</span>
+              <span className="text-zinc-400 text-sm">{period}</span>
             </div>
             <p className="mt-2 text-sm text-zinc-400">For serious coaches</p>
             <ul className="mt-5 space-y-2.5 flex-1">
               {['Unlimited teams & sports', 'Everything in Coach', 'AI Coach Assistant', 'Player analytics & trends', 'Session media upload', 'Custom AI prompts'].map((f) => (
-                <li key={f} className="flex items-start gap-2 text-sm text-zinc-300">
-                  <Check className="h-4 w-4 mt-0.5 text-zinc-500 shrink-0" />
+                <li key={f} className="flex items-start gap-2 text-sm text-zinc-700">
+                  <Check className="h-4 w-4 mt-0.5 text-zinc-400 shrink-0" />
                   {f}
                 </li>
               ))}
@@ -383,8 +383,8 @@ export default function LandingContent() {
             <p className="mt-2 text-sm text-zinc-400">For leagues &amp; programs</p>
             <ul className="mt-5 space-y-2.5 flex-1">
               {['Everything in Pro Coach', 'Multi-coach collaboration', 'Program-wide analytics', 'Custom branding', 'Priority support'].map((f) => (
-                <li key={f} className="flex items-start gap-2 text-sm text-zinc-300">
-                  <Check className="h-4 w-4 mt-0.5 text-zinc-500 shrink-0" />
+                <li key={f} className="flex items-start gap-2 text-sm text-zinc-700">
+                  <Check className="h-4 w-4 mt-0.5 text-zinc-400 shrink-0" />
                   {f}
                 </li>
               ))}
@@ -397,7 +397,7 @@ export default function LandingContent() {
       </section>
 
       {/* ── FAQ ── */}
-      <section className="border-y border-zinc-800/50 bg-zinc-900/30 py-16 sm:py-20">
+      <section className="border-y border-zinc-200 bg-zinc-50/50 py-16 sm:py-20">
         <div className="mx-auto max-w-2xl px-4">
           <h2 className="text-2xl font-bold sm:text-3xl text-center mb-10">Frequently asked questions</h2>
           <div className="space-y-3">
@@ -426,11 +426,11 @@ export default function LandingContent() {
               <button
                 key={i}
                 onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                className="w-full text-left rounded-xl border border-zinc-800 bg-zinc-900/50 p-5 hover:border-zinc-700 transition-colors"
+                className="w-full text-left rounded-xl border border-zinc-200 bg-zinc-50 p-5 hover:border-zinc-300 transition-colors"
               >
                 <div className="flex items-center justify-between gap-4">
                   <span className="font-medium text-sm">{faq.q}</span>
-                  <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-500 transition-transform ${openFaq === i ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform ${openFaq === i ? 'rotate-180' : ''}`} />
                 </div>
                 {openFaq === i && (
                   <p className="mt-3 text-sm text-zinc-400 leading-relaxed">{faq.a}</p>
@@ -445,7 +445,7 @@ export default function LandingContent() {
       <section className="py-12 sm:py-16">
         <div className="mx-auto max-w-4xl px-4">
           <div className="text-center mb-8">
-            <p className="text-sm text-zinc-500 font-medium uppercase tracking-wider mb-4">Works with your sport</p>
+            <p className="text-sm text-zinc-400 font-medium uppercase tracking-wider mb-4">Works with your sport</p>
             <div className="flex justify-center gap-8">
               {[
                 { emoji: '\u{1F3C0}', name: 'Basketball' },
@@ -459,12 +459,12 @@ export default function LandingContent() {
               ))}
               <div className="flex flex-col items-center gap-1.5 opacity-50">
                 <span className="text-3xl">+</span>
-                <span className="text-xs font-medium text-zinc-500">More coming</span>
+                <span className="text-xs font-medium text-zinc-400">More coming</span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center justify-center gap-6 text-sm text-zinc-500 flex-wrap">
+          <div className="flex items-center justify-center gap-6 text-sm text-zinc-400 flex-wrap">
             <span className="flex items-center gap-1.5"><Shield className="h-4 w-4 text-emerald-500" /> COPPA Compliant</span>
             <span className="flex items-center gap-1.5"><Lock className="h-4 w-4 text-emerald-500" /> Encrypted</span>
             <span className="flex items-center gap-1.5"><WifiOff className="h-4 w-4 text-emerald-500" /> Works Offline</span>
@@ -473,7 +473,7 @@ export default function LandingContent() {
       </section>
 
       {/* ── Final CTA ── */}
-      <section className="bg-gradient-to-t from-orange-500/10 via-orange-500/5 to-transparent py-16 sm:py-24">
+      <section className="bg-gradient-to-t from-orange-100/50 via-orange-500/5 to-transparent py-16 sm:py-24">
         <div className="mx-auto max-w-2xl px-4 text-center">
           <h2 className="text-2xl font-bold sm:text-4xl">Start coaching smarter today</h2>
           <p className="mt-4 text-base sm:text-lg text-zinc-400">
@@ -486,7 +486,7 @@ export default function LandingContent() {
                 <ArrowRight className="ml-1.5 h-5 w-5" />
               </Link>
             </Button>
-            <Button asChild variant="outline" size="xl" className="border-zinc-700">
+            <Button asChild variant="outline" size="xl" className="border-zinc-300">
               <Link href="/demo">Or try the demo first</Link>
             </Button>
           </div>
@@ -494,10 +494,10 @@ export default function LandingContent() {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-zinc-800 py-8">
+      <footer className="border-t border-zinc-200 py-8">
         <div className="mx-auto max-w-4xl px-4 text-center">
-          <p className="text-sm text-zinc-500">SportsIQ -- Coaching Intelligence Platform</p>
-          <div className="mt-3 flex items-center justify-center gap-4 text-xs text-zinc-600 flex-wrap">
+          <p className="text-sm text-zinc-400">SportsIQ -- Coaching Intelligence Platform</p>
+          <div className="mt-3 flex items-center justify-center gap-4 text-xs text-zinc-400 flex-wrap">
             <Link href="/privacy" className="hover:text-zinc-400 transition-colors">Privacy Policy</Link>
             <span>&middot;</span>
             <Link href="/terms" className="hover:text-zinc-400 transition-colors">Terms</Link>
