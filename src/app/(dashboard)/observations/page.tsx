@@ -2,8 +2,8 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { useQuery } from '@tanstack/react-query';
-import { query } from '@/lib/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { query, mutate } from '@/lib/api';
 import { CACHE_PROFILES } from '@/lib/query/config';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,9 +24,11 @@ import {
   ThumbsUp,
   ThumbsDown,
   Minus,
+  Star,
 } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
+import { countHighlighted } from '@/lib/observation-highlights';
 import type { Observation, Player, Sentiment, ObservationSource } from '@/types/database';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -104,9 +106,44 @@ function avatarColor(name: string): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
+// ─── Star toggle button ───────────────────────────────────────────────────────
+
+function StarButton({
+  obsId,
+  isHighlighted,
+  onToggle,
+}: {
+  obsId: string;
+  isHighlighted: boolean;
+  onToggle: (id: string, next: boolean) => void;
+}) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onToggle(obsId, !isHighlighted); }}
+      className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors touch-manipulation active:scale-95 ${
+        isHighlighted
+          ? 'text-amber-400 hover:text-amber-300'
+          : 'text-zinc-600 hover:text-zinc-400'
+      }`}
+      aria-label={isHighlighted ? 'Remove from highlights' : 'Add to highlights'}
+      aria-pressed={isHighlighted}
+    >
+      <Star className={`h-4 w-4 ${isHighlighted ? 'fill-amber-400' : ''}`} />
+    </button>
+  );
+}
+
 // ─── Observation card ─────────────────────────────────────────────────────────
 
-function ObservationCard({ obs, playerName }: { obs: Observation & { players?: { name: string } | null }; playerName: string }) {
+function ObservationCard({
+  obs,
+  playerName,
+  onToggleHighlight,
+}: {
+  obs: Observation & { players?: { name: string } | null };
+  playerName: string;
+  onToggleHighlight: (id: string, next: boolean) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const sentiment = SENTIMENT_CONFIG[obs.sentiment];
   const SentimentIcon = sentiment.icon;
@@ -115,7 +152,7 @@ function ObservationCard({ obs, playerName }: { obs: Observation & { players?: {
   const isLong = obs.text.length > 120;
 
   return (
-    <Card className="transition-colors hover:border-zinc-700">
+    <Card className={`transition-colors hover:border-zinc-700 ${obs.is_highlighted ? 'border-amber-500/40 bg-amber-500/5' : ''}`}>
       <CardContent className="p-4 sm:p-5">
         <div className="flex items-start gap-3">
           {/* Avatar */}
@@ -127,7 +164,7 @@ function ObservationCard({ obs, playerName }: { obs: Observation & { players?: {
           </div>
 
           <div className="min-w-0 flex-1">
-            {/* Top row: player + sentiment + source + time */}
+            {/* Top row: player + sentiment + source + time + star */}
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium text-sm text-zinc-100">{name}</span>
               <span
@@ -142,10 +179,21 @@ function ObservationCard({ obs, playerName }: { obs: Observation & { players?: {
                   {obs.category}
                 </Badge>
               )}
+              {obs.is_highlighted && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[11px] font-semibold text-amber-400">
+                  <Star className="h-2.5 w-2.5 fill-amber-400" />
+                  Highlight
+                </span>
+              )}
               <span className="ml-auto flex items-center gap-1 text-[11px] text-zinc-500">
                 <SourceIcon className="h-3 w-3" aria-hidden />
                 <span>{formatRelative(obs.created_at!)}</span>
               </span>
+              <StarButton
+                obsId={obs.id}
+                isHighlighted={obs.is_highlighted}
+                onToggle={onToggleHighlight}
+              />
             </div>
 
             {/* Observation text */}
@@ -189,6 +237,7 @@ function ObservationCard({ obs, playerName }: { obs: Observation & { players?: {
 
 export default function ObservationsPage() {
   const { activeTeam } = useActiveTeam();
+  const qc = useQueryClient();
 
   // Filter state
   const [searchText, setSearchText] = useState('');
@@ -196,6 +245,7 @@ export default function ObservationsPage() {
   const [sentimentFilter, setSentimentFilter] = useState<Sentiment | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<number>(30);
+  const [highlightsOnly, setHighlightsOnly] = useState(false);
   const [page, setPage] = useState(1);
 
   // Reset to page 1 whenever a filter changes
@@ -218,7 +268,7 @@ export default function ObservationsPage() {
   });
 
   // Fetch observations — server-side filters: team, player, sentiment, date range
-  // Text search + category are applied client-side (fast for typical data volumes)
+  // Text search + category + highlights are applied client-side
   const { data: observations, isLoading, refetch } = useQuery({
     queryKey: ['observations', 'feed', activeTeam?.id || '', playerFilter, sentimentFilter, dateRange],
     queryFn: async () => {
@@ -235,7 +285,7 @@ export default function ObservationsPage() {
 
       const data = await query<(Observation & { players: { name: string } | null })[]>({
         table: 'observations',
-        select: 'id, player_id, session_id, category, sentiment, text, source, created_at, players(name)',
+        select: 'id, player_id, session_id, category, sentiment, text, source, is_highlighted, created_at, players(name)',
         filters,
         order: { column: 'created_at', ascending: false },
         limit: 500,
@@ -246,16 +296,41 @@ export default function ObservationsPage() {
     ...CACHE_PROFILES.observations,
   });
 
-  // Client-side: text search + category filter
+  // Optimistic highlight toggle — updates cache immediately, then persists
+  const handleToggleHighlight = useCallback(async (obsId: string, nextHighlighted: boolean) => {
+    const cacheKey = ['observations', 'feed', activeTeam?.id || '', playerFilter, sentimentFilter, dateRange];
+
+    // Optimistic update
+    qc.setQueryData<(Observation & { players: { name: string } | null })[]>(cacheKey, (prev) =>
+      prev ? prev.map((o) => o.id === obsId ? { ...o, is_highlighted: nextHighlighted } : o) : prev,
+    );
+
+    try {
+      await mutate({
+        table: 'observations',
+        operation: 'update',
+        data: { is_highlighted: nextHighlighted },
+        filters: { id: obsId },
+      });
+    } catch {
+      // Roll back on error
+      qc.setQueryData<(Observation & { players: { name: string } | null })[]>(cacheKey, (prev) =>
+        prev ? prev.map((o) => o.id === obsId ? { ...o, is_highlighted: !nextHighlighted } : o) : prev,
+      );
+    }
+  }, [activeTeam?.id, playerFilter, sentimentFilter, dateRange, qc]);
+
+  // Client-side: text search + category filter + highlights-only
   const filtered = useMemo(() => {
     if (!observations) return [];
     const needle = searchText.trim().toLowerCase();
     return observations.filter((obs) => {
+      if (highlightsOnly && !obs.is_highlighted) return false;
       if (categoryFilter !== 'all' && obs.category !== categoryFilter) return false;
       if (needle && !obs.text.toLowerCase().includes(needle)) return false;
       return true;
     });
-  }, [observations, searchText, categoryFilter]);
+  }, [observations, searchText, categoryFilter, highlightsOnly]);
 
   // Unique categories from current fetch
   const categories = useMemo(() => {
@@ -272,6 +347,9 @@ export default function ObservationsPage() {
     return map;
   }, [players]);
 
+  // Highlights count for the toggle badge
+  const highlightCount = useMemo(() => countHighlighted(observations || []), [observations]);
+
   // Pagination
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -281,6 +359,7 @@ export default function ObservationsPage() {
   const handleSentiment = useCallback((v: Sentiment | 'all') => { setSentimentFilter(v); resetPage(); }, [resetPage]);
   const handleCategory = useCallback((v: string) => { setCategoryFilter(v); resetPage(); }, [resetPage]);
   const handleDateRange = useCallback((v: number) => { setDateRange(v); resetPage(); }, [resetPage]);
+  const handleHighlightsOnly = useCallback(() => { setHighlightsOnly((v) => !v); resetPage(); }, [resetPage]);
 
   return (
     <PullToRefresh onRefresh={async () => { await refetch(); }}>
@@ -317,7 +396,7 @@ export default function ObservationsPage() {
           />
         </div>
 
-        {/* Sentiment chips */}
+        {/* Sentiment chips + Highlights toggle */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-none">
           <Filter className="h-4 w-4 text-zinc-500 shrink-0" aria-hidden />
           {SENTIMENT_FILTERS.map((opt) => (
@@ -334,6 +413,23 @@ export default function ObservationsPage() {
               {opt.label}
             </button>
           ))}
+
+          {/* Highlights-only toggle */}
+          <button
+            onClick={handleHighlightsOnly}
+            aria-pressed={highlightsOnly}
+            className={`shrink-0 flex items-center gap-1.5 rounded-full px-4 py-2 sm:px-3 sm:py-1 text-sm sm:text-xs font-medium transition-colors touch-manipulation ${
+              highlightsOnly
+                ? 'bg-amber-500 text-white'
+                : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
+            }`}
+          >
+            <Star className={`h-3.5 w-3.5 ${highlightsOnly ? 'fill-white' : ''}`} />
+            Highlights
+            {highlightCount > 0 && !highlightsOnly && (
+              <span className="rounded-full bg-amber-500/20 px-1.5 text-amber-400 text-[10px]">{highlightCount}</span>
+            )}
+          </button>
         </div>
 
         {/* Secondary filters row: player + category + date range */}
@@ -402,21 +498,35 @@ export default function ObservationsPage() {
           <Card className="border-dashed border-zinc-700">
             <CardContent className="flex flex-col items-center justify-center py-16">
               <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-orange-500/10 mb-6">
-                <ListFilter className="h-10 w-10 text-orange-500/60" />
+                {highlightsOnly
+                  ? <Star className="h-10 w-10 text-amber-500/60" />
+                  : <ListFilter className="h-10 w-10 text-orange-500/60" />}
               </div>
-              <h3 className="text-xl font-semibold text-zinc-200">No observations found</h3>
+              <h3 className="text-xl font-semibold text-zinc-200">
+                {highlightsOnly ? 'No highlights yet' : 'No observations found'}
+              </h3>
               <p className="text-zinc-500 text-sm mt-2 max-w-sm text-center leading-relaxed">
-                {searchText || playerFilter !== 'all' || sentimentFilter !== 'all' || categoryFilter !== 'all'
-                  ? 'Try adjusting your filters or search query.'
-                  : 'Start capturing observations during practice or games.'}
+                {highlightsOnly
+                  ? 'Tap the ★ on any observation to add it to your highlights collection.'
+                  : searchText || playerFilter !== 'all' || sentimentFilter !== 'all' || categoryFilter !== 'all'
+                    ? 'Try adjusting your filters or search query.'
+                    : 'Start capturing observations during practice or games.'}
               </p>
-              {!searchText && playerFilter === 'all' && sentimentFilter === 'all' && (
+              {!highlightsOnly && !searchText && playerFilter === 'all' && sentimentFilter === 'all' && (
                 <Link href="/capture" className="mt-6">
                   <Button className="h-12 sm:h-10">
                     <Mic className="h-5 w-5 sm:h-4 sm:w-4" />
                     Start Capturing
                   </Button>
                 </Link>
+              )}
+              {highlightsOnly && (
+                <button
+                  onClick={() => setHighlightsOnly(false)}
+                  className="mt-4 text-sm text-orange-400 hover:text-orange-300 transition-colors"
+                >
+                  Show all observations
+                </button>
               )}
             </CardContent>
           </Card>
@@ -432,6 +542,7 @@ export default function ObservationsPage() {
                     key={obs.id}
                     obs={obs}
                     playerName={playerName}
+                    onToggleHighlight={handleToggleHighlight}
                   />
                 );
               })}

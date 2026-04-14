@@ -259,6 +259,7 @@ export interface Observation {
   local_id: string | null;
   synced_at: string | null;
   is_synced: boolean;
+  is_highlighted: boolean;
   created_at: string;
   updated_at: string;
 }

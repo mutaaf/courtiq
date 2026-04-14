@@ -45,6 +45,7 @@ import { PrintButton } from '@/components/ui/print-button';
 import { AchievementBadgesPanel } from '@/components/player/achievement-badges';
 import { PlayerGoalsPanel } from '@/components/player/player-goals-panel';
 import { PlayerNotesPanel } from '@/components/player/player-notes-panel';
+import { countHighlighted } from '@/lib/observation-highlights';
 import type { Player, Observation, PlayerSkillProficiency, Plan, Sentiment } from '@/types/database';
 import type { PlayerAttendanceStat } from '@/app/api/attendance-stats/route';
 
@@ -102,6 +103,9 @@ export default function PlayerDetailPage({
   const [selfError, setSelfError] = useState<string | null>(null);
   const [selfSuccess, setSelfSuccess] = useState(false);
   const [expandedAssessment, setExpandedAssessment] = useState<string | null>(null);
+
+  // Observation highlights filter
+  const [obsHighlightsOnly, setObsHighlightsOnly] = useState(false);
 
   const { data: player, isLoading: playerLoading } = useQuery({
     queryKey: queryKeys.players.detail(playerId),
@@ -187,6 +191,21 @@ export default function PlayerDetailPage({
     .sort(([, a], [, b]) => b - a);
 
   const maxCategoryCount = sortedCategories.length > 0 ? sortedCategories[0][1] : 0;
+
+  // Toggle highlight on a player observation with optimistic update
+  async function handleTogglePlayerObsHighlight(obsId: string, next: boolean) {
+    const cacheKey = queryKeys.observations.player(playerId);
+    qc.setQueryData<Observation[]>(cacheKey, (prev) =>
+      prev ? prev.map((o) => o.id === obsId ? { ...o, is_highlighted: next } : o) : prev,
+    );
+    try {
+      await mutate({ table: 'observations', operation: 'update', data: { is_highlighted: next }, filters: { id: obsId } });
+    } catch {
+      qc.setQueryData<Observation[]>(cacheKey, (prev) =>
+        prev ? prev.map((o) => o.id === obsId ? { ...o, is_highlighted: !next } : o) : prev,
+      );
+    }
+  }
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'overview', label: 'Overview', icon: <BarChart3 className="h-4 w-4" /> },
@@ -826,21 +845,68 @@ export default function PlayerDetailPage({
 
       {activeTab === 'observations' && (
         <div className="space-y-3">
-          {observations.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center p-8 text-center">
-                <Eye className="mb-3 h-10 w-10 text-zinc-700" />
-                <p className="text-zinc-400">No observations recorded for this player yet.</p>
-                <Link href="/capture">
-                  <Button className="mt-4" size="sm">
-                    Start Capturing
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ) : (
-            observations.map((obs) => (
-              <Card key={obs.id}>
+          {/* Highlights filter toggle */}
+          {observations.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setObsHighlightsOnly((v) => !v)}
+                aria-pressed={obsHighlightsOnly}
+                className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors touch-manipulation ${
+                  obsHighlightsOnly
+                    ? 'bg-amber-500 text-white'
+                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
+                }`}
+              >
+                <Star className={`h-3.5 w-3.5 ${obsHighlightsOnly ? 'fill-white' : ''}`} />
+                Highlights only
+                {!obsHighlightsOnly && countHighlighted(observations) > 0 && (
+                  <span className="rounded-full bg-amber-500/20 px-1.5 text-amber-400 text-[10px]">
+                    {countHighlighted(observations)}
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
+
+          {(() => {
+            const displayed = obsHighlightsOnly
+              ? observations.filter((o) => o.is_highlighted)
+              : observations;
+
+            if (displayed.length === 0) {
+              return (
+                <Card>
+                  <CardContent className="flex flex-col items-center p-8 text-center">
+                    {obsHighlightsOnly ? (
+                      <>
+                        <Star className="mb-3 h-10 w-10 text-zinc-700" />
+                        <p className="text-zinc-400">No highlights yet. Tap ★ on any observation to star it.</p>
+                        <button
+                          onClick={() => setObsHighlightsOnly(false)}
+                          className="mt-3 text-sm text-orange-400 hover:text-orange-300 transition-colors"
+                        >
+                          Show all observations
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="mb-3 h-10 w-10 text-zinc-700" />
+                        <p className="text-zinc-400">No observations recorded for this player yet.</p>
+                        <Link href="/capture">
+                          <Button className="mt-4" size="sm">Start Capturing</Button>
+                        </Link>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            }
+
+            return displayed.map((obs) => (
+              <Card
+                key={obs.id}
+                className={obs.is_highlighted ? 'border-amber-500/40 bg-amber-500/5' : ''}
+              >
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2">
                     <Badge variant={sentimentVariant[obs.sentiment]}>
@@ -851,6 +917,19 @@ export default function PlayerDetailPage({
                     <span className="ml-auto text-xs text-zinc-500">
                       {formatDate(obs.created_at)}
                     </span>
+                    {/* Star / highlight button */}
+                    <button
+                      onClick={() => handleTogglePlayerObsHighlight(obs.id, !obs.is_highlighted)}
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors touch-manipulation active:scale-95 ${
+                        obs.is_highlighted
+                          ? 'text-amber-400 hover:text-amber-300'
+                          : 'text-zinc-600 hover:text-zinc-400'
+                      }`}
+                      aria-label={obs.is_highlighted ? 'Remove from highlights' : 'Add to highlights'}
+                      aria-pressed={obs.is_highlighted}
+                    >
+                      <Star className={`h-4 w-4 ${obs.is_highlighted ? 'fill-amber-400' : ''}`} />
+                    </button>
                   </div>
                   <p className="mt-2 text-sm text-zinc-300">{obs.text}</p>
                   {obs.raw_text && obs.raw_text !== obs.text && (
@@ -860,8 +939,8 @@ export default function PlayerDetailPage({
                   )}
                 </CardContent>
               </Card>
-            ))
-          )}
+            ));
+          })()}
         </div>
       )}
 

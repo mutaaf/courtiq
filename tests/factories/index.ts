@@ -94,6 +94,7 @@ export const observationFactory = buildFactory<Omit<Observation, 'updated_at'>>(
   local_id: null,
   synced_at: null,
   is_synced: true,
+  is_highlighted: false,
   created_at: new Date().toISOString(),
 });
 
