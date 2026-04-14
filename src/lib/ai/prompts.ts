@@ -454,6 +454,46 @@ export const PROMPT_REGISTRY = {
       '{ "name": "string", "description": "string (2-3 sentences)", "category": "string", "age_groups": ["string"], "duration_minutes": number, "player_count_min": number, "player_count_max": number|null, "equipment": ["string"], "setup_instructions": "string (paragraph)", "teaching_cues": ["string (short phrase)", ...], "variations": [{ "title": "string", "description": "string" }, ...] }',
     ].filter(Boolean).join('\n'),
   }),
+  gameRecap: (params: PromptParams & {
+    sessionDate: string;
+    sessionType: string;
+    opponent?: string | null;
+    result?: string | null;
+    observations: Array<{ playerName: string; text: string; sentiment: string; category: string }>;
+    teamObservations: string[];
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You write engaging, celebratory game recap narratives for youth sports teams.',
+      '',
+      'Rules:',
+      '- Write in an uplifting, age-appropriate sports-journalist tone.',
+      '- Highlight individual players by name — use the observations to find standout moments.',
+      '- Be factual and specific — draw directly from the observations provided.',
+      '- Include a motivating coach message appropriate for youth athletes.',
+      '- Keep each field concise: intro ≤ 3 sentences, key moment descriptions ≤ 2 sentences.',
+      '- result_headline should be a short punchy phrase (4-8 words), not a sentence.',
+      '- If result is W/Win, use celebratory language. If L/Loss, be encouraging and growth-minded. If T/Tie, acknowledge the fight.',
+      '- Always end with a forward-looking statement to build excitement for next session.',
+    ].join('\n'),
+    user: [
+      `Session: ${params.sessionType} on ${params.sessionDate}`,
+      params.opponent ? `Opponent: ${params.opponent}` : '',
+      params.result ? `Result: ${params.result}` : '',
+      `Team: ${params.teamName || 'the team'} (${params.ageGroup || 'youth'})`,
+      '',
+      'Player observations from this session:',
+      params.observations.length > 0
+        ? params.observations.map((o) => `- ${o.playerName}: [${o.sentiment}] ${o.text}`).join('\n')
+        : '(No individual observations recorded)',
+      params.teamObservations.length > 0
+        ? '\nTeam observations:\n' + params.teamObservations.map((t) => `- ${t}`).join('\n')
+        : '',
+      '',
+      'Respond with JSON:',
+      '{ "title": "string", "result_headline": "string", "intro": "string", "key_moments": [{ "headline": "string", "description": "string", "player_name": "string?" }], "player_highlights": [{ "player_name": "string", "highlight": "string", "stat_line": "string?" }], "team_performance": { "offensive_note": "string", "defensive_note": "string", "effort_note": "string" }, "coach_message": "string", "looking_ahead": "string" }',
+    ].filter(Boolean).join('\n'),
+  }),
   snapObservation: (params: PromptParams & { customFocus?: string }) => ({
     system: [
       buildSystemPreamble(params),

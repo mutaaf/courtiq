@@ -66,6 +66,7 @@ const PLAN_TYPE_CONFIG: Record<
   season_storyline: { label: 'Season Storyline', icon: BookOpen, color: 'text-indigo-400' },
   self_assessment: { label: 'Self-Assessment', icon: ClipboardCheck, color: 'text-teal-400' },
   opponent_profile: { label: 'Scouting Profile', icon: Swords, color: 'text-red-400' },
+  game_recap: { label: 'Game Recap', icon: Radio, color: 'text-rose-400' },
 };
 
 const SUGGESTION_CHIPS = [
@@ -1130,6 +1131,139 @@ export default function PlansPage() {
                     ))
                   : String(structured.notes)}
               </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Game Recap renderer
+    if (structured.result_headline || structured.key_moments) {
+      const resultColor = (headline: string) => {
+        const lower = (headline || '').toLowerCase();
+        if (lower.includes('victor') || lower.includes('win') || lower.includes('triumph') || lower.includes('defeat') && !lower.includes('we')) return 'text-emerald-400';
+        if (lower.includes('loss') || lower.includes('tough') || lower.includes('fell') || lower.includes('defeat')) return 'text-red-400';
+        if (lower.includes('tie') || lower.includes('draw')) return 'text-zinc-400';
+        return 'text-orange-400';
+      };
+      return (
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Radio className="h-5 w-5 text-rose-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-rose-400">Game Recap</span>
+            </div>
+            {structured.title && <h2 className="text-xl font-bold text-zinc-100">{structured.title}</h2>}
+            {structured.result_headline && (
+              <p className={`text-base font-semibold ${resultColor(structured.result_headline)}`}>
+                {structured.result_headline}
+              </p>
+            )}
+          </div>
+
+          {/* Intro narrative */}
+          {structured.intro && (
+            <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4">
+              <p className="text-sm text-zinc-200 leading-relaxed">{structured.intro}</p>
+            </div>
+          )}
+
+          {/* Key Moments */}
+          {Array.isArray(structured.key_moments) && structured.key_moments.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-amber-400" />
+                <p className="text-sm font-semibold text-zinc-200">Key Moments</p>
+              </div>
+              <div className="space-y-2">
+                {structured.key_moments.map((moment: any, i: number) => (
+                  <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-3.5 space-y-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-semibold text-zinc-100">{moment.headline}</p>
+                      {moment.player_name && (
+                        <span className="text-xs font-medium text-orange-400 shrink-0">{moment.player_name}</span>
+                      )}
+                    </div>
+                    {moment.description && (
+                      <p className="text-xs text-zinc-400 leading-relaxed">{moment.description}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Player Highlights */}
+          {Array.isArray(structured.player_highlights) && structured.player_highlights.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Star className="h-4 w-4 text-yellow-400" />
+                <p className="text-sm font-semibold text-zinc-200">Player Highlights</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {structured.player_highlights.map((ph: any, i: number) => (
+                  <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-3.5 space-y-1">
+                    <p className="text-sm font-semibold text-orange-400">{ph.player_name}</p>
+                    <p className="text-xs text-zinc-300 leading-relaxed">{ph.highlight}</p>
+                    {ph.stat_line && (
+                      <p className="text-xs font-medium text-zinc-500 mt-1">{ph.stat_line}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Team Performance */}
+          {structured.team_performance && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Activity className="h-4 w-4 text-blue-400" />
+                <p className="text-sm font-semibold text-zinc-200">Team Performance</p>
+              </div>
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3.5 space-y-2.5">
+                {structured.team_performance.offensive_note && (
+                  <div>
+                    <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-0.5">Offense</p>
+                    <p className="text-sm text-zinc-300 leading-relaxed">{structured.team_performance.offensive_note}</p>
+                  </div>
+                )}
+                {structured.team_performance.defensive_note && (
+                  <div className="border-t border-blue-500/10 pt-2.5">
+                    <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-0.5">Defense</p>
+                    <p className="text-sm text-zinc-300 leading-relaxed">{structured.team_performance.defensive_note}</p>
+                  </div>
+                )}
+                {structured.team_performance.effort_note && (
+                  <div className="border-t border-blue-500/10 pt-2.5">
+                    <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-0.5">Effort & Hustle</p>
+                    <p className="text-sm text-zinc-300 leading-relaxed">{structured.team_performance.effort_note}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Coach Message */}
+          {structured.coach_message && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <MessageSquare className="h-4 w-4 text-zinc-400" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">From the Coach</p>
+              </div>
+              <p className="text-sm text-zinc-200 leading-relaxed italic">&ldquo;{structured.coach_message}&rdquo;</p>
+            </div>
+          )}
+
+          {/* Looking Ahead */}
+          {structured.looking_ahead && (
+            <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-3.5">
+              <div className="flex items-center gap-2 mb-1.5">
+                <TrendingUp className="h-4 w-4 text-orange-400" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-orange-400">Looking Ahead</p>
+              </div>
+              <p className="text-sm text-zinc-300 leading-relaxed">{structured.looking_ahead}</p>
             </div>
           )}
         </div>

@@ -46,11 +46,16 @@ import {
   Trophy,
   ChevronDown,
   ChevronUp,
+  Radio,
+  Activity,
+  Copy,
+  Check,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
 import type { SessionDebriefResult } from '@/app/api/ai/session-debrief/route';
 import type { SessionBriefingResult } from '@/app/api/ai/session-briefing/route';
+import type { GameRecapResult } from '@/app/api/ai/game-recap/route';
 
 const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   practice: 'Practice',
@@ -114,6 +119,249 @@ const PRIORITY_CONFIG: Record<
   medium: { label: 'Medium', color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20' },
   low:    { label: 'Low',    color: 'text-zinc-400',   bg: 'bg-zinc-700/30 border-zinc-700/50' },
 };
+
+function GameRecapCard({
+  sessionId,
+  teamId,
+}: {
+  sessionId: string;
+  teamId: string;
+}) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [recap, setRecap] = useState<GameRecapResult | null>(null);
+  const [expanded, setExpanded] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  async function handleGenerate() {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/ai/game-recap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, teamId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate recap');
+      }
+      const data = await res.json();
+      setRecap(data.recap);
+      setExpanded(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function handleCopy() {
+    if (!recap) return;
+    const lines = [
+      recap.title,
+      recap.result_headline,
+      '',
+      recap.intro,
+      '',
+      '⚡ Key Moments',
+      ...(recap.key_moments || []).map((m) => `• ${m.headline}: ${m.description}`),
+      '',
+      '⭐ Player Highlights',
+      ...(recap.player_highlights || []).map((p) => `• ${p.player_name}: ${p.highlight}${p.stat_line ? ` (${p.stat_line})` : ''}`),
+      '',
+      `💬 "${recap.coach_message}"`,
+      '',
+      recap.looking_ahead,
+    ];
+    await navigator.clipboard.writeText(lines.join('\n'));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  const resultColor = (headline: string) => {
+    const lower = (headline || '').toLowerCase();
+    if (lower.includes('victor') || lower.includes('win') || lower.includes('triumph')) return 'text-emerald-400';
+    if (lower.includes('loss') || lower.includes('tough') || lower.includes('fell')) return 'text-red-400';
+    if (lower.includes('tie') || lower.includes('draw')) return 'text-zinc-400';
+    return 'text-orange-400';
+  };
+
+  return (
+    <Card className={recap ? 'border-rose-500/20' : 'border-zinc-800'}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Radio className="h-5 w-5 text-rose-400" />
+            Game Recap
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            {recap && (
+              <>
+                <button
+                  onClick={handleCopy}
+                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+                  aria-label="Copy recap to clipboard"
+                >
+                  {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+                <button
+                  onClick={handleGenerate}
+                  disabled={isGenerating}
+                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors disabled:opacity-40"
+                  aria-label="Regenerate recap"
+                >
+                  {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                  Refresh
+                </button>
+                <button
+                  onClick={() => setExpanded((v) => !v)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+                  aria-label={expanded ? 'Collapse recap' : 'Expand recap'}
+                  aria-expanded={expanded}
+                >
+                  {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!recap && !isGenerating && (
+          <div className="flex flex-col items-center justify-center py-6 text-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/10">
+              <Radio className="h-7 w-7 text-rose-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-zinc-200">Generate a shareable game recap</p>
+              <p className="text-xs text-zinc-500 mt-1 max-w-xs mx-auto">
+                AI writes a narrative summary of the game with key moments, player highlights, and a coach&apos;s message — perfect for sharing with parents.
+              </p>
+            </div>
+            <Button
+              onClick={handleGenerate}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              <Radio className="h-4 w-4" />
+              Generate Recap
+            </Button>
+            {error && <p className="text-xs text-red-400">{error}</p>}
+          </div>
+        )}
+
+        {isGenerating && !recap && (
+          <div className="flex flex-col items-center justify-center py-8 gap-3">
+            <Loader2 className="h-6 w-6 animate-spin text-rose-400" />
+            <p className="text-sm text-zinc-400">Writing game recap...</p>
+          </div>
+        )}
+
+        {recap && expanded && (
+          <div className="space-y-4">
+            {/* Result headline */}
+            {recap.result_headline && (
+              <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-3">
+                <p className={`text-base font-bold ${resultColor(recap.result_headline)}`}>
+                  {recap.result_headline}
+                </p>
+                {recap.intro && (
+                  <p className="text-sm text-zinc-300 leading-relaxed mt-1.5">{recap.intro}</p>
+                )}
+              </div>
+            )}
+
+            {/* Key Moments */}
+            {recap.key_moments && recap.key_moments.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2 flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5 text-amber-400" />
+                  Key Moments
+                </p>
+                <div className="space-y-2">
+                  {recap.key_moments.map((moment, i) => (
+                    <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3 space-y-0.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-zinc-100">{moment.headline}</p>
+                        {moment.player_name && (
+                          <span className="text-xs text-orange-400 shrink-0">{moment.player_name}</span>
+                        )}
+                      </div>
+                      {moment.description && (
+                        <p className="text-xs text-zinc-400 leading-relaxed">{moment.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Player Highlights */}
+            {recap.player_highlights && recap.player_highlights.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2 flex items-center gap-1.5">
+                  <Star className="h-3.5 w-3.5 text-yellow-400" />
+                  Player Highlights
+                </p>
+                <div className="space-y-1.5">
+                  {recap.player_highlights.map((ph, i) => (
+                    <div key={i} className="flex items-start gap-2.5">
+                      <span className="text-sm font-semibold text-orange-400 shrink-0 min-w-[80px]">{ph.player_name}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-zinc-300 leading-relaxed">{ph.highlight}</p>
+                        {ph.stat_line && <p className="text-xs text-zinc-500 mt-0.5">{ph.stat_line}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Team Performance */}
+            {recap.team_performance && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2 flex items-center gap-1.5">
+                  <Activity className="h-3.5 w-3.5 text-blue-400" />
+                  Team Performance
+                </p>
+                <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3 space-y-2">
+                  {recap.team_performance.offensive_note && (
+                    <p className="text-xs text-zinc-300"><span className="font-semibold text-zinc-500">Offense: </span>{recap.team_performance.offensive_note}</p>
+                  )}
+                  {recap.team_performance.defensive_note && (
+                    <p className="text-xs text-zinc-300"><span className="font-semibold text-zinc-500">Defense: </span>{recap.team_performance.defensive_note}</p>
+                  )}
+                  {recap.team_performance.effort_note && (
+                    <p className="text-xs text-zinc-300"><span className="font-semibold text-zinc-500">Effort: </span>{recap.team_performance.effort_note}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Coach Message */}
+            {recap.coach_message && (
+              <div className="rounded-lg border border-zinc-700 bg-zinc-900/60 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1.5">From the Coach</p>
+                <p className="text-sm text-zinc-200 italic">&ldquo;{recap.coach_message}&rdquo;</p>
+              </div>
+            )}
+
+            {/* Looking ahead */}
+            {recap.looking_ahead && (
+              <div className="flex items-start gap-2">
+                <TrendingUp className="h-4 w-4 text-orange-400 mt-0.5 shrink-0" />
+                <p className="text-xs text-zinc-400 italic leading-relaxed">{recap.looking_ahead}</p>
+              </div>
+            )}
+
+            {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 function PreSessionBriefingCard({
   sessionId,
@@ -1055,6 +1303,14 @@ export default function SessionDetailPage() {
           onDebriefSaved={() =>
             queryClient.invalidateQueries({ queryKey: ['session', sessionId] })
           }
+        />
+      )}
+
+      {/* Game Recap — game/scrimmage/tournament only */}
+      {activeTeam && (session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
+        <GameRecapCard
+          sessionId={sessionId}
+          teamId={activeTeam.id}
         />
       )}
 

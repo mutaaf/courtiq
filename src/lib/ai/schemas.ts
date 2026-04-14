@@ -253,3 +253,28 @@ export const snapObservationSchema = z.object({
 });
 
 export type SnapObservationResult = z.infer<typeof snapObservationSchema>;
+
+export const gameRecapSchema = z.object({
+  title: z.string(),
+  result_headline: z.string(), // e.g. "Victory Over Lions" or "Tough Loss to Eagles"
+  intro: z.string().min(20),   // Opening 2-3 sentence narrative
+  key_moments: z.array(z.object({
+    headline: z.string(),
+    description: z.string(),
+    player_name: z.string().optional(),
+  })).min(1).max(5),
+  player_highlights: z.array(z.object({
+    player_name: z.string(),
+    highlight: z.string(),
+    stat_line: z.string().optional(),
+  })).min(1).max(6),
+  team_performance: z.object({
+    offensive_note: z.string(),
+    defensive_note: z.string(),
+    effort_note: z.string(),
+  }),
+  coach_message: z.string(),  // Short motivational message from the coach
+  looking_ahead: z.string(),  // Forward-looking closing sentence
+});
+
+export type GameRecap = z.infer<typeof gameRecapSchema>;
