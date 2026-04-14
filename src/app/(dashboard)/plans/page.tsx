@@ -38,6 +38,8 @@ import {
   MessageSquare,
   Zap,
   ChevronUp,
+  BookmarkPlus,
+  Check,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { PrintButton } from '@/components/ui/print-button';
@@ -58,6 +60,7 @@ const PLAN_TYPE_CONFIG: Record<
   newsletter: { label: 'Parent Newsletter', icon: Newspaper, color: 'text-violet-400' },
   season_storyline: { label: 'Season Storyline', icon: BookOpen, color: 'text-indigo-400' },
   self_assessment: { label: 'Self-Assessment', icon: ClipboardCheck, color: 'text-teal-400' },
+  opponent_profile: { label: 'Scouting Profile', icon: Swords, color: 'text-red-400' },
 };
 
 const SUGGESTION_CHIPS = [
@@ -93,6 +96,11 @@ export default function PlansPage() {
   const [gamedayWeaknesses, setGamedayWeaknesses] = useState('');
   const [gamedayKeyPlayers, setGamedayKeyPlayers] = useState('');
   const [gamedayNotes, setGamedayNotes] = useState('');
+
+  // Opponent Scouting Library state
+  const [savingOpponentProfile, setSavingOpponentProfile] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
+  const [showProfilePicker, setShowProfilePicker] = useState(false);
 
   const { data: plans, isLoading, refetch: refetchPlans } = useQuery({
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
@@ -241,7 +249,6 @@ export default function PlansPage() {
     if (!activeTeam || !gamedayOpponent.trim()) return;
     setGeneratingGameday(true);
     setError(null);
-    const splitLine = (s: string) => s.split(',').map((x) => x.trim()).filter(Boolean);
     try {
       const res = await fetch('/api/ai/plan', {
         method: 'POST',
@@ -274,6 +281,72 @@ export default function PlansPage() {
     } finally {
       setGeneratingGameday(false);
     }
+  };
+
+  const splitLine = (s: string) => s.split(',').map((x) => x.trim()).filter(Boolean);
+
+  const saveOpponentProfile = async () => {
+    if (!activeTeam || !gamedayOpponent.trim()) return;
+    setSavingOpponentProfile(true);
+    try {
+      // Check if a profile for this opponent already exists (case-insensitive)
+      const existing = plans?.find(
+        (p) => p.type === 'opponent_profile' && p.title?.toLowerCase() === gamedayOpponent.trim().toLowerCase()
+      );
+      if (existing) {
+        // Update existing profile
+        await mutate({
+          table: 'plans',
+          operation: 'update',
+          filters: { id: existing.id },
+          data: {
+            content: `Scouting Profile: ${gamedayOpponent.trim()}`,
+            content_structured: {
+              name: gamedayOpponent.trim(),
+              strengths: splitLine(gamedayStrengths),
+              weaknesses: splitLine(gamedayWeaknesses),
+              key_players: splitLine(gamedayKeyPlayers),
+              notes: gamedayNotes.trim(),
+            },
+          },
+        });
+      } else {
+        await mutate({
+          table: 'plans',
+          operation: 'insert',
+          data: {
+            team_id: activeTeam.id,
+            type: 'opponent_profile' as PlanType,
+            title: gamedayOpponent.trim(),
+            content: `Scouting Profile: ${gamedayOpponent.trim()}`,
+            content_structured: {
+              name: gamedayOpponent.trim(),
+              strengths: splitLine(gamedayStrengths),
+              weaknesses: splitLine(gamedayWeaknesses),
+              key_players: splitLine(gamedayKeyPlayers),
+              notes: gamedayNotes.trim(),
+            },
+          },
+        });
+      }
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 3000);
+    } finally {
+      setSavingOpponentProfile(false);
+    }
+  };
+
+  const loadOpponentProfile = (plan: Plan) => {
+    const cs = plan.content_structured as any;
+    if (!cs) return;
+    setGamedayOpponent(cs.name || plan.title || '');
+    setGamedayStrengths(Array.isArray(cs.strengths) ? cs.strengths.join(', ') : (cs.strengths || ''));
+    setGamedayWeaknesses(Array.isArray(cs.weaknesses) ? cs.weaknesses.join(', ') : (cs.weaknesses || ''));
+    setGamedayKeyPlayers(Array.isArray(cs.key_players) ? cs.key_players.join(', ') : (cs.key_players || ''));
+    setGamedayNotes(cs.notes || '');
+    setShowProfilePicker(false);
+    setShowGamedayForm(true);
   };
 
   const handleChipClick = (chip: string) => {
@@ -726,6 +799,92 @@ export default function PlansPage() {
               </div>
             </div>
           )}
+        </div>
+      );
+    }
+
+    // Opponent Scouting Profile renderer
+    if (structured.name && (structured.strengths !== undefined || structured.weaknesses !== undefined || structured.key_players !== undefined)) {
+      return (
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="flex items-center gap-3 pb-3 border-b border-zinc-800">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/15">
+              <Swords className="h-5 w-5 text-red-400" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-red-400">Scouting Profile</p>
+              <h2 className="text-lg font-bold text-zinc-100">{structured.name}</h2>
+            </div>
+          </div>
+
+          {/* Strengths */}
+          {Array.isArray(structured.strengths) && structured.strengths.length > 0 && (
+            <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Swords className="h-4 w-4 text-red-400" />
+                <p className="text-sm font-semibold text-red-300">Their Strengths</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {structured.strengths.map((s: string, i: number) => (
+                  <span key={i} className="text-xs bg-red-500/10 text-red-300 border border-red-500/20 rounded-full px-2.5 py-1">{s}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Weaknesses */}
+          {Array.isArray(structured.weaknesses) && structured.weaknesses.length > 0 && (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Shield className="h-4 w-4 text-emerald-400" />
+                <p className="text-sm font-semibold text-emerald-300">Their Weaknesses</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {structured.weaknesses.map((w: string, i: number) => (
+                  <span key={i} className="text-xs bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-full px-2.5 py-1">{w}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Key Players */}
+          {Array.isArray(structured.key_players) && structured.key_players.length > 0 && (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Eye className="h-4 w-4 text-amber-400" />
+                <p className="text-sm font-semibold text-amber-300">Key Players to Watch</p>
+              </div>
+              <div className="space-y-1.5">
+                {structured.key_players.map((kp: string, i: number) => (
+                  <p key={i} className="text-sm text-zinc-300 flex gap-2"><span className="text-amber-500">•</span>{kp}</p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Notes */}
+          {structured.notes && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/40 p-4">
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Scouting Notes</p>
+              <p className="text-sm text-zinc-300 leading-relaxed">{structured.notes}</p>
+            </div>
+          )}
+
+          {/* Action: Load into Game Day form */}
+          <button
+            type="button"
+            onClick={() => {
+              if (selectedPlan) {
+                loadOpponentProfile(selectedPlan);
+                setSelectedPlan(null);
+              }
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 transition-colors touch-manipulation active:scale-[0.98]"
+          >
+            <Zap className="h-4 w-4" />
+            Load into Game Day Prep Form
+          </button>
         </div>
       );
     }
@@ -1195,6 +1354,52 @@ export default function PlansPage() {
 
               {showGamedayForm && (
                 <div className="border-t border-emerald-500/20 p-3 space-y-3">
+                  {/* Scouting Library picker */}
+                  {(() => {
+                    const savedProfiles = plans?.filter((p) => p.type === 'opponent_profile') ?? [];
+                    if (savedProfiles.length === 0) return null;
+                    return (
+                      <div className="rounded-lg border border-zinc-700 bg-zinc-900/60 overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => setShowProfilePicker((v) => !v)}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-zinc-800/50 transition-colors touch-manipulation"
+                        >
+                          <BookOpen className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                          <span className="text-xs font-medium text-zinc-300 flex-1">Scouting Library</span>
+                          <span className="text-xs text-zinc-500 bg-zinc-800 rounded-full px-1.5 py-0.5">{savedProfiles.length}</span>
+                          <ChevronDown className={`h-3 w-3 text-zinc-500 transition-transform ${showProfilePicker ? 'rotate-180' : ''}`} />
+                        </button>
+                        {showProfilePicker && (
+                          <div className="border-t border-zinc-700/60 divide-y divide-zinc-800">
+                            {savedProfiles.map((profile) => {
+                              const cs = profile.content_structured as any;
+                              return (
+                                <button
+                                  key={profile.id}
+                                  type="button"
+                                  onClick={() => loadOpponentProfile(profile)}
+                                  className="flex w-full items-start gap-2.5 px-3 py-2.5 text-left hover:bg-zinc-800/60 transition-colors touch-manipulation"
+                                >
+                                  <Swords className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-semibold text-zinc-200 truncate">{profile.title}</p>
+                                    {cs && Array.isArray(cs.strengths) && cs.strengths.length > 0 && (
+                                      <p className="text-xs text-zinc-500 truncate mt-0.5">
+                                        Strengths: {cs.strengths.slice(0, 2).join(', ')}{cs.strengths.length > 2 ? '…' : ''}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <span className="text-xs text-emerald-500 shrink-0 font-medium">Load →</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   <div>
                     <label className="text-xs font-medium text-zinc-400 mb-1 block">Opponent Name <span className="text-red-400">*</span></label>
                     <input
@@ -1262,23 +1467,51 @@ export default function PlansPage() {
                       className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500/50 disabled:opacity-50 resize-none"
                     />
                   </div>
-                  <Button
-                    onClick={generateGamedayPrep}
-                    disabled={!gamedayOpponent.trim() || generatingGameday || !activeTeam}
-                    className="w-full h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium disabled:opacity-30 touch-manipulation active:scale-[0.98]"
-                  >
-                    {generatingGameday ? (
-                      <span className="flex items-center gap-2">
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={generateGamedayPrep}
+                      disabled={!gamedayOpponent.trim() || generatingGameday || !activeTeam}
+                      className="flex-1 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium disabled:opacity-30 touch-manipulation active:scale-[0.98]"
+                    >
+                      {generatingGameday ? (
+                        <span className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Generating prep sheet...
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          <Zap className="h-4 w-4" />
+                          Generate Game Day Prep
+                        </span>
+                      )}
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={saveOpponentProfile}
+                      disabled={!gamedayOpponent.trim() || savingOpponentProfile || !activeTeam}
+                      aria-label="Save opponent to scouting library"
+                      title={profileSaved ? 'Saved to library!' : 'Save to Scouting Library'}
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors touch-manipulation active:scale-[0.98] disabled:opacity-30 ${
+                        profileSaved
+                          ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-400'
+                          : 'border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-emerald-500/40 hover:text-emerald-400'
+                      }`}
+                    >
+                      {savingOpponentProfile ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Generating prep sheet...
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-2">
-                        <Zap className="h-4 w-4" />
-                        Generate Game Day Prep
-                      </span>
-                    )}
-                  </Button>
+                      ) : profileSaved ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <BookmarkPlus className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  {profileSaved && (
+                    <p className="text-xs text-emerald-400 flex items-center gap-1.5 -mt-1">
+                      <Check className="h-3 w-3" />
+                      Saved to Scouting Library — load it next time from the library above
+                    </p>
+                  )}
                 </div>
               )}
             </div>
