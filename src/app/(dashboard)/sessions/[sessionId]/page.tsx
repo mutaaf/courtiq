@@ -68,6 +68,7 @@ import {
   getMomentumBannerClasses,
   buildHalftimeShareText,
 } from '@/lib/halftime-utils';
+import { getRatingLabel, getRatingColor, isValidRating } from '@/lib/session-quality-utils';
 
 const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   practice: 'Practice',
@@ -1749,6 +1750,20 @@ export default function SessionDetailPage() {
     },
   });
 
+  const qualityMutation = useMutation({
+    mutationFn: async (rating: number) => {
+      await mutate({
+        table: 'sessions',
+        operation: 'update',
+        data: { quality_rating: rating },
+        filters: { id: sessionId },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
+    },
+  });
+
   function formatDate(dateStr: string) {
     return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
       weekday: 'long',
@@ -2116,6 +2131,55 @@ export default function SessionDetailPage() {
               <p className="text-xs text-zinc-600 mt-1">Tap the button above to add photos or videos</p>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Session Quality Rating */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Star className="h-4 w-4 text-amber-400" />
+            Rate This Session
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              {([1, 2, 3, 4, 5] as const).map((n) => {
+                const current = session?.quality_rating ?? 0;
+                const filled = n <= current;
+                return (
+                  <button
+                    key={n}
+                    aria-label={`Rate session ${n} star${n !== 1 ? 's' : ''}`}
+                    onClick={() => qualityMutation.mutate(n)}
+                    disabled={qualityMutation.isPending}
+                    className="h-11 w-11 flex items-center justify-center rounded-lg transition-colors touch-manipulation active:scale-95 hover:bg-zinc-800"
+                  >
+                    <Star
+                      className={`h-7 w-7 transition-colors ${
+                        filled ? 'fill-amber-400 text-amber-400' : 'text-zinc-600'
+                      }`}
+                    />
+                  </button>
+                );
+              })}
+              {qualityMutation.isPending && (
+                <Loader2 className="h-4 w-4 animate-spin text-zinc-500 ml-1" />
+              )}
+            </div>
+            {isValidRating(session?.quality_rating) && (
+              <p className={`text-sm font-medium ${getRatingColor(session!.quality_rating!)}`}>
+                {getRatingLabel(session!.quality_rating! as 1 | 2 | 3 | 4 | 5)}
+                {qualityMutation.isSuccess && (
+                  <span className="ml-2 text-xs text-zinc-500 font-normal">Saved</span>
+                )}
+              </p>
+            )}
+            {!session?.quality_rating && (
+              <p className="text-xs text-zinc-500">Tap a star to rate this session&apos;s quality.</p>
+            )}
+          </div>
         </CardContent>
       </Card>
 

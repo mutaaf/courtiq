@@ -117,6 +117,7 @@ export const sessionFactory = buildFactory<Omit<Session, 'created_at'>>({
   cv_source_files: null,
   coach_debrief_text: null,
   coach_debrief_extracts: null,
+  quality_rating: null,
 });
 
 export const configOverrideFactory = buildFactory<Omit<ConfigOverride, 'created_at' | 'updated_at'>>({

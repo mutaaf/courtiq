@@ -190,6 +190,7 @@ export interface Session {
   cv_source_files: Json | null;
   coach_debrief_text: string | null;
   coach_debrief_extracts: Json | null;
+  quality_rating: number | null;
   created_at: string;
 }
 

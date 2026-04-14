@@ -34,6 +34,17 @@ import {
   GAME_SESSION_TYPES,
 } from '@/components/analytics/chart-utils';
 import type { WeekBucket, SessionBucket, TransferStats } from '@/components/analytics/chart-utils';
+import {
+  calculateAverageRating,
+  getHighQualityRate,
+  countByRating,
+  getQualityTrend,
+  formatTrendDelta,
+  getRatingColor,
+  getRatingLabel,
+  filterRated,
+  type RatedSession,
+} from '@/lib/session-quality-utils';
 
 // Lazily-loaded chart components — each lives in its own chunk so the analytics
 // page shell renders immediately while chart code downloads in parallel with data.
@@ -484,6 +495,105 @@ function MetricPill({
   );
 }
 
+// ─── Session Quality Card ─────────────────────────────────────────────────────
+
+function SessionQualityCard({ sessions }: { sessions: RatedSession[] }) {
+  const avg = calculateAverageRating(sessions);
+  const highPct = getHighQualityRate(sessions);
+  const dist = countByRating(sessions);
+  const trend = getQualityTrend(sessions);
+  const trendDelta = formatTrendDelta(sessions);
+  const ratedCount = filterRated(sessions).length;
+  const totalCount = sessions.length;
+
+  const TrendIcon =
+    trend === 'improving' ? TrendingUp : trend === 'declining' ? TrendingDown : Minus;
+  const trendColor =
+    trend === 'improving' ? 'text-emerald-400' : trend === 'declining' ? 'text-red-400' : 'text-zinc-400';
+
+  const maxBar = Math.max(...Object.values(dist), 1);
+
+  return (
+    <Card className="border-amber-500/20">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Star className="h-4 w-4 text-amber-400" />
+            Session Quality
+          </CardTitle>
+          {trendDelta && (
+            <div className={`flex items-center gap-1 text-xs font-medium ${trendColor}`}>
+              <TrendIcon className="h-3.5 w-3.5" />
+              {trendDelta} vs prev 5
+            </div>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {avg !== null ? (
+          <>
+            {/* Average stars */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-0.5">
+                {([1, 2, 3, 4, 5] as const).map((n) => (
+                  <Star
+                    key={n}
+                    className={`h-5 w-5 ${
+                      n <= Math.round(avg)
+                        ? 'fill-amber-400 text-amber-400'
+                        : 'text-zinc-600'
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className={`text-2xl font-bold tabular-nums ${getRatingColor(avg)}`}>
+                {avg}
+              </span>
+              <span className="text-xs text-zinc-500">
+                {getRatingLabel(Math.round(avg) as 1 | 2 | 3 | 4 | 5)} ·{' '}
+                {ratedCount}/{totalCount} sessions rated
+              </span>
+            </div>
+
+            {/* Distribution bars */}
+            <div className="space-y-1.5">
+              {([5, 4, 3, 2, 1] as const).map((n) => (
+                <div key={n} className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-500 w-3 text-right">{n}</span>
+                  <Star className="h-3 w-3 text-amber-400 shrink-0" />
+                  <div className="flex-1 h-2 rounded-full bg-zinc-800 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-amber-400 transition-all"
+                      style={{ width: `${(dist[n] / maxBar) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-zinc-500 w-4 text-right">{dist[n]}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* High quality % */}
+            <div className="flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2">
+              <CheckCircle2 className="h-4 w-4 text-amber-400 shrink-0" />
+              <p className="text-xs text-amber-300">
+                <span className="font-semibold">{highPct}%</span> of rated sessions scored 4–5 stars
+              </p>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-6 text-center gap-2">
+            <Star className="h-8 w-8 text-zinc-600" />
+            <p className="text-sm text-zinc-400">No sessions rated yet</p>
+            <p className="text-xs text-zinc-500">
+              Tap the star widget on any session page to start tracking quality.
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function CoachPatternInsightsCard({
   observations,
   players,
@@ -665,9 +775,9 @@ export default function AnalyticsPage() {
     queryKey: ['analytics-sessions', activeTeam?.id],
     queryFn: async () => {
       if (!activeTeam) return [];
-      const data = await query<Pick<Session, 'id' | 'type' | 'date'>[]>({
+      const data = await query<Pick<Session, 'id' | 'type' | 'date' | 'quality_rating'>[]>({
         table: 'sessions',
-        select: 'id, type, date',
+        select: 'id, type, date, quality_rating',
         filters: { team_id: activeTeam.id },
         order: { column: 'date', ascending: false },
       });
@@ -1547,6 +1657,11 @@ export default function AnalyticsPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* ── Session Quality ───────────────────────────────────────────────────── */}
+      {!isLoading && sessions.length > 0 && (
+        <SessionQualityCard sessions={sessions as RatedSession[]} />
       )}
 
       {/* ── Coaching Pattern Insights ─────────────────────────────────────────── */}
