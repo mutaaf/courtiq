@@ -7,6 +7,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Home, Mic, Users, ClipboardList, Settings, Calendar, CalendarDays, BookOpen, BarChart3, Sparkles, Sun, Moon, LineChart, LogOut, Lock, ShieldCheck, Store, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { NotificationBell } from '@/components/layout/notification-bell';
 import { TeamSwitcher } from '@/components/layout/team-switcher';
 import { SyncIndicator } from '@/components/layout/sync-indicator';
 import { PageTransition } from '@/components/layout/page-transition';
@@ -109,18 +110,21 @@ export function DashboardShell({ coach, children }: Props) {
           <TeamSwitcher />
         </div>
 
-        {/* Search / Command Palette trigger */}
+        {/* Search / Command Palette trigger + notification bell */}
         <div className="border-b border-zinc-800 px-4 py-2">
-          <button
-            onClick={openCommandPalette}
-            aria-label="Open command palette (⌘K)"
-            aria-keyshortcuts="Meta+K Control+K"
-            className="flex w-full items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-zinc-500 hover:border-zinc-600 hover:text-zinc-300 transition-colors"
-          >
-            <Search className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            <span className="flex-1 text-left text-xs">Search…</span>
-            <kbd className="hidden text-[10px] text-zinc-600 sm:inline">⌘K</kbd>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={openCommandPalette}
+              aria-label="Open command palette (⌘K)"
+              aria-keyshortcuts="Meta+K Control+K"
+              className="flex flex-1 items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-zinc-500 hover:border-zinc-600 hover:text-zinc-300 transition-colors"
+            >
+              <Search className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              <span className="flex-1 text-left text-xs">Search…</span>
+              <kbd className="hidden text-[10px] text-zinc-600 sm:inline">⌘K</kbd>
+            </button>
+            <NotificationBell />
+          </div>
         </div>
 
         <nav
@@ -228,6 +232,7 @@ export function DashboardShell({ coach, children }: Props) {
             >
               <Search className="h-4 w-4" />
             </button>
+            <NotificationBell />
             <button
               onClick={toggleTheme}
               aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
