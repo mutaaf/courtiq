@@ -60,7 +60,14 @@ import type { SessionDebriefResult } from '@/app/api/ai/session-debrief/route';
 import type { SessionBriefingResult } from '@/app/api/ai/session-briefing/route';
 import type { GameRecapResult } from '@/app/api/ai/game-recap/route';
 import type { CoachReflectionResult } from '@/app/api/ai/coach-reflection/route';
+import type { HalftimeAdjustments } from '@/app/api/ai/halftime-adjustments/route';
 import { getCategoryLabel, getCategoryColor } from '@/lib/coach-reflection-utils';
+import {
+  getMomentumLabel,
+  getMomentumColor,
+  getMomentumBannerClasses,
+  buildHalftimeShareText,
+} from '@/lib/halftime-utils';
 
 const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   practice: 'Practice',
@@ -572,6 +579,235 @@ function CoachReflectionCard({
                 )}
               </div>
             </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function HalftimeAdjustmentsCard({
+  sessionId,
+  teamId,
+  opponent,
+}: {
+  sessionId: string;
+  teamId: string;
+  opponent?: string | null;
+}) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [adjustments, setAdjustments] = useState<HalftimeAdjustments | null>(null);
+  const [expanded, setExpanded] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  async function handleGenerate() {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/ai/halftime-adjustments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, teamId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate adjustments');
+      }
+      const data = await res.json();
+      setAdjustments(data.adjustments);
+      setExpanded(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function handleCopy() {
+    if (!adjustments) return;
+    await navigator.clipboard.writeText(buildHalftimeShareText(adjustments, opponent));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  const momentum = adjustments?.momentum;
+  const momentumColor = momentum ? getMomentumColor(momentum) : 'text-purple-400';
+  const momentumBanner = momentum ? getMomentumBannerClasses(momentum) : 'border-purple-500/20 bg-purple-500/5';
+
+  return (
+    <Card className={adjustments ? momentumBanner : 'border-zinc-800'}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Shuffle className="h-5 w-5 text-purple-400" />
+            Half-Time Adjustments
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            {adjustments && (
+              <>
+                <button
+                  onClick={handleCopy}
+                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+                  aria-label="Copy adjustments to clipboard"
+                >
+                  {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+                <button
+                  onClick={handleGenerate}
+                  disabled={isGenerating}
+                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors disabled:opacity-40"
+                  aria-label="Regenerate adjustments"
+                >
+                  {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                  Refresh
+                </button>
+                <button
+                  onClick={() => setExpanded((v) => !v)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+                  aria-label={expanded ? 'Collapse adjustments' : 'Expand adjustments'}
+                  aria-expanded={expanded}
+                >
+                  {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!adjustments && !isGenerating && (
+          <div className="flex flex-col items-center justify-center py-6 text-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-500/10">
+              <Shuffle className="h-7 w-7 text-purple-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-zinc-200">AI Half-Time Adjustments</p>
+              <p className="text-xs text-zinc-500 mt-1 max-w-xs mx-auto">
+                Capture at least 3 observations, then generate tactical adjustments for the second half — what&apos;s working, what to fix, and player spotlights.
+              </p>
+            </div>
+            <Button
+              onClick={handleGenerate}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              <Shuffle className="h-4 w-4" />
+              Generate Adjustments
+            </Button>
+            {error && <p className="text-xs text-red-400">{error}</p>}
+          </div>
+        )}
+
+        {isGenerating && !adjustments && (
+          <div className="flex flex-col items-center justify-center py-8 gap-3">
+            <Loader2 className="h-6 w-6 animate-spin text-purple-400" />
+            <p className="text-sm text-zinc-400">Analyzing first half...</p>
+          </div>
+        )}
+
+        {adjustments && expanded && (
+          <div className="space-y-4">
+            {/* Momentum banner */}
+            <div className={`rounded-lg border px-3 py-2 flex items-center gap-2 ${momentumBanner}`}>
+              <Activity className={`h-4 w-4 shrink-0 ${momentumColor}`} />
+              <span className={`text-sm font-semibold ${momentumColor}`}>
+                {getMomentumLabel(adjustments.momentum)}
+              </span>
+            </div>
+
+            {/* What's working */}
+            {adjustments.whats_working.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                  What&apos;s Working
+                </p>
+                <ul className="space-y-1">
+                  {adjustments.whats_working.map((item, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
+                      <span className="text-emerald-400 shrink-0 mt-0.5">✓</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* What needs fixing */}
+            {adjustments.what_needs_fixing.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2 flex items-center gap-1.5">
+                  <AlertCircle className="h-3.5 w-3.5 text-amber-400" />
+                  Needs Fixing
+                </p>
+                <ul className="space-y-1">
+                  {adjustments.what_needs_fixing.map((item, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
+                      <span className="text-amber-400 shrink-0 mt-0.5">⚠</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Tactical adjustments */}
+            {adjustments.adjustments.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2 flex items-center gap-1.5">
+                  <Lightbulb className="h-3.5 w-3.5 text-purple-400" />
+                  Tactical Adjustments
+                </p>
+                <div className="space-y-2">
+                  {adjustments.adjustments.map((adj, i) => (
+                    <div
+                      key={i}
+                      className={`rounded-lg border p-3 ${
+                        adj.priority === 'immediate'
+                          ? 'border-purple-500/30 bg-purple-500/5'
+                          : 'border-zinc-700/50 bg-zinc-900/30'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-0.5">
+                        <span className="text-sm font-semibold text-zinc-100">{adj.focus}</span>
+                        {adj.priority === 'immediate' && (
+                          <span className="text-[10px] font-medium text-purple-400 bg-purple-500/10 rounded-full px-2 py-0.5">
+                            Now
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-zinc-400 leading-relaxed">{adj.action}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Player spotlight */}
+            {adjustments.player_spotlight && (
+              <div className="rounded-lg border border-orange-500/20 bg-orange-500/5 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1 flex items-center gap-1.5">
+                  <Star className="h-3.5 w-3.5 text-orange-400" />
+                  Feature in Second Half
+                </p>
+                <p className="text-sm font-semibold text-orange-400">{adjustments.player_spotlight.name}</p>
+                <p className="text-xs text-zinc-400 mt-0.5">{adjustments.player_spotlight.note}</p>
+              </div>
+            )}
+
+            {/* Halftime message */}
+            {adjustments.halftime_message && (
+              <div className="rounded-lg border border-zinc-700 bg-zinc-900/60 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1 flex items-center gap-1.5">
+                  <Send className="h-3.5 w-3.5 text-zinc-500" />
+                  Halftime Message
+                </p>
+                <p className="text-sm text-zinc-200 italic">&ldquo;{adjustments.halftime_message}&rdquo;</p>
+              </div>
+            )}
+
+            {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
           </div>
         )}
       </CardContent>
@@ -1519,6 +1755,15 @@ export default function SessionDetailPage() {
           onDebriefSaved={() =>
             queryClient.invalidateQueries({ queryKey: ['session', sessionId] })
           }
+        />
+      )}
+
+      {/* Half-Time Adjustments — game/scrimmage/tournament only */}
+      {activeTeam && (session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
+        <HalftimeAdjustmentsCard
+          sessionId={sessionId}
+          teamId={activeTeam.id}
+          opponent={session.opponent}
         />
       )}
 
