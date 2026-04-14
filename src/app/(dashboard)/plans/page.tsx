@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
@@ -40,10 +41,14 @@ import {
   ChevronUp,
   BookmarkPlus,
   Check,
+  Play,
+  Timer,
+  Plus,
+  Radio,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { PrintButton } from '@/components/ui/print-button';
-import type { Plan, Player, PlanType } from '@/types/database';
+import type { Plan, Player, PlanType, Session } from '@/types/database';
 import type { ObservationInsights } from '@/app/api/ai/plan/route';
 
 const PLAN_TYPE_CONFIG: Record<
@@ -73,7 +78,8 @@ const SUGGESTION_CHIPS = [
 ];
 
 export default function PlansPage() {
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, coach } = useActiveTeam();
+  const router = useRouter();
   const qc = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
@@ -101,6 +107,10 @@ export default function PlansPage() {
   const [savingOpponentProfile, setSavingOpponentProfile] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [showProfilePicker, setShowProfilePicker] = useState(false);
+
+  // Run Practice modal state
+  const [showRunModal, setShowRunModal] = useState(false);
+  const [creatingSession, setCreatingSession] = useState(false);
 
   const { data: plans, isLoading, refetch: refetchPlans } = useQuery({
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
@@ -131,6 +141,22 @@ export default function PlansPage() {
       return data || [];
     },
     enabled: !!activeTeam,
+  });
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const { data: todaySessions = [] } = useQuery({
+    queryKey: ['sessions-today', activeTeam?.id, todayStr],
+    queryFn: async () => {
+      if (!activeTeam) return [];
+      const data = await query<Session[]>({
+        table: 'sessions',
+        select: 'id, type, date, start_time, location',
+        filters: { team_id: activeTeam.id, date: todayStr },
+        order: { column: 'start_time', ascending: true },
+      });
+      return data || [];
+    },
+    enabled: !!activeTeam && showRunModal,
   });
 
   const deleteMutation = useMutation({
@@ -367,6 +393,37 @@ export default function PlansPage() {
       day: 'numeric',
       year: 'numeric',
     });
+  }
+
+  async function handleRunWithSession(sessionId: string, planId: string) {
+    router.push(`/sessions/${sessionId}/timer?planId=${planId}`);
+    setShowRunModal(false);
+  }
+
+  async function handleCreateAndRun(planId: string) {
+    if (!activeTeam || !coach) return;
+    setCreatingSession(true);
+    try {
+      const newSession = await mutate({
+        table: 'sessions',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          type: 'practice',
+          date: new Date().toISOString().slice(0, 10),
+        },
+      });
+      const sessionId = (newSession as any)?.[0]?.id || (newSession as any)?.id;
+      if (sessionId) {
+        router.push(`/sessions/${sessionId}/timer?planId=${planId}`);
+        setShowRunModal(false);
+      }
+    } catch {
+      // ignore — user can try again
+    } finally {
+      setCreatingSession(false);
+    }
   }
 
   function renderObjectFields(obj: any) {
@@ -1142,6 +1199,15 @@ export default function PlansPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {selectedPlan.type === 'practice' && (
+              <Button
+                onClick={() => setShowRunModal(true)}
+                className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 px-3 text-sm"
+              >
+                <Play className="h-4 w-4" />
+                Run Practice
+              </Button>
+            )}
             <PrintButton label="Print / PDF" />
             <Button
               variant="ghost"
@@ -1157,6 +1223,80 @@ export default function PlansPage() {
             </Button>
           </div>
         </div>
+
+        {/* Run Practice modal */}
+        {showRunModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowRunModal(false); }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Select session to run practice"
+          >
+            <div className="w-full max-w-md bg-zinc-900 border border-zinc-700 rounded-2xl p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Timer className="h-5 w-5 text-orange-500" />
+                  <h2 className="text-lg font-bold">Run Practice</h2>
+                </div>
+                <button
+                  onClick={() => setShowRunModal(false)}
+                  aria-label="Close modal"
+                  className="text-zinc-500 hover:text-zinc-300 transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <p className="text-sm text-zinc-400">
+                Choose a session to run this plan&apos;s drills as a timed practice.
+              </p>
+
+              {todaySessions.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Today&apos;s sessions</p>
+                  {todaySessions.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => handleRunWithSession(s.id, selectedPlan.id)}
+                      className="w-full flex items-center gap-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-xl px-4 py-3 text-left transition-colors"
+                    >
+                      <Radio className="h-4 w-4 text-orange-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-zinc-200 capitalize">{s.type || 'Practice'}</p>
+                        {(s.start_time || s.location) && (
+                          <p className="text-xs text-zinc-500 truncate">
+                            {s.start_time ? s.start_time.slice(0, 5) : ''}{s.start_time && s.location ? ' · ' : ''}{s.location || ''}
+                          </p>
+                        )}
+                      </div>
+                      <Play className="h-4 w-4 text-zinc-500 shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="border-t border-zinc-800 pt-3">
+                <button
+                  onClick={() => handleCreateAndRun(selectedPlan.id)}
+                  disabled={creatingSession}
+                  className="w-full flex items-center gap-3 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 rounded-xl px-4 py-3 text-left transition-colors disabled:opacity-50"
+                >
+                  {creatingSession ? (
+                    <Loader2 className="h-4 w-4 text-orange-400 animate-spin shrink-0" />
+                  ) : (
+                    <Plus className="h-4 w-4 text-orange-400 shrink-0" />
+                  )}
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-orange-300">
+                      {creatingSession ? 'Creating…' : 'Create new session & start'}
+                    </p>
+                    <p className="text-xs text-zinc-500">Adds a practice session for today</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <Card>
           <CardContent className="p-6">

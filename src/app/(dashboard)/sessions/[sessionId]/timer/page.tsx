@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
@@ -32,9 +32,10 @@ import {
   Search,
   AlertCircle,
   RotateCcw,
+  ClipboardList,
 } from 'lucide-react';
 import Link from 'next/link';
-import type { Drill, Player, Session } from '@/types/database';
+import type { Drill, Player, Session, Plan } from '@/types/database';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -292,6 +293,8 @@ export default function PracticeTimerPage({
 }) {
   const { sessionId } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const planId = searchParams.get('planId');
   const { activeTeam, coach } = useActiveTeam();
 
   // ── State ────────────────────────────────────────────────────────────────
@@ -305,6 +308,8 @@ export default function PracticeTimerPage({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [loadedPlanTitle, setLoadedPlanTitle] = useState<string | null>(null);
+  const [planLoading, setPlanLoading] = useState(false);
 
   // Setup state
   const [drillSearch, setDrillSearch] = useState('');
@@ -359,6 +364,72 @@ export default function PracticeTimerPage({
     },
     enabled: !!activeTeam,
   });
+
+  // ── Load plan queue from planId search param ─────────────────────────────
+  useEffect(() => {
+    if (!planId || queue.length > 0) return;
+
+    setPlanLoading(true);
+    query<Plan>({
+      table: 'plans',
+      select: '*',
+      filters: { id: planId },
+      single: true,
+    })
+      .then((plan) => {
+        if (!plan?.content_structured) return;
+        const s = plan.content_structured as any;
+        const items: QueueItem[] = [];
+
+        if (s.warmup?.name) {
+          items.push({
+            id: `warmup-${Date.now()}`,
+            name: s.warmup.name,
+            durationSecs: Math.max(60, (s.warmup.duration_minutes ?? 5) * 60),
+            cues: [],
+            description: s.warmup.description || '',
+          });
+        }
+
+        (s.drills || []).forEach((d: any, i: number) => {
+          items.push({
+            id: `plan-drill-${i}-${Date.now()}`,
+            name: d.name,
+            durationSecs: Math.max(60, (d.duration_minutes ?? 10) * 60),
+            cues: Array.isArray(d.coaching_cues) ? d.coaching_cues : [],
+            description: d.description || '',
+          });
+        });
+
+        if (s.scrimmage?.duration_minutes) {
+          items.push({
+            id: `scrimmage-${Date.now()}`,
+            name: s.scrimmage.focus ? `Scrimmage: ${s.scrimmage.focus}` : 'Scrimmage',
+            durationSecs: Math.max(60, s.scrimmage.duration_minutes * 60),
+            cues: [],
+            description: '',
+          });
+        }
+
+        if (s.cooldown?.duration_minutes) {
+          items.push({
+            id: `cooldown-${Date.now()}`,
+            name: 'Cool Down',
+            durationSecs: Math.max(60, s.cooldown.duration_minutes * 60),
+            cues: [],
+            description: s.cooldown.notes || '',
+          });
+        }
+
+        if (items.length > 0) {
+          setQueue(items);
+          setLoadedPlanTitle(plan.title || 'Practice Plan');
+        }
+      })
+      .catch(() => {/* silently ignore */})
+      .finally(() => setPlanLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planId]);
 
   // ── Timer logic ──────────────────────────────────────────────────────────
   const clearIntervals = useCallback(() => {
@@ -709,6 +780,20 @@ export default function PracticeTimerPage({
           )}
         </div>
       </div>
+
+      {/* Plan loaded banner */}
+      {planLoading && (
+        <div className="flex items-center gap-2 rounded-lg bg-blue-500/10 border border-blue-500/20 px-4 py-3 text-sm text-blue-300">
+          <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+          Loading plan…
+        </div>
+      )}
+      {loadedPlanTitle && !planLoading && (
+        <div className="flex items-center gap-2 rounded-lg bg-blue-500/10 border border-blue-500/20 px-4 py-3 text-sm text-blue-300">
+          <ClipboardList className="h-4 w-4 shrink-0" />
+          Loaded from plan: <span className="font-medium">{loadedPlanTitle}</span>
+        </div>
+      )}
 
       {/* Queue */}
       <div className="space-y-3">

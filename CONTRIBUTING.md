@@ -83,6 +83,9 @@ You run every hour. Here's how to be effective.
 - [x] **Parent viral loop** — parent portal includes "Is your coach using SportsIQ? Share this with them" CTA when they see how good the reports are
 - [x] **Freemium upgrade nudges** — /settings/upgrade pricing page (tier cards + desktop feature-matrix table); Plans & Pricing card in settings hub; UpgradeGate "View Plans" link fixed; FreemiumNudge banner on home page with contextual message (player-limit, AI-usage, generic) dismissible 3 days via localStorage
 
+### P1.5 — Planning ↔ Execution Integration
+- [x] **Practice Plan → Timer Integration** — "Run Practice" button on practice plans pre-populates the drill timer queue (warmup + drills + scrimmage + cooldown) via `?planId=` URL param; session picker modal shows today's sessions or creates a new one on-the-fly; blue "Loaded from plan" banner confirms the queue source in the timer setup screen
+
 ### P5.5 — Game Day Intelligence
 - [x] **Opponent Scouting Library** — save opponent scouting profiles (name, strengths, weaknesses, key players, notes) directly from the Game Day Prep form with one tap; load saved profiles back into the form to avoid re-entering data for repeat matchups; profiles stored as `opponent_profile` plan type (no new table); compact "Scouting Library" picker inside the game day form shows saved profiles with a preview of strengths; "Save to Library" icon button with success state; duplicate detection updates existing profile; renderer for saved profiles with color-coded chips (red=strengths, emerald=weaknesses, amber=key players) + "Load into Game Day Prep" action; `opponent-profile-utils.ts` pure utility module; 31 unit tests; 587 total
 
