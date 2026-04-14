@@ -70,7 +70,7 @@ export default function LandingContent() {
             <span className="text-orange-500">who sees them.</span>
           </h1>
 
-          <p className="mt-5 max-w-lg text-base sm:text-lg text-zinc-400 leading-relaxed">
+          <p className="mt-5 max-w-lg text-base sm:text-lg text-zinc-600 leading-relaxed">
             Voice-powered AI that turns your courtside observations into player development plans, progress reports, and smarter practices.
           </p>
 
@@ -81,7 +81,7 @@ export default function LandingContent() {
                 <ArrowRight className="ml-1.5 h-5 w-5" />
               </Link>
             </Button>
-            <Button asChild variant="outline" size="xl" className="border-zinc-300">
+            <Button asChild variant="outline" size="xl" className="border-zinc-300 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">
               <button onClick={() => scrollTo('how-it-works')}>
                 Watch how it works
                 <ChevronDown className="ml-1.5 h-4 w-4" />
@@ -115,12 +115,12 @@ export default function LandingContent() {
                 detail: 'You see the progress in real time, but you have no record of it. Season-end reports are guesswork.',
               },
             ].map((p) => (
-              <Card key={p.pain} className="p-6 text-center hover:border-zinc-300 transition-colors">
+              <Card key={p.pain} className="p-6 text-center bg-white border-zinc-200 text-zinc-900 hover:border-zinc-300 hover:shadow-md transition-all">
                 <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50">
                   <p.icon className="h-5 w-5 text-orange-500" />
                 </div>
                 <p className="font-semibold text-sm text-orange-400 mb-2">{p.pain}</p>
-                <p className="text-sm text-zinc-400 leading-relaxed">{p.detail}</p>
+                <p className="text-sm text-zinc-600 leading-relaxed">{p.detail}</p>
               </Card>
             ))}
           </div>
@@ -175,7 +175,7 @@ export default function LandingContent() {
                 {s.step}
               </div>
               <h3 className="text-lg font-semibold">{s.title}</h3>
-              <p className="mt-2 text-sm text-zinc-400 leading-relaxed max-w-xs mx-auto">{s.desc}</p>
+              <p className="mt-2 text-sm text-zinc-600 leading-relaxed max-w-xs mx-auto">{s.desc}</p>
             </div>
           ))}
         </div>
@@ -199,11 +199,11 @@ export default function LandingContent() {
           </div>
 
           {/* Testimonial */}
-          <Card className="p-6 sm:p-8 mb-10 border-orange-200 bg-zinc-50">
+          <Card className="p-6 sm:p-8 mb-10 border-orange-200 bg-orange-50/50 text-zinc-900">
             <blockquote className="text-base sm:text-lg text-zinc-800 leading-relaxed italic text-center">
               &ldquo;I used to forget what I wanted to work on by the time I got home. Now everything&apos;s captured before I even leave the gym.&rdquo;
             </blockquote>
-            <p className="mt-4 text-sm text-zinc-400 text-center">-- A YMCA Youth Basketball Coach</p>
+            <p className="mt-4 text-sm text-zinc-500 text-center">-- A YMCA Youth Basketball Coach</p>
           </Card>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -213,13 +213,13 @@ export default function LandingContent() {
               { icon: BarChart3, label: 'Player report cards', desc: 'Beautiful progress reports parents love.' },
               { icon: Smartphone, label: 'No tech skills required', desc: 'If you can press record, you\'re good.' },
             ].map((b) => (
-              <div key={b.label} className="flex items-start gap-4 rounded-xl border border-zinc-200 bg-zinc-50 p-5 hover:border-zinc-300 transition-colors">
+              <div key={b.label} className="flex items-start gap-4 rounded-xl border border-zinc-200 bg-white p-5 hover:border-zinc-300 hover:shadow-sm transition-colors">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-50">
                   <b.icon className="h-5 w-5 text-orange-500" />
                 </div>
                 <div>
                   <p className="font-semibold text-sm">{b.label}</p>
-                  <p className="text-sm text-zinc-400 mt-0.5">{b.desc}</p>
+                  <p className="text-sm text-zinc-600 mt-0.5">{b.desc}</p>
                 </div>
               </div>
             ))}
@@ -231,7 +231,7 @@ export default function LandingContent() {
       <section className="mx-auto max-w-4xl px-4 py-16 sm:py-24">
         <div className="text-center mb-10">
           <h2 className="text-2xl font-bold sm:text-3xl">Running a program?</h2>
-          <p className="mt-3 text-zinc-400 max-w-lg mx-auto">
+          <p className="mt-3 text-zinc-600 max-w-lg mx-auto">
             SportsIQ gives you visibility across every team, every coach, every player in your organization.
           </p>
         </div>
@@ -241,17 +241,17 @@ export default function LandingContent() {
             { icon: Users, label: 'Coach engagement', desc: 'See which coaches are actively recording and tracking.' },
             { icon: BarChart3, label: 'Standardized reporting', desc: 'Consistent progress reports across your entire program.' },
           ].map((b) => (
-            <Card key={b.label} className="p-6 text-center hover:border-zinc-300 transition-colors">
+            <Card key={b.label} className="p-6 text-center bg-white border-zinc-200 text-zinc-900 hover:border-zinc-300 hover:shadow-md transition-all">
               <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
                 <b.icon className="h-5 w-5 text-emerald-500" />
               </div>
               <p className="font-semibold text-sm">{b.label}</p>
-              <p className="text-sm text-zinc-400 mt-1">{b.desc}</p>
+              <p className="text-sm text-zinc-600 mt-1">{b.desc}</p>
             </Card>
           ))}
         </div>
         <div className="mt-8 text-center">
-          <Button asChild variant="outline" size="lg">
+          <Button asChild variant="outline" size="lg" className="border-zinc-300 text-zinc-700 hover:bg-zinc-100">
             <Link href="/demo">Schedule a Demo</Link>
           </Button>
         </div>
@@ -261,9 +261,9 @@ export default function LandingContent() {
       <section className="border-y border-zinc-200 bg-zinc-50/50 py-16 sm:py-20">
         <div className="mx-auto max-w-3xl px-4 text-center">
           <h2 className="text-2xl font-bold sm:text-3xl mb-4">See it in action</h2>
-          <p className="text-zinc-400 mb-8">Try the live recording demo. 20 seconds, no account needed.</p>
+          <p className="text-zinc-600 mb-8">Try the live recording demo. 20 seconds, no account needed.</p>
 
-          <Card className="p-8 sm:p-10 border-orange-200 hover:border-orange-500/40 transition-colors">
+          <Card className="p-8 sm:p-10 bg-white border-orange-200 text-zinc-900 hover:border-orange-400 hover:shadow-lg transition-all">
             <div className="flex flex-col items-center gap-5">
               <div className="relative">
                 <div className="flex h-20 w-20 items-center justify-center rounded-full bg-orange-100 ring-2 ring-orange-500/30">
@@ -274,7 +274,7 @@ export default function LandingContent() {
                   <span className="relative inline-flex rounded-full h-5 w-5 bg-orange-500" />
                 </span>
               </div>
-              <p className="text-sm text-zinc-400 max-w-sm">
+              <p className="text-sm text-zinc-600 max-w-sm">
                 &ldquo;Hit record, coach like normal, and let AI turn your words into organized player notes.&rdquo;
               </p>
               <Button asChild size="lg" className="shadow-lg shadow-orange-500/25">
@@ -309,11 +309,11 @@ export default function LandingContent() {
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {/* Free */}
-          <Card className="p-6 flex flex-col">
+          <Card className="p-6 flex flex-col bg-white border-zinc-200 text-zinc-900">
             <h3 className="text-lg font-semibold">Free</h3>
             <div className="mt-2 flex items-baseline gap-1">
               <span className="text-3xl font-bold">$0</span>
-              <span className="text-zinc-400 text-sm">/month</span>
+              <span className="text-zinc-500 text-sm">/month</span>
             </div>
             <p className="mt-2 text-sm text-zinc-400">Perfect for trying it out</p>
             <ul className="mt-5 space-y-2.5 flex-1">
@@ -324,20 +324,20 @@ export default function LandingContent() {
                 </li>
               ))}
             </ul>
-            <Button asChild variant="outline" className="mt-6 w-full">
+            <Button asChild variant="outline" className="mt-6 w-full border-zinc-300 text-zinc-700 hover:bg-zinc-100">
               <Link href="/signup">Get Started Free</Link>
             </Button>
           </Card>
 
           {/* Coach */}
-          <Card className="p-6 flex flex-col border-2 border-orange-500 relative">
+          <Card className="p-6 flex flex-col bg-white border-2 border-orange-500 text-zinc-900 shadow-lg shadow-orange-500/10 relative">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2">
               <Badge>Most Popular</Badge>
             </div>
             <h3 className="text-lg font-semibold">Coach</h3>
             <div className="mt-2 flex items-baseline gap-1">
               <span className="text-3xl font-bold text-orange-500">${prices[1]}</span>
-              <span className="text-zinc-400 text-sm">{period}</span>
+              <span className="text-zinc-500 text-sm">{period}</span>
             </div>
             <p className="mt-2 text-sm text-zinc-400">For individual coaches</p>
             <ul className="mt-5 space-y-2.5 flex-1">
@@ -354,11 +354,11 @@ export default function LandingContent() {
           </Card>
 
           {/* Pro Coach */}
-          <Card className="p-6 flex flex-col">
+          <Card className="p-6 flex flex-col bg-white border-zinc-200 text-zinc-900">
             <h3 className="text-lg font-semibold">Pro Coach</h3>
             <div className="mt-2 flex items-baseline gap-1">
               <span className="text-3xl font-bold">${prices[2]}</span>
-              <span className="text-zinc-400 text-sm">{period}</span>
+              <span className="text-zinc-500 text-sm">{period}</span>
             </div>
             <p className="mt-2 text-sm text-zinc-400">For serious coaches</p>
             <ul className="mt-5 space-y-2.5 flex-1">
@@ -369,13 +369,13 @@ export default function LandingContent() {
                 </li>
               ))}
             </ul>
-            <Button asChild variant="outline" className="mt-6 w-full">
+            <Button asChild variant="outline" className="mt-6 w-full border-zinc-300 text-zinc-700 hover:bg-zinc-100">
               <Link href="/signup">Go Pro</Link>
             </Button>
           </Card>
 
           {/* Organization */}
-          <Card className="p-6 flex flex-col">
+          <Card className="p-6 flex flex-col bg-white border-zinc-200 text-zinc-900">
             <h3 className="text-lg font-semibold">Organization</h3>
             <div className="mt-2 flex items-baseline gap-1">
               <span className="text-3xl font-bold">Custom</span>
@@ -389,7 +389,7 @@ export default function LandingContent() {
                 </li>
               ))}
             </ul>
-            <Button asChild variant="outline" className="mt-6 w-full">
+            <Button asChild variant="outline" className="mt-6 w-full border-zinc-300 text-zinc-700 hover:bg-zinc-100">
               <Link href="/demo">Contact Us</Link>
             </Button>
           </Card>
@@ -426,14 +426,14 @@ export default function LandingContent() {
               <button
                 key={i}
                 onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                className="w-full text-left rounded-xl border border-zinc-200 bg-zinc-50 p-5 hover:border-zinc-300 transition-colors"
+                className="w-full text-left rounded-xl border border-zinc-200 bg-white p-5 hover:border-zinc-300 hover:shadow-sm transition-colors"
               >
                 <div className="flex items-center justify-between gap-4">
                   <span className="font-medium text-sm">{faq.q}</span>
                   <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform ${openFaq === i ? 'rotate-180' : ''}`} />
                 </div>
                 {openFaq === i && (
-                  <p className="mt-3 text-sm text-zinc-400 leading-relaxed">{faq.a}</p>
+                  <p className="mt-3 text-sm text-zinc-600 leading-relaxed">{faq.a}</p>
                 )}
               </button>
             ))}
@@ -486,7 +486,7 @@ export default function LandingContent() {
                 <ArrowRight className="ml-1.5 h-5 w-5" />
               </Link>
             </Button>
-            <Button asChild variant="outline" size="xl" className="border-zinc-300">
+            <Button asChild variant="outline" size="xl" className="border-zinc-300 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">
               <Link href="/demo">Or try the demo first</Link>
             </Button>
           </div>
