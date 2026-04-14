@@ -84,6 +84,9 @@ You run every hour. Here's how to be effective.
 - [x] **Parent viral loop** — parent portal includes "Is your coach using SportsIQ? Share this with them" CTA when they see how good the reports are
 - [x] **Freemium upgrade nudges** — /settings/upgrade pricing page (tier cards + desktop feature-matrix table); Plans & Pricing card in settings hub; UpgradeGate "View Plans" link fixed; FreemiumNudge banner on home page with contextual message (player-limit, AI-usage, generic) dismissible 3 days via localStorage
 
+### P0.5 — Session Intelligence
+- [x] **Pre-Session AI Briefing** — one-tap AI briefing card on session detail page (above observations); analyzes last 14 days of observations, player availability, active goals near deadline, and prior session debrief recommendations; shows session goal, up to 3 prioritized focus areas (high/medium/low), up to 4 players to watch (needs_attention/on_a_roll/returning/goal_deadline), 3 coaching tips, energy note, and unavailable-player warning strip; collapse/expand toggle; Refresh button to regenerate; blue accent to distinguish from orange post-session debrief; `POST /api/ai/session-briefing` + `PreSessionBriefingCard` component; 0 new tables
+
 ### P1.5 — Planning ↔ Execution Integration
 - [x] **Practice Plan → Timer Integration** — "Run Practice" button on practice plans pre-populates the drill timer queue (warmup + drills + scrimmage + cooldown) via `?planId=` URL param; session picker modal shows today's sessions or creates a new one on-the-fly; blue "Loaded from plan" banner confirms the queue source in the timer setup screen
 

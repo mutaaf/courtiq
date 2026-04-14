@@ -41,10 +41,16 @@ import {
   Shuffle,
   Repeat2,
   Users,
+  Zap,
+  AlertTriangle,
+  Trophy,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
 import type { SessionDebriefResult } from '@/app/api/ai/session-debrief/route';
+import type { SessionBriefingResult } from '@/app/api/ai/session-briefing/route';
 
 const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   practice: 'Practice',
@@ -89,6 +95,242 @@ const TONE_CONFIG: Record<
     border: 'border-red-500/30',
   },
 };
+
+const PLAYER_WATCH_CONFIG: Record<
+  SessionBriefingResult['players_to_watch'][number]['type'],
+  { label: string; color: string; icon: typeof AlertCircle }
+> = {
+  needs_attention: { label: 'Needs attention', color: 'text-amber-400', icon: AlertCircle },
+  on_a_roll:       { label: 'On a roll',       color: 'text-emerald-400', icon: Trophy },
+  returning:       { label: 'Returning',        color: 'text-blue-400',   icon: Users },
+  goal_deadline:   { label: 'Goal deadline',    color: 'text-purple-400', icon: Target },
+};
+
+const PRIORITY_CONFIG: Record<
+  SessionBriefingResult['focus_areas'][number]['priority'],
+  { label: string; color: string; bg: string }
+> = {
+  high:   { label: 'High',   color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20' },
+  medium: { label: 'Medium', color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20' },
+  low:    { label: 'Low',    color: 'text-zinc-400',   bg: 'bg-zinc-700/30 border-zinc-700/50' },
+};
+
+function PreSessionBriefingCard({
+  sessionId,
+  teamId,
+}: {
+  sessionId: string;
+  teamId: string;
+}) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [briefing, setBriefing] = useState<SessionBriefingResult | null>(null);
+  const [expanded, setExpanded] = useState(true);
+
+  async function handleGenerate() {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/ai/session-briefing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, teamId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate briefing');
+      }
+      const data = await res.json();
+      setBriefing(data.briefing);
+      setExpanded(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  return (
+    <Card className={briefing ? 'border-blue-500/20' : 'border-zinc-800'}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Zap className="h-5 w-5 text-blue-400" />
+            Pre-Session Briefing
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            {briefing && (
+              <>
+                <button
+                  onClick={handleGenerate}
+                  disabled={isGenerating}
+                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors disabled:opacity-40"
+                  aria-label="Regenerate briefing"
+                >
+                  {isGenerating ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3 w-3" />
+                  )}
+                  Refresh
+                </button>
+                <button
+                  onClick={() => setExpanded((v) => !v)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+                  aria-label={expanded ? 'Collapse briefing' : 'Expand briefing'}
+                  aria-expanded={expanded}
+                >
+                  {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!briefing && !isGenerating && (
+          <div className="flex flex-col items-center justify-center py-6 text-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10">
+              <Zap className="h-7 w-7 text-blue-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-zinc-200">Get your pre-session briefing</p>
+              <p className="text-xs text-zinc-500 mt-1 max-w-xs mx-auto">
+                AI analyzes recent observations, player goals, and team trends to give you a personalized coaching plan for today.
+              </p>
+            </div>
+            <Button
+              onClick={handleGenerate}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Zap className="h-4 w-4" />
+              Get Briefing
+            </Button>
+            {error && (
+              <p className="text-xs text-red-400">{error}</p>
+            )}
+          </div>
+        )}
+
+        {isGenerating && !briefing && (
+          <div className="flex flex-col items-center justify-center py-8 gap-3">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-400" />
+            <p className="text-sm text-zinc-400">Analyzing team data...</p>
+          </div>
+        )}
+
+        {briefing && expanded && (
+          <div className="space-y-4">
+            {/* Unavailable players warning */}
+            {briefing.unavailable_players.length > 0 && (
+              <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-amber-300">Players unavailable today</p>
+                  <p className="text-xs text-amber-400/80 mt-0.5">
+                    {briefing.unavailable_players.join(', ')}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Session goal */}
+            <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-400 mb-1">
+                Session Goal
+              </p>
+              <p className="text-sm font-medium text-zinc-100 leading-snug">{briefing.session_goal}</p>
+            </div>
+
+            {/* Energy note */}
+            {briefing.energy_note && (
+              <div className="flex items-start gap-2">
+                <TrendingUp className="h-4 w-4 text-zinc-500 mt-0.5 shrink-0" />
+                <p className="text-xs text-zinc-400 italic leading-relaxed">{briefing.energy_note}</p>
+              </div>
+            )}
+
+            {/* Focus areas */}
+            {briefing.focus_areas.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">
+                  Focus Areas
+                </p>
+                <div className="space-y-2">
+                  {briefing.focus_areas.map((area, i) => {
+                    const cfg = PRIORITY_CONFIG[area.priority];
+                    return (
+                      <div key={i} className={`rounded-lg border ${cfg.bg} p-2.5`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium text-zinc-200">{area.skill}</span>
+                          <span className={`text-[10px] font-semibold uppercase tracking-wider ${cfg.color}`}>
+                            {cfg.label}
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-400 leading-relaxed">{area.reason}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Players to watch */}
+            {briefing.players_to_watch.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">
+                  Players to Watch
+                </p>
+                <div className="space-y-2">
+                  {briefing.players_to_watch.map((player, i) => {
+                    const cfg = PLAYER_WATCH_CONFIG[player.type];
+                    const Icon = cfg.icon;
+                    return (
+                      <div key={i} className="flex items-start gap-2.5">
+                        <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${cfg.color}`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-medium text-zinc-200">{player.name}</span>
+                            <span className={`text-[10px] font-medium ${cfg.color}`}>· {cfg.label}</span>
+                          </div>
+                          <p className="text-xs text-zinc-400 leading-relaxed">{player.note}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Coaching tips */}
+            {briefing.coaching_tips.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">
+                  Coaching Tips for Today
+                </p>
+                <div className="space-y-1.5">
+                  {briefing.coaching_tips.map((tip, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <Lightbulb className="h-4 w-4 text-yellow-400 mt-0.5 shrink-0" />
+                      <p className="text-xs text-zinc-300 leading-relaxed">{tip}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {briefing && !expanded && (
+          <p className="text-xs text-zinc-500 text-center py-1">
+            {briefing.focus_areas.length} focus area{briefing.focus_areas.length !== 1 ? 's' : ''} ·{' '}
+            {briefing.players_to_watch.length} player{briefing.players_to_watch.length !== 1 ? 's' : ''} to watch
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 function AIDebriefCard({
   sessionId,
@@ -733,6 +975,14 @@ export default function SessionDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Pre-Session AI Briefing */}
+      {activeTeam && (
+        <PreSessionBriefingCard
+          sessionId={sessionId}
+          teamId={activeTeam.id}
+        />
+      )}
 
       {/* Observations */}
       <div className="space-y-3">
