@@ -32,6 +32,17 @@ import {
 import { formatTimeAgo } from '@/lib/team-wins-utils';
 import type { TeamWin } from '@/lib/team-wins-utils';
 import { isCurrentWeekStar } from '@/lib/player-spotlight-utils';
+import {
+  buildSkillTrends,
+  getTopImprovingSkills,
+  getTopDecliningSkills,
+  formatSkillLabel,
+  formatTrendDelta,
+  getTrendColor,
+  getTrendBgColor,
+  hasEnoughDataForTrends,
+} from '@/lib/skill-trend-utils';
+import type { SkillTrend } from '@/lib/skill-trend-utils';
 import type { WeeklyStar } from '@/lib/ai/schemas';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -414,6 +425,95 @@ function TeamWinsCard({ teamId }: { teamId: string }) {
   );
 }
 
+// ─── Skill Trends ─────────────────────────────────────────────────────────────
+
+function SkillTrendsCard({
+  improving,
+  declining,
+}: {
+  improving: SkillTrend[];
+  declining: SkillTrend[];
+}) {
+  const hasImproving = improving.length > 0;
+  const hasDeclining = declining.length > 0;
+
+  if (!hasImproving && !hasDeclining) return null;
+
+  return (
+    <Card className="overflow-hidden border-zinc-800">
+      <CardHeader className="pb-2 pt-4 px-5">
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold text-zinc-300">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/15">
+            <TrendingUp className="h-4 w-4 text-violet-400" />
+          </div>
+          Team Skill Trends
+          <span className="ml-auto text-[10px] font-normal text-zinc-500">this week vs last week</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-5 pb-4 space-y-3">
+        {hasImproving && (
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-500 mb-1.5">
+              Trending Up
+            </p>
+            <div className="space-y-1.5">
+              {improving.map((t) => (
+                <div
+                  key={t.category}
+                  className="flex items-center gap-2.5 rounded-lg border border-emerald-500/15 bg-emerald-500/5 px-3 py-2"
+                >
+                  <TrendingUp className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                  <span className="flex-1 text-sm text-zinc-200">{formatSkillLabel(t.category)}</span>
+                  <span className={`text-xs font-semibold tabular-nums ${getTrendColor(t.direction)}`}>
+                    {formatTrendDelta(t.delta)}
+                  </span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${getTrendBgColor(t.direction)} ${getTrendColor(t.direction)}`}
+                  >
+                    {t.recentCount} obs
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {hasDeclining && (
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-red-500 mb-1.5">
+              Needs Attention
+            </p>
+            <div className="space-y-1.5">
+              {declining.map((t) => (
+                <Link key={t.category} href="/plans">
+                  <div
+                    className="flex items-center gap-2.5 rounded-lg border border-red-500/15 bg-red-500/5 px-3 py-2 transition-colors hover:border-red-500/30 hover:bg-red-500/10 active:scale-[0.98] touch-manipulation"
+                  >
+                    <TrendingDown className="h-3.5 w-3.5 shrink-0 text-red-400" />
+                    <span className="flex-1 text-sm text-zinc-200">{formatSkillLabel(t.category)}</span>
+                    <span className={`text-xs font-semibold tabular-nums ${getTrendColor(t.direction)}`}>
+                      {formatTrendDelta(t.delta)}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${getTrendBgColor(t.direction)} ${getTrendColor(t.direction)}`}
+                    >
+                      {t.recentCount} obs
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <p className="text-[10px] text-zinc-600 text-right">
+          Tap a declining skill to build a practice plan
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Team Pulse ────────────────────────────────────────────────────────────────
 
 interface PulseStats {
@@ -425,6 +525,7 @@ interface PulseStats {
   unobservedPlayers: Array<{ id: string; name: string; jersey_number: number | null }>;
   totalPlayers: number;
   topFocusArea: { category: string; count: number } | null;
+  skillTrends: { improving: SkillTrend[]; declining: SkillTrend[] } | null;
 }
 
 function TeamPulseCard({ pulse }: { pulse: PulseStats }) {
@@ -694,6 +795,17 @@ export default function HomePage() {
       const topEntry = [...needsWorkCounts.entries()].sort((a, b) => b[1] - a[1])[0];
       const topFocusArea = topEntry ? { category: topEntry[0], count: topEntry[1] } : null;
 
+      // Skill trends — compare this week vs last week per category
+      let skillTrends: PulseStats['skillTrends'] = null;
+      if (hasEnoughDataForTrends(obs7d, obs7to14d, 5)) {
+        const allTrends = buildSkillTrends(obs7d, obs7to14d);
+        const improving = getTopImprovingSkills(allTrends, 3, 3);
+        const declining = getTopDecliningSkills(allTrends, 3, 3);
+        if (improving.length > 0 || declining.length > 0) {
+          skillTrends = { improving, declining };
+        }
+      }
+
       return {
         obs14dCount: recentObs.length,
         obs7dCount: obs7d.length,
@@ -703,6 +815,7 @@ export default function HomePage() {
         unobservedPlayers,
         totalPlayers: playersData.length,
         topFocusArea,
+        skillTrends,
       };
     },
     enabled: !!activeTeam,
@@ -866,6 +979,14 @@ export default function HomePage() {
         </Card>
       ) : (
         pulse && <TeamPulseCard pulse={pulse} />
+      )}
+
+      {/* Skill Trends — improving vs declining skill categories, this week vs last week */}
+      {pulse?.skillTrends && (
+        <SkillTrendsCard
+          improving={pulse.skillTrends.improving}
+          declining={pulse.skillTrends.declining}
+        />
       )}
 
       {/* AI Coaching Tips — proactive suggestions shown when there's enough data */}
