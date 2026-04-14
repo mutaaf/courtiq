@@ -19,7 +19,10 @@ import {
   Trash2,
   CheckCircle2,
   Copy,
+  Mic,
+  MicOff,
 } from 'lucide-react';
+import { useVoiceInput } from '@/hooks/use-voice-input';
 import { UpgradeGate } from '@/components/ui/upgrade-gate';
 
 interface ChatMessage {
@@ -225,6 +228,7 @@ export default function AssistantPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voice = useVoiceInput();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -298,6 +302,17 @@ export default function AssistantPage() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage(input);
+    }
+  };
+
+  const handleVoiceToggle = () => {
+    if (voice.isRecording) {
+      const finalText = voice.stop();
+      const combined = (input + (input ? ' ' : '') + finalText).trim();
+      setInput(combined);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    } else {
+      voice.start();
     }
   };
 
@@ -666,21 +681,62 @@ export default function AssistantPage() {
       {/* Input area */}
       <div className="border-t border-zinc-800 bg-zinc-900/50 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:px-8">
         <div className="mx-auto flex max-w-3xl items-end gap-2">
-          <div className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all">
+          {/* Voice input wrapper */}
+          <div className={`relative flex-1 rounded-xl border bg-zinc-800 transition-all focus-within:ring-1 ${
+            voice.isRecording
+              ? 'border-red-500/70 ring-red-500/20 focus-within:border-red-500/70'
+              : 'border-zinc-700 focus-within:border-orange-500/50 focus-within:ring-orange-500/20'
+          }`}>
             <textarea
               ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
+              value={voice.isRecording ? (input + (input && voice.interimTranscript ? ' ' : '') + voice.interimTranscript) : input}
+              onChange={(e) => {
+                if (!voice.isRecording) setInput(e.target.value);
+              }}
               onKeyDown={handleKeyDown}
-              placeholder="Ask anything about coaching..."
+              placeholder={voice.isRecording ? 'Listening…' : 'Ask anything about coaching…'}
               rows={1}
               disabled={!activeTeam || isLoading}
-              className="w-full resize-none bg-transparent px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none disabled:opacity-50"
+              readOnly={voice.isRecording}
+              className={`w-full resize-none bg-transparent px-4 py-3 text-sm focus:outline-none disabled:opacity-50 ${
+                voice.isRecording
+                  ? 'text-zinc-300 placeholder:text-red-400 cursor-default select-none'
+                  : 'text-zinc-100 placeholder:text-zinc-500'
+              }`}
             />
+            {/* Recording indicator pill */}
+            {voice.isRecording && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 rounded-full bg-red-500/20 px-2 py-0.5">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-400" />
+                <span className="text-[10px] font-medium text-red-400">REC</span>
+              </div>
+            )}
           </div>
+
+          {/* Mic button — only shown when Web Speech API is available */}
+          {voice.isSupported && (
+            <button
+              onClick={handleVoiceToggle}
+              disabled={!activeTeam || isLoading}
+              aria-label={voice.isRecording ? 'Stop recording' : 'Start voice input'}
+              aria-pressed={voice.isRecording}
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors touch-manipulation disabled:opacity-30 ${
+                voice.isRecording
+                  ? 'bg-red-500 hover:bg-red-600 text-white'
+                  : 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300'
+              }`}
+            >
+              {voice.isRecording ? (
+                <MicOff className="h-5 w-5" />
+              ) : (
+                <Mic className="h-5 w-5" />
+              )}
+            </button>
+          )}
+
           <Button
             onClick={() => sendMessage(input)}
-            disabled={!input.trim() || !activeTeam || isLoading}
+            disabled={!input.trim() || !activeTeam || isLoading || voice.isRecording}
             size="icon"
             className="h-11 w-11 shrink-0 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-30"
           >
@@ -691,6 +747,13 @@ export default function AssistantPage() {
             )}
           </Button>
         </div>
+
+        {/* Recording hint */}
+        {voice.isRecording && (
+          <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-red-400/80">
+            Tap the mic again to stop and use your message
+          </p>
+        )}
       </div>
     </div>
 
