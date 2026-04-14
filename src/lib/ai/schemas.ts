@@ -333,3 +333,16 @@ export const coachReflectionSchema = z.object({
 });
 
 export type CoachReflection = z.infer<typeof coachReflectionSchema>;
+
+export const playerSessionMessagesSchema = z.object({
+  session_label: z.string(),                   // e.g. "Tuesday's Practice — Apr 14"
+  messages: z.array(z.object({
+    player_name: z.string(),
+    message: z.string().min(20),               // 2–3 sentence warm, parent-friendly note
+    highlight: z.string().min(5),              // One specific thing they did well today
+    next_focus: z.string().min(5),             // One growth tip for next session
+  })).min(1).max(15),
+  team_note: z.string().min(10),               // Brief 1–2 sentence team-wide observation
+});
+
+export type PlayerSessionMessages = z.infer<typeof playerSessionMessagesSchema>;

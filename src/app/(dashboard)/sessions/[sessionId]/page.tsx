@@ -815,6 +815,218 @@ function HalftimeAdjustmentsCard({
   );
 }
 
+// ─── Player Session Messages ──────────────────────────────────────────────────
+
+interface PlayerMessageEntry {
+  player_name: string;
+  message: string;
+  highlight: string;
+  next_focus: string;
+}
+
+interface PlayerSessionMessagesResult {
+  session_label: string;
+  messages: PlayerMessageEntry[];
+  team_note: string;
+}
+
+function PlayerSessionMessagesCard({
+  sessionId,
+  teamId,
+  observationCount,
+}: {
+  sessionId: string;
+  teamId: string;
+  observationCount: number;
+}) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<PlayerSessionMessagesResult | null>(null);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+
+  async function handleGenerate() {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/ai/player-session-messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, teamId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate messages');
+      }
+      const data = await res.json();
+      setMessages(data.messages);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function handleCopy(msg: PlayerMessageEntry, idx: number) {
+    const text = `Hi! A quick note on ${msg.player_name} from today's session:\n\n${msg.message}\n\nHighlight: ${msg.highlight}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedIdx(idx);
+      setTimeout(() => setCopiedIdx(null), 2000);
+    } catch {
+      // ignore clipboard errors
+    }
+  }
+
+  async function handleCopyAll() {
+    if (!messages) return;
+    const text = messages.messages
+      .map((m) => `--- ${m.player_name} ---\n${m.message}\nHighlight: ${m.highlight}\nWork on: ${m.next_focus}`)
+      .join('\n\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedIdx(-1);
+      setTimeout(() => setCopiedIdx(null), 2000);
+    } catch {
+      // ignore clipboard errors
+    }
+  }
+
+  const canGenerate = observationCount > 0;
+
+  return (
+    <Card className={messages ? 'border-teal-500/20' : 'border-zinc-800'}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-500/15">
+              <Send className="h-4 w-4 text-teal-400" />
+            </div>
+            Player Messages
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            {messages && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCopyAll}
+                className="h-8 gap-1.5 text-xs"
+              >
+                {copiedIdx === -1 ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
+                Copy All
+              </Button>
+            )}
+            <Button
+              variant={messages ? 'ghost' : 'outline'}
+              size="sm"
+              onClick={handleGenerate}
+              disabled={isGenerating || !canGenerate}
+              className="h-8 gap-1.5 text-xs"
+              aria-label="Generate player messages"
+            >
+              {isGenerating ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5 text-teal-400" />
+              )}
+              {messages ? 'Regenerate' : 'Generate'}
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!canGenerate && !messages && (
+          <p className="text-sm text-zinc-500 text-center py-4">
+            Add player observations first to generate messages.
+          </p>
+        )}
+
+        {canGenerate && !messages && !isGenerating && (
+          <p className="text-sm text-zinc-500 py-1">
+            Generate send-ready message snippets for each player — perfect for texting players or parents after the session.
+          </p>
+        )}
+
+        {isGenerating && (
+          <div className="flex items-center gap-2 py-4 text-sm text-zinc-400">
+            <Loader2 className="h-4 w-4 animate-spin text-teal-400" />
+            Writing messages…
+          </div>
+        )}
+
+        {error && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            {error}
+          </div>
+        )}
+
+        {messages && !isGenerating && (
+          <div className="space-y-4">
+            {messages.messages.map((msg, idx) => (
+              <div
+                key={idx}
+                className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-4 space-y-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-teal-300">{msg.player_name}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 shrink-0"
+                    onClick={() => handleCopy(msg, idx)}
+                    aria-label={`Copy message for ${msg.player_name}`}
+                  >
+                    {copiedIdx === idx ? (
+                      <Check className="h-3.5 w-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5 text-zinc-400" />
+                    )}
+                  </Button>
+                </div>
+
+                <p className="text-sm text-zinc-200 leading-relaxed">{msg.message}</p>
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="rounded-lg bg-emerald-500/8 border border-emerald-500/20 px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400 mb-0.5">
+                      Highlight
+                    </p>
+                    <p className="text-xs text-zinc-300">{msg.highlight}</p>
+                  </div>
+                  <div className="rounded-lg bg-orange-500/8 border border-orange-500/20 px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-orange-400 mb-0.5">
+                      Next Focus
+                    </p>
+                    <p className="text-xs text-zinc-300">{msg.next_focus}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {messages.team_note && (
+              <div className="flex items-start gap-2 rounded-xl bg-zinc-800/60 border border-zinc-700 px-4 py-3 mt-1">
+                <Users className="h-4 w-4 text-zinc-400 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">
+                    Team Note
+                  </p>
+                  <p className="text-sm text-zinc-400 leading-relaxed">{messages.team_note}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Pre-Session Briefing ─────────────────────────────────────────────────────
+
 function PreSessionBriefingCard({
   sessionId,
   teamId,
@@ -1780,6 +1992,15 @@ export default function SessionDetailPage() {
         <CoachReflectionCard
           sessionId={sessionId}
           teamId={activeTeam.id}
+        />
+      )}
+
+      {/* Player Session Messages — quick send-ready notes for players/parents */}
+      {activeTeam && (
+        <PlayerSessionMessagesCard
+          sessionId={sessionId}
+          teamId={activeTeam.id}
+          observationCount={observations?.length || 0}
         />
       )}
 

@@ -674,4 +674,43 @@ export const PROMPT_REGISTRY = {
       '{ "session_summary": "string (2 sentences, factual)", "questions": [{ "id": "q1", "question": "string", "context": "string", "category": "player_development|team_dynamics|coaching_approach|session_design" }, ...], "growth_focus": "string (1 actionable sentence)" }',
     ].filter(Boolean).join('\n'),
   }),
+
+  playerSessionMessages: (params: PromptParams & {
+    sessionLabel: string;
+    sessionType: string;
+    playerObservations: Array<{
+      playerName: string;
+      observations: Array<{ text: string; sentiment: string; category: string }>;
+    }>;
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You write warm, encouraging post-session message snippets that coaches can send directly to players or their parents via text or WhatsApp.',
+      '',
+      'Rules:',
+      '- Each message must be 2–3 friendly, conversational sentences — no formal language.',
+      '- Reference at least one specific thing you observed about that player today.',
+      '- Balance encouragement (lead with the positive) with one practical growth tip.',
+      '- Keep language simple, warm, and parent-friendly — avoid jargon.',
+      '- highlight is a single short phrase (e.g. "Great hustle on defense") — not a full sentence.',
+      '- next_focus is one actionable tip for the player to practise (e.g. "Work on holding your follow-through on jump shots").',
+      '- team_note is 1–2 sentences about the team overall for the coach\'s personal use.',
+      '- Generate one message per player listed — do not skip any player.',
+    ].join('\n'),
+    user: [
+      `Session: ${params.sessionLabel} (${params.sessionType})`,
+      `Team: ${params.teamName || 'your team'} · ${params.ageGroup || 'youth'} ${params.sportName || 'basketball'}`,
+      '',
+      'Players and their observations from this session:',
+      params.playerObservations.map((p) =>
+        [
+          `${p.playerName}:`,
+          p.observations.map((o) => `  - [${o.sentiment}] ${o.category}: "${o.text}"`).join('\n'),
+        ].join('\n')
+      ).join('\n\n'),
+      '',
+      'Generate one message per player as JSON:',
+      '{ "session_label": "string", "messages": [{ "player_name": "string", "message": "2-3 sentence text", "highlight": "short phrase", "next_focus": "one tip" }, ...], "team_note": "1-2 sentences" }',
+    ].filter(Boolean).join('\n'),
+  }),
 } as const;

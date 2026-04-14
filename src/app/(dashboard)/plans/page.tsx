@@ -75,6 +75,7 @@ const PLAN_TYPE_CONFIG: Record<
   weekly_star: { label: 'Weekly Star', icon: Star, color: 'text-amber-400' },
   season_summary: { label: 'Season Summary', icon: BarChart2, color: 'text-cyan-400' },
   coach_reflection: { label: 'Coach Reflection', icon: PenLine, color: 'text-purple-400' },
+  player_messages: { label: 'Player Messages', icon: MessageSquare, color: 'text-teal-400' },
 };
 
 const SUGGESTION_CHIPS = [
@@ -1644,6 +1645,56 @@ export default function PlansPage() {
               <div>
                 <p className="text-xs font-medium text-orange-300 mb-0.5">Growth Focus for Next Session</p>
                 <p className="text-sm text-zinc-300 leading-relaxed">{structured.growth_focus}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Player Session Messages renderer
+    if (Array.isArray(structured.messages) && structured.session_label !== undefined) {
+      return (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <MessageSquare className="h-5 w-5 text-teal-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-teal-400">Player Messages</span>
+            </div>
+            <p className="text-sm text-zinc-400">{structured.session_label}</p>
+            <Badge variant="secondary" className="text-xs">{structured.messages.length} players</Badge>
+          </div>
+
+          {/* Per-player messages */}
+          <div className="space-y-4">
+            {(structured.messages as any[]).map((msg: any, idx: number) => (
+              <div key={idx} className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-teal-300">{msg.player_name}</p>
+                </div>
+                <p className="text-sm text-zinc-200 leading-relaxed">{msg.message}</p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="rounded-lg bg-emerald-500/8 border border-emerald-500/20 px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400 mb-0.5">Highlight</p>
+                    <p className="text-xs text-zinc-300">{msg.highlight}</p>
+                  </div>
+                  <div className="rounded-lg bg-orange-500/8 border border-orange-500/20 px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-orange-400 mb-0.5">Next Focus</p>
+                    <p className="text-xs text-zinc-300">{msg.next_focus}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Team note */}
+          {structured.team_note && (
+            <div className="flex items-start gap-2 rounded-xl bg-zinc-800/60 border border-zinc-700 p-4">
+              <Users className="h-4 w-4 text-zinc-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs font-medium text-zinc-400 mb-0.5">Team Note</p>
+                <p className="text-sm text-zinc-300 leading-relaxed">{structured.team_note}</p>
               </div>
             </div>
           )}
