@@ -38,6 +38,7 @@ import {
   CalendarCheck,
   Target,
   StickyNote,
+  Camera,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
@@ -1632,15 +1633,47 @@ export default function PlayerDetailPage({
       )}
 
       {activeTab === 'media' && (
-        <Card>
-          <CardContent className="flex flex-col items-center p-8 text-center">
-            <ImageIcon className="mb-3 h-10 w-10 text-zinc-700" />
-            <h3 className="font-semibold text-zinc-300">Media</h3>
-            <p className="mt-1 text-sm text-zinc-500">
-              Photos, videos, and game film for {player.name} will appear here.
+        <div className="space-y-4">
+          {/* Snap Observation CTA */}
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-500/20">
+                  <Camera className="h-6 w-6 text-amber-400" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-zinc-200">Snap Observation</h3>
+                  <p className="mt-1 text-sm text-zinc-400">
+                    Take or upload a practice photo. AI analyzes player positioning, footwork,
+                    and technique — then generates coaching observations you can save instantly.
+                  </p>
+                  <Link
+                    href={`/capture/photo?playerId=${playerId}`}
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-amber-500/20 border border-amber-500/30 px-4 py-2 text-sm font-medium text-amber-300 transition-colors hover:bg-amber-500/30 touch-manipulation"
+                  >
+                    <Camera className="h-4 w-4" />
+                    Snap a Photo for {player.name}
+                  </Link>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Hint about where saved observations appear */}
+          <div className="flex items-start gap-2 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5">
+            <ImageIcon className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" />
+            <p className="text-xs text-zinc-500">
+              Observations generated from photos are saved to the{' '}
+              <button
+                onClick={() => setActiveTab('observations')}
+                className="font-medium text-zinc-400 underline decoration-dotted hover:text-zinc-300"
+              >
+                Observations tab
+              </button>
+              {' '}and tagged with the photo source.
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {activeTab === 'goals' && activeTeam && (

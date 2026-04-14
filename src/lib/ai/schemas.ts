@@ -231,3 +231,25 @@ export const drillBuilderSchema = z.object({
 });
 
 export type DrillBuilderResult = z.infer<typeof drillBuilderSchema>;
+
+export const snapObservationSchema = z.object({
+  image_description: z.string().optional(),
+  observations: z.array(
+    z.object({
+      player_name: z.string().min(1),
+      category: z.string(),
+      sentiment: z.enum(['positive', 'needs-work', 'neutral']),
+      text: z.string().min(5),
+      skill_id: z.string().nullable().optional(),
+    })
+  ),
+  team_observations: z.array(
+    z.object({
+      category: z.string(),
+      sentiment: z.enum(['positive', 'needs-work', 'neutral']),
+      text: z.string().min(5),
+    })
+  ).optional(),
+});
+
+export type SnapObservationResult = z.infer<typeof snapObservationSchema>;

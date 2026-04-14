@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RecordingButton } from '@/components/capture/recording-button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Send, Keyboard, Mic, AlertCircle, Sparkles, Upload, FileAudio } from 'lucide-react';
+import { Loader2, Send, Keyboard, Mic, AlertCircle, Sparkles, Upload, FileAudio, Camera } from 'lucide-react';
 import { generateId } from '@/lib/utils';
 import Link from 'next/link';
 import { QuickTemplates } from '@/components/capture/quick-templates';
@@ -558,7 +558,7 @@ export default function CapturePage() {
 
         {/* Upload Voice Memo */}
         {captureState === 'idle' && uploadState === 'idle' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
               type="button"
               onClick={() => setShowQuickNote(true)}
@@ -591,6 +591,18 @@ export default function CapturePage() {
                 }}
               />
             </label>
+            <Link
+              href="/capture/photo"
+              className="flex items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 text-left transition-colors hover:border-zinc-700 hover:bg-zinc-800/50 active:scale-[0.98] touch-manipulation"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
+                <Camera className="h-6 w-6 text-amber-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-zinc-200">Snap photo</p>
+                <p className="text-xs text-zinc-500">AI analyzes practice photo</p>
+              </div>
+            </Link>
           </div>
         )}
 

@@ -454,4 +454,37 @@ export const PROMPT_REGISTRY = {
       '{ "name": "string", "description": "string (2-3 sentences)", "category": "string", "age_groups": ["string"], "duration_minutes": number, "player_count_min": number, "player_count_max": number|null, "equipment": ["string"], "setup_instructions": "string (paragraph)", "teaching_cues": ["string (short phrase)", ...], "variations": [{ "title": "string", "description": "string" }, ...] }',
     ].filter(Boolean).join('\n'),
   }),
+  snapObservation: (params: PromptParams & { customFocus?: string }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You analyze practice/game photos and generate specific, actionable coaching observations.',
+      '',
+      'Rules:',
+      '- Each observation must be about ONE player and ONE specific coaching point.',
+      '- Focus on: body positioning, footwork, hand placement, defensive stance, spacing, communication, effort.',
+      `- Categories: ${(params.categories || ['Offense', 'Defense', 'IQ', 'Effort', 'Coachability']).join(', ')}`,
+      '- Sentiment: positive (good technique/effort), needs-work (improvement opportunity), or neutral (factual observation).',
+      '- Match player names to the roster — use jersey numbers in the photo if visible.',
+      '- If you cannot identify a specific player, use "Unknown Player" as the player_name.',
+      '- Team-level observations (spacing, communication, formation) go in team_observations.',
+      '- Be specific and descriptive — "wide defensive stance, arms active" not just "good defense".',
+      '- Generate 2-6 observations total. Quality over quantity.',
+      '- If the photo is blurry, unclear, or not a sports photo, return empty arrays with a note in image_description.',
+    ].join('\n'),
+    user: [
+      'Roster (match jersey numbers or visible names to these players):',
+      (params.roster || []).map((p) => {
+        let line = `- ${p.name}`;
+        if (p.nickname) line += ` ("${p.nickname}")`;
+        line += ` #${p.jersey_number || '?'} ${p.position}`;
+        return line;
+      }).join('\n'),
+      params.skills ? '\nCurriculum Skills:\n' + params.skills.map((s) => `- ${s.skill_id}: ${s.name} (${s.category})`).join('\n') : '',
+      params.customFocus ? `\nCoach's focus for this photo: ${params.customFocus}` : '',
+      '',
+      'Analyze this practice photo and generate coaching observations.',
+      'Respond with JSON:',
+      '{ "image_description": "brief description of what you see", "observations": [{ "player_name", "category", "sentiment", "text", "skill_id" }], "team_observations": [{ "category", "sentiment", "text" }] }',
+    ].filter(Boolean).join('\n'),
+  }),
 } as const;
