@@ -20,49 +20,105 @@
   --text-muted: #52525b;
 }
 
-/* Background overrides for light mode */
+/* ── Light mode: comprehensive overrides ───────────────────────────────── */
+
+/* Backgrounds */
 .light .bg-zinc-950 { background-color: #ffffff; }
-.light .bg-zinc-900 { background-color: #f4f4f5; }
-.light .bg-zinc-900\/50 { background-color: rgba(244, 244, 245, 0.5); }
-.light .bg-zinc-900\/95 { background-color: rgba(244, 244, 245, 0.95); }
-.light .bg-zinc-900\/30 { background-color: rgba(244, 244, 245, 0.3); }
-.light .bg-zinc-800 { background-color: #e4e4e7; }
-.light .bg-zinc-800\/50 { background-color: rgba(228, 228, 231, 0.5); }
-.light .bg-zinc-700 { background-color: #d4d4d8; }
+.light .bg-zinc-900 { background-color: #f9fafb; }
+.light .bg-zinc-900\/50 { background-color: rgba(249, 250, 251, 0.5); }
+.light .bg-zinc-900\/95 { background-color: rgba(249, 250, 251, 0.95); }
+.light .bg-zinc-900\/30 { background-color: rgba(249, 250, 251, 0.3); }
+.light .bg-zinc-900\/60 { background-color: rgba(249, 250, 251, 0.6); }
+.light .bg-zinc-800 { background-color: #f1f5f9; }
+.light .bg-zinc-800\/50 { background-color: rgba(241, 245, 249, 0.5); }
+.light .bg-zinc-800\/30 { background-color: rgba(241, 245, 249, 0.3); }
+.light .bg-zinc-700 { background-color: #e2e8f0; }
+.light .bg-zinc-700\/50 { background-color: rgba(226, 232, 240, 0.5); }
 
-/* Border overrides for light mode */
-.light .border-zinc-800 { border-color: #e4e4e7; }
-.light .border-zinc-700 { border-color: #d4d4d8; }
-.light .border-zinc-700\/50 { border-color: rgba(212, 212, 216, 0.5); }
+/* Borders */
+.light .border-zinc-800 { border-color: #e2e8f0; }
+.light .border-zinc-800\/60 { border-color: rgba(226, 232, 240, 0.6); }
+.light .border-zinc-700 { border-color: #cbd5e1; }
+.light .border-zinc-700\/50 { border-color: rgba(203, 213, 225, 0.5); }
+.light .border-zinc-600 { border-color: #94a3b8; }
 
-/* Text overrides for light mode */
-.light .text-zinc-100 { color: #18181b; }
-.light .text-zinc-200 { color: #27272a; }
-.light .text-zinc-300 { color: #3f3f46; }
-.light .text-zinc-400 { color: #52525b; }
-.light .text-zinc-500 { color: #71717a; }
-.light .text-zinc-600 { color: #a1a1aa; }
+/* Text — good contrast on white backgrounds */
+.light .text-zinc-100 { color: #0f172a; }
+.light .text-zinc-200 { color: #1e293b; }
+.light .text-zinc-300 { color: #334155; }
+.light .text-zinc-400 { color: #475569; }
+.light .text-zinc-500 { color: #64748b; }
+.light .text-zinc-600 { color: #94a3b8; }
 
-/* Placeholder overrides for light mode */
-.light .placeholder\:text-zinc-500::placeholder { color: #a1a1aa; }
+/* Placeholder */
+.light .placeholder\:text-zinc-500::placeholder { color: #94a3b8; }
 
-/* Hover state overrides for light mode */
-.light .hover\:bg-zinc-700:hover { background-color: #d4d4d8; }
-.light .hover\:bg-zinc-800:hover { background-color: #e4e4e7; }
-.light .hover\:border-zinc-700:hover { border-color: #d4d4d8; }
-.light .hover\:border-zinc-600:hover { border-color: #a1a1aa; }
-.light .hover\:text-zinc-200:hover { color: #27272a; }
-.light .hover\:text-zinc-300:hover { color: #3f3f46; }
+/* Hover: backgrounds */
+.light .hover\:bg-zinc-700:hover { background-color: #e2e8f0; }
+.light .hover\:bg-zinc-800:hover { background-color: #f1f5f9; }
+.light .hover\:bg-zinc-800\/50:hover { background-color: rgba(241, 245, 249, 0.5); }
 
-/* Ring overrides for light mode */
-.light .ring-zinc-700 { --tw-ring-color: #d4d4d8; }
+/* Hover: borders */
+.light .hover\:border-zinc-700:hover { border-color: #cbd5e1; }
+.light .hover\:border-zinc-600:hover { border-color: #94a3b8; }
+.light .hover\:border-zinc-300:hover { border-color: #cbd5e1; }
+.light .hover\:border-zinc-400:hover { border-color: #94a3b8; }
 
-/* Focus-within overrides for light mode */
+/* Hover: text */
+.light .hover\:text-zinc-100:hover { color: #0f172a; }
+.light .hover\:text-zinc-200:hover { color: #1e293b; }
+.light .hover\:text-zinc-300:hover { color: #334155; }
+.light .hover\:text-red-400:hover { color: #dc2626; }
+
+/* Ring */
+.light .ring-zinc-700 { --tw-ring-color: #cbd5e1; }
+.light .ring-zinc-800 { --tw-ring-color: #e2e8f0; }
+
+/* Focus */
 .light .focus-within\:border-orange-500\/50:focus-within { border-color: rgba(249, 115, 22, 0.5); }
-
-/* Focus ring: use orange-700 in light mode (5.18:1 on white, WCAG AA ✓)
-   orange-500 on white is only 2.8:1 which fails the 3:1 non-text contrast threshold */
 .light :focus-visible { outline-color: #c2410c; }
+
+/* Input/select backgrounds */
+.light input, .light select, .light textarea {
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+.light input::placeholder, .light textarea::placeholder {
+  color: #94a3b8;
+}
+.light input:focus, .light select:focus, .light textarea:focus {
+  border-color: #f97316;
+}
+
+/* Card backgrounds */
+.light .bg-zinc-900\/80 { background-color: rgba(249, 250, 251, 0.8); }
+.light .bg-zinc-900\/40 { background-color: rgba(249, 250, 251, 0.4); }
+
+/* Accent overlays in light mode */
+.light .bg-orange-500\/5 { background-color: rgba(249, 115, 22, 0.05); }
+.light .bg-orange-500\/10 { background-color: rgba(249, 115, 22, 0.08); }
+.light .bg-orange-500\/20 { background-color: rgba(249, 115, 22, 0.12); }
+.light .bg-blue-500\/20 { background-color: rgba(59, 130, 246, 0.08); }
+.light .bg-emerald-500\/20 { background-color: rgba(16, 185, 129, 0.08); }
+.light .bg-purple-500\/20 { background-color: rgba(168, 85, 247, 0.08); }
+.light .bg-red-500\/10 { background-color: rgba(239, 68, 68, 0.06); }
+.light .bg-amber-500\/10 { background-color: rgba(245, 158, 11, 0.06); }
+.light .bg-amber-500\/5 { background-color: rgba(245, 158, 11, 0.04); }
+
+/* Gradient fixes */
+.light .from-orange-500\/10 { --tw-gradient-from: rgba(249, 115, 22, 0.06); }
+.light .from-orange-500\/5 { --tw-gradient-from: rgba(249, 115, 22, 0.03); }
+.light .from-orange-500\/15 { --tw-gradient-from: rgba(249, 115, 22, 0.08); }
+
+/* SVG ring track color */
+.light circle[stroke="#27272a"] { stroke: #e2e8f0; }
+
+/* Bottom nav / sidebar */
+.light .backdrop-blur-sm { background-color: rgba(255, 255, 255, 0.95); }
+
+/* Button default variant: ensure text contrast */
+.light .bg-orange-500 { color: #ffffff; }
 
 @theme inline {
   --color-background: var(--background);

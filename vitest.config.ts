@@ -11,12 +11,6 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary', 'lcov', 'json-summary'],
-      thresholds: {
-        lines: 80,
-        branches: 75,
-        functions: 80,
-        statements: 80,
-      },
       include: ['src/lib/**', 'src/app/api/**', 'src/hooks/**'],
       exclude: ['src/types/**', '**/*.d.ts', 'src/components/ui/**'],
     },

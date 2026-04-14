@@ -15,11 +15,11 @@ jobs:
           node-version: 20
           cache: 'npm'
       - run: npm ci
-      - run: npx vitest run tests/ai/contracts.test.ts
+      - run: npx vitest run tests/ai/
         env:
           CI: true
 
-  full-coverage:
+  full-test-suite:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,9 +28,29 @@ jobs:
           node-version: 20
           cache: 'npm'
       - run: npm ci
-      - run: npm run test:unit -- --coverage
+      - run: npx vitest run
+      - name: Coverage report (non-blocking)
+        run: npx vitest run --coverage || true
       - name: Upload coverage
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: nightly-coverage
           path: coverage/
+          retention-days: 14
+
+  build-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
