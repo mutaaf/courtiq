@@ -50,12 +50,17 @@ import {
   Activity,
   Copy,
   Check,
+  BookOpen,
+  PenLine,
+  Send,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
 import type { SessionDebriefResult } from '@/app/api/ai/session-debrief/route';
 import type { SessionBriefingResult } from '@/app/api/ai/session-briefing/route';
 import type { GameRecapResult } from '@/app/api/ai/game-recap/route';
+import type { CoachReflectionResult } from '@/app/api/ai/coach-reflection/route';
+import { getCategoryLabel, getCategoryColor } from '@/lib/coach-reflection-utils';
 
 const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   practice: 'Practice',
@@ -356,6 +361,217 @@ function GameRecapCard({
             )}
 
             {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CoachReflectionCard({
+  sessionId,
+  teamId,
+}: {
+  sessionId: string;
+  teamId: string;
+}) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reflection, setReflection] = useState<CoachReflectionResult | null>(null);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [planId, setPlanId] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+
+  async function handleGenerate() {
+    setIsGenerating(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const res = await fetch('/api/ai/coach-reflection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, teamId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate reflection');
+      }
+      const data = await res.json();
+      setReflection(data.reflection);
+      setPlanId(data.plan?.id ?? null);
+      setAnswers({});
+      setExpanded(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function handleSave() {
+    if (!planId || !reflection) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/ai/coach-reflection', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId, answers }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to save reflection');
+      }
+      setSaved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  const answeredCount = Object.values(answers).filter((a) => a.trim().length > 0).length;
+  const totalQuestions = reflection?.questions.length ?? 0;
+
+  return (
+    <Card className={reflection ? 'border-purple-500/20' : 'border-zinc-800'}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-purple-400" />
+            Coach Reflection
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            {reflection && (
+              <>
+                <span className="text-xs text-zinc-500">
+                  {answeredCount}/{totalQuestions} answered
+                </span>
+                <button
+                  onClick={handleGenerate}
+                  disabled={isGenerating}
+                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors disabled:opacity-40"
+                  aria-label="Regenerate reflection prompts"
+                >
+                  {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                  Refresh
+                </button>
+                <button
+                  onClick={() => setExpanded((v) => !v)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+                  aria-label={expanded ? 'Collapse reflection' : 'Expand reflection'}
+                  aria-expanded={expanded}
+                >
+                  {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!reflection && !isGenerating && (
+          <div className="flex flex-col items-center justify-center py-6 text-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-500/10">
+              <PenLine className="h-7 w-7 text-purple-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-zinc-200">Reflect on this session</p>
+              <p className="text-xs text-zinc-500 mt-1 max-w-xs mx-auto">
+                AI analyzes your observations and generates personalized reflection questions to help you grow as a coach.
+              </p>
+            </div>
+            <button
+              onClick={handleGenerate}
+              className="flex items-center gap-2 rounded-full bg-purple-500/15 px-5 py-2.5 text-sm font-medium text-purple-300 hover:bg-purple-500/25 transition-colors touch-manipulation active:scale-[0.98]"
+              aria-label="Generate reflection prompts"
+            >
+              <Sparkles className="h-4 w-4" />
+              Generate Reflection Prompts
+            </button>
+            {error && <p className="text-xs text-red-400">{error}</p>}
+          </div>
+        )}
+
+        {isGenerating && (
+          <div className="flex items-center justify-center py-8 gap-3 text-purple-400">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <p className="text-sm font-medium">Generating reflection prompts…</p>
+          </div>
+        )}
+
+        {reflection && expanded && (
+          <div className="space-y-5">
+            {/* Session summary */}
+            <div className="rounded-xl bg-purple-500/8 border border-purple-500/20 p-4">
+              <p className="text-xs font-medium text-purple-300 mb-1.5">Session Overview</p>
+              <p className="text-sm text-zinc-300 leading-relaxed">{reflection.session_summary}</p>
+            </div>
+
+            {/* Reflection questions */}
+            <div className="space-y-4">
+              {reflection.questions.map((q, idx) => (
+                <div key={q.id} className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-purple-500/20 text-[10px] font-bold text-purple-300 mt-0.5">
+                      {idx + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-zinc-100 leading-snug">{q.question}</p>
+                      <p className={`text-xs mt-0.5 ${getCategoryColor(q.category)}`}>
+                        {getCategoryLabel(q.category)} · {q.context}
+                      </p>
+                    </div>
+                  </div>
+                  <Textarea
+                    value={answers[q.id] ?? ''}
+                    onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
+                    placeholder="Your thoughts…"
+                    rows={3}
+                    className="text-sm resize-none bg-zinc-900 border-zinc-700 focus:border-purple-500 focus:ring-purple-500/20 ml-7"
+                    aria-label={`Answer for: ${q.question}`}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Growth focus */}
+            <div className="flex items-start gap-2 rounded-xl bg-zinc-800/50 border border-zinc-700/50 p-3">
+              <Target className="h-4 w-4 text-orange-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs font-medium text-orange-300 mb-0.5">Growth Focus for Next Session</p>
+                <p className="text-sm text-zinc-300">{reflection.growth_focus}</p>
+              </div>
+            </div>
+
+            {/* Save button */}
+            <div className="flex items-center justify-between pt-1">
+              {error && <p className="text-xs text-red-400">{error}</p>}
+              <div className="ml-auto">
+                {saved ? (
+                  <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
+                    <Check className="h-3.5 w-3.5" />
+                    Reflection saved
+                  </span>
+                ) : (
+                  <button
+                    onClick={handleSave}
+                    disabled={isSaving || answeredCount === 0}
+                    className="flex items-center gap-2 rounded-full bg-purple-500/15 px-4 py-2 text-sm font-medium text-purple-300 hover:bg-purple-500/25 transition-colors disabled:opacity-40 touch-manipulation"
+                    aria-label="Save reflection answers"
+                  >
+                    {isSaving ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Send className="h-3.5 w-3.5" />
+                    )}
+                    Save Reflection
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </CardContent>
@@ -1309,6 +1525,14 @@ export default function SessionDetailPage() {
       {/* Game Recap — game/scrimmage/tournament only */}
       {activeTeam && (session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
         <GameRecapCard
+          sessionId={sessionId}
+          teamId={activeTeam.id}
+        />
+      )}
+
+      {/* Coach Reflection Journal — all session types */}
+      {activeTeam && (
+        <CoachReflectionCard
           sessionId={sessionId}
           teamId={activeTeam.id}
         />

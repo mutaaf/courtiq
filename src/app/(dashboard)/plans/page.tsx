@@ -48,11 +48,13 @@ import {
   Target,
   BarChart2,
   Share2,
+  PenLine,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { PrintButton } from '@/components/ui/print-button';
 import type { Plan, Player, PlanType, Session } from '@/types/database';
 import type { ObservationInsights } from '@/app/api/ai/plan/route';
+import { getCategoryLabel, getCategoryColor } from '@/lib/coach-reflection-utils';
 
 const PLAN_TYPE_CONFIG: Record<
   string,
@@ -72,6 +74,7 @@ const PLAN_TYPE_CONFIG: Record<
   game_recap: { label: 'Game Recap', icon: Radio, color: 'text-rose-400' },
   weekly_star: { label: 'Weekly Star', icon: Star, color: 'text-amber-400' },
   season_summary: { label: 'Season Summary', icon: BarChart2, color: 'text-cyan-400' },
+  coach_reflection: { label: 'Coach Reflection', icon: PenLine, color: 'text-purple-400' },
 };
 
 const SUGGESTION_CHIPS = [
@@ -1566,6 +1569,84 @@ export default function PlansPage() {
               </>
             )}
           </button>
+        </div>
+      );
+    }
+
+    // Coach Reflection renderer
+    if (structured.session_summary && Array.isArray(structured.questions)) {
+      const answers: Record<string, string> = structured.answers || {};
+      const answeredCount = structured.questions.filter(
+        (q: any) => answers[q.id] && answers[q.id].trim().length > 0
+      ).length;
+
+      return (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <PenLine className="h-5 w-5 text-purple-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-purple-400">Coach Reflection</span>
+            </div>
+            <div className="flex items-center justify-center gap-1.5">
+              <span className="text-xs text-zinc-500">
+                {answeredCount}/{structured.questions.length} questions answered
+              </span>
+              {answeredCount === structured.questions.length && (
+                <span className="text-xs text-emerald-400 font-medium">· Complete</span>
+              )}
+            </div>
+          </div>
+
+          {/* Session summary */}
+          <div className="rounded-xl border border-purple-500/20 bg-purple-500/8 p-4">
+            <p className="text-xs font-medium text-purple-300 mb-1.5">Session Overview</p>
+            <p className="text-sm text-zinc-300 leading-relaxed">{structured.session_summary}</p>
+          </div>
+
+          {/* Q&A */}
+          <div className="space-y-5">
+            {structured.questions.map((q: any, idx: number) => {
+              const answer = answers[q.id];
+              const hasAnswer = answer && answer.trim().length > 0;
+              return (
+                <div key={q.id} className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-purple-500/20 text-[10px] font-bold text-purple-300 mt-0.5">
+                      {idx + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-zinc-100 leading-snug">{q.question}</p>
+                      <p className={`text-xs mt-0.5 ${getCategoryColor(q.category)}`}>
+                        {getCategoryLabel(q.category)}
+                        {q.context && ` · ${q.context}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="ml-7">
+                    {hasAnswer ? (
+                      <div className="rounded-lg border border-zinc-700/50 bg-zinc-900/60 p-3">
+                        <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{answer}</p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-zinc-600 italic">Not yet answered</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Growth focus */}
+          {structured.growth_focus && (
+            <div className="flex items-start gap-2 rounded-xl bg-orange-500/8 border border-orange-500/20 p-4">
+              <Target className="h-4 w-4 text-orange-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs font-medium text-orange-300 mb-0.5">Growth Focus for Next Session</p>
+                <p className="text-sm text-zinc-300 leading-relaxed">{structured.growth_focus}</p>
+              </div>
+            </div>
+          )}
         </div>
       );
     }

@@ -315,3 +315,21 @@ export const seasonSummarySchema = z.object({
 });
 
 export type SeasonSummary = z.infer<typeof seasonSummarySchema>;
+
+export const coachReflectionSchema = z.object({
+  session_summary: z.string().min(10),       // 2-3 sentence AI overview of the session
+  questions: z.array(z.object({
+    id: z.string().min(1),
+    question: z.string().min(10),            // The reflection question text
+    context: z.string().min(5),             // Why this question is relevant (data-driven)
+    category: z.enum([
+      'player_development',                  // About individual player growth
+      'team_dynamics',                       // About how the team worked together
+      'coaching_approach',                   // About the coach's own methods
+      'session_design',                      // About practice structure and planning
+    ]),
+  })).min(3).max(5),
+  growth_focus: z.string().min(5),           // One key area for the coach to prioritize next session
+});
+
+export type CoachReflection = z.infer<typeof coachReflectionSchema>;

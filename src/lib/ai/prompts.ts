@@ -617,4 +617,61 @@ export const PROMPT_REGISTRY = {
       '{ "headline": "string (5-10 word inspiring title)", "season_period": "string (copy from input)", "overall_assessment": "string (2-3 sentences)", "team_highlights": [{ "title": "string", "description": "string" }], "skill_progress": [{ "skill": "string", "status": "strength|most_improved|consistent|needs_work", "description": "string (1 sentence)" }], "player_breakthroughs": [{ "player_name": "string", "achievement": "string (1 sentence)" }], "team_challenges": ["string"], "coaching_insights": "string (2-3 sentences)", "next_season_priorities": ["string"], "closing_message": "string (1-2 sentences)" }',
     ].filter(Boolean).join('\n'),
   }),
+
+  coachReflection: (params: PromptParams & {
+    sessionDate: string;
+    sessionType: string;
+    totalObservations: number;
+    positiveCount: number;
+    needsWorkCount: number;
+    observedPlayerCount: number;
+    totalPlayers: number;
+    underobservedPlayers: string[];
+    topCategories: Array<{ category: string; count: number; dominant: string }>;
+    standoutMoments: Array<{ playerName: string; category: string; sentiment: string; text: string }>;
+    priorSessionHealthScore: number | null;
+    activeGoalCount: number;
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You generate personalized post-session reflection prompts to help coaches grow their coaching practice.',
+      '',
+      'Rules:',
+      '- Each question must be rooted in the actual session data provided — never ask generic questions.',
+      '- Reference specific players, categories, or statistics from the session when possible.',
+      '- Vary question categories across player_development, team_dynamics, coaching_approach, and session_design.',
+      '- Questions should be open-ended and thought-provoking, not yes/no.',
+      '- The context field explains WHY this question is relevant (cite the data).',
+      '- Keep questions concise (1 sentence), context concise (1 sentence).',
+      '- session_summary is a factual 2-sentence overview of what the data shows.',
+      '- growth_focus is one actionable coaching priority for the next session.',
+      '- Generate exactly 4 questions covering a mix of categories.',
+    ].join('\n'),
+    user: [
+      `Team: ${params.teamName || 'your team'} (${params.ageGroup || 'youth'} ${params.sportName || 'basketball'})`,
+      `Session: ${params.sessionType} on ${params.sessionDate}`,
+      `Observations recorded: ${params.totalObservations} (${params.positiveCount} positive, ${params.needsWorkCount} needs-work)`,
+      `Players observed: ${params.observedPlayerCount} of ${params.totalPlayers}`,
+      params.underobservedPlayers.length
+        ? `Players with NO observations today: ${params.underobservedPlayers.join(', ')}`
+        : 'All players received at least one observation today.',
+      '',
+      'Top observed skill categories:',
+      params.topCategories.map((c) => `- ${c.category}: ${c.count} obs (mostly ${c.dominant})`).join('\n') || '(none)',
+      '',
+      'Standout moments from the session:',
+      params.standoutMoments.slice(0, 8).map((m) =>
+        `- ${m.playerName}: [${m.sentiment}/${m.category}] "${m.text}"`
+      ).join('\n') || '(none)',
+      params.priorSessionHealthScore !== null
+        ? `\nPrior session health score: ${params.priorSessionHealthScore}% (compare to today's ${Math.round((params.positiveCount / Math.max(params.totalObservations, 1)) * 100)}%)`
+        : '',
+      params.activeGoalCount > 0
+        ? `Active player development goals: ${params.activeGoalCount}`
+        : '',
+      '',
+      'Generate the coach reflection as JSON:',
+      '{ "session_summary": "string (2 sentences, factual)", "questions": [{ "id": "q1", "question": "string", "context": "string", "category": "player_development|team_dynamics|coaching_approach|session_design" }, ...], "growth_focus": "string (1 actionable sentence)" }',
+    ].filter(Boolean).join('\n'),
+  }),
 } as const;
