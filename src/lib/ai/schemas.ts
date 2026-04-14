@@ -290,3 +290,28 @@ export const weeklyStarSchema = z.object({
 });
 
 export type WeeklyStar = z.infer<typeof weeklyStarSchema>;
+
+export const seasonSummarySchema = z.object({
+  headline: z.string().min(5),               // e.g. "A Season of Breakthroughs"
+  season_period: z.string(),                 // e.g. "Fall 2024 · Sep 1 – Dec 15"
+  overall_assessment: z.string().min(20),    // 2-3 sentence narrative overview
+  team_highlights: z.array(z.object({
+    title: z.string(),
+    description: z.string(),
+  })).min(1).max(5),
+  skill_progress: z.array(z.object({
+    skill: z.string(),
+    status: z.enum(['strength', 'most_improved', 'consistent', 'needs_work']),
+    description: z.string(),
+  })).min(1).max(8),
+  player_breakthroughs: z.array(z.object({
+    player_name: z.string(),
+    achievement: z.string(),
+  })).max(6),
+  team_challenges: z.array(z.string()).min(1).max(4),
+  coaching_insights: z.string().min(10),    // What the data reveals about coaching patterns
+  next_season_priorities: z.array(z.string()).min(1).max(4),
+  closing_message: z.string().min(10),      // Motivational season-end note
+});
+
+export type SeasonSummary = z.infer<typeof seasonSummarySchema>;

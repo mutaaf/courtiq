@@ -559,4 +559,62 @@ export const PROMPT_REGISTRY = {
       '{ "player_name": "string", "week_label": "string", "headline": "string (catchy 5-8 word phrase, no player name)", "achievement": "string (2-3 sentences, warm and specific)", "growth_moment": "string (1-2 sentences quoting or paraphrasing a specific observation)", "challenge_ahead": "string (1-2 sentences, encouraging, growth-mindset framing)", "coach_shoutout": "string (1 sentence, personal kudos)" }',
     ].filter(Boolean).join('\n'),
   }),
+
+  seasonSummary: (params: PromptParams & {
+    seasonPeriod: string;
+    totalObservations: number;
+    totalSessions: number;
+    totalPlayers: number;
+    weeksOfData: number;
+    healthScore: number;
+    topCategories: string[];
+    sessionBreakdown: Record<string, number>;
+    playerObservationCounts: Array<{ name: string; count: number; positiveRatio: number }>;
+    categoryBreakdown: Array<{ category: string; positive: number; needsWork: number; total: number }>;
+    sampleObservations: Array<{ playerName: string; category: string; sentiment: string; text: string }>;
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You write comprehensive, honest, and uplifting season summary reports for youth sports teams.',
+      '',
+      'Rules:',
+      '- Draw directly from the provided observation data — be specific, not generic.',
+      '- Acknowledge both strengths AND areas for growth with a growth-mindset framing.',
+      '- Name players by name in player_breakthroughs — make it personal.',
+      '- coaching_insights should reflect patterns the DATA reveals (e.g. "The team received far more offense observations than defense").',
+      '- next_season_priorities should follow logically from team_challenges.',
+      '- Keep each field concise: overall_assessment ≤ 3 sentences, highlight descriptions ≤ 2 sentences.',
+      '- Status values: "strength" = top performing skill, "most_improved" = biggest growth area, "consistent" = reliable, "needs_work" = recurring challenge.',
+      '- closing_message should be warm and forward-looking — not a cliché.',
+    ].join('\n'),
+    user: [
+      `Team: ${params.teamName || 'the team'} (${params.ageGroup || 'youth'} ${params.sportName || 'basketball'})`,
+      `Season period: ${params.seasonPeriod}`,
+      `Stats: ${params.totalObservations} observations · ${params.totalSessions} sessions · ${params.totalPlayers} players · ${params.weeksOfData} weeks`,
+      `Overall health score: ${params.healthScore}% positive`,
+      '',
+      'Session breakdown:',
+      Object.entries(params.sessionBreakdown).map(([type, count]) => `- ${type}: ${count}`).join('\n') || '(none)',
+      '',
+      'Top observed categories: ' + (params.topCategories.join(', ') || 'none'),
+      '',
+      'Category performance breakdown:',
+      params.categoryBreakdown.map((c) =>
+        `- ${c.category}: ${c.total} obs (${c.positive} positive, ${c.needsWork} needs-work)`
+      ).join('\n') || '(none)',
+      '',
+      'Player engagement (most observed first):',
+      params.playerObservationCounts.slice(0, 10).map((p) =>
+        `- ${p.name}: ${p.count} obs, ${Math.round(p.positiveRatio * 100)}% positive`
+      ).join('\n') || '(none)',
+      '',
+      'Sample observations (representative moments from the season):',
+      params.sampleObservations.slice(0, 20).map((o) =>
+        `- ${o.playerName}: [${o.sentiment}/${o.category}] ${o.text}`
+      ).join('\n') || '(none)',
+      '',
+      'Write the season summary as JSON:',
+      '{ "headline": "string (5-10 word inspiring title)", "season_period": "string (copy from input)", "overall_assessment": "string (2-3 sentences)", "team_highlights": [{ "title": "string", "description": "string" }], "skill_progress": [{ "skill": "string", "status": "strength|most_improved|consistent|needs_work", "description": "string (1 sentence)" }], "player_breakthroughs": [{ "player_name": "string", "achievement": "string (1 sentence)" }], "team_challenges": ["string"], "coaching_insights": "string (2-3 sentences)", "next_season_priorities": ["string"], "closing_message": "string (1-2 sentences)" }',
+    ].filter(Boolean).join('\n'),
+  }),
 } as const;

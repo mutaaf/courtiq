@@ -46,6 +46,8 @@ import {
   Plus,
   Radio,
   Target,
+  BarChart2,
+  Share2,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { PrintButton } from '@/components/ui/print-button';
@@ -69,6 +71,7 @@ const PLAN_TYPE_CONFIG: Record<
   opponent_profile: { label: 'Scouting Profile', icon: Swords, color: 'text-red-400' },
   game_recap: { label: 'Game Recap', icon: Radio, color: 'text-rose-400' },
   weekly_star: { label: 'Weekly Star', icon: Star, color: 'text-amber-400' },
+  season_summary: { label: 'Season Summary', icon: BarChart2, color: 'text-cyan-400' },
 };
 
 const SUGGESTION_CHIPS = [
@@ -110,6 +113,11 @@ export default function PlansPage() {
   const [savingOpponentProfile, setSavingOpponentProfile] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [showProfilePicker, setShowProfilePicker] = useState(false);
+
+  // Season Summary state
+  const [generatingSeasonSummary, setGeneratingSeasonSummary] = useState(false);
+  const [seasonSummaryStats, setSeasonSummaryStats] = useState<{ observationsAnalyzed: number; sessionsIncluded: number; playersObserved: number; weeksOfData: number; healthScore: number; dateRange: string } | null>(null);
+  const [seasonSummaryCopied, setSeasonSummaryCopied] = useState(false);
 
   // Run Practice modal state
   const [showRunModal, setShowRunModal] = useState(false);
@@ -271,6 +279,32 @@ export default function PlansPage() {
       setError(err instanceof Error ? err.message : 'Season storyline generation failed');
     } finally {
       setGeneratingStoryline(false);
+    }
+  };
+
+  const generateSeasonSummary = async () => {
+    if (!activeTeam) return;
+    setGeneratingSeasonSummary(true);
+    setError(null);
+    setSeasonSummaryStats(null);
+    try {
+      const res = await fetch('/api/ai/season-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate season summary');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      if (data.stats) setSeasonSummaryStats(data.stats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Season summary generation failed');
+    } finally {
+      setGeneratingSeasonSummary(false);
     }
   };
 
@@ -1340,6 +1374,202 @@ export default function PlansPage() {
       );
     }
 
+    // Season Summary renderer
+    if (structured.headline && structured.overall_assessment && structured.next_season_priorities) {
+      const skillStatusBadge = (status: string) => {
+        switch (status) {
+          case 'strength':      return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400';
+          case 'most_improved': return 'border-blue-500/30 bg-blue-500/10 text-blue-400';
+          case 'needs_work':    return 'border-red-500/30 bg-red-500/10 text-red-400';
+          default:              return 'border-zinc-600/30 bg-zinc-800/30 text-zinc-400';
+        }
+      };
+      const skillStatusLabel = (status: string) => {
+        switch (status) {
+          case 'strength':      return 'Strength';
+          case 'most_improved': return 'Most Improved';
+          case 'needs_work':    return 'Needs Work';
+          default:              return 'Consistent';
+        }
+      };
+      return (
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <BarChart2 className="h-5 w-5 text-cyan-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-cyan-400">Season Summary</span>
+            </div>
+            {structured.season_period && (
+              <p className="text-xs text-zinc-500">{structured.season_period}</p>
+            )}
+            <h2 className="text-xl font-bold text-zinc-100">{structured.headline}</h2>
+          </div>
+
+          {/* Overall Assessment */}
+          {structured.overall_assessment && (
+            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+              <p className="text-sm text-zinc-200 leading-relaxed">{structured.overall_assessment}</p>
+            </div>
+          )}
+
+          {/* Team Highlights */}
+          {Array.isArray(structured.team_highlights) && structured.team_highlights.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Star className="h-4 w-4 text-amber-400" />
+                <p className="text-sm font-semibold text-zinc-200">Season Highlights</p>
+              </div>
+              <div className="space-y-2">
+                {structured.team_highlights.map((h: any, i: number) => (
+                  <div key={i} className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5 space-y-1">
+                    <p className="text-sm font-semibold text-amber-300">{h.title}</p>
+                    {h.description && (
+                      <p className="text-xs text-zinc-400 leading-relaxed">{h.description}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Skill Progress */}
+          {Array.isArray(structured.skill_progress) && structured.skill_progress.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-emerald-400" />
+                <p className="text-sm font-semibold text-zinc-200">Skill Progress</p>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                {structured.skill_progress.map((sp: any, i: number) => (
+                  <div key={i} className="flex items-start gap-3 rounded-xl border border-zinc-800 bg-zinc-900/30 p-3.5">
+                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold ${skillStatusBadge(sp.status)}`}>
+                      {skillStatusLabel(sp.status)}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-zinc-200">{sp.skill}</p>
+                      {sp.description && (
+                        <p className="text-xs text-zinc-500 leading-relaxed mt-0.5">{sp.description}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Player Breakthroughs */}
+          {Array.isArray(structured.player_breakthroughs) && structured.player_breakthroughs.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-orange-400" />
+                <p className="text-sm font-semibold text-zinc-200">Player Breakthroughs</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {structured.player_breakthroughs.map((pb: any, i: number) => (
+                  <div key={i} className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-3.5 space-y-1">
+                    <p className="text-sm font-semibold text-orange-400">{pb.player_name}</p>
+                    <p className="text-xs text-zinc-300 leading-relaxed">{pb.achievement}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Team Challenges */}
+          {Array.isArray(structured.team_challenges) && structured.team_challenges.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-red-400" />
+                <p className="text-sm font-semibold text-zinc-200">Areas to Address</p>
+              </div>
+              <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3.5 space-y-1.5">
+                {structured.team_challenges.map((c: string, i: number) => (
+                  <p key={i} className="text-sm text-zinc-300 leading-relaxed">• {c}</p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Coaching Insights */}
+          {structured.coaching_insights && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Eye className="h-4 w-4 text-zinc-400" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Coaching Insights</p>
+              </div>
+              <p className="text-sm text-zinc-200 leading-relaxed">{structured.coaching_insights}</p>
+            </div>
+          )}
+
+          {/* Next Season Priorities */}
+          {Array.isArray(structured.next_season_priorities) && structured.next_season_priorities.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <BookmarkPlus className="h-4 w-4 text-cyan-400" />
+                <p className="text-sm font-semibold text-zinc-200">Next Season Priorities</p>
+              </div>
+              <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3.5 space-y-1.5">
+                {structured.next_season_priorities.map((p: string, i: number) => (
+                  <p key={i} className="text-sm text-zinc-300 leading-relaxed">→ {p}</p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Closing Message */}
+          {structured.closing_message && (
+            <div className="rounded-xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-transparent p-4">
+              <p className="text-sm text-zinc-200 leading-relaxed italic text-center">&ldquo;{structured.closing_message}&rdquo;</p>
+            </div>
+          )}
+
+          {/* Share button */}
+          <button
+            onClick={async () => {
+              const teamName = activeTeam?.name || 'Team';
+              const text = [
+                `📊 ${teamName} — Season Summary`,
+                structured.season_period || '',
+                '',
+                structured.headline,
+                '',
+                structured.overall_assessment,
+                '',
+                Array.isArray(structured.next_season_priorities) && structured.next_season_priorities.length > 0
+                  ? '🎯 Next Season: ' + (structured.next_season_priorities as string[]).join(', ')
+                  : '',
+                '',
+                'Generated with SportsIQ',
+              ].filter(Boolean).join('\n');
+              try {
+                if (navigator.share) {
+                  await navigator.share({ title: `${teamName} Season Summary`, text });
+                } else {
+                  await navigator.clipboard.writeText(text);
+                  setSeasonSummaryCopied(true);
+                  setTimeout(() => setSeasonSummaryCopied(false), 2000);
+                }
+              } catch { /* user cancelled */ }
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 py-3 text-sm font-semibold text-cyan-300 transition-all hover:bg-cyan-500/15 active:scale-[0.98] touch-manipulation"
+          >
+            {seasonSummaryCopied ? (
+              <>
+                <Check className="h-4 w-4" />
+                Copied to clipboard!
+              </>
+            ) : (
+              <>
+                <Share2 className="h-4 w-4" />
+                Share Season Summary
+              </>
+            )}
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-4">
         {structured.title && (
@@ -1630,6 +1860,26 @@ export default function PlansPage() {
               <Users className="h-4 w-4 text-violet-500/50 shrink-0" />
             </button>
 
+            {/* Season Summary — whole team */}
+            <button
+              onClick={generateSeasonSummary}
+              disabled={generatingSeasonSummary || generating || !activeTeam}
+              className="flex w-full items-center gap-2.5 rounded-xl border border-cyan-500/40 bg-gradient-to-r from-cyan-500/15 to-cyan-500/5 px-4 py-3 text-left transition-all hover:border-cyan-500/60 hover:from-cyan-500/20 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-500/25">
+                {generatingSeasonSummary ? (
+                  <Loader2 className="h-4 w-4 text-cyan-400 animate-spin" />
+                ) : (
+                  <BarChart2 className="h-4 w-4 text-cyan-400" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-cyan-300">Season Summary</p>
+                <p className="text-xs text-zinc-500">AI-generated team season recap with highlights &amp; next-season priorities</p>
+              </div>
+              <Activity className="h-4 w-4 text-cyan-500/50 shrink-0" />
+            </button>
+
             {/* Season Storyline — player-specific */}
             <div className="rounded-xl border border-indigo-500/40 bg-gradient-to-r from-indigo-500/15 to-indigo-500/5 p-3 space-y-2.5">
               <div className="flex items-center gap-2.5">
@@ -1883,6 +2133,37 @@ export default function PlansPage() {
                 <p className="text-sm font-medium text-orange-300">Generating your plan...</p>
                 <p className="text-xs text-zinc-500">Analyzing your team&apos;s recent observations and creating a tailored practice plan</p>
               </div>
+            </div>
+          )}
+
+          {/* Season Summary generating indicator */}
+          {generatingSeasonSummary && (
+            <div className="flex items-center gap-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
+              <Loader2 className="h-5 w-5 text-cyan-400 animate-spin" />
+              <div>
+                <p className="text-sm font-medium text-cyan-300">Writing season summary...</p>
+                <p className="text-xs text-zinc-500">Analyzing all observations and crafting your team&apos;s season narrative</p>
+              </div>
+            </div>
+          )}
+
+          {/* Season Summary stats badge */}
+          {!generatingSeasonSummary && seasonSummaryStats && (
+            <div className="flex items-start gap-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
+              <BarChart2 className="h-4 w-4 text-cyan-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-cyan-300">Season Summary generated</p>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  {seasonSummaryStats.dateRange} &middot; {seasonSummaryStats.observationsAnalyzed} obs &middot; {seasonSummaryStats.sessionsIncluded} sessions &middot; {seasonSummaryStats.healthScore}% health
+                </p>
+              </div>
+              <button
+                onClick={() => setSeasonSummaryStats(null)}
+                className="text-zinc-600 hover:text-zinc-400 shrink-0"
+                aria-label="Dismiss"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
           )}
 
