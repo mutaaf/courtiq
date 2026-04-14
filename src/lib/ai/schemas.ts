@@ -278,3 +278,15 @@ export const gameRecapSchema = z.object({
 });
 
 export type GameRecap = z.infer<typeof gameRecapSchema>;
+
+export const weeklyStarSchema = z.object({
+  player_name: z.string(),
+  week_label: z.string(),
+  headline: z.string().min(5),            // e.g. "Showed up big all week!"
+  achievement: z.string().min(10),         // 2–3 sentences describing what they did well
+  growth_moment: z.string().min(10),       // specific coaching observation turned into praise
+  challenge_ahead: z.string().min(10),     // what to keep working on
+  coach_shoutout: z.string().min(5),       // short 1-sentence kudos from the coach
+});
+
+export type WeeklyStar = z.infer<typeof weeklyStarSchema>;

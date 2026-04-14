@@ -1,7 +1,8 @@
 'use client';
 
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { query } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,9 +27,12 @@ import {
   Trophy,
   Award,
   CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import { formatTimeAgo } from '@/lib/team-wins-utils';
 import type { TeamWin } from '@/lib/team-wins-utils';
+import { isCurrentWeekStar } from '@/lib/player-spotlight-utils';
+import type { WeeklyStar } from '@/lib/ai/schemas';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -143,6 +147,167 @@ function CoachingTipsCard({ teamId }: { teamId: string }) {
             </div>
           );
         })}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Weekly Star ─────────────────────────────────────────────────────────────
+
+interface WeeklyStarPlan {
+  id: string;
+  type: string;
+  title: string;
+  content_structured: WeeklyStar | null;
+  created_at: string;
+}
+
+function WeeklyStarCard({ teamId }: { teamId: string }) {
+  const qc = useQueryClient();
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const { data: plans } = useQuery({
+    queryKey: ['plans-weekly-star', teamId],
+    queryFn: async (): Promise<WeeklyStarPlan[]> => {
+      const res = await fetch(
+        `/api/data?table=plans&select=id,type,title,content_structured,created_at&filters=${encodeURIComponent(JSON.stringify({ team_id: teamId, type: 'weekly_star' }))}&order=${encodeURIComponent(JSON.stringify({ column: 'created_at', ascending: false }))}&limit=1`
+      );
+      if (!res.ok) return [];
+      const json = await res.json();
+      return json.data ?? [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const currentStar: WeeklyStarPlan | null =
+    plans?.find((p) => isCurrentWeekStar(p.created_at)) ?? null;
+
+  async function generate() {
+    setGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/ai/weekly-star', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to generate');
+      qc.invalidateQueries({ queryKey: ['plans-weekly-star', teamId] });
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function share(star: WeeklyStar) {
+    const text = [
+      `⭐ SportsIQ Weekly Star — Week of ${star.week_label}`,
+      '',
+      `${star.player_name}: ${star.headline}`,
+      '',
+      star.achievement,
+      '',
+      `"${star.coach_shoutout}"`,
+    ].join('\n');
+
+    if (typeof navigator !== 'undefined' && 'share' in navigator) {
+      try {
+        await navigator.share({ title: `Weekly Star — ${star.player_name}`, text });
+        return;
+      } catch {
+        // fall through to clipboard
+      }
+    }
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  // Don't show the card at all until plans data loads and we know the star status
+  if (plans === undefined) return null;
+
+  if (currentStar?.content_structured) {
+    const star = currentStar.content_structured;
+    return (
+      <Card className="overflow-hidden border-amber-500/25">
+        <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent px-5 pt-4 pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20">
+                <Star className="h-4 w-4 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-zinc-100">Weekly Star</h3>
+                <p className="text-xs text-zinc-500">Week of {star.week_label}</p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 text-xs text-zinc-400 hover:text-zinc-200"
+              onClick={() => share(star)}
+              aria-label={`Share ${star.player_name}'s weekly star spotlight`}
+            >
+              {copied ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+              ) : (
+                <ChevronRight className="h-3.5 w-3.5" />
+              )}
+              {copied ? 'Copied!' : 'Share'}
+            </Button>
+          </div>
+        </div>
+        <CardContent className="px-5 pb-5 pt-3 space-y-3">
+          <div>
+            <p className="text-base font-bold text-amber-300">{star.player_name}</p>
+            <p className="text-sm text-zinc-300 leading-relaxed mt-0.5">{star.headline}</p>
+          </div>
+          <p className="text-sm text-zinc-400 leading-relaxed">{star.achievement}</p>
+          {star.coach_shoutout && (
+            <div className="rounded-lg border border-amber-500/15 bg-amber-500/5 px-3.5 py-2.5">
+              <p className="text-xs text-amber-300/80 italic">&ldquo;{star.coach_shoutout}&rdquo;</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // No star for this week yet — show generate prompt
+  return (
+    <Card className="overflow-hidden border-dashed border-amber-500/30">
+      <CardContent className="flex flex-col items-center gap-3 p-6 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15">
+          <Star className="h-6 w-6 text-amber-400" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-zinc-200">Weekly Star</p>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            AI picks this week&apos;s standout player based on observations
+          </p>
+        </div>
+        {error && (
+          <p className="text-xs text-red-400 rounded-lg bg-red-500/10 px-3 py-2 max-w-xs">{error}</p>
+        )}
+        <Button
+          size="sm"
+          variant="outline"
+          className="border-amber-500/40 text-amber-300 hover:bg-amber-500/10 gap-2 touch-manipulation"
+          onClick={generate}
+          disabled={generating}
+          aria-label="Generate weekly star spotlight"
+        >
+          {generating ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Sparkles className="h-3.5 w-3.5" />
+          )}
+          {generating ? 'Picking this week\'s star…' : 'Pick Weekly Star'}
+        </Button>
       </CardContent>
     </Card>
   );
@@ -706,6 +871,11 @@ export default function HomePage() {
       {/* AI Coaching Tips — proactive suggestions shown when there's enough data */}
       {!isLoadingStats && stats && stats.observations >= 5 && (
         <CoachingTipsCard teamId={activeTeam.id} />
+      )}
+
+      {/* Weekly Star — AI-picked standout player, shown once there's some data */}
+      {!isLoadingStats && stats && stats.observations >= 5 && stats.players > 0 && (
+        <WeeklyStarCard teamId={activeTeam.id} />
       )}
 
       {/* Team Wins — recent badge achievements and achieved goals */}

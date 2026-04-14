@@ -45,6 +45,7 @@ import {
   Timer,
   Plus,
   Radio,
+  Target,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { PrintButton } from '@/components/ui/print-button';
@@ -67,6 +68,7 @@ const PLAN_TYPE_CONFIG: Record<
   self_assessment: { label: 'Self-Assessment', icon: ClipboardCheck, color: 'text-teal-400' },
   opponent_profile: { label: 'Scouting Profile', icon: Swords, color: 'text-red-400' },
   game_recap: { label: 'Game Recap', icon: Radio, color: 'text-rose-400' },
+  weekly_star: { label: 'Weekly Star', icon: Star, color: 'text-amber-400' },
 };
 
 const SUGGESTION_CHIPS = [
@@ -1264,6 +1266,74 @@ export default function PlansPage() {
                 <p className="text-xs font-semibold uppercase tracking-wider text-orange-400">Looking Ahead</p>
               </div>
               <p className="text-sm text-zinc-300 leading-relaxed">{structured.looking_ahead}</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Weekly Star renderer
+    if (structured.headline && structured.achievement && structured.coach_shoutout) {
+      return (
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Star className="h-5 w-5 text-amber-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-amber-400">Weekly Star</span>
+            </div>
+            {structured.week_label && (
+              <p className="text-xs text-zinc-500">Week of {structured.week_label}</p>
+            )}
+            {structured.player_name && (
+              <h2 className="text-xl font-bold text-amber-300">{structured.player_name}</h2>
+            )}
+            {structured.headline && (
+              <p className="text-sm font-medium text-zinc-300">{structured.headline}</p>
+            )}
+          </div>
+
+          {/* Achievement */}
+          {structured.achievement && (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+              <p className="text-sm text-zinc-200 leading-relaxed">{structured.achievement}</p>
+            </div>
+          )}
+
+          {/* Growth Moment */}
+          {structured.growth_moment && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-emerald-400" />
+                <p className="text-sm font-semibold text-zinc-200">Growth Moment</p>
+              </div>
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5">
+                <p className="text-sm text-zinc-300 leading-relaxed">{structured.growth_moment}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Challenge Ahead */}
+          {structured.challenge_ahead && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-blue-400" />
+                <p className="text-sm font-semibold text-zinc-200">Keep Building</p>
+              </div>
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3.5">
+                <p className="text-sm text-zinc-300 leading-relaxed">{structured.challenge_ahead}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Coach Shoutout */}
+          {structured.coach_shoutout && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <MessageSquare className="h-4 w-4 text-zinc-400" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">From the Coach</p>
+              </div>
+              <p className="text-sm text-zinc-200 leading-relaxed italic">&ldquo;{structured.coach_shoutout}&rdquo;</p>
             </div>
           )}
         </div>

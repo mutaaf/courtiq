@@ -527,4 +527,36 @@ export const PROMPT_REGISTRY = {
       '{ "image_description": "brief description of what you see", "observations": [{ "player_name", "category", "sentiment", "text", "skill_id" }], "team_observations": [{ "category", "sentiment", "text" }] }',
     ].filter(Boolean).join('\n'),
   }),
+  playerWeeklyStar: (params: PromptParams & {
+    playerName: string;
+    weekLabel: string;
+    positiveObservations: Array<{ category: string; text: string }>;
+    totalObsCount: number;
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You write a celebratory "Player of the Week" spotlight for the coach to share.',
+      '',
+      'Rules:',
+      '- Tone is warm, enthusiastic, and age-appropriate — celebrate genuine growth.',
+      '- Base everything on the observations provided. Do not invent skills not mentioned.',
+      '- Keep language positive and growth-mindset oriented.',
+      '- The achievement (2–3 sentences) should highlight what made this week special.',
+      '- The growth_moment should quote or paraphrase a specific observation from the list.',
+      '- The challenge_ahead is encouraging — one area to keep building, framed positively.',
+      '- The coach_shoutout is a short, personal-sounding one-liner like "Marcus brings it every single rep."',
+    ].join('\n'),
+    user: [
+      `Team: ${params.teamName} (${params.sportName}, ${params.ageGroup})`,
+      `Week of: ${params.weekLabel}`,
+      `Player: ${params.playerName}`,
+      `Total observations this week: ${params.totalObsCount}`,
+      '',
+      `Positive observations that earned the spotlight:`,
+      params.positiveObservations.map((o) => `- [${o.category}] ${o.text}`).join('\n'),
+      '',
+      'Write the Weekly Star spotlight as JSON:',
+      '{ "player_name": "string", "week_label": "string", "headline": "string (catchy 5-8 word phrase, no player name)", "achievement": "string (2-3 sentences, warm and specific)", "growth_moment": "string (1-2 sentences quoting or paraphrasing a specific observation)", "challenge_ahead": "string (1-2 sentences, encouraging, growth-mindset framing)", "coach_shoutout": "string (1 sentence, personal kudos)" }',
+    ].filter(Boolean).join('\n'),
+  }),
 } as const;
