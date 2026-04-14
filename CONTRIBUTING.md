@@ -156,6 +156,9 @@ You run every hour. Here's how to be effective.
 - [x] Sentry or similar error tracking integration — lightweight self-hosted tracker: `src/lib/error-tracking.ts` (captureException/captureMessage/initErrorTracking, batched fetch with 600ms debounce, sessionStorage session ID); POST /api/errors (IP rate-limit 100/hr, Supabase persistence with graceful fallback, structured console logs); ErrorTrackingInit component in root layout (window.onerror + unhandledrejection); all 4 error boundaries (global/root/dashboard/auth) wired up; migration 013_error_tracking.sql; 23 unit tests
 - [x] API rate limiting on AI endpoints — 20 req/hour per coach (configurable via AI_RATE_LIMIT_PER_HOUR); Redis sliding window with in-memory fallback; RateLimitError → 429 + Retry-After header; handleAIError() shared handler across all 14 AI routes; 10 unit tests
 
+### P13 — Coach Growth & Reflection
+- [x] **Coach Reflection Journal** — AI-guided post-session reflection; analyzes observation data (player coverage gaps, sentiment ratios, top categories, standout moments, prior session comparison) and generates 4 personalized open-ended questions; coach fills in answers inline on session detail page; saved as plan type `coach_reflection` with rich Q&A renderer in Plans page; PATCH endpoint to save answers to existing draft plan; `coach-reflection-utils.ts` pure module (17 functions: isValidReflectionAnswer, countAnsweredQuestions, hasAllAnswers, hasAnyAnswer, truncateAnswer, getCategoryLabel, getCategoryColor, isValidCategory, countBySentiment, calculateHealthScore, countObservedPlayers, getUnobservedPlayerIds, aggregateByCategory, buildReflectionShareText, buildReflectionPreview, reflectionProgress, groupQuestionsByCategory); fixed PlanType union to include game_recap/weekly_star/season_summary; 58 unit tests; total suite: 1034 tests
+
 ---
 
 ## Architecture Rules
