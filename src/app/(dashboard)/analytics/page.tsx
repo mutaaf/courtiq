@@ -9,10 +9,23 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, TrendingDown, Minus, Users, Eye, Calendar, Target, AlertTriangle, CheckCircle2, Activity, LineChart as LineChartIcon, LayoutGrid, BarChart2, ArrowRight, Download, ChevronDown, Share2, X, Copy, Check } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Users, Eye, Calendar, Target, AlertTriangle, CheckCircle2, Activity, LineChart as LineChartIcon, LayoutGrid, BarChart2, ArrowRight, Download, ChevronDown, Share2, X, Copy, Check, Lightbulb, Star } from 'lucide-react';
 import { UpgradeGate } from '@/components/ui/upgrade-gate';
 import { PrintButton } from '@/components/ui/print-button';
 import type { Observation, Player, Session, Sentiment } from '@/types/database';
+import {
+  calculateObservationBalance,
+  calculatePlayerCoverageRate,
+  calculateConsistencyRate,
+  calculateCoachingPatternScore,
+  getCoachingPatternLabel,
+  buildCoachingPatternInsights,
+  findUnobservedPlayerIds,
+  getMostObservedPlayers,
+  getLeastObservedPlayers,
+  hasSufficientPatternData,
+  type ObsPoint,
+} from '@/lib/coach-pattern-utils';
 import {
   getISOWeekKey,
   weekLabel,
@@ -419,6 +432,196 @@ function ExportMenu({ teamId }: { teamId: string }) {
         </>
       )}
     </div>
+  );
+}
+
+// ─── Coach Pattern Insights Card ─────────────────────────────────────────────
+
+const INSIGHT_CONFIG: Record<
+  'alert' | 'suggestion' | 'praise',
+  { icon: React.ComponentType<{ className?: string }>; color: string; bg: string }
+> = {
+  alert: { icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-500/10' },
+  suggestion: { icon: Lightbulb, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+  praise: { icon: Star, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+};
+
+function MetricPill({
+  label,
+  value,
+  sub,
+  color,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  color: 'emerald' | 'amber' | 'red' | 'blue';
+}) {
+  const ring =
+    color === 'emerald'
+      ? 'border-emerald-500/30 bg-emerald-500/5'
+      : color === 'amber'
+      ? 'border-amber-500/30 bg-amber-500/5'
+      : color === 'red'
+      ? 'border-red-500/30 bg-red-500/5'
+      : 'border-blue-500/30 bg-blue-500/5';
+  const valueColor =
+    color === 'emerald'
+      ? 'text-emerald-400'
+      : color === 'amber'
+      ? 'text-amber-400'
+      : color === 'red'
+      ? 'text-red-400'
+      : 'text-blue-400';
+  return (
+    <div className={`flex flex-col items-center rounded-lg border p-3 ${ring}`}>
+      <span className={`text-xl font-bold tabular-nums ${valueColor}`}>{value}</span>
+      <span className="text-[10px] font-medium text-zinc-300 mt-0.5 uppercase tracking-wide">
+        {label}
+      </span>
+      <span className="text-[10px] text-zinc-500 mt-0.5 text-center leading-tight">{sub}</span>
+    </div>
+  );
+}
+
+function CoachPatternInsightsCard({
+  observations,
+  players,
+}: {
+  observations: ObsPoint[];
+  players: Pick<Player, 'id' | 'name'>[];
+}) {
+  const playerIds = players.map((p) => p.id);
+  const playerNameMap = new Map(players.map((p) => [p.id, p.name]));
+
+  const balance = calculateObservationBalance(observations, playerIds);
+  const coverage = calculatePlayerCoverageRate(observations, playerIds, 14);
+  const consistency = calculateConsistencyRate(observations, 8);
+  const score = calculateCoachingPatternScore(balance, coverage, consistency);
+  const label = getCoachingPatternLabel(score);
+  const unobservedIds = findUnobservedPlayerIds(observations, playerIds, 14);
+  const insights = buildCoachingPatternInsights(balance, coverage, consistency, unobservedIds.length);
+  const topPlayers = getMostObservedPlayers(observations, playerIds, 3);
+  const lowPlayers = getLeastObservedPlayers(observations, playerIds, 3).filter((p) => p.count === 0);
+
+  const labelColor =
+    label === 'Comprehensive'
+      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+      : label === 'Developing'
+      ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+      : 'bg-red-500/20 text-red-300 border-red-500/30';
+
+  const balanceColor: 'emerald' | 'amber' | 'red' =
+    balance >= 75 ? 'emerald' : balance >= 50 ? 'amber' : 'red';
+  const coverageColor: 'emerald' | 'amber' | 'red' =
+    coverage >= 85 ? 'emerald' : coverage >= 60 ? 'amber' : 'red';
+  const consistencyColor: 'emerald' | 'amber' | 'red' =
+    consistency >= 75 ? 'emerald' : consistency >= 50 ? 'amber' : 'red';
+
+  return (
+    <Card className="border-violet-500/20">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Eye className="h-4 w-4 text-violet-400" />
+            Coaching Pattern Insights
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <span
+              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${labelColor}`}
+            >
+              {label}
+            </span>
+            <span className="text-[10px] text-zinc-500">Score: {score}/100</span>
+          </div>
+        </div>
+        <p className="text-[11px] text-zinc-500 mt-1">
+          How evenly you distribute coaching attention across your roster (last 8 weeks)
+        </p>
+      </CardHeader>
+      <CardContent className="px-4 pb-4 space-y-4">
+        {/* Three metric pills */}
+        <div className="grid grid-cols-3 gap-2">
+          <MetricPill
+            label="Coverage"
+            value={`${coverage}%`}
+            sub={`${playerIds.length - unobservedIds.length}/${playerIds.length} players (14d)`}
+            color={coverageColor}
+          />
+          <MetricPill
+            label="Balance"
+            value={`${balance}`}
+            sub="obs distribution score"
+            color={balanceColor}
+          />
+          <MetricPill
+            label="Consistency"
+            value={`${consistency}%`}
+            sub="weeks with obs (8w)"
+            color={consistencyColor}
+          />
+        </div>
+
+        {/* Most / least observed players */}
+        {(topPlayers.length > 0 || lowPlayers.length > 0) && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {topPlayers.length > 0 && (
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                <p className="text-[10px] uppercase tracking-wide text-zinc-500 mb-2">Most observed</p>
+                <div className="space-y-1">
+                  {topPlayers.map((p) => (
+                    <div key={p.playerId} className="flex items-center justify-between">
+                      <span className="text-xs text-zinc-300 truncate">
+                        {playerNameMap.get(p.playerId) ?? p.playerId}
+                      </span>
+                      <span className="text-xs font-medium text-orange-400 shrink-0 ml-2">
+                        {p.count} obs
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {lowPlayers.length > 0 && (
+              <div className="rounded-lg border border-red-900/30 bg-red-500/5 p-3">
+                <p className="text-[10px] uppercase tracking-wide text-red-400/70 mb-2">
+                  No observations yet
+                </p>
+                <div className="space-y-1">
+                  {lowPlayers.map((p) => (
+                    <div key={p.playerId} className="flex items-center justify-between">
+                      <span className="text-xs text-zinc-300 truncate">
+                        {playerNameMap.get(p.playerId) ?? p.playerId}
+                      </span>
+                      <span className="text-[10px] text-red-400 shrink-0 ml-2">0 obs</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Insights / suggestions */}
+        {insights.length > 0 && (
+          <div className="space-y-2">
+            {insights.map((insight, i) => {
+              const cfg = INSIGHT_CONFIG[insight.type];
+              const Icon = cfg.icon;
+              return (
+                <div
+                  key={i}
+                  className={`flex items-start gap-2.5 rounded-lg p-3 ${cfg.bg} border border-transparent`}
+                >
+                  <Icon className={`h-4 w-4 shrink-0 mt-0.5 ${cfg.color}`} />
+                  <p className="text-xs text-zinc-300 leading-relaxed">{insight.message}</p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1344,6 +1547,11 @@ export default function AnalyticsPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* ── Coaching Pattern Insights ─────────────────────────────────────────── */}
+      {!isLoading && hasSufficientPatternData(observations as ObsPoint[], players.map((p) => p.id)) && (
+        <CoachPatternInsightsCard observations={observations as ObsPoint[]} players={players} />
       )}
 
       {/* Empty state */}
