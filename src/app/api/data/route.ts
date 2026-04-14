@@ -45,6 +45,7 @@ export async function POST(request: Request) {
           case 'lt': query = query.lt(key, op.value); break;
           case 'lte': query = query.lte(key, op.value); break;
           case 'in': query = query.in(key, op.value as any[]); break;
+          case 'ilike': query = query.ilike(key, op.value as string); break;
           default: query = query.eq(key, op.value);
         }
       } else {

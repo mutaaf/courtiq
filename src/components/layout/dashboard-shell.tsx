@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Home, Mic, Users, ClipboardList, Settings, Calendar, CalendarDays, BookOpen, BarChart3, Sparkles, Sun, Moon, LineChart, LogOut, Lock, ShieldCheck, Store, Search } from 'lucide-react';
+import { Home, Mic, Users, ClipboardList, Settings, Calendar, CalendarDays, BookOpen, BarChart3, Sparkles, Sun, Moon, LineChart, LogOut, Lock, ShieldCheck, Store, Search, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NotificationBell } from '@/components/layout/notification-bell';
 import { TeamSwitcher } from '@/components/layout/team-switcher';
@@ -49,6 +49,7 @@ const sidebarItems = [
   { href: '/analytics', label: 'Analytics', icon: LineChart, tourId: undefined, feature: 'analytics' },
   { href: '/roster', label: 'Roster', icon: Users, tourId: 'roster', feature: undefined },
   { href: '/sessions', label: 'Sessions', icon: Calendar, tourId: undefined, feature: undefined },
+  { href: '/observations', label: 'Observations', icon: Eye, tourId: undefined, feature: undefined },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays, tourId: undefined, feature: undefined },
   { href: '/curriculum', label: 'Curriculum', icon: BookOpen, tourId: undefined, feature: undefined },
   { href: '/marketplace', label: 'Marketplace', icon: Store, tourId: undefined, feature: undefined },
