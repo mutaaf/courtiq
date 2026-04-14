@@ -18,6 +18,7 @@ import { ParentEngagementPanel } from '@/components/roster/parent-engagement-pan
 import { TeamAttendancePanel } from '@/components/roster/team-attendance-panel';
 import { AvailabilityBadge } from '@/components/roster/availability-badge';
 import type { Player, PlayerAvailability } from '@/types/database';
+import type { PlayerMomentum } from '@/lib/momentum-utils';
 
 export default function RosterPage() {
   const { activeTeam, coach } = useActiveTeam();
@@ -73,6 +74,21 @@ export default function RosterPage() {
     },
     enabled: !!activeTeam,
     ...CACHE_PROFILES.observations,
+  });
+
+  // Fetch momentum scores for all players
+  const { data: momentumMap = {} } = useQuery({
+    queryKey: ['team-momentum', activeTeam?.id ?? ''],
+    queryFn: async (): Promise<Record<string, PlayerMomentum>> => {
+      const res = await fetch(`/api/team-momentum?team_id=${activeTeam!.id}`);
+      if (!res.ok) return {};
+      const json = await res.json();
+      const map: Record<string, PlayerMomentum> = {};
+      for (const p of json.players ?? []) map[p.player_id] = p;
+      return map;
+    },
+    enabled: !!activeTeam,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Fetch latest availability record per player
@@ -304,6 +320,7 @@ export default function RosterPage() {
               onSelect={toggleSelect}
               availability={availabilityMap[player.id] ?? null}
               teamId={activeTeam.id}
+              momentum={momentumMap[player.id] ?? null}
             />
           ))}
         </div>

@@ -10,6 +10,8 @@ import type { Player, PlayerAvailability } from '@/types/database';
 import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { AvailabilityBadge } from '@/components/roster/availability-badge';
 import { PlayerAvailabilityModal } from '@/components/roster/player-availability-modal';
+import type { PlayerMomentum } from '@/lib/momentum-utils';
+import { getMomentumBadgeClasses, getMomentumLabel } from '@/lib/momentum-utils';
 
 interface PlayerCardProps {
   player: Player;
@@ -19,6 +21,7 @@ interface PlayerCardProps {
   onSelect?: (playerId: string) => void;
   availability?: PlayerAvailability | null;
   teamId?: string;
+  momentum?: PlayerMomentum | null;
 }
 
 const positionColors: Record<string, string> = {
@@ -38,6 +41,7 @@ export function PlayerCard({
   onSelect,
   availability,
   teamId,
+  momentum = null,
 }: PlayerCardProps) {
   const router = useRouter();
   const [showAvailability, setShowAvailability] = useState(false);
@@ -111,6 +115,18 @@ export function PlayerCard({
                 >
                   <AvailabilityBadge status={status} />
                 </button>
+              )}
+              {/* Momentum badge — only shown for non-steady tier to avoid noise */}
+              {momentum && momentum.tier !== 'steady' && (
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold',
+                    getMomentumBadgeClasses(momentum.tier),
+                  )}
+                  title={`Momentum: ${momentum.score}/100`}
+                >
+                  {momentum.tier === 'rising' ? '↑' : '↓'} {getMomentumLabel(momentum.tier)}
+                </span>
               )}
             </div>
             {/* Return date hint */}

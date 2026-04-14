@@ -49,6 +49,14 @@ import { PlayerNotesPanel } from '@/components/player/player-notes-panel';
 import { countHighlighted } from '@/lib/observation-highlights';
 import type { Player, Observation, PlayerSkillProficiency, Plan, Sentiment } from '@/types/database';
 import type { PlayerAttendanceStat } from '@/app/api/attendance-stats/route';
+import {
+  getMomentumBadgeClasses,
+  getMomentumColor,
+  getMomentumLabel,
+  formatMomentumScore,
+  isHotStreak,
+  type PlayerMomentum,
+} from '@/lib/momentum-utils';
 
 type Tab = 'overview' | 'observations' | 'report-card' | 'media' | 'share' | 'challenges' | 'storyline' | 'self-assessment' | 'goals' | 'notes';
 
@@ -63,6 +71,110 @@ const sentimentLabel: Record<Sentiment, string> = {
   'needs-work': 'Needs Work',
   neutral: 'Neutral',
 };
+
+// ─── MomentumCard ─────────────────────────────────────────────────────────────
+
+function MomentumCard({ playerId, teamId }: { playerId: string; teamId: string }) {
+  const { data, isLoading } = useQuery<PlayerMomentum | null>({
+    queryKey: ['player-momentum', playerId, teamId],
+    queryFn: async () => {
+      const res = await fetch(`/api/team-momentum?team_id=${teamId}`);
+      if (!res.ok) return null;
+      const json = await res.json();
+      return (json.players as PlayerMomentum[]).find((p) => p.player_id === playerId) ?? null;
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  if (isLoading) {
+    return (
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-emerald-400" />
+            Momentum Score
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-20 w-full rounded-xl" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data) return null;
+
+  const tierColor = getMomentumColor(data.tier);
+  const badgeClasses = getMomentumBadgeClasses(data.tier);
+  const score = formatMomentumScore(data.score);
+  const hot = isHotStreak(data.score);
+
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-emerald-400" />
+          Momentum Score
+          {hot && (
+            <span className="rounded-full bg-orange-500/10 border border-orange-500/30 px-2 py-0.5 text-[10px] font-bold text-orange-400">
+              🔥 Hot Streak
+            </span>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Score + tier */}
+        <div className="flex items-center gap-4">
+          <div className="flex flex-col items-center justify-center h-20 w-20 shrink-0 rounded-full border-4 border-zinc-800"
+            style={{ borderColor: data.tier === 'rising' ? 'rgb(16 185 129 / 0.4)' : data.tier === 'needs_attention' ? 'rgb(251 191 36 / 0.4)' : 'rgb(96 165 250 / 0.4)' }}
+          >
+            <span className={`text-2xl font-bold tabular-nums ${tierColor}`}>{score}</span>
+            <span className="text-[10px] text-zinc-500 mt-0.5">/ 100</span>
+          </div>
+          <div className="space-y-1">
+            <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeClasses}`}>
+              {data.tier === 'rising' ? '↑' : data.tier === 'needs_attention' ? '↓' : '→'}{' '}
+              {getMomentumLabel(data.tier)}
+            </span>
+            <p className="text-xs text-zinc-500">Based on last 14 days of activity</p>
+          </div>
+        </div>
+
+        {/* Factor breakdown */}
+        {data.factors.length > 0 && (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {data.factors.map((factor) => (
+              <div key={factor.name} className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-zinc-400">{factor.name}</p>
+                  <span className={`text-sm font-bold tabular-nums ${
+                    factor.score >= 18 ? 'text-emerald-400' :
+                    factor.score >= 10 ? 'text-blue-400' :
+                    'text-amber-400'
+                  }`}>{factor.score}<span className="text-zinc-600 text-[10px]">/25</span></span>
+                </div>
+                {/* Mini bar */}
+                <div className="h-1.5 w-full rounded-full bg-zinc-800 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      factor.score >= 18 ? 'bg-emerald-500' :
+                      factor.score >= 10 ? 'bg-blue-500' :
+                      'bg-amber-500'
+                    }`}
+                    style={{ width: `${(factor.score / 25) * 100}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-zinc-600 leading-tight">{factor.detail}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function PlayerDetailPage({
   params,
@@ -793,6 +905,11 @@ export default function PlayerDetailPage({
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Momentum Score */}
+          {activeTeam && (
+            <MomentumCard playerId={playerId} teamId={activeTeam.id} />
           )}
 
           {/* Achievement Badges */}
