@@ -139,6 +139,16 @@ export async function GET(
       reportData.recommendedDrills = drills;
     }
 
+    // Active team announcements (visible to parents)
+    const now = new Date().toISOString();
+    const { data: announcements } = await supabase
+      .from('team_announcements')
+      .select('id, title, body, expires_at, created_at')
+      .eq('team_id', share.team_id)
+      .or(`expires_at.is.null,expires_at.gt.${now}`)
+      .order('created_at', { ascending: false });
+    reportData.announcements = announcements ?? [];
+
     // Increment view count
     await supabase
       .from('parent_shares')

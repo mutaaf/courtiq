@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ParentViralCTA } from '@/components/share/parent-viral-cta';
 import { PlayerAvatar } from '@/components/ui/player-avatar';
+import { Megaphone } from 'lucide-react';
 
 async function getShareData(token: string) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -45,7 +46,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     );
   }
 
-  const { player, team, coachName, branding, customMessage, reportCard, developmentCard, highlights, skillProgress, recommendedDrills } = data;
+  const { player, team, coachName, branding, customMessage, reportCard, developmentCard, highlights, skillProgress, recommendedDrills, announcements } = data;
 
   return (
     <div className="min-h-screen bg-zinc-950 p-4">
@@ -68,6 +69,28 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             <p className="mt-1 text-xs text-zinc-500">Coach: {coachName}</p>
           )}
         </div>
+
+        {/* Team Announcements — shown above the player report */}
+        {announcements && announcements.length > 0 && (
+          <Card className="border-orange-500/30 bg-orange-500/5">
+            <CardHeader className="pb-2 pt-4 px-4">
+              <div className="flex items-center gap-2">
+                <Megaphone className="h-4 w-4 text-orange-400" aria-hidden="true" />
+                <CardTitle className="text-sm font-semibold text-orange-300">
+                  From the coach
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 space-y-3">
+              {announcements.map((ann: { id: string; title: string; body: string }) => (
+                <div key={ann.id}>
+                  <p className="text-sm font-medium text-zinc-200">{ann.title}</p>
+                  <p className="text-sm text-zinc-400 mt-0.5 leading-relaxed">{ann.body}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Custom Message */}
         {customMessage && (

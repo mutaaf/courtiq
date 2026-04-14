@@ -14,6 +14,7 @@ import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight } from 'lucide-rea
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { RecurringSessionsPanel } from '@/components/sessions/recurring-sessions-panel';
+import { AnnouncementsPanel } from '@/components/sessions/announcements-panel';
 import type { Session, SessionType } from '@/types/database';
 
 const SESSION_TYPE_CONFIG: Record<SessionType, { label: string; color: string }> = {
@@ -207,6 +208,8 @@ export default function SessionsPage() {
       )}
       {/* Recurring Sessions */}
       <RecurringSessionsPanel />
+      {/* Team Announcements */}
+      <AnnouncementsPanel />
     </div>
     </PullToRefresh>
   );

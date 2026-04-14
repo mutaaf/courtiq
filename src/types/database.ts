@@ -601,3 +601,17 @@ export interface PlayerNote {
   created_at: string;
   updated_at: string;
 }
+
+// ─── Team Announcements ───────────────────────────────────────────────────────
+
+export type AnnouncementExpiry = '3d' | '7d' | '14d' | 'never';
+
+export interface TeamAnnouncement {
+  id: string;
+  team_id: string;
+  created_by: string;
+  title: string;
+  body: string;
+  expires_at: string | null;
+  created_at: string;
+}
