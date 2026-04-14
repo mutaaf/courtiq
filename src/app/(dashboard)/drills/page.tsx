@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { query } from '@/lib/api';
@@ -11,10 +11,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Clock, Users, Filter, BarChart3, X, ChevronRight, Sparkles, Loader2, Wand2, CheckCircle2, Target, AlertTriangle } from 'lucide-react';
+import { Search, Clock, Users, Filter, BarChart3, X, ChevronRight, Sparkles, Loader2, Wand2, CheckCircle2, Target, AlertTriangle, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Drill, Observation } from '@/types/database';
+import { isFavorited, filterToFavorites, parseFavoritedDrills } from '@/lib/drill-favorites-utils';
 
 const DRILL_CATEGORIES = [
   'Offense', 'Defense', 'Conditioning', 'Fundamentals', 'Passing', 'Shooting', 'Dribbling', 'Teamwork',
@@ -35,6 +36,8 @@ export default function DrillsPage() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [ageFilter, setAgeFilter] = useState<string | null>(null);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null);
 
   // AI Builder state
   const [builderOpen, setBuilderOpen] = useState(false);
@@ -60,6 +63,38 @@ export default function DrillsPage() {
     enabled: !!activeTeam,
     ...CACHE_PROFILES.drills,
   });
+
+  // Favorites query
+  const { data: favoritesData, refetch: refetchFavorites } = useQuery({
+    queryKey: ['drill-favorites'],
+    queryFn: async () => {
+      const res = await fetch('/api/drill-favorites');
+      if (!res.ok) return { favorites: [] as string[] };
+      return res.json() as Promise<{ favorites: string[] }>;
+    },
+    staleTime: 60 * 1000,
+  });
+  const favoriteIds: string[] = favoritesData?.favorites ?? [];
+
+  const handleToggleFavorite = useCallback(
+    async (e: React.MouseEvent, drillId: string) => {
+      e.preventDefault(); // prevent Link navigation
+      e.stopPropagation();
+      if (togglingFavorite) return;
+      setTogglingFavorite(drillId);
+      try {
+        await fetch('/api/drill-favorites', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ drill_id: drillId }),
+        });
+        await refetchFavorites();
+      } finally {
+        setTogglingFavorite(null);
+      }
+    },
+    [togglingFavorite, refetchFavorites],
+  );
 
   // Skill-gap query: needs-work observations from last 30 days
   const { data: gapObs = [] } = useQuery({
@@ -127,7 +162,8 @@ export default function DrillsPage() {
   // Filter drills
   const filtered = useMemo(() => {
     if (!drills) return [];
-    return drills.filter((drill) => {
+    const base = showFavoritesOnly ? filterToFavorites(drills, favoriteIds) : drills;
+    return base.filter((drill) => {
       const matchesSearch =
         !search ||
         drill.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -136,9 +172,9 @@ export default function DrillsPage() {
       const matchesAge = !ageFilter || drill.age_groups.includes(ageFilter);
       return matchesSearch && matchesCategory && matchesAge;
     });
-  }, [drills, search, categoryFilter, ageFilter]);
+  }, [drills, search, categoryFilter, ageFilter, showFavoritesOnly, favoriteIds]);
 
-  const hasActiveFilters = categoryFilter || ageFilter || search;
+  const hasActiveFilters = categoryFilter || ageFilter || search || showFavoritesOnly;
 
   async function handleBuildDrill() {
     if (!activeTeam || !builderDesc.trim()) return;
@@ -354,12 +390,39 @@ export default function DrillsPage() {
           ))}
         </div>
 
+        {/* Favorites filter */}
+        <div className="flex items-center gap-2">
+          <Star className="h-4 w-4 text-zinc-500 shrink-0" />
+          <button
+            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+            aria-pressed={showFavoritesOnly}
+            className={`shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              showFavoritesOnly
+                ? 'bg-amber-500 text-zinc-950'
+                : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+            }`}
+          >
+            <Star className={`h-3 w-3 ${showFavoritesOnly ? 'fill-zinc-950' : ''}`} />
+            Favorites
+            {favoriteIds.length > 0 && (
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                  showFavoritesOnly ? 'bg-zinc-950/20 text-zinc-950' : 'bg-zinc-700 text-zinc-300'
+                }`}
+              >
+                {favoriteIds.length}
+              </span>
+            )}
+          </button>
+        </div>
+
         {hasActiveFilters && (
           <button
             onClick={() => {
               setSearch('');
               setCategoryFilter(null);
               setAgeFilter(null);
+              setShowFavoritesOnly(false);
             }}
             className="text-xs text-orange-500 hover:text-orange-400"
           >
@@ -378,11 +441,19 @@ export default function DrillsPage() {
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <BarChart3 className="h-12 w-12 text-zinc-600 mb-4" />
+            {showFavoritesOnly ? (
+              <Star className="h-12 w-12 text-zinc-600 mb-4" />
+            ) : (
+              <BarChart3 className="h-12 w-12 text-zinc-600 mb-4" />
+            )}
             <p className="text-zinc-400 text-sm">
-              {hasActiveFilters ? 'No drills match your filters' : 'No drills in the library yet'}
+              {showFavoritesOnly
+                ? 'No favorited drills yet — star a drill to save it here'
+                : hasActiveFilters
+                ? 'No drills match your filters'
+                : 'No drills in the library yet'}
             </p>
-            {!hasActiveFilters && (
+            {!hasActiveFilters && !showFavoritesOnly && (
               <Button
                 onClick={handleOpenBuilder}
                 variant="outline"
@@ -397,9 +468,12 @@ export default function DrillsPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filtered.map((drill) => (
+          {filtered.map((drill) => {
+            const favorited = isFavorited(drill.id, favoriteIds);
+            const toggling = togglingFavorite === drill.id;
+            return (
             <Link key={drill.id} href={`/drills/${drill.id}`}>
-              <Card className="h-full cursor-pointer transition-colors hover:border-orange-500/40 active:scale-[0.98] touch-manipulation">
+              <Card className={`h-full cursor-pointer transition-colors hover:border-orange-500/40 active:scale-[0.98] touch-manipulation ${favorited ? 'border-amber-500/30' : ''}`}>
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -414,7 +488,26 @@ export default function DrillsPage() {
                       </div>
                       <p className="text-xs text-zinc-400 mt-1 line-clamp-2">{drill.description}</p>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-zinc-600 shrink-0 mt-0.5" />
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={(e) => handleToggleFavorite(e, drill.id)}
+                        aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
+                        aria-pressed={favorited}
+                        disabled={toggling}
+                        className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors touch-manipulation disabled:opacity-50 ${
+                          favorited
+                            ? 'text-amber-400 hover:text-amber-300'
+                            : 'text-zinc-600 hover:text-amber-400'
+                        }`}
+                      >
+                        {toggling ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Star className={`h-4 w-4 ${favorited ? 'fill-amber-400' : ''}`} />
+                        )}
+                      </button>
+                      <ChevronRight className="h-4 w-4 text-zinc-600" />
+                    </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="secondary">{drill.category}</Badge>
@@ -444,7 +537,8 @@ export default function DrillsPage() {
                 </CardContent>
               </Card>
             </Link>
-          ))}
+            );
+          })}
         </div>
       )}
 
