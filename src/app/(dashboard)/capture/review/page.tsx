@@ -364,7 +364,7 @@ export default function ReviewPage() {
   const pendingCount = observations.filter((obs) => obs.status === 'pending').length;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 p-4 lg:p-8">
+    <div className="mx-auto max-w-2xl space-y-6 p-4 lg:p-8 pb-8">
       {/* Back link */}
       <Link
         href="/capture"

@@ -31,8 +31,12 @@ export default function CapturePage() {
   const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'transcribing' | 'editing'>('idle');
   const [uploadTranscript, setUploadTranscript] = useState('');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [uploadDuration, setUploadDuration] = useState<number | null>(null);
+  const [durationWarning, setDurationWarning] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const transcriptRef = useRef('');
@@ -47,6 +51,10 @@ export default function CapturePage() {
       if (wakeLockRef.current) {
         wakeLockRef.current.release();
         wakeLockRef.current = null;
+      }
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
       }
     };
   }, []);
@@ -98,6 +106,17 @@ export default function CapturePage() {
 
       mediaRecorder.start(1000); // Collect data every second
       setCaptureState('recording');
+      setRecordingDuration(0);
+      setDurationWarning(null);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingDuration((prev) => {
+          const next = prev + 1;
+          if (next === 300) {
+            setDurationWarning('Recording is over 5 minutes. Processing may take longer.');
+          }
+          return next;
+        });
+      }, 1000);
 
       // Request Wake Lock to prevent screen from locking during recording
       try {
@@ -163,6 +182,12 @@ export default function CapturePage() {
       }
       recorder.stop();
       setCaptureState('processing');
+    }
+
+    // Stop duration timer
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
     }
 
     // Release Wake Lock
@@ -379,6 +404,17 @@ export default function CapturePage() {
     setUploadFile(file);
     setUploadState('transcribing');
     setErrorMessage(null);
+    setDurationWarning(null);
+    setUploadDuration(null);
+
+    // Detect duration before uploading
+    const duration = await detectAudioDuration(file);
+    if (duration !== null) {
+      setUploadDuration(duration);
+      if (duration > 300) {
+        setDurationWarning(`Audio is ${formatDuration(duration)} long. Transcription may take a while.`);
+      }
+    }
 
     try {
       const formData = new FormData();
@@ -391,6 +427,12 @@ export default function CapturePage() {
       });
 
       const data = await res.json();
+
+      if (data.tooLong) {
+        setErrorMessage(data.error || 'Audio file is too long');
+        setUploadState('idle');
+        return;
+      }
 
       if (data.transcript) {
         setUploadTranscript(data.transcript);
@@ -456,6 +498,34 @@ export default function CapturePage() {
     }
   };
 
+  /** Format seconds as m:ss or h:mm:ss */
+  const formatDuration = (totalSeconds: number): string => {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
+
+  /** Detect audio file duration using Web Audio API or HTML audio element */
+  const detectAudioDuration = useCallback((file: File): Promise<number | null> => {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file);
+      const audio = new Audio();
+      audio.preload = 'metadata';
+      audio.onloadedmetadata = () => {
+        const duration = isFinite(audio.duration) ? Math.round(audio.duration) : null;
+        URL.revokeObjectURL(url);
+        resolve(duration);
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(null);
+      };
+      audio.src = url;
+    });
+  }, []);
+
   if (!activeTeam) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center">
@@ -467,7 +537,7 @@ export default function CapturePage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-8rem)] flex-col items-center justify-center p-4 lg:p-8">
+    <div className="flex min-h-[calc(100vh-8rem)] flex-col items-center justify-center p-4 pb-8 lg:p-8">
       <div className="w-full max-w-lg space-y-8">
         {/* Header */}
         <div className="text-center">
@@ -501,10 +571,23 @@ export default function CapturePage() {
         {(captureState === 'recording' || liveTranscript) && (
           <Card>
             <CardContent className="p-5 sm:p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" />
-                <span className="text-sm sm:text-xs font-medium text-zinc-400">Live Transcript</span>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" />
+                  <span className="text-sm sm:text-xs font-medium text-zinc-400">Live Transcript</span>
+                </div>
+                {captureState === 'recording' && (
+                  <span className="text-sm sm:text-xs font-mono text-zinc-400">
+                    {formatDuration(recordingDuration)}
+                  </span>
+                )}
               </div>
+              {durationWarning && captureState === 'recording' && (
+                <div className="mb-3 flex items-center gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0 text-amber-400" />
+                  <p className="text-xs text-amber-400">{durationWarning}</p>
+                </div>
+              )}
               <p className="min-h-[4rem] text-base sm:text-sm leading-relaxed text-zinc-300">
                 {liveTranscript || (
                   <span className="italic text-zinc-600">Listening...</span>
@@ -613,6 +696,15 @@ export default function CapturePage() {
               <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
               <p className="text-sm font-medium text-zinc-300">Transcribing audio...</p>
               <p className="text-xs text-zinc-500">{uploadFile?.name}</p>
+              {uploadDuration !== null && (
+                <p className="text-xs text-zinc-500">Duration: {formatDuration(uploadDuration)}</p>
+              )}
+              {durationWarning && (
+                <div className="mt-1 flex items-center gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0 text-amber-400" />
+                  <p className="text-xs text-amber-400">{durationWarning}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

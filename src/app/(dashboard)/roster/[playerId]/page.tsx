@@ -524,7 +524,7 @@ export default function PlayerDetailPage({
 
   if (playerLoading) {
     return (
-      <div className="space-y-6 p-4 lg:p-8">
+      <div className="space-y-6 p-4 lg:p-8 pb-8">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-32 w-full rounded-xl" />
         <div className="grid grid-cols-3 gap-3">
@@ -707,7 +707,7 @@ export default function PlayerDetailPage({
   }
 
   return (
-    <div className="space-y-6 p-4 lg:p-8">
+    <div className="space-y-6 p-4 lg:p-8 pb-8">
       {/* Back link */}
       <Link
         href="/roster"

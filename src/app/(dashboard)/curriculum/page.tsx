@@ -199,7 +199,7 @@ export default function CurriculumPage() {
   }
 
   return (
-    <div className="p-4 lg:p-8 space-y-6">
+    <div className="p-4 lg:p-8 space-y-6 pb-8">
       <div>
         <h1 className="text-2xl font-bold">Curriculum</h1>
         <p className="text-zinc-400 text-sm">

@@ -146,7 +146,7 @@ export default function RosterPage() {
 
   return (
     <PullToRefresh onRefresh={async () => { await Promise.all([refetchPlayers(), refetchObs(), refetchAvailability()]); }}>
-    <div className="p-4 lg:p-8 space-y-6">
+    <div className="p-4 lg:p-8 space-y-6 pb-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -339,7 +339,7 @@ export default function RosterPage() {
       {/* Mobile FAB - Add Player */}
       <Link
         href="/roster/add"
-        className="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-orange-500 text-white shadow-lg shadow-orange-500/30 active:scale-95 touch-manipulation sm:hidden"
+        className="fixed bottom-28 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-orange-500 text-white shadow-lg shadow-orange-500/30 active:scale-95 touch-manipulation sm:hidden"
       >
         <Plus className="h-7 w-7" />
       </Link>

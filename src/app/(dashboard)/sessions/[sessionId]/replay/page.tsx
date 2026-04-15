@@ -401,7 +401,7 @@ export default function CoachReplayPage() {
 
   if (sessionLoading || obsLoading) {
     return (
-      <div className="p-4 lg:p-8 space-y-4 max-w-2xl mx-auto">
+      <div className="p-4 lg:p-8 space-y-4 pb-8 max-w-2xl mx-auto">
         <Skeleton className="h-8 w-48" />
         <div className="grid grid-cols-3 gap-2">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -431,7 +431,7 @@ export default function CoachReplayPage() {
   const sessionLabel = SESSION_TYPE_LABELS[session.type] ?? session.type;
 
   return (
-    <div className="p-4 lg:p-8 space-y-5 max-w-2xl mx-auto">
+    <div className="p-4 lg:p-8 space-y-5 pb-8 max-w-2xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link href={`/sessions/${sessionId}`}>

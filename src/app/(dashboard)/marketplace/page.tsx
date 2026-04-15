@@ -153,7 +153,7 @@ export default function MarketplacePage() {
   const [activeTab, setActiveTab] = useState<'browse' | 'manage'>('browse');
 
   return (
-    <div className="p-4 lg:p-8 space-y-6">
+    <div className="p-4 lg:p-8 space-y-6 pb-8">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>

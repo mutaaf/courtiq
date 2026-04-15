@@ -436,7 +436,7 @@ export default function SubsPage() {
     const periodNumbers = [...new Set(rotation.segments.map((s) => s.period))];
 
     return (
-      <div className="p-4 lg:p-8 space-y-6 max-w-3xl mx-auto">
+      <div className="p-4 lg:p-8 space-y-6 pb-8 max-w-3xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -559,7 +559,7 @@ export default function SubsPage() {
   const canGenerate = available.length >= playersOnCourt;
 
   return (
-    <div className="p-4 lg:p-8 space-y-6 max-w-2xl mx-auto">
+    <div className="p-4 lg:p-8 space-y-6 pb-8 max-w-2xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link href={`/sessions/${sessionId}`}>

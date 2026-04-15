@@ -363,7 +363,7 @@ export default function ObservationsPage() {
 
   return (
     <PullToRefresh onRefresh={async () => { await refetch(); }}>
-      <div className="p-4 lg:p-8 space-y-5">
+      <div className="p-4 lg:p-8 space-y-5 pb-8">
 
         {/* Header */}
         <div className="flex items-center justify-between">

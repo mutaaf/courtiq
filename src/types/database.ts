@@ -55,6 +55,7 @@ export type AIInteractionType =
   | 'cv_coaching_event_extraction'
   | 'cv_identity_resolution'
   | 'generate_season_storyline'
+  | 'transcription'
   | 'custom';
 
 export interface Organization {

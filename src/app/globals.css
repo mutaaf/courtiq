@@ -324,7 +324,7 @@ body {
   .h-screen { height: auto !important; }
   .overflow-hidden { overflow: visible !important; }
   .overflow-y-auto { overflow: visible !important; }
-  .pb-20 { padding-bottom: 0 !important; }
+  .pb-20, .pb-24 { padding-bottom: 0 !important; }
   .fixed { position: static !important; }
   * { box-shadow: none !important; }
 

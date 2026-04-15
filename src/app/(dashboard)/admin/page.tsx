@@ -160,7 +160,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-4 lg:p-8">
+    <div className="mx-auto max-w-4xl space-y-6 p-4 lg:p-8 pb-8">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-3">
           <ShieldCheck className="h-7 w-7 text-orange-500" />

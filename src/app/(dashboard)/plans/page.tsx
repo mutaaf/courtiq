@@ -1892,7 +1892,7 @@ export default function PlansPage() {
 
   return (
     <PullToRefresh onRefresh={async () => { await refetchPlans(); }}>
-    <div className="p-4 lg:p-8 space-y-6">
+    <div className="p-4 lg:p-8 space-y-6 pb-8">
       <div>
         <h1 className="text-2xl font-bold">Plans</h1>
         <p className="text-zinc-400 text-sm">Describe what you need and AI will generate it</p>

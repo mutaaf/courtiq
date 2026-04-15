@@ -127,7 +127,7 @@ export default function EditPlayerPage({ params }: { params: Promise<{ playerId:
   }
 
   return (
-    <div className="p-4 lg:p-8">
+    <div className="p-4 lg:p-8 pb-8">
       <Link href={`/roster/${playerId}`} className="mb-4 inline-flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-200">
         <ArrowLeft className="h-4 w-4" /> Back to player
       </Link>

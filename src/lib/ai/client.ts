@@ -75,7 +75,20 @@ const CACHEABLE_TYPES: AIInteractionType[] = [
   'generate_development_card',
   'generate_parent_report',
   'generate_report_card',
+  'transcription',
 ];
+
+// Interaction types that should prefer the cheapest/fastest model
+const COST_EFFECTIVE_TYPES: AIInteractionType[] = [
+  'transcription',
+];
+
+// Cost-effective model overrides per provider
+const COST_EFFECTIVE_MODELS: Record<AIProvider, string> = {
+  gemini: 'gemini-2.5-flash',
+  openai: 'gpt-4o-mini',
+  anthropic: 'claude-haiku-3-20240307',
+};
 
 // ---------------------------------------------------------------------------
 // Provider detection
@@ -308,6 +321,29 @@ async function getOrgId(supabase: any, coachId: string): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
+// Token estimation
+// ---------------------------------------------------------------------------
+
+/**
+ * Estimate token count from text (rough: ~4 chars per token for English).
+ * Useful for cost warnings before making expensive AI calls.
+ */
+export function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+/**
+ * Estimate the cost tier of a request based on input size.
+ * Returns 'low' (<1k tokens), 'medium' (1k-8k), 'high' (>8k).
+ */
+export function estimateCostTier(systemPrompt: string, userPrompt: string): 'low' | 'medium' | 'high' {
+  const totalTokens = estimateTokens(systemPrompt) + estimateTokens(userPrompt);
+  if (totalTokens < 1000) return 'low';
+  if (totalTokens < 8000) return 'medium';
+  return 'high';
+}
+
+// ---------------------------------------------------------------------------
 // Main entry points
 // ---------------------------------------------------------------------------
 
@@ -344,7 +380,10 @@ export async function callAI(options: AICallOptions, supabase: any): Promise<AIC
   // Resolve provider
   const orgId = options.orgId || await getOrgId(supabase, coachId);
   const { provider, apiKey } = await getConfiguredProvider(supabase, orgId);
-  const model = modelOverride || DEFAULT_MODELS[provider];
+
+  // Use cheaper models for cost-effective interaction types (unless explicitly overridden)
+  const useCostEffective = !modelOverride && COST_EFFECTIVE_TYPES.includes(interactionType);
+  const model = modelOverride || (useCostEffective ? COST_EFFECTIVE_MODELS[provider] : DEFAULT_MODELS[provider]);
 
   const startTime = Date.now();
 

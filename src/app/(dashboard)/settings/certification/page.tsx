@@ -211,7 +211,7 @@ export default function CertificationPage() {
   }
 
   return (
-    <div className="p-4 lg:p-8 space-y-6 max-w-xl mx-auto">
+    <div className="p-4 lg:p-8 space-y-6 pb-8 max-w-xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link href="/settings">

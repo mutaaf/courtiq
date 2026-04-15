@@ -1786,7 +1786,7 @@ export default function SessionDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="p-4 lg:p-8 space-y-6 max-w-3xl mx-auto">
+      <div className="p-4 lg:p-8 space-y-6 pb-8 max-w-3xl mx-auto">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-32 w-full rounded-xl" />
         <Skeleton className="h-64 w-full rounded-xl" />
@@ -1808,7 +1808,7 @@ export default function SessionDetailPage() {
   const savedDebrief = session.coach_debrief_extracts as SessionDebriefResult | null;
 
   return (
-    <div className="p-4 lg:p-8 space-y-6 max-w-3xl mx-auto">
+    <div className="p-4 lg:p-8 space-y-6 pb-8 max-w-3xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link href="/sessions">

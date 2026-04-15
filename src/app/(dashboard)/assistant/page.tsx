@@ -620,7 +620,7 @@ export default function AssistantPage() {
       </div>
 
       {/* Chat area */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-2">
         {!hasMessages ? (
           /* Welcome state with quick actions */
           <div className="flex h-full flex-col items-center justify-center px-4 py-8">

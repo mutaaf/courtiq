@@ -332,7 +332,7 @@ export default function WebhooksPage() {
   const hooks = data?.webhooks ?? [];
 
   return (
-    <div className="p-4 lg:p-8 space-y-6 max-w-2xl">
+    <div className="p-4 lg:p-8 space-y-6 pb-8 max-w-2xl">
       <div className="flex items-center gap-3">
         <Link href="/settings">
           <Button variant="ghost" size="sm" className="h-9 w-9 p-0">

@@ -1099,7 +1099,7 @@ export default function AnalyticsPage() {
   return (
     <UpgradeGate feature="analytics" featureLabel="Team Analytics">
     {showShare && <ShareStatsModal stats={shareStats} onClose={() => setShowShare(false)} />}
-    <div className="p-4 lg:p-8 space-y-6 max-w-5xl mx-auto">
+    <div className="p-4 lg:p-8 space-y-6 pb-8 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>

@@ -260,7 +260,7 @@ export function DashboardShell({ coach, children }: Props) {
 
         {/* Swipe handlers on mobile content area — lg:pb-0 is desktop, touch won't fire there */}
         <div
-          className="flex-1 overflow-y-auto pb-20 lg:pb-0"
+          className="flex-1 overflow-y-auto pb-24 lg:pb-0"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
         >
@@ -282,7 +282,7 @@ export function DashboardShell({ coach, children }: Props) {
         <nav
           ref={(el) => { mobileNavRef.current = el; }}
           aria-label="Mobile navigation"
-          className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-zinc-800 bg-zinc-900/95 backdrop-blur-sm lg:hidden safe-area-bottom"
+          className="fixed bottom-0 left-0 right-0 z-50 flex h-16 border-t border-zinc-800 bg-zinc-900/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)] lg:hidden"
           onKeyDown={mobileNavKeyDown}
         >
           {navItems.map((item) => {

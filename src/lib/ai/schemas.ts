@@ -150,7 +150,9 @@ export const rosterImportSchema = z.object({
     name: z.string().min(1),
     jersey_number: z.number().nullable().optional(),
     position: z.string().optional(),
+    confidence: z.enum(['high', 'medium', 'low']).optional(),
   })),
+  notes: z.string().optional(),
 });
 
 export type SegmentedObservations = z.infer<typeof segmentedObservationSchema>;

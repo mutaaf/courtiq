@@ -259,7 +259,7 @@ export default function PhotoCapturePage() {
   const selectedCount = observations.filter((o) => o.selected).length;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 p-4 lg:p-8">
+    <div className="mx-auto max-w-2xl space-y-4 p-4 lg:p-8 pb-8">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link

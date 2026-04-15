@@ -846,7 +846,7 @@ export default function HomePage() {
   return (
     <>
     <PullToRefresh onRefresh={async () => { await Promise.all([refetchStats(), refetchPulse()]); }}>
-    <div className="p-4 lg:p-8 space-y-6">
+    <div className="p-4 lg:p-8 space-y-6 pb-8">
       <div>
         <h1 className="text-2xl font-bold">{activeTeam.name}</h1>
         <p className="text-zinc-400">
