@@ -28,6 +28,7 @@ import {
   Award,
   CheckCircle2,
   Loader2,
+  ChevronDown,
 } from 'lucide-react';
 import { formatTimeAgo } from '@/lib/team-wins-utils';
 import type { TeamWin } from '@/lib/team-wins-utils';
@@ -690,6 +691,7 @@ function TeamPulseCard({ pulse }: { pulse: PulseStats }) {
 
 export default function HomePage() {
   const { activeTeam, teams, coach } = useActiveTeam();
+  const [showInsights, setShowInsights] = useState(false);
 
   const { data: stats, isLoading: isLoadingStats, refetch: refetchStats } = useQuery({
     queryKey: ['home-stats', activeTeam?.id],
@@ -858,7 +860,7 @@ export default function HomePage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Link href="/capture">
           <Card className="cursor-pointer transition-colors hover:border-orange-500/50 active:scale-[0.97] touch-manipulation">
-            <CardContent className="flex flex-col items-center gap-3 p-5 sm:p-4 sm:gap-2">
+            <CardContent className="flex flex-col items-center gap-3 p-3 sm:p-4 sm:gap-2">
               <div className="flex h-14 w-14 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-orange-500/20">
                 <Mic className="h-7 w-7 sm:h-6 sm:w-6 text-orange-500" />
               </div>
@@ -868,7 +870,7 @@ export default function HomePage() {
         </Link>
         <Link href="/roster">
           <Card className="cursor-pointer transition-colors hover:border-orange-500/50 active:scale-[0.97] touch-manipulation">
-            <CardContent className="flex flex-col items-center gap-3 p-5 sm:p-4 sm:gap-2">
+            <CardContent className="flex flex-col items-center gap-3 p-3 sm:p-4 sm:gap-2">
               <div className="flex h-14 w-14 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-blue-500/20">
                 <Users className="h-7 w-7 sm:h-6 sm:w-6 text-blue-500" />
               </div>
@@ -878,7 +880,7 @@ export default function HomePage() {
         </Link>
         <Link href="/plans">
           <Card className="cursor-pointer transition-colors hover:border-orange-500/50 active:scale-[0.97] touch-manipulation">
-            <CardContent className="flex flex-col items-center gap-3 p-5 sm:p-4 sm:gap-2">
+            <CardContent className="flex flex-col items-center gap-3 p-3 sm:p-4 sm:gap-2">
               <div className="flex h-14 w-14 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-emerald-500/20">
                 <ClipboardList className="h-7 w-7 sm:h-6 sm:w-6 text-emerald-500" />
               </div>
@@ -888,7 +890,7 @@ export default function HomePage() {
         </Link>
         <Link href="/sessions/new">
           <Card className="cursor-pointer transition-colors hover:border-orange-500/50 active:scale-[0.97] touch-manipulation">
-            <CardContent className="flex flex-col items-center gap-3 p-5 sm:p-4 sm:gap-2">
+            <CardContent className="flex flex-col items-center gap-3 p-3 sm:p-4 sm:gap-2">
               <div className="flex h-14 w-14 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-purple-500/20">
                 <Calendar className="h-7 w-7 sm:h-6 sm:w-6 text-purple-500" />
               </div>
@@ -904,7 +906,7 @@ export default function HomePage() {
           <>
             {(['Players', 'Observations', 'Sessions'] as const).map((label) => (
               <Card key={label}>
-                <CardContent className="p-5 sm:p-4 flex flex-col items-center gap-2">
+                <CardContent className="p-3 sm:p-4 flex flex-col items-center gap-2">
                   <Skeleton className="h-8 w-10 rounded" />
                   <Skeleton className="h-3 w-16 rounded" />
                 </CardContent>
@@ -914,24 +916,24 @@ export default function HomePage() {
         ) : (
           <>
             <Card>
-              <CardContent className="p-5 sm:p-4 text-center">
-                <p className="text-3xl sm:text-2xl font-bold text-orange-500">
+              <CardContent className="p-3 sm:p-4 text-center">
+                <p className="text-2xl sm:text-3xl font-bold text-orange-500">
                   {stats?.players ?? 0}
                 </p>
                 <p className="text-xs text-zinc-400 mt-1">Players</p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-5 sm:p-4 text-center">
-                <p className="text-3xl sm:text-2xl font-bold text-blue-500">
+              <CardContent className="p-3 sm:p-4 text-center">
+                <p className="text-2xl sm:text-3xl font-bold text-blue-500">
                   {stats?.observations ?? 0}
                 </p>
                 <p className="text-xs text-zinc-400 mt-1">Observations</p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-5 sm:p-4 text-center">
-                <p className="text-3xl sm:text-2xl font-bold text-emerald-500">
+              <CardContent className="p-3 sm:p-4 text-center">
+                <p className="text-2xl sm:text-3xl font-bold text-emerald-500">
                   {stats?.sessions ?? 0}
                 </p>
                 <p className="text-xs text-zinc-400 mt-1">Sessions</p>
@@ -989,20 +991,40 @@ export default function HomePage() {
         />
       )}
 
-      {/* AI Coaching Tips — proactive suggestions shown when there's enough data */}
-      {!isLoadingStats && stats && stats.observations >= 5 && (
-        <CoachingTipsCard teamId={activeTeam.id} />
-      )}
-
-      {/* Weekly Star — AI-picked standout player, shown once there's some data */}
-      {!isLoadingStats && stats && stats.observations >= 5 && stats.players > 0 && (
-        <WeeklyStarCard teamId={activeTeam.id} />
-      )}
-
-      {/* Team Wins — recent badge achievements and achieved goals */}
-      {!isLoadingStats && stats && stats.players > 0 && (
-        <TeamWinsCard teamId={activeTeam.id} />
-      )}
+      {/* More Insights — collapsible on mobile, always visible on desktop */}
+      {(() => {
+        const hasTips = !isLoadingStats && stats && stats.observations >= 5;
+        const hasWeeklyStar = !isLoadingStats && stats && stats.observations >= 5 && stats.players > 0;
+        const hasWins = !isLoadingStats && stats && stats.players > 0;
+        if (!hasTips && !hasWeeklyStar && !hasWins) return null;
+        return (
+          <>
+            {/* Mobile: collapsible toggle */}
+            <div className="sm:hidden">
+              <button
+                onClick={() => setShowInsights(!showInsights)}
+                className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-200 w-full py-2"
+              >
+                <ChevronDown className={`h-4 w-4 transition-transform ${showInsights ? 'rotate-180' : ''}`} />
+                More Insights
+              </button>
+              {showInsights && (
+                <div className="space-y-4 mt-2">
+                  {hasTips && <CoachingTipsCard teamId={activeTeam.id} />}
+                  {hasWeeklyStar && <WeeklyStarCard teamId={activeTeam.id} />}
+                  {hasWins && <TeamWinsCard teamId={activeTeam.id} />}
+                </div>
+              )}
+            </div>
+            {/* Desktop: always visible */}
+            <div className="hidden sm:block space-y-4">
+              {hasTips && <CoachingTipsCard teamId={activeTeam.id} />}
+              {hasWeeklyStar && <WeeklyStarCard teamId={activeTeam.id} />}
+              {hasWins && <TeamWinsCard teamId={activeTeam.id} />}
+            </div>
+          </>
+        );
+      })()}
 
       {/* Empty state prompt for new users — only shown after data loads */}
       {!isLoadingStats && stats && stats.players === 0 && stats.observations === 0 && stats.sessions === 0 && (

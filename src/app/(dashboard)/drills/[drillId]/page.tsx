@@ -49,7 +49,7 @@ export default function DrillDetailPage({
 
   if (isLoading) {
     return (
-      <div className="p-4 lg:p-8 space-y-4 max-w-2xl mx-auto">
+      <div className="p-4 lg:p-8 space-y-4 pb-8 max-w-2xl mx-auto">
         <Skeleton className="h-6 w-24 rounded-full" />
         <Skeleton className="h-9 w-2/3 rounded-lg" />
         <Skeleton className="h-5 w-32 rounded-full" />

@@ -639,54 +639,86 @@ export default function CapturePage() {
           </div>
         )}
 
-        {/* Upload Voice Memo */}
+        {/* Capture alternatives */}
         {captureState === 'idle' && uploadState === 'idle' && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <button
-              type="button"
-              onClick={() => setShowQuickNote(true)}
-              className="flex items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 text-left transition-colors hover:border-zinc-700 hover:bg-zinc-800/50 active:scale-[0.98] touch-manipulation"
-            >
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-500/20">
-                <Keyboard className="h-6 w-6 text-blue-400" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-zinc-200">Type a note</p>
-                <p className="text-xs text-zinc-500">Quick text observation</p>
-              </div>
-            </button>
-            <label className="flex cursor-pointer items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 text-left transition-colors hover:border-zinc-700 hover:bg-zinc-800/50 active:scale-[0.98] touch-manipulation">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-purple-500/20">
-                <Upload className="h-6 w-6 text-purple-400" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-zinc-200">Upload audio</p>
-                <p className="text-xs text-zinc-500">Voice memo or recording</p>
-              </div>
-              <input
-                type="file"
-                accept="audio/*,video/*,.m4a,.mp3,.wav,.webm,.ogg,.mp4,.mov"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleFileUpload(file);
-                  e.target.value = '';
-                }}
-              />
-            </label>
-            <Link
-              href="/capture/photo"
-              className="flex items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 text-left transition-colors hover:border-zinc-700 hover:bg-zinc-800/50 active:scale-[0.98] touch-manipulation"
-            >
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
-                <Camera className="h-6 w-6 text-amber-400" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-zinc-200">Snap photo</p>
-                <p className="text-xs text-zinc-500">AI analyzes practice photo</p>
-              </div>
-            </Link>
-          </div>
+          <>
+            {/* Mobile: compact text buttons */}
+            <div className="flex justify-center gap-6 sm:hidden">
+              <button
+                type="button"
+                onClick={() => setShowQuickNote(true)}
+                className="text-sm text-zinc-400 flex items-center gap-1.5 hover:text-zinc-200 active:scale-95 touch-manipulation"
+              >
+                <Keyboard className="h-4 w-4" /> Type
+              </button>
+              <label className="text-sm text-zinc-400 flex items-center gap-1.5 hover:text-zinc-200 active:scale-95 touch-manipulation cursor-pointer">
+                <Upload className="h-4 w-4" /> Upload
+                <input
+                  type="file"
+                  accept="audio/*,video/*,.m4a,.mp3,.wav,.webm,.ogg,.mp4,.mov"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+              <Link
+                href="/capture/photo"
+                className="text-sm text-zinc-400 flex items-center gap-1.5 hover:text-zinc-200 active:scale-95 touch-manipulation"
+              >
+                <Camera className="h-4 w-4" /> Photo
+              </Link>
+            </div>
+            {/* Desktop: full card grid */}
+            <div className="hidden sm:grid sm:grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => setShowQuickNote(true)}
+                className="flex items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 text-left transition-colors hover:border-zinc-700 hover:bg-zinc-800/50 active:scale-[0.98] touch-manipulation"
+              >
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-500/20">
+                  <Keyboard className="h-6 w-6 text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-zinc-200">Type a note</p>
+                  <p className="text-xs text-zinc-500">Quick text observation</p>
+                </div>
+              </button>
+              <label className="flex cursor-pointer items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 text-left transition-colors hover:border-zinc-700 hover:bg-zinc-800/50 active:scale-[0.98] touch-manipulation">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-purple-500/20">
+                  <Upload className="h-6 w-6 text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-zinc-200">Upload audio</p>
+                  <p className="text-xs text-zinc-500">Voice memo or recording</p>
+                </div>
+                <input
+                  type="file"
+                  accept="audio/*,video/*,.m4a,.mp3,.wav,.webm,.ogg,.mp4,.mov"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+              <Link
+                href="/capture/photo"
+                className="flex items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 text-left transition-colors hover:border-zinc-700 hover:bg-zinc-800/50 active:scale-[0.98] touch-manipulation"
+              >
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
+                  <Camera className="h-6 w-6 text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-zinc-200">Snap photo</p>
+                  <p className="text-xs text-zinc-500">AI analyzes practice photo</p>
+                </div>
+              </Link>
+            </div>
+          </>
         )}
 
         {/* Upload transcribing state */}

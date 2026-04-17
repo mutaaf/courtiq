@@ -99,7 +99,7 @@ export function DashboardShell({ coach, children }: Props) {
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-100">
       {/* Desktop Sidebar */}
-      <aside aria-label="Sidebar" className="hidden w-64 flex-col border-r border-zinc-800 bg-zinc-900/50 lg:flex">
+      <aside aria-label="Sidebar" className="hidden w-64 flex-col border-r border-zinc-800 bg-zinc-900/50 pt-[env(safe-area-inset-top)] lg:flex">
         <div className="flex h-16 items-center gap-3 border-b border-zinc-800 px-6">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500 p-1">
             <Image src="/logo.svg" alt="SportsIQ" width={24} height={24} className="invert" />
@@ -217,7 +217,7 @@ export function DashboardShell({ coach, children }: Props) {
       {/* Main content */}
       <main id="main-content" tabIndex={-1} className="flex flex-1 flex-col overflow-hidden">
         {/* Mobile header */}
-        <header className="flex h-14 items-center justify-between border-b border-zinc-800 px-4 lg:hidden">
+        <header className="flex items-center justify-between border-b border-zinc-800 px-4 pt-[env(safe-area-inset-top)] h-[calc(3.5rem+env(safe-area-inset-top))] lg:hidden">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500 p-0.5">
               <Image src="/logo.svg" alt="SportsIQ" width={20} height={20} className="invert" />
@@ -229,7 +229,7 @@ export function DashboardShell({ coach, children }: Props) {
               onClick={openCommandPalette}
               aria-label="Search (⌘K)"
               aria-keyshortcuts="Meta+K Control+K"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-100 transition-colors"
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-100 transition-colors"
             >
               <Search className="h-4 w-4" />
             </button>
@@ -237,7 +237,7 @@ export function DashboardShell({ coach, children }: Props) {
             <button
               onClick={toggleTheme}
               aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-100 transition-colors"
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-100 transition-colors"
             >
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
@@ -248,7 +248,7 @@ export function DashboardShell({ coach, children }: Props) {
                 await supabase.auth.signOut();
                 window.location.href = '/login';
               }}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:text-red-400 transition-colors"
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-400 hover:text-red-400 transition-colors"
               aria-label="Sign out"
               title="Sign Out"
             >
@@ -296,7 +296,7 @@ export function DashboardShell({ coach, children }: Props) {
                 onTouchStart={prefetchOnIntent(item.href)}
                 aria-current={isActive ? 'page' : undefined}
                 className={cn(
-                  'flex flex-1 flex-col items-center gap-1 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-[11px] font-medium touch-manipulation',
+                  'flex flex-1 flex-col items-center justify-center gap-1 min-h-[44px] min-w-[44px] py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-[11px] font-medium touch-manipulation',
                   item.primary && !isActive && 'text-orange-500',
                   isActive ? 'text-orange-500' : 'text-zinc-500'
                 )}

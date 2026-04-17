@@ -116,11 +116,11 @@ export function PlayerCard({
                   <AvailabilityBadge status={status} />
                 </button>
               )}
-              {/* Momentum badge — only shown for non-steady tier to avoid noise */}
+              {/* Momentum badge — only shown for non-steady tier to avoid noise, hidden on mobile */}
               {momentum && momentum.tier !== 'steady' && (
                 <span
                   className={cn(
-                    'inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold',
+                    'hidden sm:inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold',
                     getMomentumBadgeClasses(momentum.tier),
                   )}
                   title={`Momentum: ${momentum.score}/100`}
@@ -137,10 +137,10 @@ export function PlayerCard({
             )}
           </div>
 
-          {/* Right side: obs count + availability toggle when available */}
+          {/* Right side: obs count (desktop only) + availability toggle when available */}
           <div className="flex flex-col items-end gap-2">
             {observationCount > 0 && (
-              <div className="flex flex-col items-center">
+              <div className="hidden sm:flex flex-col items-center">
                 <span className="text-lg font-bold text-orange-500">{observationCount}</span>
                 <span className="text-[10px] text-zinc-500">obs</span>
               </div>

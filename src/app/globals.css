@@ -1,5 +1,28 @@
 @import "tailwindcss";
 
+/* Native app feel */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  overscroll-behavior: none;
+}
+
+/* Smooth scrolling */
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Safe area CSS custom properties for JS access */
+:root {
+  --sat: env(safe-area-inset-top);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+  --sar: env(safe-area-inset-right);
+}
+
 :root {
   --background: #09090b;
   --foreground: #fafafa;
