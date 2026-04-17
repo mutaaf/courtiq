@@ -217,7 +217,7 @@ export function DashboardShell({ coach, children }: Props) {
       {/* Main content */}
       <main id="main-content" tabIndex={-1} className="flex flex-1 flex-col overflow-hidden">
         {/* Mobile header */}
-        <header className="flex items-center justify-between border-b border-zinc-800 px-4 pt-[env(safe-area-inset-top)] h-[calc(3.5rem+env(safe-area-inset-top))] lg:hidden">
+        <header className="flex items-center justify-between border-b border-zinc-800 px-4 pt-12 min-h-[5rem] lg:hidden">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500 p-0.5">
               <Image src="/logo.svg" alt="SportsIQ" width={20} height={20} className="invert" />
@@ -260,7 +260,7 @@ export function DashboardShell({ coach, children }: Props) {
 
         {/* Swipe handlers on mobile content area — lg:pb-0 is desktop, touch won't fire there */}
         <div
-          className="flex-1 overflow-y-auto pb-24 lg:pb-0"
+          className="flex-1 overflow-y-auto pb-36 lg:pb-0"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
         >
