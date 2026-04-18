@@ -76,7 +76,14 @@ const CACHEABLE_TYPES: AIInteractionType[] = [
   'generate_parent_report',
   'generate_report_card',
   'transcription',
+  'segment_transcript',
 ];
+
+// Shorter TTL for types where input context (roster) changes frequently
+const CACHE_TTL: Partial<Record<AIInteractionType, number>> = {
+  segment_transcript: 3600, // 1 hour — roster changes frequently
+};
+const DEFAULT_CACHE_TTL = 86400; // 24 hours
 
 // Interaction types that should prefer the cheapest/fastest model
 const COST_EFFECTIVE_TYPES: AIInteractionType[] = [
@@ -321,7 +328,7 @@ async function getOrgId(supabase: any, coachId: string): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
-// Token estimation
+// Token estimation & cost tracking
 // ---------------------------------------------------------------------------
 
 /**
@@ -341,6 +348,33 @@ export function estimateCostTier(systemPrompt: string, userPrompt: string): 'low
   if (totalTokens < 1000) return 'low';
   if (totalTokens < 8000) return 'medium';
   return 'high';
+}
+
+// Approximate cost per 1M tokens (USD) — input / output
+const MODEL_COSTS: Record<string, { input: number; output: number }> = {
+  'claude-sonnet-4-20250514': { input: 3, output: 15 },
+  'claude-haiku-3-20240307': { input: 0.25, output: 1.25 },
+  'gpt-4o': { input: 2.5, output: 10 },
+  'gpt-4o-mini': { input: 0.15, output: 0.6 },
+  'gemini-2.5-flash': { input: 0.15, output: 0.6 },
+};
+
+/**
+ * Estimate cost in USD from token counts and model name.
+ */
+function estimateCostUSD(model: string, tokensIn: number, tokensOut: number): number {
+  const costs = MODEL_COSTS[model];
+  if (!costs) return 0;
+  return (tokensIn * costs.input + tokensOut * costs.output) / 1_000_000;
+}
+
+function logCost(interactionType: AIInteractionType, model: string, tokensIn: number, tokensOut: number, latencyMs: number): void {
+  const costUSD = estimateCostUSD(model, tokensIn, tokensOut);
+  if (costUSD > 0) {
+    console.log(
+      `[AI Cost] ${interactionType} | ${model} | ${tokensIn}+${tokensOut} tokens | $${costUSD.toFixed(4)} | ${latencyMs}ms`
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -393,13 +427,16 @@ export async function callAI(options: AICallOptions, supabase: any): Promise<AIC
       apiKey,
       systemPrompt,
       userPrompt,
-      modelOverride,
+      model, // Use the fully resolved model (cost-effective or default), not the raw override
       maxTokens,
       temperature,
       conversationHistory
     );
 
     const latencyMs = Date.now() - startTime;
+
+    // Log estimated cost
+    logCost(interactionType, providerResult.model, providerResult.tokensIn, providerResult.tokensOut, latencyMs);
 
     // Log to ai_interactions table
     const { data: interaction } = await supabase
@@ -429,10 +466,11 @@ export async function callAI(options: AICallOptions, supabase: any): Promise<AIC
       interactionId: interaction?.id || '',
     };
 
-    // Cache if cacheable
+    // Cache if cacheable — use type-specific TTL
     if (cacheable && redis) {
       const hash = hashPrompt(systemPrompt, userPrompt, promptContext, conversationHistory);
-      await redis.set(cacheKeys.aiDedup(hash), result, { ex: 86400 });
+      const ttl = CACHE_TTL[interactionType] ?? DEFAULT_CACHE_TTL;
+      await redis.set(cacheKeys.aiDedup(hash), result, { ex: ttl });
     }
 
     return result;

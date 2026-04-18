@@ -39,10 +39,10 @@ export async function GET(
       return NextResponse.json({ error: 'PIN required', pinRequired: true }, { status: 403 });
     }
 
-    // Get player info
+    // Get player info (include parent_name for personalized greeting)
     const { data: player } = await supabase
       .from('players')
-      .select('id, name, nickname, position, jersey_number, photo_url')
+      .select('id, name, nickname, position, jersey_number, photo_url, parent_name')
       .eq('id', share.player_id)
       .single();
 
@@ -117,14 +117,26 @@ export async function GET(
         .order('created_at', { ascending: false })
         .limit(20);
       reportData.highlights = observations || [];
+      // Pick the most recent positive observation as the featured highlight
+      if (observations && observations.length > 0) {
+        reportData.featuredHighlight = observations[0];
+      }
     }
 
     if (share.include_goals) {
       const { data: proficiency } = await supabase
         .from('player_skill_proficiency')
-        .select('skill_id, proficiency_level, success_rate, trend')
+        .select('skill_id, proficiency_level, success_rate, trend, curriculum_skills(name, category)')
         .eq('player_id', share.player_id);
-      reportData.skillProgress = proficiency || [];
+      // Flatten skill name from the join
+      reportData.skillProgress = (proficiency || []).map((p: any) => ({
+        skill_id: p.skill_id,
+        proficiency_level: p.proficiency_level,
+        success_rate: p.success_rate,
+        trend: p.trend,
+        skill_name: p.curriculum_skills?.name || p.skill_id,
+        category: p.curriculum_skills?.category || null,
+      }));
     }
 
     if (share.include_drills) {
