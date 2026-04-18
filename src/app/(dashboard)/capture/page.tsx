@@ -11,8 +11,11 @@ import { RecordingButton } from '@/components/capture/recording-button';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Send, Keyboard, Mic, AlertCircle, Sparkles, Upload, FileAudio, Camera } from 'lucide-react';
 import { generateId } from '@/lib/utils';
+import { localDB } from '@/lib/storage/local-db';
 import Link from 'next/link';
 import { QuickTemplates } from '@/components/capture/quick-templates';
+import { useAppStore } from '@/lib/store';
+import { Check } from 'lucide-react';
 
 type CaptureState = 'idle' | 'recording' | 'processing' | 'error';
 
@@ -41,6 +44,18 @@ export default function CapturePage() {
   const streamRef = useRef<MediaStream | null>(null);
   const transcriptRef = useRef('');
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const autoSaveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const segmentIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingIdRef = useRef<string>('');
+  const segmentCountRef = useRef(0);
+  const accumulatedObsRef = useRef<any[]>([]);
+  const startTimeRef = useRef<number>(0);
+  const [segmentCount, setSegmentCount] = useState(0);
+  const [segmentStatus, setSegmentStatus] = useState<string | null>(null);
+  const [recoveryData, setRecoveryData] = useState<any>(null);
+
+  const setIsRecording = useAppStore((s) => s.setIsRecording);
+  const setGlobalRecordingDuration = useAppStore((s) => s.setRecordingDuration);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -56,7 +71,28 @@ export default function CapturePage() {
         clearInterval(recordingTimerRef.current);
         recordingTimerRef.current = null;
       }
+      if (autoSaveIntervalRef.current) clearInterval(autoSaveIntervalRef.current);
+      if (segmentIntervalRef.current) clearInterval(segmentIntervalRef.current);
     };
+  }, []);
+
+  // Check for interrupted recordings on page load
+  useEffect(() => {
+    const saved = localStorage.getItem('sportsiq-recording');
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        const startedAt = new Date(data.startedAt);
+        const minutesAgo = Math.round((Date.now() - startedAt.getTime()) / 60000);
+        if (minutesAgo < 120) {
+          setRecoveryData({ ...data, minutesAgo });
+        } else {
+          localStorage.removeItem('sportsiq-recording');
+        }
+      } catch {
+        localStorage.removeItem('sportsiq-recording');
+      }
+    }
   }, []);
 
   const startRecording = useCallback(async () => {
@@ -106,8 +142,26 @@ export default function CapturePage() {
 
       mediaRecorder.start(1000); // Collect data every second
       setCaptureState('recording');
+      setIsRecording(true);
       setRecordingDuration(0);
       setDurationWarning(null);
+      setSegmentCount(0);
+      setSegmentStatus(null);
+      startTimeRef.current = Date.now();
+
+      const recId = generateId();
+      recordingIdRef.current = recId;
+      segmentCountRef.current = 0;
+      accumulatedObsRef.current = [];
+
+      // Save recording state to localStorage for recovery
+      localStorage.setItem('sportsiq-recording', JSON.stringify({
+        recordingId: recId,
+        teamId: activeTeam.id,
+        startedAt: new Date().toISOString(),
+        segmentCount: 0,
+      }));
+
       recordingTimerRef.current = setInterval(() => {
         setRecordingDuration((prev) => {
           const next = prev + 1;
@@ -116,7 +170,67 @@ export default function CapturePage() {
           }
           return next;
         });
+        setGlobalRecordingDuration((Date.now() - startTimeRef.current) / 1000);
       }, 1000);
+
+      // Auto-save chunks every 30 seconds to IndexedDB
+      autoSaveIntervalRef.current = setInterval(async () => {
+        if (audioChunksRef.current.length > 0 && localDB) {
+          try {
+            const partialBlob = new Blob([...audioChunksRef.current], { type: mimeType });
+            await localDB.recordings.put({
+              localId: recId,
+              teamId: activeTeam.id,
+              coachId: coach?.id || '',
+              sessionId: null,
+              audioBlob: partialBlob,
+              mimeType,
+              duration: (Date.now() - startTimeRef.current) / 1000,
+              rawTranscript: transcriptRef.current || null,
+              status: 'recording',
+              isSynced: false,
+              createdAt: new Date().toISOString(),
+            });
+          } catch {
+            // Auto-save failed — non-critical
+          }
+        }
+      }, 30_000);
+
+      // Process transcript segment every 5 minutes
+      segmentIntervalRef.current = setInterval(async () => {
+        const currentTranscript = transcriptRef.current;
+        if (!currentTranscript || currentTranscript.trim().length < 20) return;
+
+        try {
+          const res = await fetch('/api/ai/segment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transcript: currentTranscript, teamId: activeTeam.id }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const newObs = data.observations || [];
+            accumulatedObsRef.current = [...accumulatedObsRef.current, ...newObs];
+            segmentCountRef.current += 1;
+            setSegmentCount(segmentCountRef.current);
+            setSegmentStatus(`Segment ${segmentCountRef.current} analyzed`);
+
+            // Update localStorage
+            const saved = localStorage.getItem('sportsiq-recording');
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              parsed.segmentCount = segmentCountRef.current;
+              localStorage.setItem('sportsiq-recording', JSON.stringify(parsed));
+            }
+
+            // Clear the segment status after 5 seconds
+            setTimeout(() => setSegmentStatus(null), 5000);
+          }
+        } catch {
+          // Segment analysis failed — non-critical
+        }
+      }, 300_000);
 
       // Request Wake Lock to prevent screen from locking during recording
       try {
@@ -170,7 +284,7 @@ export default function CapturePage() {
       }
       setCaptureState('error');
     }
-  }, [activeTeam]);
+  }, [activeTeam, coach, setIsRecording, setGlobalRecordingDuration]);
 
   const stopRecording = useCallback(() => {
     const recorder = mediaRecorderRef.current;
@@ -190,12 +304,27 @@ export default function CapturePage() {
       recordingTimerRef.current = null;
     }
 
+    // Clear auto-save and segment intervals
+    if (autoSaveIntervalRef.current) {
+      clearInterval(autoSaveIntervalRef.current);
+      autoSaveIntervalRef.current = null;
+    }
+    if (segmentIntervalRef.current) {
+      clearInterval(segmentIntervalRef.current);
+      segmentIntervalRef.current = null;
+    }
+    localStorage.removeItem('sportsiq-recording');
+
+    // Update global recording state
+    setIsRecording(false);
+    setGlobalRecordingDuration(0);
+
     // Release Wake Lock
     if (wakeLockRef.current) {
       wakeLockRef.current.release();
       wakeLockRef.current = null;
     }
-  }, []);
+  }, [setIsRecording, setGlobalRecordingDuration]);
 
   const toggleRecording = useCallback(() => {
     if (captureState === 'recording') {
@@ -545,14 +674,70 @@ export default function CapturePage() {
           <p className="mt-1 text-sm text-zinc-400">{activeTeam.name}</p>
         </div>
 
+        {/* Recovery Banner */}
+        {recoveryData && captureState === 'idle' && (
+          <Card className="border-amber-500/30 bg-amber-500/5">
+            <CardContent className="p-4 flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-amber-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-amber-300">Unfinished recording</p>
+                <p className="text-xs text-zinc-400">
+                  Started {recoveryData.minutesAgo}m ago · {recoveryData.segmentCount} segment{recoveryData.segmentCount !== 1 ? 's' : ''} saved
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="ghost" onClick={() => {
+                  localStorage.removeItem('sportsiq-recording');
+                  setRecoveryData(null);
+                }}>Dismiss</Button>
+                <Button size="sm" onClick={() => {
+                  if (accumulatedObsRef.current.length > 0) {
+                    sessionStorage.setItem('pending_observations', JSON.stringify({
+                      recording_id: recoveryData.recordingId,
+                      observations: accumulatedObsRef.current,
+                      transcript: '',
+                      source: 'voice',
+                    }));
+                    router.push('/capture/review');
+                  }
+                  localStorage.removeItem('sportsiq-recording');
+                  setRecoveryData(null);
+                }}>Review</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Recording Area */}
         {captureState !== 'processing' && (
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center gap-3">
             <RecordingButton
               isRecording={captureState === 'recording'}
               onToggle={toggleRecording}
               disabled={false}
             />
+
+            {/* Segment progress during recording */}
+            {captureState === 'recording' && segmentCount > 0 && (
+              <div className="flex items-center gap-2 text-xs text-emerald-400">
+                <Check className="h-3.5 w-3.5" />
+                <span>{segmentCount} segment{segmentCount !== 1 ? 's' : ''} analyzed</span>
+              </div>
+            )}
+
+            {segmentStatus && (
+              <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs text-emerald-400">
+                <Check className="h-3.5 w-3.5" />
+                {segmentStatus}
+              </div>
+            )}
+
+            {/* Coach guidance during recording */}
+            {captureState === 'recording' && (
+              <p className="text-xs text-zinc-500 text-center">
+                Keep this screen visible during recording · Auto-saves every 30s
+              </p>
+            )}
           </div>
         )}
 

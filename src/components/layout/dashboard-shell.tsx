@@ -18,6 +18,7 @@ import { useSyncEngine } from '@/hooks/use-sync-engine';
 import { usePrefetchAdjacentPages, usePrefetchOnIntent } from '@/hooks/use-prefetch-navigation';
 import { useArrowKeyNav } from '@/hooks/use-arrow-key-nav';
 import { PwaInstallPrompt } from '@/components/ui/pwa-install-prompt';
+import { useAppStore } from '@/lib/store';
 import type { Coach } from '@/types/database';
 
 // Lazy-loaded — uses Web Speech API + IndexedDB (browser-only) and is only
@@ -72,6 +73,8 @@ export function DashboardShell({ coach, children }: Props) {
   const prefetchOnIntent = usePrefetchOnIntent();
   const { navRef: sidebarNavRef, onKeyDown: sidebarKeyDown } = useArrowKeyNav();
   const { navRef: mobileNavRef, onKeyDown: mobileNavKeyDown } = useArrowKeyNav();
+
+  const isRecording = useAppStore((s) => s.isRecording);
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const openCommandPalette = useCallback(() => setCommandPaletteOpen(true), []);
@@ -225,6 +228,12 @@ export function DashboardShell({ coach, children }: Props) {
             <span className="font-bold">SportsIQ</span>
           </div>
           <div className="flex items-center gap-2">
+            {isRecording && (
+              <Link href="/capture" className="flex items-center gap-1.5 rounded-full bg-red-500/20 px-2.5 py-1 text-xs text-red-400 animate-pulse">
+                <div className="h-2 w-2 rounded-full bg-red-500" />
+                REC
+              </Link>
+            )}
             <button
               onClick={openCommandPalette}
               aria-label="Search (⌘K)"

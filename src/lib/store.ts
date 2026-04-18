@@ -11,6 +11,10 @@ interface AppState {
   setIsOnline: (online: boolean) => void;
   syncStatus: 'idle' | 'syncing' | 'error';
   setSyncStatus: (status: 'idle' | 'syncing' | 'error') => void;
+  isRecording: boolean;
+  setIsRecording: (recording: boolean) => void;
+  recordingDuration: number;
+  setRecordingDuration: (duration: number) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -24,6 +28,10 @@ export const useAppStore = create<AppState>()(
       setIsOnline: (online) => set({ isOnline: online }),
       syncStatus: 'idle',
       setSyncStatus: (status) => set({ syncStatus: status }),
+      isRecording: false,
+      setIsRecording: (recording) => set({ isRecording: recording }),
+      recordingDuration: 0,
+      setRecordingDuration: (duration) => set({ recordingDuration: duration }),
     }),
     {
       name: 'courtiq-store',
