@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Home, Mic, Users, ClipboardList, Settings, Calendar, CalendarDays, BookOpen, BarChart3, Sparkles, Sun, Moon, LineChart, LogOut, Lock, ShieldCheck, Store, Search, Eye } from 'lucide-react';
+import { Home, Mic, Users, ClipboardList, Settings, Calendar, CalendarDays, BookOpen, BarChart3, Sparkles, Sun, Moon, LineChart, LogOut, Lock, ShieldCheck, Store, Search, Eye, X, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NotificationBell } from '@/components/layout/notification-bell';
 import { TeamSwitcher } from '@/components/layout/team-switcher';
@@ -75,6 +75,36 @@ export function DashboardShell({ coach, children }: Props) {
   const { navRef: mobileNavRef, onKeyDown: mobileNavKeyDown } = useArrowKeyNav();
 
   const isRecording = useAppStore((s) => s.isRecording);
+  const practiceActive = useAppStore((s) => s.practiceActive);
+  const practiceStartedAt = useAppStore((s) => s.practiceStartedAt);
+  const [practiceElapsed, setPracticeElapsed] = useState('');
+  const [showPracticeMini, setShowPracticeMini] = useState(false);
+  const [showNudge, setShowNudge] = useState(false);
+
+  // Practice timer
+  useEffect(() => {
+    if (!practiceActive || !practiceStartedAt) return;
+    const timer = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - new Date(practiceStartedAt).getTime()) / 1000);
+      const m = Math.floor(elapsed / 60);
+      const s = elapsed % 60;
+      setPracticeElapsed(`${m}:${s.toString().padStart(2, '0')}`);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [practiceActive, practiceStartedAt]);
+
+  // Periodic nudge every 15 minutes during practice
+  useEffect(() => {
+    if (!practiceActive) {
+      setShowNudge(false);
+      return;
+    }
+    const nudgeInterval = setInterval(() => {
+      setShowNudge(true);
+      setTimeout(() => setShowNudge(false), 10_000);
+    }, 900_000);
+    return () => clearInterval(nudgeInterval);
+  }, [practiceActive]);
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const openCommandPalette = useCallback(() => setCommandPaletteOpen(true), []);
@@ -234,6 +264,15 @@ export function DashboardShell({ coach, children }: Props) {
                 REC
               </Link>
             )}
+            {practiceActive && (
+              <button
+                onClick={() => setShowPracticeMini(!showPracticeMini)}
+                className="flex items-center gap-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 px-3 py-1.5 text-xs font-medium text-emerald-400"
+              >
+                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                LIVE · {practiceElapsed}
+              </button>
+            )}
             <button
               onClick={openCommandPalette}
               aria-label="Search (⌘K)"
@@ -267,12 +306,64 @@ export function DashboardShell({ coach, children }: Props) {
           </div>
         </header>
 
+        {/* Practice mini dropdown */}
+        {showPracticeMini && practiceActive && (
+          <div className="absolute right-4 top-24 z-50 w-64 rounded-xl border border-zinc-800 bg-zinc-900 p-3 shadow-xl lg:hidden">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-medium text-emerald-400">Practice in progress</span>
+              <button onClick={() => setShowPracticeMini(false)} className="text-zinc-500 hover:text-zinc-300">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {['Great hustle', 'Needs work', 'Good passing'].map((chip) => (
+                <Link
+                  key={chip}
+                  href="/capture"
+                  className="rounded-full bg-zinc-800 border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:border-zinc-600 active:scale-95 touch-manipulation"
+                >
+                  {chip}
+                </Link>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Link
+                href="/capture"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-orange-500/20 px-3 py-2 text-xs font-medium text-orange-400 hover:bg-orange-500/30 active:scale-95 touch-manipulation"
+              >
+                <Mic className="h-3.5 w-3.5" />
+                Quick Capture
+              </Link>
+              <Link
+                href="/home"
+                onClick={() => {
+                  setShowPracticeMini(false);
+                }}
+                className="flex items-center justify-center gap-1.5 rounded-lg bg-red-500/20 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/30 active:scale-95 touch-manipulation"
+              >
+                <Square className="h-3.5 w-3.5" />
+                End
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Swipe handlers on mobile content area — lg:pb-0 is desktop, touch won't fire there */}
         <div
           className="flex-1 overflow-y-auto pb-36 lg:pb-0"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
         >
+          {/* Periodic nudge during practice */}
+          {showNudge && practiceActive && (
+            <div className="mx-4 mt-2 flex items-center gap-3 rounded-xl bg-orange-500/10 border border-orange-500/20 p-3">
+              <Mic className="h-5 w-5 text-orange-400 shrink-0" />
+              <p className="text-sm text-orange-300 flex-1">Quick observation? Tap to capture</p>
+              <button onClick={() => setShowNudge(false)} className="text-zinc-500 hover:text-zinc-300">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           <PageTransition>
             {children}
           </PageTransition>

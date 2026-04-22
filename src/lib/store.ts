@@ -15,6 +15,12 @@ interface AppState {
   setIsRecording: (recording: boolean) => void;
   recordingDuration: number;
   setRecordingDuration: (duration: number) => void;
+  practiceActive: boolean;
+  setPracticeActive: (active: boolean) => void;
+  practiceSessionId: string | null;
+  setPracticeSessionId: (id: string | null) => void;
+  practiceStartedAt: string | null;
+  setPracticeStartedAt: (at: string | null) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -32,10 +38,21 @@ export const useAppStore = create<AppState>()(
       setIsRecording: (recording) => set({ isRecording: recording }),
       recordingDuration: 0,
       setRecordingDuration: (duration) => set({ recordingDuration: duration }),
+      practiceActive: false,
+      setPracticeActive: (active) => set({ practiceActive: active }),
+      practiceSessionId: null,
+      setPracticeSessionId: (id) => set({ practiceSessionId: id }),
+      practiceStartedAt: null,
+      setPracticeStartedAt: (at) => set({ practiceStartedAt: at }),
     }),
     {
       name: 'courtiq-store',
-      partialize: (state) => ({ activeTeamId: state.activeTeamId }),
+      partialize: (state) => ({
+        activeTeamId: state.activeTeamId,
+        practiceActive: state.practiceActive,
+        practiceSessionId: state.practiceSessionId,
+        practiceStartedAt: state.practiceStartedAt,
+      }),
     }
   )
 );

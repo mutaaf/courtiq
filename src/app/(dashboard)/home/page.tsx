@@ -1,9 +1,9 @@
 'use client';
 
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { query } from '@/lib/api';
+import { query, mutate } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,7 +29,12 @@ import {
   CheckCircle2,
   Loader2,
   ChevronDown,
+  Play,
+  Square,
+  Bell,
 } from 'lucide-react';
+import { useAppStore } from '@/lib/store';
+import { PostPracticeDebrief } from '@/components/capture/post-practice-debrief';
 import { formatTimeAgo } from '@/lib/team-wins-utils';
 import type { TeamWin } from '@/lib/team-wins-utils';
 import { isCurrentWeekStar } from '@/lib/player-spotlight-utils';
@@ -692,12 +697,45 @@ function TeamPulseCard({ pulse }: { pulse: PulseStats }) {
 export default function HomePage() {
   const { activeTeam, teams, coach } = useActiveTeam();
   const [showInsights, setShowInsights] = useState(false);
+  const [showDebrief, setShowDebrief] = useState(false);
+
+  const practiceActive = useAppStore((s) => s.practiceActive);
+  const setPracticeActive = useAppStore((s) => s.setPracticeActive);
+  const practiceSessionId = useAppStore((s) => s.practiceSessionId);
+  const setPracticeSessionId = useAppStore((s) => s.setPracticeSessionId);
+  const setPracticeStartedAt = useAppStore((s) => s.setPracticeStartedAt);
+
+  async function startPractice() {
+    if (!activeTeam || !coach) return;
+    try {
+      const session = await mutate<{ id: string }>({
+        table: 'sessions',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          type: 'practice',
+          date: new Date().toISOString().split('T')[0],
+          notes: 'Auto-created practice session',
+        },
+        select: 'id',
+      });
+      const id = Array.isArray(session) ? (session as any)[0]?.id : session?.id;
+      if (id) {
+        setPracticeActive(true);
+        setPracticeSessionId(id);
+        setPracticeStartedAt(new Date().toISOString());
+      }
+    } catch (err) {
+      console.warn('Failed to start practice session:', err);
+    }
+  }
 
   const { data: stats, isLoading: isLoadingStats, refetch: refetchStats } = useQuery({
     queryKey: ['home-stats', activeTeam?.id],
     queryFn: async () => {
       if (!activeTeam) return null;
-      const [players, observations, sessions] = await Promise.all([
+      const [players, observations, sessions, recentObs] = await Promise.all([
         query<{ id: string }[]>({
           table: 'players',
           select: 'id',
@@ -713,15 +751,28 @@ export default function HomePage() {
           select: 'id',
           filters: { team_id: activeTeam.id },
         }),
+        query<{ created_at: string }[]>({
+          table: 'observations',
+          select: 'created_at',
+          filters: { team_id: activeTeam.id },
+          order: { column: 'created_at', ascending: false },
+          limit: 1,
+        }),
       ]);
       return {
         players: players.length,
         observations: observations.length,
         sessions: sessions.length,
+        lastObsDate: recentObs?.[0]?.created_at ?? null,
       };
     },
     enabled: !!activeTeam,
   });
+
+  const daysSinceLastObs = useMemo(() => {
+    if (!stats?.lastObsDate) return 999;
+    return Math.floor((Date.now() - new Date(stats.lastObsDate).getTime()) / 86_400_000);
+  }, [stats?.lastObsDate]);
 
   // Team Pulse: 14-day observation analytics for coaching intelligence
   const { data: pulse, isLoading: isLoadingPulse, refetch: refetchPulse } = useQuery({
@@ -856,8 +907,41 @@ export default function HomePage() {
         </p>
       </div>
 
+      {/* Start / End Practice */}
+      {!practiceActive ? (
+        <button
+          onClick={startPractice}
+          className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 p-5 text-left text-white shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all touch-manipulation"
+        >
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/20">
+              <Play className="h-7 w-7" />
+            </div>
+            <div>
+              <p className="text-lg font-bold">Start Practice</p>
+              <p className="text-sm text-emerald-100">Tap when you arrive at the gym</p>
+            </div>
+          </div>
+        </button>
+      ) : (
+        <button
+          onClick={() => setShowDebrief(true)}
+          className="w-full rounded-2xl bg-gradient-to-r from-red-500 to-red-600 p-5 text-left text-white shadow-lg shadow-red-500/20 active:scale-[0.98] transition-all touch-manipulation"
+        >
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/20">
+              <Square className="h-7 w-7" />
+            </div>
+            <div>
+              <p className="text-lg font-bold">End Practice</p>
+              <p className="text-sm text-red-100">Tap to wrap up and debrief</p>
+            </div>
+          </div>
+        </button>
+      )}
+
       {/* Quick actions */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-3 gap-3 lg:grid-cols-3">
         <Link href="/capture">
           <Card className="cursor-pointer transition-colors hover:border-orange-500/50 active:scale-[0.97] touch-manipulation">
             <CardContent className="flex flex-col items-center gap-3 p-3 sm:p-4 sm:gap-2">
@@ -885,16 +969,6 @@ export default function HomePage() {
                 <ClipboardList className="h-7 w-7 sm:h-6 sm:w-6 text-emerald-500" />
               </div>
               <span className="text-sm font-medium">Plans</span>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/sessions/new">
-          <Card className="cursor-pointer transition-colors hover:border-orange-500/50 active:scale-[0.97] touch-manipulation">
-            <CardContent className="flex flex-col items-center gap-3 p-3 sm:p-4 sm:gap-2">
-              <div className="flex h-14 w-14 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-purple-500/20">
-                <Calendar className="h-7 w-7 sm:h-6 sm:w-6 text-purple-500" />
-              </div>
-              <span className="text-sm font-medium">New Session</span>
             </CardContent>
           </Card>
         </Link>
@@ -942,6 +1016,20 @@ export default function HomePage() {
           </>
         )}
       </div>
+
+      {/* Nudge: no observations in 3+ days */}
+      {!practiceActive && stats && stats.observations > 0 && daysSinceLastObs > 3 && (
+        <Card className="border-amber-500/20 bg-amber-500/5 p-4">
+          <div className="flex items-center gap-3">
+            <Bell className="h-5 w-5 text-amber-400" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-300">It&apos;s been {daysSinceLastObs} days</p>
+              <p className="text-xs text-zinc-400">Your players are waiting for feedback</p>
+            </div>
+            <Button size="sm" onClick={startPractice}>Start Practice</Button>
+          </div>
+        </Card>
+      )}
 
       {/* Seasonal promotion — shown in the first 3 weeks of Sept/Jan/Apr */}
       {!isLoadingStats && (
@@ -1074,6 +1162,14 @@ export default function HomePage() {
       <TestimonialPrompt
         coachId={coach.id}
         observationCount={stats.observations}
+      />
+    )}
+
+    {/* Post-practice debrief modal */}
+    {showDebrief && practiceSessionId && (
+      <PostPracticeDebrief
+        sessionId={practiceSessionId}
+        onClose={() => setShowDebrief(false)}
       />
     )}
     </>
