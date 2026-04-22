@@ -32,10 +32,22 @@ import {
   Play,
   Square,
   Bell,
+  Flame,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { PostPracticeDebrief } from '@/components/capture/post-practice-debrief';
 import { formatTimeAgo } from '@/lib/team-wins-utils';
+import {
+  buildStreakData,
+  getStreakMessage,
+  getNextMilestone,
+  getDaysToNextMilestone,
+  isNewRecord,
+  streakPercentToNextMilestone,
+  getEarnedMilestones,
+  getDayKey,
+} from '@/lib/streak-utils';
+import type { StreakData } from '@/lib/streak-utils';
 import type { TeamWin } from '@/lib/team-wins-utils';
 import { isCurrentWeekStar } from '@/lib/player-spotlight-utils';
 import {
@@ -692,6 +704,130 @@ function TeamPulseCard({ pulse }: { pulse: PulseStats }) {
   );
 }
 
+// ─── Streak Card ──────────────────────────────────────────────────────────────
+
+function StreakCard({ teamId }: { teamId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['coaching-streak', teamId],
+    queryFn: async (): Promise<StreakData> => {
+      const res = await fetch(`/api/streak?team_id=${teamId}`);
+      if (!res.ok) throw new Error('Failed to load streak');
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  if (isLoading) {
+    return (
+      <Card className="overflow-hidden border-zinc-800">
+        <CardContent className="p-4 flex items-center gap-4">
+          <Skeleton className="h-14 w-14 rounded-2xl shrink-0" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-24 rounded" />
+            <Skeleton className="h-3 w-40 rounded" />
+            <Skeleton className="h-1.5 w-full rounded-full" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data) return null;
+
+  const { currentStreak, longestStreak, todayHasActivity, atRisk } = data;
+  const newRecord = isNewRecord(currentStreak, longestStreak);
+  const nextMilestone = getNextMilestone(currentStreak);
+  const daysToNext = getDaysToNextMilestone(currentStreak);
+  const pct = streakPercentToNextMilestone(currentStreak);
+  const earnedMilestones = getEarnedMilestones(currentStreak);
+  const latestMilestone = earnedMilestones[earnedMilestones.length - 1];
+  const message = getStreakMessage(currentStreak, atRisk);
+
+  const flameColor = atRisk
+    ? 'text-amber-500'
+    : todayHasActivity
+      ? 'text-orange-500'
+      : currentStreak > 0
+        ? 'text-orange-400'
+        : 'text-zinc-600';
+
+  const bgColor = atRisk
+    ? 'bg-amber-500/15'
+    : todayHasActivity
+      ? 'bg-orange-500/15'
+      : 'bg-zinc-800';
+
+  const borderColor = atRisk
+    ? 'border-amber-500/30'
+    : todayHasActivity && currentStreak > 0
+      ? 'border-orange-500/20'
+      : 'border-zinc-800';
+
+  return (
+    <Card className={`overflow-hidden ${borderColor}`}>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-4">
+          {/* Flame + count */}
+          <div className={`flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl ${bgColor}`}>
+            <Flame className={`h-6 w-6 ${flameColor}`} />
+            <span className={`text-sm font-bold leading-none mt-0.5 ${flameColor}`}>
+              {currentStreak}
+            </span>
+          </div>
+
+          {/* Text + progress */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-semibold text-zinc-200 leading-snug">
+                {currentStreak === 0 ? 'Start Your Streak' : `${currentStreak}-Day Streak`}
+              </p>
+              {newRecord && currentStreak >= 3 && (
+                <span className="rounded-full bg-orange-500/20 px-2 py-0.5 text-[10px] font-semibold text-orange-400 uppercase tracking-wide">
+                  Best!
+                </span>
+              )}
+              {latestMilestone && (
+                <span className="text-sm">{latestMilestone.icon}</span>
+              )}
+            </div>
+            <p className="text-xs text-zinc-500 mt-0.5 truncate">{message}</p>
+
+            {/* Progress bar toward next milestone */}
+            {nextMilestone && (
+              <div className="mt-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] text-zinc-600">
+                    {daysToNext === 1 ? '1 day to' : `${daysToNext} days to`} {nextMilestone.icon} {nextMilestone.label}
+                  </span>
+                  <span className="text-[10px] text-zinc-600">{pct}%</span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+                  <div
+                    className="h-full rounded-full bg-orange-500 transition-all duration-700"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* All milestones earned */}
+            {!nextMilestone && currentStreak > 0 && (
+              <p className="text-[10px] text-orange-400 mt-1">All milestones earned — you&apos;re a legend!</p>
+            )}
+          </div>
+
+          {/* Today activity dot */}
+          <div className="flex flex-col items-center gap-1 shrink-0">
+            <div className={`h-3 w-3 rounded-full ${todayHasActivity ? 'bg-emerald-500' : atRisk ? 'bg-amber-500 animate-pulse' : 'bg-zinc-700'}`} />
+            <span className="text-[9px] text-zinc-600">today</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
@@ -773,6 +909,8 @@ export default function HomePage() {
     if (!stats?.lastObsDate) return 999;
     return Math.floor((Date.now() - new Date(stats.lastObsDate).getTime()) / 86_400_000);
   }, [stats?.lastObsDate]);
+
+  const showStreak = !isLoadingStats && !!activeTeam && (stats?.observations ?? 0) > 0;
 
   // Team Pulse: 14-day observation analytics for coaching intelligence
   const { data: pulse, isLoading: isLoadingPulse, refetch: refetchPulse } = useQuery({
@@ -1016,6 +1154,9 @@ export default function HomePage() {
           </>
         )}
       </div>
+
+      {/* Coaching streak */}
+      {showStreak && <StreakCard teamId={activeTeam.id} />}
 
       {/* Nudge: no observations in 3+ days */}
       {!practiceActive && stats && stats.observations > 0 && daysSinceLastObs > 3 && (
