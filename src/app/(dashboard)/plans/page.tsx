@@ -78,6 +78,7 @@ const PLAN_TYPE_CONFIG: Record<
   coach_reflection: { label: 'Coach Reflection', icon: PenLine, color: 'text-purple-400' },
   player_messages: { label: 'Player Messages', icon: MessageSquare, color: 'text-teal-400' },
   team_group_message: { label: 'Team Group Message', icon: Users, color: 'text-emerald-400' },
+  season_awards: { label: 'Season Awards', icon: Trophy, color: 'text-amber-400' },
 };
 
 const SUGGESTION_CHIPS = [
@@ -322,6 +323,11 @@ export default function PlansPage() {
   const [seasonSummaryStats, setSeasonSummaryStats] = useState<{ observationsAnalyzed: number; sessionsIncluded: number; playersObserved: number; weeksOfData: number; healthScore: number; dateRange: string } | null>(null);
   const [seasonSummaryCopied, setSeasonSummaryCopied] = useState(false);
 
+  // Season Awards state
+  const [generatingSeasonAwards, setGeneratingSeasonAwards] = useState(false);
+  const [seasonAwardsStats, setSeasonAwardsStats] = useState<{ playersAwarded: number; totalObservations: number; summaryLabel: string } | null>(null);
+  const [awardCopiedIndex, setAwardCopiedIndex] = useState<number | null>(null);
+
   // Run Practice modal state
   const [showRunModal, setShowRunModal] = useState(false);
   const [creatingSession, setCreatingSession] = useState(false);
@@ -508,6 +514,32 @@ export default function PlansPage() {
       setError(err instanceof Error ? err.message : 'Season summary generation failed');
     } finally {
       setGeneratingSeasonSummary(false);
+    }
+  };
+
+  const generateSeasonAwards = async () => {
+    if (!activeTeam) return;
+    setGeneratingSeasonAwards(true);
+    setError(null);
+    setSeasonAwardsStats(null);
+    try {
+      const res = await fetch('/api/ai/season-awards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate season awards');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      if (data.stats) setSeasonAwardsStats(data.stats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Season awards generation failed');
+    } finally {
+      setGeneratingSeasonAwards(false);
     }
   };
 
@@ -1773,6 +1805,146 @@ export default function PlansPage() {
       );
     }
 
+    // Season Awards renderer
+    if (structured.season_label && Array.isArray(structured.awards) && structured.ceremony_intro) {
+      const accentPalettes = [
+        { border: 'border-amber-500/30',   bg: 'bg-amber-500/5',   text: 'text-amber-300',   ring: 'bg-amber-500/20' },
+        { border: 'border-orange-500/30',  bg: 'bg-orange-500/5',  text: 'text-orange-300',  ring: 'bg-orange-500/20' },
+        { border: 'border-emerald-500/30', bg: 'bg-emerald-500/5', text: 'text-emerald-300', ring: 'bg-emerald-500/20' },
+        { border: 'border-blue-500/30',    bg: 'bg-blue-500/5',    text: 'text-blue-300',    ring: 'bg-blue-500/20' },
+        { border: 'border-purple-500/30',  bg: 'bg-purple-500/5',  text: 'text-purple-300',  ring: 'bg-purple-500/20' },
+        { border: 'border-rose-500/30',    bg: 'bg-rose-500/5',    text: 'text-rose-300',    ring: 'bg-rose-500/20' },
+        { border: 'border-teal-500/30',    bg: 'bg-teal-500/5',    text: 'text-teal-300',    ring: 'bg-teal-500/20' },
+        { border: 'border-indigo-500/30',  bg: 'bg-indigo-500/5',  text: 'text-indigo-300',  ring: 'bg-indigo-500/20' },
+      ];
+      return (
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="text-center space-y-2 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Trophy className="h-5 w-5 text-amber-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-amber-400">Season Awards</span>
+            </div>
+            <h2 className="text-xl font-bold text-zinc-100">{structured.season_label}</h2>
+            {structured.ceremony_intro && (
+              <p className="text-sm text-zinc-400 leading-relaxed max-w-md mx-auto">{structured.ceremony_intro}</p>
+            )}
+            {seasonAwardsStats && (
+              <div className="flex items-center justify-center gap-3 pt-1">
+                <span className="text-xs text-zinc-500">{seasonAwardsStats.playersAwarded} players awarded</span>
+                <span className="text-zinc-700">·</span>
+                <span className="text-xs text-zinc-500">{seasonAwardsStats.totalObservations} observations analyzed</span>
+              </div>
+            )}
+          </div>
+
+          {/* Award Cards */}
+          {structured.awards.map((award: any, i: number) => {
+            const palette = accentPalettes[i % accentPalettes.length];
+            return (
+              <div key={i} className={`rounded-xl border ${palette.border} ${palette.bg} p-4 space-y-3`}>
+                <div className="flex items-start gap-3">
+                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xl ${palette.ring}`}>
+                    {award.emoji || '🏅'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-bold ${palette.text}`}>{award.award_title}</p>
+                    <p className="text-base font-semibold text-zinc-100">{award.player_name}</p>
+                  </div>
+                </div>
+                {award.description && (
+                  <p className="text-sm text-zinc-300 leading-relaxed">{award.description}</p>
+                )}
+                {award.standout_moment && (
+                  <div className="rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2">
+                    <p className="text-xs text-zinc-400 italic">&ldquo;{award.standout_moment}&rdquo;</p>
+                  </div>
+                )}
+                {/* Per-award share button */}
+                <button
+                  onClick={async () => {
+                    const coachName = activeTeam?.name;
+                    const teamName = activeTeam?.name;
+                    const text = [
+                      `${award.emoji || '🏅'} ${award.award_title}`,
+                      `Awarded to: ${award.player_name}`,
+                      '',
+                      award.description,
+                      '',
+                      `"${award.standout_moment}"`,
+                      '',
+                      teamName ? `— ${teamName}` : '',
+                      'Powered by SportsIQ 🏆',
+                    ].filter(Boolean).join('\n');
+                    try {
+                      if (navigator.share) {
+                        await navigator.share({ title: `${award.player_name} — ${award.award_title}`, text });
+                      } else {
+                        await navigator.clipboard.writeText(text);
+                        setAwardCopiedIndex(i);
+                        setTimeout(() => setAwardCopiedIndex(null), 2000);
+                      }
+                    } catch { /* user cancelled */ }
+                  }}
+                  className={`flex w-full items-center justify-center gap-1.5 rounded-lg border ${palette.border} py-2 text-xs font-semibold ${palette.text} transition-all hover:opacity-80 active:scale-[0.98] touch-manipulation`}
+                >
+                  {awardCopiedIndex === i ? (
+                    <><Check className="h-3.5 w-3.5" /> Copied!</>
+                  ) : (
+                    <><Share2 className="h-3.5 w-3.5" /> Share {award.player_name}&apos;s Award</>
+                  )}
+                </button>
+              </div>
+            );
+          })}
+
+          {/* Team Message */}
+          {structured.team_message && (
+            <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-transparent p-4 text-center">
+              <p className="text-sm text-zinc-200 leading-relaxed italic">&ldquo;{structured.team_message}&rdquo;</p>
+            </div>
+          )}
+
+          {/* Share all awards */}
+          <button
+            onClick={async () => {
+              const teamName = activeTeam?.name || 'Team';
+              const awardLines = (structured.awards as any[]).map((a: any) =>
+                `${a.emoji || '🏅'} ${a.award_title} → ${a.player_name}\n   ${a.description}`
+              );
+              const text = [
+                `🏆 ${structured.season_label} — ${teamName}`,
+                '',
+                structured.ceremony_intro,
+                '',
+                ...awardLines,
+                '',
+                structured.team_message,
+                '',
+                'Powered by SportsIQ 🏆',
+              ].filter(Boolean).join('\n');
+              try {
+                if (navigator.share) {
+                  await navigator.share({ title: `${teamName} Season Awards`, text });
+                } else {
+                  await navigator.clipboard.writeText(text);
+                  setAwardCopiedIndex(-1);
+                  setTimeout(() => setAwardCopiedIndex(null), 2000);
+                }
+              } catch { /* user cancelled */ }
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 py-3 text-sm font-semibold text-amber-300 transition-all hover:bg-amber-500/15 active:scale-[0.98] touch-manipulation"
+          >
+            {awardCopiedIndex === -1 ? (
+              <><Check className="h-4 w-4" /> Copied all awards!</>
+            ) : (
+              <><Share2 className="h-4 w-4" /> Share All Awards</>
+            )}
+          </button>
+        </div>
+      );
+    }
+
     // Coach Reflection renderer
     if (structured.session_summary && Array.isArray(structured.questions)) {
       const answers: Record<string, string> = structured.answers || {};
@@ -2206,6 +2378,26 @@ export default function PlansPage() {
                 <p className="text-xs text-zinc-500">AI-generated team season recap with highlights &amp; next-season priorities</p>
               </div>
               <Activity className="h-4 w-4 text-cyan-500/50 shrink-0" />
+            </button>
+
+            {/* Season Awards — whole team, one award per player */}
+            <button
+              onClick={generateSeasonAwards}
+              disabled={generatingSeasonAwards || generating || !activeTeam}
+              className="flex w-full items-center gap-2.5 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/15 to-amber-500/5 px-4 py-3 text-left transition-all hover:border-amber-500/60 hover:from-amber-500/20 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/25">
+                {generatingSeasonAwards ? (
+                  <Loader2 className="h-4 w-4 text-amber-400 animate-spin" />
+                ) : (
+                  <Trophy className="h-4 w-4 text-amber-400" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-amber-300">Season Awards</p>
+                <p className="text-xs text-zinc-500">Unique AI award for every player — shareable with parents</p>
+              </div>
+              <Star className="h-4 w-4 text-amber-500/50 shrink-0" />
             </button>
 
             {/* Season Storyline — player-specific */}

@@ -318,6 +318,21 @@ export const seasonSummarySchema = z.object({
 
 export type SeasonSummary = z.infer<typeof seasonSummarySchema>;
 
+export const seasonAwardsSchema = z.object({
+  season_label: z.string().min(5),           // e.g. "Spring 2025 Season Awards"
+  ceremony_intro: z.string().min(10),        // Warm opening from the coach perspective
+  awards: z.array(z.object({
+    player_name: z.string().min(1),
+    award_title: z.string().min(3).max(80),  // e.g. "Defensive Anchor Award"
+    emoji: z.string().min(1),                // e.g. "🛡️"
+    description: z.string().min(10),        // 2-3 sentences on why this player
+    standout_moment: z.string().min(5),      // One specific observation or moment
+  })).min(1).max(30),
+  team_message: z.string().min(10),          // Closing team-wide note
+});
+
+export type SeasonAwards = z.infer<typeof seasonAwardsSchema>;
+
 export const coachReflectionSchema = z.object({
   session_summary: z.string().min(10),       // 2-3 sentence AI overview of the session
   questions: z.array(z.object({

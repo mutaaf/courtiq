@@ -650,6 +650,58 @@ export const PROMPT_REGISTRY = {
     ].filter(Boolean).join('\n'),
   }),
 
+  seasonAwards: (params: PromptParams & {
+    seasonLabel: string;
+    totalPlayers: number;
+    totalObservations: number;
+    players: Array<{
+      name: string;
+      totalObs: number;
+      positiveObs: number;
+      needsWorkObs: number;
+      positiveRatio: number;
+      topCategory: string;
+      bestObservation: string;
+    }>;
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You create personalized, celebratory end-of-season award titles for youth sports players.',
+      '',
+      'Rules:',
+      '- Every player listed must receive exactly ONE award — no player should be skipped or doubled.',
+      '- Every award_title must be UNIQUE across the entire team — absolutely no duplicate award names.',
+      '- Award titles should be specific to the player\'s actual data, not generic (e.g. "Defensive Anchor Award" not "Good Player Award").',
+      '- Base the award on the player\'s strongest observed quality — positive ratio, top category, or most memorable observation.',
+      '- For players with mostly needs-work observations, find something genuine to celebrate (growth, effort, specific moment).',
+      '- description should be 2 warm sentences explaining why this player earned this award.',
+      '- standout_moment should paraphrase or quote the player\'s best observation naturally.',
+      '- Tone: celebratory, age-appropriate, parent-friendly. Make every player feel seen.',
+      '- Use one of these emojis per award (vary them — no repeats): 🏆 🛡️ ⚡ 🎯 🧠 💪 🤝 ⭐ 🎖️ 🔥 🌱 🎪 🏅 🌟 🦁 🎶 🎨 🐐 🚀 💡 🌊 🏋️ 🎭 🦊 🐺',
+      '- ceremony_intro should be warm and reference the season and number of players.',
+      '- team_message should be a short, motivational close for the whole group.',
+    ].join('\n'),
+    user: [
+      `Team: ${params.teamName || 'the team'} (${params.ageGroup || 'youth'} ${params.sportName || 'basketball'})`,
+      `Season: ${params.seasonLabel}`,
+      `${params.totalPlayers} players · ${params.totalObservations} observations`,
+      '',
+      'Player data (generate one award for EACH player listed):',
+      params.players.map((p) =>
+        [
+          `Player: ${p.name}`,
+          `  Observations: ${p.totalObs} (${p.positiveObs} positive, ${p.needsWorkObs} needs-work)`,
+          `  Positive ratio: ${Math.round(p.positiveRatio * 100)}%`,
+          `  Top category: ${p.topCategory}`,
+          `  Best observation: "${p.bestObservation}"`,
+        ].join('\n')
+      ).join('\n\n'),
+      '',
+      'Write the season awards ceremony as JSON:',
+      '{ "season_label": "string", "ceremony_intro": "string (2-3 warm sentences)", "awards": [{ "player_name": "string (exact name from data)", "award_title": "string (unique, specific, ends with Award)", "emoji": "string (single emoji)", "description": "string (2 sentences)", "standout_moment": "string (1 sentence, specific moment)" }], "team_message": "string (1-2 sentences)" }',
+    ].filter(Boolean).join('\n'),
+  }),
+
   coachReflection: (params: PromptParams & {
     sessionDate: string;
     sessionType: string;
