@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Home, Mic, Users, ClipboardList, Settings, Calendar, CalendarDays, BookOpen, BarChart3, Sparkles, Sun, Moon, LineChart, LogOut, Lock, ShieldCheck, Store, Search, Eye, X, Square } from 'lucide-react';
+import { Home, Mic, Users, ClipboardList, Settings, Calendar, CalendarDays, BookOpen, BarChart3, Sparkles, Sun, Moon, LineChart, LogOut, Lock, ShieldCheck, Store, Search, Eye, X, Square, ChevronLeft, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NotificationBell } from '@/components/layout/notification-bell';
 import { TeamSwitcher } from '@/components/layout/team-switcher';
@@ -19,6 +19,11 @@ import { usePrefetchAdjacentPages, usePrefetchOnIntent } from '@/hooks/use-prefe
 import { useArrowKeyNav } from '@/hooks/use-arrow-key-nav';
 import { PwaInstallPrompt } from '@/components/ui/pwa-install-prompt';
 import { useAppStore } from '@/lib/store';
+import { useActiveTeam } from '@/hooks/use-active-team';
+import { useQueryClient } from '@tanstack/react-query';
+import { query, mutate } from '@/lib/api';
+import { OBSERVATION_TEMPLATES } from '@/lib/observation-templates';
+import type { ObservationTemplate } from '@/lib/observation-templates';
 import type { Coach } from '@/types/database';
 
 // Lazy-loaded — uses Web Speech API + IndexedDB (browser-only) and is only
@@ -74,12 +79,24 @@ export function DashboardShell({ coach, children }: Props) {
   const { navRef: sidebarNavRef, onKeyDown: sidebarKeyDown } = useArrowKeyNav();
   const { navRef: mobileNavRef, onKeyDown: mobileNavKeyDown } = useArrowKeyNav();
 
+  const { activeTeam } = useActiveTeam();
+  const queryClient = useQueryClient();
+
   const isRecording = useAppStore((s) => s.isRecording);
   const practiceActive = useAppStore((s) => s.practiceActive);
   const practiceStartedAt = useAppStore((s) => s.practiceStartedAt);
+  const practiceSessionId = useAppStore((s) => s.practiceSessionId);
   const [practiceElapsed, setPracticeElapsed] = useState('');
   const [showPracticeMini, setShowPracticeMini] = useState(false);
   const [showNudge, setShowNudge] = useState(false);
+
+  // Quick-save flow inside the practice mini-dropdown
+  type MiniStep = 'template' | 'player' | 'saved';
+  const [miniStep, setMiniStep] = useState<MiniStep>('template');
+  const [miniSentiment, setMiniSentiment] = useState<'positive' | 'needs-work'>('positive');
+  const [selectedTemplate, setSelectedTemplate] = useState<ObservationTemplate | null>(null);
+  const [practiceRoster, setPracticeRoster] = useState<{ id: string; name: string }[]>([]);
+  const [savingQuick, setSavingQuick] = useState(false);
 
   // Practice timer
   useEffect(() => {
@@ -105,6 +122,57 @@ export function DashboardShell({ coach, children }: Props) {
     }, 900_000);
     return () => clearInterval(nudgeInterval);
   }, [practiceActive]);
+
+  // Load roster when mini-dropdown opens so the player picker is ready
+  useEffect(() => {
+    if (!showPracticeMini || !activeTeam?.id) return;
+    query<{ id: string; name: string }[]>({
+      table: 'players',
+      select: 'id, name',
+      filters: { team_id: activeTeam.id, is_active: true },
+    }).then((data) => setPracticeRoster(data || []));
+  }, [showPracticeMini, activeTeam?.id]);
+
+  // Reset mini-dropdown state when it closes
+  useEffect(() => {
+    if (!showPracticeMini) {
+      setMiniStep('template');
+      setSelectedTemplate(null);
+    }
+  }, [showPracticeMini]);
+
+  async function saveQuickObservation(playerId: string) {
+    if (!selectedTemplate || !activeTeam || !practiceSessionId) return;
+    setSavingQuick(true);
+    try {
+      await mutate({
+        table: 'observations',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          session_id: practiceSessionId,
+          player_id: playerId,
+          text: selectedTemplate.text,
+          sentiment: selectedTemplate.sentiment,
+          category: selectedTemplate.category,
+          source: 'template',
+        },
+      });
+      setMiniStep('saved');
+      // Auto-reset so coach can log another observation immediately
+      setTimeout(() => {
+        setMiniStep('template');
+        setSelectedTemplate(null);
+      }, 1400);
+      queryClient.invalidateQueries({ queryKey: ['home-stats', activeTeam.id] });
+      queryClient.invalidateQueries({ queryKey: ['home-pulse', activeTeam.id] });
+    } catch (err) {
+      console.warn('Failed to save quick observation:', err);
+    } finally {
+      setSavingQuick(false);
+    }
+  }
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const openCommandPalette = useCallback(() => setCommandPaletteOpen(true), []);
@@ -306,45 +374,125 @@ export function DashboardShell({ coach, children }: Props) {
           </div>
         </header>
 
-        {/* Practice mini dropdown */}
+        {/* Practice mini dropdown — 3-step quick-save: template → player → saved */}
         {showPracticeMini && practiceActive && (
-          <div className="absolute right-4 top-24 z-50 w-64 rounded-xl border border-zinc-800 bg-zinc-900 p-3 shadow-xl lg:hidden">
+          <div className="absolute right-4 top-24 z-50 w-72 rounded-xl border border-emerald-500/20 bg-zinc-900 p-3 shadow-xl lg:hidden">
+            {/* Header */}
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-medium text-emerald-400">Practice in progress</span>
-              <button onClick={() => setShowPracticeMini(false)} className="text-zinc-500 hover:text-zinc-300">
-                <X className="h-4 w-4" />
+              <span className="text-xs font-medium text-emerald-400">
+                {miniStep === 'player' && selectedTemplate
+                  ? `${selectedTemplate.emoji} ${selectedTemplate.text}`
+                  : miniStep === 'saved'
+                  ? 'Saved!'
+                  : 'Quick observation'}
+              </span>
+              <button
+                onClick={() => {
+                  if (miniStep === 'player') {
+                    setMiniStep('template');
+                    setSelectedTemplate(null);
+                  } else {
+                    setShowPracticeMini(false);
+                  }
+                }}
+                className="text-zinc-500 hover:text-zinc-300"
+                aria-label={miniStep === 'player' ? 'Back to templates' : 'Close'}
+              >
+                {miniStep === 'player' ? <ChevronLeft className="h-4 w-4" /> : <X className="h-4 w-4" />}
               </button>
             </div>
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              {['Great hustle', 'Needs work', 'Good passing'].map((chip) => (
-                <Link
-                  key={chip}
-                  href="/capture"
-                  className="rounded-full bg-zinc-800 border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:border-zinc-600 active:scale-95 touch-manipulation"
-                >
-                  {chip}
-                </Link>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Link
-                href="/capture"
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-orange-500/20 px-3 py-2 text-xs font-medium text-orange-400 hover:bg-orange-500/30 active:scale-95 touch-manipulation"
-              >
-                <Mic className="h-3.5 w-3.5" />
-                Quick Capture
-              </Link>
-              <Link
-                href="/home"
-                onClick={() => {
-                  setShowPracticeMini(false);
-                }}
-                className="flex items-center justify-center gap-1.5 rounded-lg bg-red-500/20 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/30 active:scale-95 touch-manipulation"
-              >
-                <Square className="h-3.5 w-3.5" />
-                End
-              </Link>
-            </div>
+
+            {/* Step 1: Template picker */}
+            {miniStep === 'template' && (
+              <>
+                <div className="flex rounded-lg bg-zinc-800 p-0.5 mb-3 text-xs">
+                  <button
+                    onClick={() => setMiniSentiment('positive')}
+                    className={cn(
+                      'flex-1 rounded-md py-1.5 font-medium transition-colors',
+                      miniSentiment === 'positive'
+                        ? 'bg-emerald-500/20 text-emerald-400'
+                        : 'text-zinc-400 hover:text-zinc-300'
+                    )}
+                  >
+                    ✓ Positive
+                  </button>
+                  <button
+                    onClick={() => setMiniSentiment('needs-work')}
+                    className={cn(
+                      'flex-1 rounded-md py-1.5 font-medium transition-colors',
+                      miniSentiment === 'needs-work'
+                        ? 'bg-amber-500/20 text-amber-400'
+                        : 'text-zinc-400 hover:text-zinc-300'
+                    )}
+                  >
+                    ⚠ Needs Work
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {OBSERVATION_TEMPLATES.filter((t) => t.sentiment === miniSentiment)
+                    .slice(0, 6)
+                    .map((template) => (
+                      <button
+                        key={template.id}
+                        onClick={() => {
+                          setSelectedTemplate(template);
+                          setMiniStep('player');
+                        }}
+                        className="rounded-full bg-zinc-800 border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-300 hover:border-zinc-500 active:scale-95 touch-manipulation text-left"
+                      >
+                        {template.emoji}{' '}
+                        {template.text.length > 18 ? template.text.slice(0, 17) + '…' : template.text}
+                      </button>
+                    ))}
+                </div>
+                <div className="flex gap-2">
+                  <Link
+                    href="/capture"
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-orange-500/20 px-3 py-2 text-xs font-medium text-orange-400 hover:bg-orange-500/30 active:scale-95 touch-manipulation"
+                  >
+                    <Mic className="h-3.5 w-3.5" />
+                    Voice
+                  </Link>
+                  <Link
+                    href="/home"
+                    onClick={() => setShowPracticeMini(false)}
+                    className="flex items-center justify-center gap-1.5 rounded-lg bg-red-500/20 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/30 active:scale-95 touch-manipulation"
+                  >
+                    <Square className="h-3.5 w-3.5" />
+                    End
+                  </Link>
+                </div>
+              </>
+            )}
+
+            {/* Step 2: Player picker */}
+            {miniStep === 'player' && (
+              <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+                {practiceRoster.length === 0 ? (
+                  <p className="w-full py-3 text-center text-xs text-zinc-500">Loading players…</p>
+                ) : (
+                  practiceRoster.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => saveQuickObservation(p.id)}
+                      disabled={savingQuick}
+                      className="rounded-full bg-zinc-800 border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:border-orange-500/50 hover:text-orange-300 active:scale-95 touch-manipulation disabled:opacity-50"
+                    >
+                      {p.name.split(' ')[0]}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Step 3: Saved confirmation */}
+            {miniStep === 'saved' && (
+              <div className="flex items-center justify-center gap-2 py-3">
+                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                <span className="text-sm font-medium text-emerald-400">Observation saved!</span>
+              </div>
+            )}
           </div>
         )}
 
