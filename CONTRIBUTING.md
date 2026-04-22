@@ -180,6 +180,9 @@ You run every hour. Here's how to be effective.
 ### P19 — Daily Engagement & Habit Formation
 - [x] **Coaching Streak Tracker** — consecutive-day activity counter (Duolingo-style) on home dashboard that drives coaches back to the app daily; activity = any observation OR session logged for the team; `StreakCard` shows flame icon + count, "at risk" amber pulse animation when yesterday had activity but today doesn't, progress bar toward next milestone (3/7/14/30/60/100-day), milestone icons, "Best!" badge for new personal records; `GET /api/streak?team_id=` fetches last 365 days of observation + session dates; shown after first observation; `src/lib/streak-utils.ts` pure utility module (getDayKey, normalizeDates, calculateCurrentStreak, calculateLongestStreak, getEarnedMilestones, getNextMilestone, getDaysToNextMilestone, getStreakMessage, buildStreakData, isNewRecord, streakPercentToNextMilestone, formatStreakCount); 57 unit tests; total suite: 1487
 
+### P20 — Practice Workflow Quality
+- [x] **Post-Practice Debrief — skill categories + completion screen** — two improvements to the debrief modal: (1) templates now carry proper skill categories (hustle, passing, defense, awareness, leadership, shooting, rebounding, dribbling, teamwork, footwork) instead of generic 'General', feeding accurate data into drill recommendations, skill trend analysis, momentum scores, and plan AI; two new templates per sentiment side added (Great shooting / Strong rebounding; Footwork / Free throws); (2) a new 'done' completion step replaces the abrupt close — coach sees celebration summary (X observations for Y players), then two next-action cards: "View Session" (links to session detail with AI debrief + replay) and "Plan Next Practice" (links to plans page for AI-generated plan from today's data); closes the practice loop instead of dropping coaches on the home page
+
 ---
 
 ## Architecture Rules
