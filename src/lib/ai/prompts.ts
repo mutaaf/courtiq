@@ -745,4 +745,48 @@ export const PROMPT_REGISTRY = {
       '{ "session_label": "string", "messages": [{ "player_name": "string", "message": "2-3 sentence text", "highlight": "short phrase", "next_focus": "one tip" }, ...], "team_note": "1-2 sentences" }',
     ].filter(Boolean).join('\n'),
   }),
+  teamGroupMessage: (params: PromptParams & {
+    sessionLabel: string;
+    sessionType: string;
+    observationSummary: {
+      totalObs: number;
+      positiveCount: number;
+      needsWorkCount: number;
+      topCategories: string[];
+      teamHighlightObs?: string;
+    };
+    coachName?: string;
+    teamName?: string;
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You write warm, brief parent group-chat messages that volunteer coaches paste into their team WhatsApp/SMS group after a session.',
+      '',
+      'Rules:',
+      '- message: 2–4 sentences, conversational, positive but honest. Mention what the team worked on and one thing to celebrate.',
+      '- No individual player callouts — this is a team-wide message.',
+      '- team_highlight: one specific team moment or achievement (e.g. "The whole team stayed focused during the defensive drill").',
+      '- coaching_focus: 2–3 skill areas actually practiced (from observations).',
+      '- encouragement: one warm closing sentence motivating parents and kids for next session.',
+      '- next_session_note (optional): only include if there is something notable coming up. Otherwise omit.',
+      '- Keep the tone inclusive, brief, and emoji-free (parents can add their own).',
+      '- Avoid coaching jargon — write as if speaking to a parent who has never played the sport.',
+    ].join('\n'),
+    user: [
+      `Session: ${params.sessionLabel} (${params.sessionType})`,
+      `Team: ${params.teamName || 'your team'} · ${params.ageGroup || 'youth'} ${params.sportName || 'basketball'}`,
+      `Coach: ${params.coachName || 'Coach'}`,
+      '',
+      'Session observation summary:',
+      `- Total observations: ${params.observationSummary.totalObs}`,
+      `- Positive: ${params.observationSummary.positiveCount}, Needs work: ${params.observationSummary.needsWorkCount}`,
+      `- Top skill areas covered: ${params.observationSummary.topCategories.join(', ') || 'general coaching'}`,
+      params.observationSummary.teamHighlightObs
+        ? `- Standout team moment: "${params.observationSummary.teamHighlightObs}"`
+        : '',
+      '',
+      'Generate a team group-chat message as JSON:',
+      '{ "message": "2-4 sentence team-wide text", "session_label": "string", "team_highlight": "string", "coaching_focus": ["skill1", "skill2"], "encouragement": "closing sentence", "next_session_note": "optional string" }',
+    ].filter(Boolean).join('\n'),
+  }),
 } as const;

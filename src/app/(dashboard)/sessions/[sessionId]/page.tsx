@@ -1150,6 +1150,221 @@ function PlayerSessionMessagesCard({
   );
 }
 
+// ─── Team Group Chat Message ──────────────────────────────────────────────────
+
+interface TeamGroupMessageResult {
+  message: string;
+  session_label: string;
+  team_highlight: string;
+  coaching_focus: string[];
+  encouragement: string;
+  next_session_note?: string;
+}
+
+function TeamGroupMessageCard({
+  sessionId,
+  teamId,
+  observationCount,
+}: {
+  sessionId: string;
+  teamId: string;
+  observationCount: number;
+}) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<TeamGroupMessageResult | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState(false);
+  const [editedMessage, setEditedMessage] = useState('');
+
+  async function handleGenerate() {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/ai/team-group-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, teamId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate message');
+      }
+      const data = await res.json();
+      setResult(data.groupMessage);
+      setEditedMessage(data.groupMessage.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  function buildFullText(msg: TeamGroupMessageResult): string {
+    return [
+      `🏀 ${msg.session_label}`,
+      '',
+      editedMessage || msg.message,
+      msg.coaching_focus?.length ? `\nToday we focused on: ${msg.coaching_focus.join(', ')}` : '',
+      msg.encouragement ? `\n${msg.encouragement}` : '',
+      msg.next_session_note ? `\n📅 ${msg.next_session_note}` : '',
+    ].filter(Boolean).join('\n').trim();
+  }
+
+  async function handleCopy() {
+    if (!result) return;
+    try {
+      await navigator.clipboard.writeText(buildFullText(result));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  }
+
+  async function handleShare() {
+    if (!result) return;
+    const text = buildFullText(result);
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: 'Team Update', text });
+      } else {
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+      }
+      setShared(true);
+      setTimeout(() => setShared(false), 2000);
+    } catch { /* user cancelled */ }
+  }
+
+  const canGenerate = observationCount >= 1;
+
+  return (
+    <Card className="border-zinc-800">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/15">
+              <Users className="h-4 w-4 text-emerald-400" />
+            </div>
+            Team Group Message
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            {result && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleGenerate}
+                disabled={isGenerating}
+                aria-label="Regenerate team group message"
+                className="h-8 w-8 p-0"
+              >
+                {isGenerating
+                  ? <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+                  : <RefreshCw className="h-4 w-4 text-zinc-400" />}
+              </Button>
+            )}
+            {!result && (
+              <Button
+                size="sm"
+                onClick={handleGenerate}
+                disabled={isGenerating || !canGenerate}
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {isGenerating
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
+                  : <><Sparkles className="h-4 w-4" /> Generate</>}
+              </Button>
+            )}
+          </div>
+        </div>
+        <p className="text-xs text-zinc-500 mt-1">
+          One-tap WhatsApp/SMS message for your team parent group
+        </p>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {!canGenerate && !result && (
+          <p className="text-sm text-zinc-500 italic">
+            Record at least one observation to generate a team message.
+          </p>
+        )}
+
+        {error && (
+          <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2">
+            <AlertTriangle className="h-4 w-4 text-red-400 shrink-0" />
+            <p className="text-sm text-red-300">{error}</p>
+          </div>
+        )}
+
+        {result && (
+          <div className="space-y-4">
+            {/* Editable message */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-2">
+                Your Message (tap to edit)
+              </p>
+              <textarea
+                value={editedMessage}
+                onChange={(e) => setEditedMessage(e.target.value)}
+                rows={4}
+                className="w-full rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-3 text-sm text-zinc-200 leading-relaxed resize-none focus:outline-none focus:ring-1 focus:ring-emerald-500/50 placeholder:text-zinc-600"
+                aria-label="Editable team group message"
+              />
+            </div>
+
+            {/* Team highlight */}
+            {result.team_highlight && (
+              <div className="flex items-start gap-2 rounded-xl bg-amber-500/8 border border-amber-500/20 px-3 py-2.5">
+                <Star className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-400 mb-0.5">Team Highlight</p>
+                  <p className="text-xs text-zinc-300">{result.team_highlight}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Skills covered */}
+            {result.coaching_focus && result.coaching_focus.length > 0 && (
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1.5">Skills Covered</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {result.coaching_focus.map((focus, i) => (
+                    <span key={i} className="text-xs bg-emerald-500/12 text-emerald-300 border border-emerald-500/20 rounded-full px-2.5 py-0.5">
+                      {focus}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="flex gap-2 pt-1">
+              <Button
+                size="sm"
+                onClick={handleShare}
+                className="flex-1 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                aria-label="Share team group message via WhatsApp or SMS"
+              >
+                {shared
+                  ? <><Check className="h-4 w-4" /> Sent!</>
+                  : <><Share2 className="h-4 w-4" /> Send to WhatsApp Group</>}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopy}
+                className="gap-1.5 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                aria-label="Copy team group message to clipboard"
+              >
+                {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+                {copied ? 'Copied!' : 'Copy'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Pre-Session Briefing ─────────────────────────────────────────────────────
 
 function PreSessionBriefingCard({
@@ -2146,6 +2361,15 @@ export default function SessionDetailPage() {
       {/* Player Session Messages — quick send-ready notes for players/parents */}
       {activeTeam && (
         <PlayerSessionMessagesCard
+          sessionId={sessionId}
+          teamId={activeTeam.id}
+          observationCount={observations?.length || 0}
+        />
+      )}
+
+      {/* Team Group Message — one-tap WhatsApp/SMS for the parent group chat */}
+      {activeTeam && (
+        <TeamGroupMessageCard
           sessionId={sessionId}
           teamId={activeTeam.id}
           observationCount={observations?.length || 0}

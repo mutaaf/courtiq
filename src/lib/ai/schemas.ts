@@ -348,3 +348,14 @@ export const playerSessionMessagesSchema = z.object({
 });
 
 export type PlayerSessionMessages = z.infer<typeof playerSessionMessagesSchema>;
+
+export const teamGroupMessageSchema = z.object({
+  message: z.string().min(30),                  // 2–4 warm, parent-friendly sentences
+  session_label: z.string(),                    // e.g. "Tuesday's Practice — Apr 22"
+  team_highlight: z.string().min(10),           // Key team moment worth celebrating
+  coaching_focus: z.array(z.string()).min(1).max(4), // Skills worked on
+  encouragement: z.string().min(10),            // Closing note for parents
+  next_session_note: z.string().optional(),     // Optional next-session hint
+});
+
+export type TeamGroupMessage = z.infer<typeof teamGroupMessageSchema>;

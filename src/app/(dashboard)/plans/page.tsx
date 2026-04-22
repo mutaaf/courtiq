@@ -77,6 +77,7 @@ const PLAN_TYPE_CONFIG: Record<
   season_summary: { label: 'Season Summary', icon: BarChart2, color: 'text-cyan-400' },
   coach_reflection: { label: 'Coach Reflection', icon: PenLine, color: 'text-purple-400' },
   player_messages: { label: 'Player Messages', icon: MessageSquare, color: 'text-teal-400' },
+  team_group_message: { label: 'Team Group Message', icon: Users, color: 'text-emerald-400' },
 };
 
 const SUGGESTION_CHIPS = [
@@ -150,6 +151,136 @@ function PlayerMsgItem({ msg }: { msg: { player_name: string; message: string; h
           <p className="text-[10px] font-semibold uppercase tracking-wider text-orange-400 mb-0.5">Next Focus</p>
           <p className="text-xs text-zinc-300">{msg.next_focus}</p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+interface TeamGroupMessageData {
+  message: string;
+  session_label?: string;
+  team_highlight?: string;
+  coaching_focus?: string[];
+  encouragement?: string;
+  next_session_note?: string;
+}
+
+function TeamGroupMessageRenderer({ data }: { data: TeamGroupMessageData }) {
+  const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState(false);
+
+  const fullText = [
+    data.session_label ? `🏀 ${data.session_label}` : '',
+    '',
+    data.message,
+    data.coaching_focus?.length ? `\nToday we focused on: ${data.coaching_focus.join(', ')}` : '',
+    data.encouragement ? `\n${data.encouragement}` : '',
+    data.next_session_note ? `\n📅 ${data.next_session_note}` : '',
+  ].filter(Boolean).join('\n').trim();
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(fullText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  }
+
+  async function handleShare() {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: 'Team Update', text: fullText });
+      } else {
+        window.open(`https://wa.me/?text=${encodeURIComponent(fullText)}`, '_blank', 'noopener');
+      }
+      setShared(true);
+      setTimeout(() => setShared(false), 2000);
+    } catch { /* user cancelled */ }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <Users className="h-5 w-5 text-emerald-400" />
+          <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Team Group Message</span>
+        </div>
+        {data.session_label && (
+          <p className="text-sm text-zinc-400">{data.session_label}</p>
+        )}
+      </div>
+
+      {/* The ready-to-send message */}
+      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-2">Send to Parent Group</p>
+        <p className="text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap">{data.message}</p>
+      </div>
+
+      {/* Team highlight */}
+      {data.team_highlight && (
+        <div className="flex items-start gap-2 rounded-xl bg-amber-500/8 border border-amber-500/20 p-4">
+          <Star className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs font-medium text-amber-300 mb-0.5">Team Highlight</p>
+            <p className="text-sm text-zinc-300 leading-relaxed">{data.team_highlight}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Coaching focus chips */}
+      {data.coaching_focus && data.coaching_focus.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Skills Covered</p>
+          <div className="flex flex-wrap gap-2">
+            {data.coaching_focus.map((focus, i) => (
+              <span key={i} className="text-xs bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 rounded-full px-2.5 py-1">
+                {focus}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Encouragement */}
+      {data.encouragement && (
+        <div className="flex items-start gap-2 rounded-xl bg-blue-500/8 border border-blue-500/20 p-4">
+          <div>
+            <p className="text-xs font-medium text-blue-300 mb-0.5">Closing Note</p>
+            <p className="text-sm text-zinc-300 leading-relaxed italic">{data.encouragement}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Next session note */}
+      {data.next_session_note && (
+        <div className="flex items-start gap-2 rounded-xl bg-zinc-800/60 border border-zinc-700 p-3">
+          <Calendar className="h-4 w-4 text-zinc-400 mt-0.5 shrink-0" />
+          <p className="text-sm text-zinc-300">{data.next_session_note}</p>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-3">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 gap-2 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
+          onClick={handleShare}
+          aria-label="Share team group message via WhatsApp or SMS"
+        >
+          {shared ? <Check className="h-4 w-4 text-emerald-400" /> : <Share2 className="h-4 w-4" />}
+          {shared ? 'Shared!' : 'Share via WhatsApp'}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+          onClick={handleCopy}
+          aria-label="Copy team group message to clipboard"
+        >
+          {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+          {copied ? 'Copied!' : 'Copy'}
+        </Button>
       </div>
     </div>
   );
@@ -1717,6 +1848,18 @@ export default function PlansPage() {
             </div>
           )}
         </div>
+      );
+    }
+
+    // Team Group Message renderer
+    if (
+      typeof structured.message === 'string' &&
+      Array.isArray(structured.coaching_focus) &&
+      typeof structured.encouragement === 'string' &&
+      !Array.isArray(structured.messages)
+    ) {
+      return (
+        <TeamGroupMessageRenderer data={structured as any} />
       );
     }
 
