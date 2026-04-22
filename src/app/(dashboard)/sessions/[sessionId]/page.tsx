@@ -54,6 +54,7 @@ import {
   PenLine,
   Send,
   Share2,
+  Plus,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
@@ -133,6 +134,96 @@ const PRIORITY_CONFIG: Record<
   medium: { label: 'Medium', color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20' },
   low:    { label: 'Low',    color: 'text-zinc-400',   bg: 'bg-zinc-700/30 border-zinc-700/50' },
 };
+
+// ─── Session Coverage Tracker ─────────────────────────────────────────────────
+
+function SessionCoverageTracker({
+  rosterPlayers,
+  observations,
+  sessionId,
+}: {
+  rosterPlayers: Player[];
+  observations: any[];
+  sessionId: string;
+}) {
+  const [showObserved, setShowObserved] = useState(false);
+  const observedIds = new Set(
+    observations.filter((o) => o.player_id).map((o) => o.player_id)
+  );
+  const unobserved = rosterPlayers.filter((p) => !observedIds.has(p.id));
+  const observed = rosterPlayers.filter((p) => observedIds.has(p.id));
+  const allCovered = unobserved.length === 0;
+
+  return (
+    <Card className="border-zinc-800">
+      <CardContent className="p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-zinc-400" />
+            <span className="text-sm font-medium">Coverage</span>
+            <Badge
+              className={
+                allCovered
+                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                  : 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+              }
+            >
+              {observed.length}/{rosterPlayers.length}
+            </Badge>
+          </div>
+          {observed.length > 0 && (
+            <button
+              onClick={() => setShowObserved(!showObserved)}
+              className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              {showObserved ? 'Hide observed' : `Show observed (${observed.length})`}
+            </button>
+          )}
+        </div>
+
+        {allCovered ? (
+          <div className="flex items-center gap-1.5 text-emerald-400 text-xs">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            <span>Every player observed this session</span>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs text-zinc-500">Tap a player to add an observation:</p>
+            <div className="flex flex-wrap gap-1.5">
+              {unobserved.map((player) => (
+                <Link
+                  key={player.id}
+                  href={`/capture?sessionId=${sessionId}&playerId=${player.id}`}
+                >
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium border border-orange-500/50 text-orange-300 bg-orange-500/10 hover:bg-orange-500/20 active:scale-95 transition-all touch-manipulation">
+                    <Plus className="h-3 w-3" />
+                    {player.name}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {showObserved && observed.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-zinc-800">
+            <div className="flex flex-wrap gap-1.5">
+              {observed.map((player) => (
+                <span
+                  key={player.id}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400"
+                >
+                  <CheckCircle2 className="h-3 w-3" />
+                  {player.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 function GameRecapCard({
   sessionId,
@@ -1953,6 +2044,15 @@ export default function SessionDetailPage() {
             <Badge variant="secondary">{observations?.length || 0}</Badge>
           </h2>
         </div>
+
+        {/* Coverage Tracker — who have I observed this session? */}
+        {rosterPlayers.length > 0 && !obsLoading && (
+          <SessionCoverageTracker
+            rosterPlayers={rosterPlayers}
+            observations={observations || []}
+            sessionId={sessionId}
+          />
+        )}
 
         {observations?.length === 0 ? (
           <Card>
