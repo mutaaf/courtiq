@@ -15,7 +15,7 @@ export default function PrivacyPage() {
 
         <div className="flex items-center gap-3 mb-8">
           <Shield className="h-8 w-8 text-emerald-500" />
-          <h1 className="text-3xl font-bold">Privacy Policy &amp; Terms</h1>
+          <h1 className="text-3xl font-bold">Privacy Policy</h1>
         </div>
 
         <div className="space-y-8 text-sm text-zinc-300 leading-relaxed">
@@ -117,8 +117,14 @@ export default function PrivacyPage() {
           </section>
         </div>
 
-        <div className="mt-12 border-t border-zinc-800 pt-6 text-center text-xs text-zinc-600">
-          Last updated: April 2026
+        <div className="mt-12 border-t border-zinc-800 pt-6 text-center text-xs text-zinc-600 space-y-2">
+          <p>
+            See also:{' '}
+            <Link href="/terms" className="text-zinc-400 hover:text-zinc-300 underline">
+              Terms of Service
+            </Link>
+          </p>
+          <p>Last updated: April 2026</p>
         </div>
       </div>
     </div>
