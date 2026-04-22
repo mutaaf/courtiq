@@ -185,6 +185,7 @@ You run every hour. Here's how to be effective.
 
 ### P20 — Practice Workflow Quality
 - [x] **Post-Practice Debrief — skill categories + completion screen** — two improvements to the debrief modal: (1) templates now carry proper skill categories (hustle, passing, defense, awareness, leadership, shooting, rebounding, dribbling, teamwork, footwork) instead of generic 'General', feeding accurate data into drill recommendations, skill trend analysis, momentum scores, and plan AI; two new templates per sentiment side added (Great shooting / Strong rebounding; Footwork / Free throws); (2) a new 'done' completion step replaces the abrupt close — coach sees celebration summary (X observations for Y players), then two next-action cards: "View Session" (links to session detail with AI debrief + replay) and "Plan Next Practice" (links to plans page for AI-generated plan from today's data); closes the practice loop instead of dropping coaches on the home page
+- [x] **Session Coverage Tracker** — compact coverage card in the Observations section of every session detail page; shows observed/unobserved player counts (X/Y badge); unobserved players appear as tappable orange chips that deep-link to /capture with that player pre-selected (one tap to fix a coaching blind spot); all-covered state shows emerald "Every player observed" confirmation; observed players toggleable on demand; no new API routes or tables (uses already-fetched rosterPlayers + session observations)
 
 ---
 
