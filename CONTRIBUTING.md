@@ -196,6 +196,9 @@ You run every hour. Here's how to be effective.
 ### P24 — Practice Timer UX
 - [x] **Practice Template Library** — 6 pre-built, sport/age-specific drill queues load into the practice timer with one tap, eliminating the blank-queue friction for volunteer coaches. Templates: Basketball U6-8 (30 min, 4 drills), U9-12 (45 min, 5 drills), U13-18 (60 min, 5 drills); Soccer U6-8 (30 min, 4 drills), U9-12 (45 min, 4 drills); Generic First Practice (30 min, 4 drills — any sport). Every drill ships with 3-5 rotating coaching cues. Template picker appears only when queue is empty; sport/age ranking surfaces best-fit templates first using team.sport_id + team.age_group. Green "Loaded template" banner (distinct from the blue plan banner). `src/lib/practice-templates.ts` — 14 pure utility functions (getTemplatesForSport, getTemplateById, getTotalMinutes, getDrillCount, matchesAgeGroup, rankTemplates, hasSufficientCues, buildTemplateLabel, buildTemplateSummary, filterByTag, getAllTags, templateFitsSession, scaleTemplateDuration); 57 unit tests; total suite: 1606 tests
 
+### P25 — Quick Capture UX
+- [x] **Templates tab in Quick Capture widget** — the floating Zap button now offers two tabs: Voice (existing AI flow) and Templates (new no-AI path). Templates tab mirrors the practice timer mini-dropdown UX: sentiment toggle (Positive/Needs Work) → 10 template chips per side from `OBSERVATION_TEMPLATES` → player picker grid (roster lazy-loaded on first open) → "Saved!" auto-reset confirmation; no AI roundtrip, no voice, works in noisy gyms or with spotty WiFi; `source: 'template'` on saved observations; haptic feedback on save; query cache invalidated for home-stats, home-pulse, and observations; all existing voice behavior unchanged
+
 ---
 
 ## Architecture Rules
