@@ -33,9 +33,16 @@ import {
   AlertCircle,
   RotateCcw,
   ClipboardList,
+  Layers,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Drill, Player, Session, Plan } from '@/types/database';
+import {
+  getTemplatesForSport,
+  rankTemplates,
+  buildTemplateSummary,
+  type PracticeTemplate,
+} from '@/lib/practice-templates';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -316,6 +323,8 @@ export default function PracticeTimerPage({
   const [customName, setCustomName] = useState('');
   const [customDuration, setCustomDuration] = useState('10');
   const [showDrillPicker, setShowDrillPicker] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [loadedTemplateName, setLoadedTemplateName] = useState<string | null>(null);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cueIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -620,6 +629,27 @@ export default function PracticeTimerPage({
       d.category.toLowerCase().includes(drillSearch.toLowerCase())
   );
 
+  // ── Practice templates ───────────────────────────────────────────────────
+  const availableTemplates = rankTemplates(
+    getTemplatesForSport(activeTeam?.sport_id || ''),
+    activeTeam?.sport_id || '',
+    activeTeam?.age_group || ''
+  );
+
+  const loadTemplate = (template: PracticeTemplate) => {
+    const items: QueueItem[] = template.drills.map((d, i) => ({
+      id: `tpl-${template.id}-${i}-${Date.now()}`,
+      name: d.name,
+      durationSecs: d.durationMins * 60,
+      cues: d.cues,
+      description: d.description,
+    }));
+    setQueue(items);
+    setLoadedTemplateName(template.name);
+    setLoadedPlanTitle(null);
+    setShowTemplatePicker(false);
+  };
+
   // ── Render ───────────────────────────────────────────────────────────────
 
   // Done
@@ -792,6 +822,80 @@ export default function PracticeTimerPage({
         <div className="flex items-center gap-2 rounded-lg bg-blue-500/10 border border-blue-500/20 px-4 py-3 text-sm text-blue-300">
           <ClipboardList className="h-4 w-4 shrink-0" />
           Loaded from plan: <span className="font-medium">{loadedPlanTitle}</span>
+        </div>
+      )}
+
+      {/* Template loaded banner */}
+      {loadedTemplateName && !loadedPlanTitle && (
+        <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-sm text-emerald-300">
+          <Layers className="h-4 w-4 shrink-0" />
+          Loaded template: <span className="font-medium">{loadedTemplateName}</span>
+        </div>
+      )}
+
+      {/* Template Picker */}
+      {queue.length === 0 && !planLoading && (
+        <div className="space-y-3">
+          <button
+            onClick={() => setShowTemplatePicker((v) => !v)}
+            className="flex items-center gap-2 w-full rounded-xl border border-dashed border-emerald-700/50 bg-emerald-500/5 px-4 py-3 text-sm font-medium text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+            aria-expanded={showTemplatePicker}
+          >
+            <Layers className="h-4 w-4 shrink-0" />
+            <span className="flex-1 text-left">Use a Practice Template</span>
+            <span className="text-xs text-emerald-600 font-normal">
+              {showTemplatePicker ? 'Close' : 'Pick one to start instantly'}
+            </span>
+          </button>
+
+          {showTemplatePicker && (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 overflow-hidden">
+              <div className="px-4 py-3 border-b border-zinc-800">
+                <p className="text-xs text-zinc-500">
+                  Pre-built drill queues — load one and hit Start. You can still edit drills after loading.
+                </p>
+              </div>
+              <div className="divide-y divide-zinc-800">
+                {availableTemplates.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    onClick={() => loadTemplate(tpl)}
+                    className="flex items-start gap-3 w-full px-4 py-4 text-left hover:bg-zinc-800/60 transition-colors group"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 group-hover:bg-emerald-500/25 transition-colors mt-0.5">
+                      <Layers className="h-4 w-4 text-emerald-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-zinc-100">
+                          {tpl.name}
+                        </span>
+                        <span className="text-xs text-zinc-500">{tpl.ageLabel}</span>
+                      </div>
+                      <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed line-clamp-2">
+                        {tpl.description}
+                      </p>
+                      <div className="flex items-center gap-3 mt-1.5">
+                        <span className="text-xs text-emerald-500 font-medium">
+                          {buildTemplateSummary(tpl)}
+                        </span>
+                        <div className="flex gap-1">
+                          {tpl.tags.slice(0, 2).map((tag) => (
+                            <span
+                              key={tag}
+                              className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
