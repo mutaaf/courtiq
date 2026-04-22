@@ -29,6 +29,9 @@ You run every hour. Here's how to be effective.
 - [ ] Fix any lint errors
 - [ ] Fix any runtime errors reported in recent commits
 
+### P0.9 — Trust & Legal
+- [x] **Terms of Service page** — `/terms` was a dead 404 linked from landing page footer and every parent share portal; created full ToS covering acceptable use, account responsibilities, subscription/payments, AI content disclaimer, IP, liability, and termination; updated `/privacy` title and added cross-link
+
 ### P1 — Core UX Polish
 - [x] Ensure all buttons/links on every page lead to real functionality — AI assistant "Add to Drills" saves drill structured_data via /api/ai/save-drill; "Share with Parents" copies formatted report to clipboard; both show success state + toast
 - [x] Remove any remaining `[object Object]` or raw JSON in UI — audit log viewer now uses formatConfigValue helper (human-readable inline format for strings/arrays/objects); plans page renderObjectFields already guarded
