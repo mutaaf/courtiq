@@ -49,6 +49,7 @@ import {
   BarChart2,
   Share2,
   PenLine,
+  Copy,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { PrintButton } from '@/components/ui/print-button';
@@ -86,6 +87,73 @@ const SUGGESTION_CHIPS = [
   'Week recap and conditioning',
   'Shooting skills for beginners',
 ];
+
+function PlayerMsgItem({ msg }: { msg: { player_name: string; message: string; highlight: string; next_focus: string } }) {
+  const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState(false);
+
+  async function handleCopy() {
+    const text = `Hi! A quick note on ${msg.player_name} from today:\n\n${msg.message}\n\n⭐ Highlight: ${msg.highlight}\n🎯 Next focus: ${msg.next_focus}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  }
+
+  async function handleShare() {
+    const text = `Hi! A quick note on ${msg.player_name} from today:\n\n${msg.message}\n\n⭐ Highlight: ${msg.highlight}\n🎯 Next focus: ${msg.next_focus}`;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: `Message for ${msg.player_name}`, text });
+      } else {
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+      }
+      setShared(true);
+      setTimeout(() => setShared(false), 2000);
+    } catch { /* user cancelled */ }
+  }
+
+  return (
+    <div className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-4 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-teal-300">{msg.player_name}</p>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 px-2 text-xs text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 shrink-0"
+            onClick={handleShare}
+            aria-label={`Share message for ${msg.player_name} via WhatsApp or SMS`}
+          >
+            {shared ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Share2 className="h-3.5 w-3.5" />}
+            <span>{shared ? 'Sent!' : 'Send'}</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0 shrink-0"
+            onClick={handleCopy}
+            aria-label={`Copy message for ${msg.player_name}`}
+          >
+            {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5 text-zinc-400" />}
+          </Button>
+        </div>
+      </div>
+      <p className="text-sm text-zinc-200 leading-relaxed">{msg.message}</p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="rounded-lg bg-emerald-500/8 border border-emerald-500/20 px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400 mb-0.5">Highlight</p>
+          <p className="text-xs text-zinc-300">{msg.highlight}</p>
+        </div>
+        <div className="rounded-lg bg-orange-500/8 border border-orange-500/20 px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-orange-400 mb-0.5">Next Focus</p>
+          <p className="text-xs text-zinc-300">{msg.next_focus}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function PlansPage() {
   const { activeTeam, coach } = useActiveTeam();
@@ -1669,22 +1737,7 @@ export default function PlansPage() {
           {/* Per-player messages */}
           <div className="space-y-4">
             {(structured.messages as any[]).map((msg: any, idx: number) => (
-              <div key={idx} className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-4 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-teal-300">{msg.player_name}</p>
-                </div>
-                <p className="text-sm text-zinc-200 leading-relaxed">{msg.message}</p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <div className="rounded-lg bg-emerald-500/8 border border-emerald-500/20 px-3 py-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400 mb-0.5">Highlight</p>
-                    <p className="text-xs text-zinc-300">{msg.highlight}</p>
-                  </div>
-                  <div className="rounded-lg bg-orange-500/8 border border-orange-500/20 px-3 py-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-orange-400 mb-0.5">Next Focus</p>
-                    <p className="text-xs text-zinc-300">{msg.next_focus}</p>
-                  </div>
-                </div>
-              </div>
+              <PlayerMsgItem key={idx} msg={msg} />
             ))}
           </div>
 

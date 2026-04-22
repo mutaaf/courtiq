@@ -53,6 +53,7 @@ import {
   BookOpen,
   PenLine,
   Send,
+  Share2,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
@@ -844,6 +845,7 @@ function PlayerSessionMessagesCard({
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<PlayerSessionMessagesResult | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [sharedIdx, setSharedIdx] = useState<number | null>(null);
 
   async function handleGenerate() {
     setIsGenerating(true);
@@ -889,6 +891,21 @@ function PlayerSessionMessagesCard({
       setTimeout(() => setCopiedIdx(null), 2000);
     } catch {
       // ignore clipboard errors
+    }
+  }
+
+  async function handleShare(msg: PlayerMessageEntry, idx: number) {
+    const text = `Hi! A quick note on ${msg.player_name} from today:\n\n${msg.message}\n\n⭐ Highlight: ${msg.highlight}\n🎯 Next focus: ${msg.next_focus}`;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: `Message for ${msg.player_name}`, text });
+      } else {
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+      }
+      setSharedIdx(idx);
+      setTimeout(() => setSharedIdx(null), 2000);
+    } catch {
+      // user cancelled share — ignore
     }
   }
 
@@ -974,19 +991,35 @@ function PlayerSessionMessagesCard({
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold text-teal-300">{msg.player_name}</p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 shrink-0"
-                    onClick={() => handleCopy(msg, idx)}
-                    aria-label={`Copy message for ${msg.player_name}`}
-                  >
-                    {copiedIdx === idx ? (
-                      <Check className="h-3.5 w-3.5 text-emerald-400" />
-                    ) : (
-                      <Copy className="h-3.5 w-3.5 text-zinc-400" />
-                    )}
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 gap-1 px-2 text-xs text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 shrink-0"
+                      onClick={() => handleShare(msg, idx)}
+                      aria-label={`Share message for ${msg.player_name} via WhatsApp or SMS`}
+                    >
+                      {sharedIdx === idx ? (
+                        <Check className="h-3.5 w-3.5 text-emerald-400" />
+                      ) : (
+                        <Share2 className="h-3.5 w-3.5" />
+                      )}
+                      <span>{sharedIdx === idx ? 'Sent!' : 'Send'}</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 shrink-0"
+                      onClick={() => handleCopy(msg, idx)}
+                      aria-label={`Copy message for ${msg.player_name}`}
+                    >
+                      {copiedIdx === idx ? (
+                        <Check className="h-3.5 w-3.5 text-emerald-400" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5 text-zinc-400" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
                 <p className="text-sm text-zinc-200 leading-relaxed">{msg.message}</p>
