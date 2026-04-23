@@ -25,6 +25,7 @@ import {
   ThumbsDown,
   Minus,
   Star,
+  Dumbbell,
 } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
@@ -214,9 +215,9 @@ function ObservationCard({
               </button>
             )}
 
-            {/* Session link */}
-            {obs.session_id && (
-              <div className="mt-2">
+            {/* Session link + drill shortcut */}
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              {obs.session_id && (
                 <Link
                   href={`/sessions/${obs.session_id}`}
                   className="inline-flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition-colors"
@@ -224,8 +225,18 @@ function ObservationCard({
                   <ExternalLink className="h-3 w-3" />
                   View session
                 </Link>
-              </div>
-            )}
+              )}
+              {obs.sentiment === 'needs-work' && obs.category && (
+                <Link
+                  href={`/drills?category=${encodeURIComponent(obs.category)}`}
+                  className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                  title={`Find ${obs.category} drills`}
+                >
+                  <Dumbbell className="h-3 w-3" />
+                  Find drill
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>

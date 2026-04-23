@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'next/navigation';
 import { query } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { CACHE_PROFILES } from '@/lib/query/config';
@@ -33,8 +34,11 @@ export default function DrillsPage() {
   const { activeTeam } = useActiveTeam();
   const router = useRouter();
   const qc = useQueryClient();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(
+    searchParams.get('category') ?? null,
+  );
   const [ageFilter, setAgeFilter] = useState<string | null>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null);
