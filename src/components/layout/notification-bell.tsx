@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Bell, X, AlertTriangle, Target, Calendar, Trophy } from 'lucide-react';
+import { Bell, X, AlertTriangle, Target, Calendar, Trophy, Cake } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useActiveTeam } from '@/hooks/use-active-team';
@@ -39,6 +39,7 @@ const TYPE_CONFIG: Record<
   goal_deadline: { Icon: Target, color: 'text-orange-400', label: 'Goal deadline' },
   session_today: { Icon: Calendar, color: 'text-blue-400', label: 'Session today' },
   achievement_earned: { Icon: Trophy, color: 'text-emerald-400', label: 'Achievement' },
+  birthday_today: { Icon: Cake, color: 'text-amber-400', label: 'Birthday today' },
 };
 
 const PRIORITY_DOT: Record<string, string> = {

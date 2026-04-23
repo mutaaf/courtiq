@@ -36,6 +36,10 @@ import {
   Flame,
   Timer,
   Dumbbell,
+  Cake,
+  Send,
+  Copy,
+  X,
 } from 'lucide-react';
 import type { Session, Drill } from '@/types/database';
 import { useAppStore } from '@/lib/store';
@@ -88,6 +92,18 @@ import { TestimonialPrompt } from '@/components/onboarding/testimonial-prompt';
 import { FreemiumNudge } from '@/components/ui/freemium-nudge';
 import { SeasonalPromo } from '@/components/onboarding/seasonal-promo';
 import { FirstPracticeLauncher } from '@/components/home/first-practice-launcher';
+import {
+  filterBirthdaysToday,
+  filterUpcomingBirthdays,
+  sortByUpcomingBirthday,
+  formatBirthdayLabel,
+  getAgeThisBirthday,
+  buildBirthdayMessage,
+  buildBirthdayWhatsAppUrl,
+  getBirthdayDismissKey,
+  hasUpcomingBirthdays,
+  type BirthdayPlayer,
+} from '@/lib/birthday-utils';
 
 // ─── AI Coaching Tips ─────────────────────────────────────────────────────────
 
@@ -1046,6 +1062,149 @@ function ParentMessagesCard({ teamId }: { teamId: string }) {
 
 // ─── Streak Card ──────────────────────────────────────────────────────────────
 
+// ─── Birthday Card ────────────────────────────────────────────────────────────
+
+function BirthdayCard({ teamId, teamName }: { teamId: string; teamName: string }) {
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return !!localStorage.getItem(getBirthdayDismissKey(teamId));
+  });
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const { data: players = [] } = useQuery({
+    queryKey: ['birthday-players', teamId],
+    queryFn: async (): Promise<BirthdayPlayer[]> => {
+      const result = await query<BirthdayPlayer[]>({
+        table: 'players',
+        select: 'id, name, date_of_birth, parent_name, parent_phone',
+        filters: { team_id: teamId, is_active: true },
+        order: { column: 'name', ascending: true },
+      });
+      return result ?? [];
+    },
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const today = new Date();
+  const todayBirthdays = filterBirthdaysToday(players, today);
+  const upcomingBirthdays = filterUpcomingBirthdays(players, 6, today);
+  const allUpcoming = sortByUpcomingBirthday([...todayBirthdays, ...upcomingBirthdays], today);
+
+  if (!hasUpcomingBirthdays(players, 6, today) || dismissed) return null;
+
+  const dismiss = () => {
+    localStorage.setItem(getBirthdayDismissKey(teamId), '1');
+    setDismissed(true);
+  };
+
+  const handleShare = async (player: BirthdayPlayer) => {
+    const age = player.date_of_birth ? getAgeThisBirthday(player.date_of_birth, today) : null;
+    const message = buildBirthdayMessage(player.name, age, teamName);
+    const waUrl = buildBirthdayWhatsAppUrl(player, teamName, today);
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ text: message });
+        return;
+      } catch {}
+    }
+
+    if (waUrl && /Android|iPhone|iPad/i.test(navigator.userAgent)) {
+      window.open(waUrl, '_blank');
+    } else {
+      await navigator.clipboard.writeText(message).catch(() => {});
+      setCopiedId(player.id);
+      setTimeout(() => setCopiedId(null), 2000);
+    }
+  };
+
+  return (
+    <Card className="border-amber-500/30 bg-amber-500/5 overflow-hidden">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20">
+              <Cake className="h-4 w-4 text-amber-400" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-amber-300">
+                {todayBirthdays.length > 0 ? '🎂 Birthday Today!' : 'Upcoming Birthdays'}
+              </p>
+              <p className="text-xs text-zinc-500">
+                {todayBirthdays.length > 0
+                  ? 'Send a birthday message to the family'
+                  : 'Next 6 days'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={dismiss}
+            className="rounded-full p-1 text-zinc-600 hover:text-zinc-400 transition-colors"
+            aria-label="Dismiss birthday card"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-2.5">
+          {allUpcoming.map((player) => {
+            const isToday = todayBirthdays.some((p) => p.id === player.id);
+            const label = player.date_of_birth ? formatBirthdayLabel(player.date_of_birth, today) : '';
+            const age = player.date_of_birth ? getAgeThisBirthday(player.date_of_birth, today) : null;
+            const isCopied = copiedId === player.id;
+
+            return (
+              <div
+                key={player.id}
+                className={`flex items-center justify-between gap-3 rounded-xl p-3 ${
+                  isToday ? 'bg-amber-500/15 border border-amber-500/20' : 'bg-zinc-900/50'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-sm font-bold text-amber-400">
+                    {player.name[0]}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-zinc-100 truncate">{player.name}</p>
+                    <p className="text-xs text-zinc-500">
+                      {isToday && age !== null ? `Turns ${age} today` : label}
+                      {isToday && age === null ? 'Birthday today!' : ''}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleShare(player)}
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-400 hover:bg-amber-500/20 transition-colors active:scale-95 touch-manipulation"
+                  aria-label={`Send birthday message for ${player.name}`}
+                >
+                  {isCopied ? (
+                    <>
+                      <Copy className="h-3.5 w-3.5" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-3.5 w-3.5" />
+                      {player.parent_phone ? 'Send' : 'Copy'}
+                    </>
+                  )}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {todayBirthdays.length === 0 && (
+          <p className="mt-2 text-xs text-zinc-600 text-center">
+            Tip: Add birthdates in player profiles to get reminders
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function StreakCard({ teamId }: { teamId: string }) {
   const { data, isLoading } = useQuery({
     queryKey: ['coaching-streak', teamId],
@@ -1797,6 +1956,9 @@ export default function HomePage() {
 
       {/* Coaching streak */}
       {showStreak && <StreakCard teamId={activeTeam.id} />}
+
+      {/* Birthday Card — shown when players have birthdays today or in the next 6 days */}
+      <BirthdayCard teamId={activeTeam.id} teamName={activeTeam.name} />
 
       {/* Upcoming sessions this week */}
       {upcomingSessions.length > 0 && <UpcomingSessionsCard sessions={upcomingSessions} />}

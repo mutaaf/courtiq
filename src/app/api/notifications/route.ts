@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
+import { isBirthdayToday, getAgeThisBirthday } from '@/lib/birthday-utils';
 
 export type NotificationType =
   | 'unobserved_player'   // player not observed in 14+ days
   | 'goal_deadline'       // active goal due within 7 days (or overdue)
   | 'session_today'       // session scheduled today with no observations
-  | 'achievement_earned'; // badge awarded in last 48 hours
+  | 'achievement_earned'  // badge awarded in last 48 hours
+  | 'birthday_today';     // player birthday is today
 
 export type NotificationPriority = 'high' | 'medium' | 'low';
 
@@ -79,7 +81,7 @@ export async function GET(request: Request) {
   const [playersRes, obsRes, goalsRes, sessionsRes, achievementsRes] = await Promise.all([
     admin
       .from('players')
-      .select('id, name')
+      .select('id, name, date_of_birth')
       .eq('team_id', teamId)
       .eq('is_active', true),
     admin
@@ -188,6 +190,26 @@ export async function GET(request: Request) {
       href: `/roster/${(ach as any).player_id}`,
       priority: 'low',
       timestamp: (ach as any).earned_at as string,
+    });
+  }
+
+  // ── 5. Player birthdays today ────────────────────────────────────────────────
+  const todayDate = new Date();
+  for (const player of players) {
+    const dob = (player as any).date_of_birth as string | null;
+    if (!dob) continue;
+    if (!isBirthdayToday(dob, todayDate)) continue;
+    const age = getAgeThisBirthday(dob, todayDate);
+    const playerName = (player as any).name as string;
+    const ageText = age !== null ? ` (turns ${age})` : '';
+    notifications.push({
+      id: buildNotificationId('birthday_today', (player as any).id),
+      type: 'birthday_today',
+      title: `🎂 ${playerName}'s birthday!`,
+      body: `${playerName}${ageText} — send a birthday message to the family.`,
+      href: `/roster/${(player as any).id}`,
+      priority: 'high',
+      timestamp: new Date().toISOString(),
     });
   }
 
