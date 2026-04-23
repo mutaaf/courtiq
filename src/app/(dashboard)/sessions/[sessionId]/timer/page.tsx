@@ -39,9 +39,11 @@ import Link from 'next/link';
 import type { Drill, Player, Session, Plan } from '@/types/database';
 import {
   getTemplatesForSport,
+  getTemplateById,
   rankTemplates,
   buildTemplateSummary,
   type PracticeTemplate,
+  type TemplateDrill,
 } from '@/lib/practice-templates';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -302,6 +304,7 @@ export default function PracticeTimerPage({
   const router = useRouter();
   const searchParams = useSearchParams();
   const planId = searchParams.get('planId');
+  const templateIdParam = searchParams.get('templateId');
   const { activeTeam, coach } = useActiveTeam();
 
   // ── State ────────────────────────────────────────────────────────────────
@@ -439,6 +442,23 @@ export default function PracticeTimerPage({
       .finally(() => setPlanLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId]);
+
+  // ── Auto-load template from templateId URL param (from FirstPracticeLauncher) ──
+  useEffect(() => {
+    if (!templateIdParam || queue.length > 0) return;
+    const template = getTemplateById(templateIdParam);
+    if (!template) return;
+    const items: QueueItem[] = template.drills.map((d: TemplateDrill, i: number) => ({
+      id: `tpl-${template.id}-${i}-${Date.now()}`,
+      name: d.name,
+      durationSecs: d.durationMins * 60,
+      cues: d.cues,
+      description: d.description,
+    }));
+    setQueue(items);
+    setLoadedTemplateName(template.name);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateIdParam]);
 
   // ── Timer logic ──────────────────────────────────────────────────────────
   const clearIntervals = useCallback(() => {

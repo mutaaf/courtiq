@@ -77,6 +77,7 @@ import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { TestimonialPrompt } from '@/components/onboarding/testimonial-prompt';
 import { FreemiumNudge } from '@/components/ui/freemium-nudge';
 import { SeasonalPromo } from '@/components/onboarding/seasonal-promo';
+import { FirstPracticeLauncher } from '@/components/home/first-practice-launcher';
 
 // ─── AI Coaching Tips ─────────────────────────────────────────────────────────
 
@@ -1633,6 +1634,16 @@ export default function HomePage() {
           </>
         )}
       </div>
+
+      {/* First Practice Launcher — shown until the coach runs their first session */}
+      {!isLoadingStats && coach && stats?.sessions === 0 && (
+        <FirstPracticeLauncher
+          teamId={activeTeam.id}
+          coachId={coach.id}
+          sportId={activeTeam.sport_id || ''}
+          ageGroup={activeTeam.age_group || ''}
+        />
+      )}
 
       {/* Daily Focus — ONE actionable coaching task for today */}
       {pulse?.dailyFocus && (

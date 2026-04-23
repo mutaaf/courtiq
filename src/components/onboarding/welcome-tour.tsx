@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { X, ChevronRight, Mic, Users, Sparkles, Settings } from 'lucide-react';
+import { X, ChevronRight, Mic, Users, Sparkles } from 'lucide-react';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
 
 const TOUR_STORAGE_KEY = 'sportsiq-tour-complete';
@@ -48,12 +48,12 @@ const TOUR_STEPS: TourStep[] = [
     position: 'bottom-left',
   },
   {
-    title: 'Configure AI',
+    title: 'Start your first practice',
     description:
-      'Head to Settings to add your AI provider key and customize how SportsIQ works for your team.',
-    icon: Settings,
-    targetSelector: '[data-tour="settings"]',
-    position: 'bottom-left',
+      "You're all set! Tap the orange Start Practice button on your home screen whenever you're ready. A ready-made drill plan will be waiting for you.",
+    icon: Sparkles,
+    targetSelector: null,
+    position: 'center',
   },
 ];
 
