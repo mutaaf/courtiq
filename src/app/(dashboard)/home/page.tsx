@@ -64,6 +64,11 @@ import {
   hasEnoughDataForTrends,
 } from '@/lib/skill-trend-utils';
 import type { SkillTrend } from '@/lib/skill-trend-utils';
+import {
+  buildDailyFocusSuggestion,
+  capitaliseCategory,
+} from '@/lib/daily-focus-utils';
+import type { DailyFocusSuggestion } from '@/lib/daily-focus-utils';
 import type { WeeklyStar } from '@/lib/ai/schemas';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -535,6 +540,86 @@ function SkillTrendsCard({
   );
 }
 
+// ─── Daily Focus Card ─────────────────────────────────────────────────────────
+
+function DailyFocusCard({
+  suggestion,
+  teamId,
+}: {
+  suggestion: DailyFocusSuggestion;
+  teamId: string;
+}) {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const dismissKey = `daily-focus-dismissed-${teamId}-${todayStr}`;
+
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(dismissKey) === '1';
+  });
+
+  if (dismissed) return null;
+
+  function dismiss() {
+    localStorage.setItem(dismissKey, '1');
+    setDismissed(true);
+  }
+
+  const firstName = suggestion.playerName.split(' ')[0];
+  const skillLabel = suggestion.skillToFocus
+    ? capitaliseCategory(suggestion.skillToFocus)
+    : null;
+
+  return (
+    <div className="rounded-2xl border border-indigo-500/25 bg-indigo-500/5 p-4 space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/20">
+            <Target className="h-4 w-4 text-indigo-400" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-indigo-400">
+              Today&apos;s Focus
+            </p>
+            <p className="text-sm font-bold text-zinc-100 leading-snug">
+              Give{' '}
+              <span className="text-indigo-300">{firstName}</span>{' '}
+              some feedback
+              {skillLabel && (
+                <> on <span className="text-indigo-300">{skillLabel}</span></>
+              )}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={dismiss}
+          className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800 transition-colors touch-manipulation"
+          aria-label="Dismiss today's focus"
+        >
+          <span className="text-lg leading-none">×</span>
+        </button>
+      </div>
+
+      <p className="text-xs text-zinc-400 leading-snug pl-10">
+        {suggestion.reason}
+      </p>
+
+      <div className="pl-10">
+        <Link href={suggestion.captureHref}>
+          <Button
+            size="sm"
+            className="gap-1.5 touch-manipulation active:scale-[0.97]"
+            aria-label={`Capture observation for ${firstName}`}
+          >
+            <Mic className="h-3.5 w-3.5" />
+            Capture Observation
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 // ─── Team Pulse ────────────────────────────────────────────────────────────────
 
 interface PulseStats {
@@ -548,6 +633,7 @@ interface PulseStats {
   totalPlayers: number;
   topFocusArea: { category: string; count: number } | null;
   skillTrends: { improving: SkillTrend[]; declining: SkillTrend[] } | null;
+  dailyFocus: DailyFocusSuggestion | null;
 }
 
 function TeamPulseCard({ pulse }: { pulse: PulseStats }) {
@@ -1309,6 +1395,15 @@ export default function HomePage() {
         }
       }
 
+      // Daily focus suggestion — one actionable coaching task for today
+      const decliningTrends = skillTrends?.declining ?? [];
+      const dailyFocus = buildDailyFocusSuggestion(
+        playersData,
+        recentObs,
+        decliningTrends,
+        new Date()
+      );
+
       return {
         obs14dCount: recentObs.length,
         obs7dCount: obs7d.length,
@@ -1320,6 +1415,7 @@ export default function HomePage() {
         totalPlayers: playersData.length,
         topFocusArea,
         skillTrends,
+        dailyFocus,
       };
     },
     enabled: !!activeTeam,
@@ -1537,6 +1633,11 @@ export default function HomePage() {
           </>
         )}
       </div>
+
+      {/* Daily Focus — ONE actionable coaching task for today */}
+      {pulse?.dailyFocus && (
+        <DailyFocusCard suggestion={pulse.dailyFocus} teamId={activeTeam.id} />
+      )}
 
       {/* Coaching streak */}
       {showStreak && <StreakCard teamId={activeTeam.id} />}
