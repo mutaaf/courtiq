@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Check } from 'lucide-react';
+import { Check, Clock } from 'lucide-react';
 import type { Player, PlayerAvailability } from '@/types/database';
 import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { AvailabilityBadge } from '@/components/roster/availability-badge';
@@ -13,9 +13,20 @@ import { PlayerAvailabilityModal } from '@/components/roster/player-availability
 import type { PlayerMomentum } from '@/lib/momentum-utils';
 import { getMomentumBadgeClasses, getMomentumLabel } from '@/lib/momentum-utils';
 
+function formatLastObserved(iso: string | null): { label: string; className: string } | null {
+  if (!iso) return { label: 'Never observed', className: 'text-zinc-600' };
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (days === 0) return { label: 'Seen today', className: 'text-emerald-500' };
+  if (days === 1) return { label: '1d ago', className: 'text-zinc-500' };
+  if (days < 7) return { label: `${days}d ago`, className: 'text-amber-400' };
+  if (days < 14) return { label: `${days}d ago`, className: 'text-orange-400' };
+  return { label: `${days}d ago`, className: 'text-red-400' };
+}
+
 interface PlayerCardProps {
   player: Player;
   observationCount?: number;
+  lastObserved?: string | null;
   selectMode?: boolean;
   selected?: boolean;
   onSelect?: (playerId: string) => void;
@@ -36,6 +47,7 @@ const positionColors: Record<string, string> = {
 export function PlayerCard({
   player,
   observationCount = 0,
+  lastObserved = null,
   selectMode = false,
   selected = false,
   onSelect,
@@ -129,6 +141,17 @@ export function PlayerCard({
                 </span>
               )}
             </div>
+            {/* Last observed chip — always visible, gives coaches a quick attention-queue scan */}
+            {(() => {
+              const fmt = formatLastObserved(observationCount === 0 ? null : lastObserved);
+              if (!fmt) return null;
+              return (
+                <div className={cn('mt-1.5 flex items-center gap-1', fmt.className)}>
+                  <Clock className="h-3 w-3 shrink-0" aria-hidden="true" />
+                  <span className="text-[11px] leading-none">{fmt.label}</span>
+                </div>
+              );
+            })()}
             {/* Return date hint */}
             {availability?.expected_return && status !== 'available' && (
               <p className="mt-1 text-[10px] text-zinc-500">
