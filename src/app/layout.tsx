@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Providers } from '@/components/providers';
 import { SwRegister } from '@/components/ui/sw-register';
 import { ErrorTrackingInit } from '@/components/ui/error-tracking-init';
@@ -17,7 +19,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'SportsIQ — Coaching Intelligence',
-  description: 'Voice-first, AI-powered coaching intelligence platform',
+  description: 'Voice-first, AI-powered coaching intelligence platform for youth sports',
+  metadataBase: new URL('https://youthsportsiq.com'),
   manifest: '/manifest.json',
   icons: {
     icon: '/favicon.svg',
@@ -52,6 +55,8 @@ export default function RootLayout({
         <SwRegister />
         <ErrorTrackingInit />
         <Providers>{children}</Providers>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
