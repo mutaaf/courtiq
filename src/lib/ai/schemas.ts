@@ -374,3 +374,17 @@ export const teamGroupMessageSchema = z.object({
 });
 
 export type TeamGroupMessage = z.infer<typeof teamGroupMessageSchema>;
+
+export const huddleScriptSchema = z.object({
+  huddle_script: z.string().min(30),             // Full 30-second script the coach reads aloud
+  player_spotlight: z.object({
+    player_id: z.string().optional(),
+    name: z.string().min(1),                     // Player first name
+    achievement: z.string().min(5),              // Specific thing they did well
+  }),
+  team_shoutout: z.string().min(10),             // One thing the whole team did well
+  team_challenge: z.string().min(10),            // One skill to practice before next session
+  next_session_hint: z.string().optional(),      // e.g. "Thursday at 4pm at Northside Gym"
+});
+
+export type HuddleScript = z.infer<typeof huddleScriptSchema>;

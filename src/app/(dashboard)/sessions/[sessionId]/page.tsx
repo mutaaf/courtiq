@@ -56,6 +56,7 @@ import {
   Share2,
   Plus,
   Eye,
+  Megaphone,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
@@ -72,6 +73,11 @@ import {
   buildHalftimeShareText,
 } from '@/lib/halftime-utils';
 import { getRatingLabel, getRatingColor, isValidRating } from '@/lib/session-quality-utils';
+import {
+  buildHuddleShareText,
+  hasNextSessionHint,
+} from '@/lib/huddle-script-utils';
+import type { HuddleScript } from '@/lib/huddle-script-utils';
 
 const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   practice: 'Practice',
@@ -1366,6 +1372,194 @@ function TeamGroupMessageCard({
   );
 }
 
+// ─── Practice Huddle Script ───────────────────────────────────────────────────
+
+function HuddleScriptCard({
+  sessionId,
+  teamId,
+  observationCount,
+}: {
+  sessionId: string;
+  teamId: string;
+  observationCount: number;
+}) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [script, setScript] = useState<HuddleScript | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [nextSessionHint, setNextSessionHint] = useState('');
+
+  async function handleGenerate() {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/ai/huddle-script', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          teamId,
+          nextSessionHint: nextSessionHint.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate huddle script');
+      }
+      const data = await res.json();
+      setScript(data.huddleScript);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function handleCopy() {
+    if (!script) return;
+    try {
+      await navigator.clipboard.writeText(buildHuddleShareText(script));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // ignore clipboard errors
+    }
+  }
+
+  const canGenerate = observationCount > 0;
+
+  return (
+    <Card className={script ? 'border-lime-500/20' : 'border-zinc-800'}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-lime-500/15">
+              <Megaphone className="h-4 w-4 text-lime-400" />
+            </div>
+            Huddle Script
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            {script && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCopy}
+                className="h-8 gap-1.5 text-xs"
+                aria-label="Copy huddle script to clipboard"
+              >
+                {copied ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
+                {copied ? 'Copied!' : 'Copy'}
+              </Button>
+            )}
+            <Button
+              variant={script ? 'ghost' : 'outline'}
+              size="sm"
+              onClick={handleGenerate}
+              disabled={isGenerating || !canGenerate}
+              className="h-8 gap-1.5 text-xs"
+              aria-label="Generate practice huddle script"
+            >
+              {isGenerating ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5 text-lime-400" />
+              )}
+              {script ? 'Regenerate' : 'Generate'}
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {!canGenerate && !script && (
+          <p className="text-sm text-zinc-500 text-center py-4">
+            Add player observations first to generate a huddle script.
+          </p>
+        )}
+
+        {canGenerate && !script && !isGenerating && (
+          <div className="space-y-3">
+            <p className="text-sm text-zinc-500">
+              Generate a 30-second end-of-practice script to read to your team — spotlights one player, assigns a weekly challenge, and closes with a chant.
+            </p>
+            <div>
+              <label htmlFor="next-session-hint" className="text-xs text-zinc-500 block mb-1">
+                Next session info (optional)
+              </label>
+              <input
+                id="next-session-hint"
+                type="text"
+                value={nextSessionHint}
+                onChange={(e) => setNextSessionHint(e.target.value)}
+                placeholder="e.g. Thursday at 4pm at Northside Gym"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-lime-500/50 focus:outline-none"
+              />
+            </div>
+          </div>
+        )}
+
+        {isGenerating && (
+          <div className="flex items-center gap-2 py-4 text-sm text-zinc-400">
+            <Loader2 className="h-4 w-4 animate-spin text-lime-400" />
+            Writing your huddle script…
+          </div>
+        )}
+
+        {error && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            {error}
+          </div>
+        )}
+
+        {script && !isGenerating && (
+          <div className="space-y-4">
+            {/* Full script */}
+            <div className="rounded-xl border border-lime-500/20 bg-lime-500/5 p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-lime-400 mb-2">
+                Read to your team
+              </p>
+              <p className="text-sm text-zinc-200 leading-relaxed">{script.huddle_script}</p>
+            </div>
+
+            {/* Player spotlight */}
+            <div className="flex items-start gap-2 rounded-xl bg-amber-500/8 border border-amber-500/20 p-3">
+              <Star className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-[10px] font-medium text-amber-300 mb-0.5">Player Spotlight</p>
+                <p className="text-sm text-zinc-300">
+                  <span className="font-semibold text-amber-200">{script.player_spotlight.name}</span>
+                  {' — '}{script.player_spotlight.achievement}
+                </p>
+              </div>
+            </div>
+
+            {/* Team challenge */}
+            <div className="flex items-start gap-2 rounded-xl bg-lime-500/8 border border-lime-500/20 p-3">
+              <Target className="h-4 w-4 text-lime-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-[10px] font-medium text-lime-300 mb-0.5">Team Challenge</p>
+                <p className="text-sm text-zinc-300">{script.team_challenge}</p>
+              </div>
+            </div>
+
+            {/* Next session hint */}
+            {hasNextSessionHint(script) && (
+              <div className="flex items-center gap-2 rounded-xl bg-zinc-800/60 border border-zinc-700 px-4 py-3">
+                <Calendar className="h-4 w-4 text-zinc-400 shrink-0" />
+                <p className="text-sm text-zinc-400">{script.next_session_hint}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Pre-Session Briefing ─────────────────────────────────────────────────────
 
 function PreSessionBriefingCard({
@@ -2413,6 +2607,15 @@ export default function SessionDetailPage() {
       {/* Team Group Message — one-tap WhatsApp/SMS for the parent group chat */}
       {activeTeam && (
         <TeamGroupMessageCard
+          sessionId={sessionId}
+          teamId={activeTeam.id}
+          observationCount={observations?.length || 0}
+        />
+      )}
+
+      {/* Huddle Script — 30-second end-of-practice script to read to the team */}
+      {activeTeam && (
+        <HuddleScriptCard
           sessionId={sessionId}
           teamId={activeTeam.id}
           observationCount={observations?.length || 0}

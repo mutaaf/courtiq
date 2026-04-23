@@ -50,6 +50,7 @@ import {
   Share2,
   PenLine,
   Copy,
+  Megaphone,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { PrintButton } from '@/components/ui/print-button';
@@ -79,6 +80,7 @@ const PLAN_TYPE_CONFIG: Record<
   player_messages: { label: 'Player Messages', icon: MessageSquare, color: 'text-teal-400' },
   team_group_message: { label: 'Team Group Message', icon: Users, color: 'text-emerald-400' },
   season_awards: { label: 'Season Awards', icon: Trophy, color: 'text-amber-400' },
+  huddle_script: { label: 'Huddle Script', icon: Megaphone, color: 'text-lime-400' },
 };
 
 const SUGGESTION_CHIPS = [
@@ -283,6 +285,91 @@ function TeamGroupMessageRenderer({ data }: { data: TeamGroupMessageData }) {
           {copied ? 'Copied!' : 'Copy'}
         </Button>
       </div>
+    </div>
+  );
+}
+
+interface HuddleScriptData {
+  huddle_script: string;
+  player_spotlight: { name: string; achievement: string };
+  team_shoutout: string;
+  team_challenge: string;
+  next_session_hint?: string;
+}
+
+function HuddleScriptRenderer({ data }: { data: HuddleScriptData }) {
+  const [copied, setCopied] = useState(false);
+
+  const shareText = [
+    '⭐ TEAM HUDDLE SCRIPT ⭐',
+    '',
+    data.huddle_script,
+    data.next_session_hint ? `\n📅 Next up: ${data.next_session_hint}` : '',
+  ].filter(Boolean).join('\n').trim();
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <Megaphone className="h-5 w-5 text-lime-400" />
+          <span className="text-xs font-semibold uppercase tracking-widest text-lime-400">Huddle Script</span>
+        </div>
+      </div>
+
+      {/* Full script */}
+      <div className="rounded-xl border border-lime-500/20 bg-lime-500/5 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wider text-lime-400 mb-2">Read to your team</p>
+        <p className="text-sm text-zinc-200 leading-relaxed">{data.huddle_script}</p>
+      </div>
+
+      {/* Player spotlight */}
+      <div className="flex items-start gap-2 rounded-xl bg-amber-500/8 border border-amber-500/20 p-4">
+        <Star className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+        <div>
+          <p className="text-xs font-medium text-amber-300 mb-0.5">Player Spotlight</p>
+          <p className="text-sm text-zinc-300">
+            <span className="font-semibold text-amber-200">{data.player_spotlight.name}</span>
+            {' — '}{data.player_spotlight.achievement}
+          </p>
+        </div>
+      </div>
+
+      {/* Team challenge */}
+      <div className="flex items-start gap-2 rounded-xl bg-lime-500/8 border border-lime-500/20 p-4">
+        <Target className="h-4 w-4 text-lime-400 mt-0.5 shrink-0" />
+        <div>
+          <p className="text-xs font-medium text-lime-300 mb-0.5">Team Challenge</p>
+          <p className="text-sm text-zinc-300">{data.team_challenge}</p>
+        </div>
+      </div>
+
+      {/* Next session */}
+      {data.next_session_hint && (
+        <div className="flex items-center gap-2 rounded-xl bg-zinc-800/60 border border-zinc-700 px-4 py-3">
+          <Calendar className="h-4 w-4 text-zinc-400 shrink-0" />
+          <p className="text-sm text-zinc-400">{data.next_session_hint}</p>
+        </div>
+      )}
+
+      {/* Copy button */}
+      <Button
+        variant="outline"
+        size="sm"
+        className="w-full gap-2 border-lime-500/30 text-lime-300 hover:bg-lime-500/10"
+        onClick={handleCopy}
+        aria-label="Copy huddle script to clipboard"
+      >
+        {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+        {copied ? 'Copied!' : 'Copy Script'}
+      </Button>
     </div>
   );
 }
@@ -2020,6 +2107,18 @@ export default function PlansPage() {
             </div>
           )}
         </div>
+      );
+    }
+
+    // Huddle Script renderer
+    if (
+      typeof structured.huddle_script === 'string' &&
+      structured.player_spotlight &&
+      typeof (structured.player_spotlight as any).name === 'string' &&
+      typeof structured.team_challenge === 'string'
+    ) {
+      return (
+        <HuddleScriptRenderer data={structured as any} />
       );
     }
 

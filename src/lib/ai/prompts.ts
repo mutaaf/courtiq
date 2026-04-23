@@ -841,4 +841,52 @@ export const PROMPT_REGISTRY = {
       '{ "message": "2-4 sentence team-wide text", "session_label": "string", "team_highlight": "string", "coaching_focus": ["skill1", "skill2"], "encouragement": "closing sentence", "next_session_note": "optional string" }',
     ].filter(Boolean).join('\n'),
   }),
+  huddleScript: (params: PromptParams & {
+    sessionLabel: string;
+    sessionType: string;
+    observationSummary: {
+      totalObs: number;
+      positive: number;
+      needsWork: number;
+      topStrengths: string[];
+      topChallenges: string[];
+    };
+    playerSpotlight?: { name: string; achievement: string } | null;
+    coachName?: string;
+    teamName?: string;
+    nextSessionHint?: string;
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You write short, energising end-of-practice team huddle scripts for volunteer coaches to read aloud to their players (ages 6–18).',
+      '',
+      'Rules:',
+      '- huddle_script: the full script the coach reads aloud — 4–6 sentences. Structure: (1) team shoutout, (2) player spotlight callout, (3) team challenge for the week, (4) next session reminder (if provided), (5) team chant closer ("On three — 1, 2, 3, GO TEAM!").',
+      '- player_spotlight.name: use the provided player name. player_spotlight.achievement: one specific thing they did today.',
+      '- team_shoutout: one thing the WHOLE team did well (not about one player).',
+      '- team_challenge: one simple, concrete skill to practise before next session (e.g. "dribble with your weak hand for 5 minutes a day"). Phrased as a fun challenge, not a homework assignment.',
+      '- next_session_hint (optional): only include when provided. Otherwise omit.',
+      '- Tone: warm, celebratory, age-appropriate. No jargon. Mention player by first name only.',
+      '- Keep the total script under 80 words so it takes 30 seconds to read.',
+    ].join('\n'),
+    user: [
+      `Session: ${params.sessionLabel} (${params.sessionType})`,
+      `Team: ${params.teamName || 'your team'} · ${params.ageGroup || 'youth'} ${params.sportName || 'basketball'}`,
+      `Coach: ${params.coachName || 'Coach'}`,
+      '',
+      'Session summary:',
+      `- ${params.observationSummary.totalObs} observations total (${params.observationSummary.positive} positive, ${params.observationSummary.needsWork} needs-work)`,
+      `- Team strengths today: ${params.observationSummary.topStrengths.join(', ') || 'general effort'}`,
+      `- Areas to improve: ${params.observationSummary.topChallenges.join(', ') || 'keep working hard'}`,
+      params.playerSpotlight
+        ? `- Player to spotlight: ${params.playerSpotlight.name} (achievement: ${params.playerSpotlight.achievement})`
+        : '- No specific player to spotlight — pick a positive team moment instead',
+      params.nextSessionHint
+        ? `- Next session: ${params.nextSessionHint}`
+        : '',
+      '',
+      'Generate huddle script JSON:',
+      '{ "huddle_script": "full 4-6 sentence script under 80 words", "player_spotlight": { "name": "FirstName", "achievement": "specific achievement" }, "team_shoutout": "what the whole team did well", "team_challenge": "one skill to practise", "next_session_hint": "optional" }',
+    ].filter(Boolean).join('\n'),
+  }),
 } as const;
