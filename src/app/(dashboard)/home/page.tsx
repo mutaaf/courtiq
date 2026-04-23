@@ -708,6 +708,141 @@ function TeamPulseCard({ pulse }: { pulse: PulseStats }) {
   );
 }
 
+// ─── Parent Messages Card ─────────────────────────────────────────────────────
+
+interface ParentReactionItem {
+  id: string;
+  reaction: string;
+  message: string | null;
+  parent_name: string | null;
+  is_read: boolean;
+  created_at: string;
+  players: { name: string; nickname: string | null } | null;
+}
+
+function ParentMessagesCard({ teamId }: { teamId: string }) {
+  const qc = useQueryClient();
+  const [markingRead, setMarkingRead] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['parent-reactions', teamId],
+    queryFn: async (): Promise<ParentReactionItem[]> => {
+      const res = await fetch(`/api/parent-reactions?team_id=${teamId}`);
+      if (!res.ok) return [];
+      const json = await res.json();
+      return json.reactions ?? [];
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  if (isLoading || !data || data.length === 0) return null;
+
+  const unreadCount = data.filter((r) => !r.is_read).length;
+  const recent = data.slice(0, 3);
+
+  async function markAllRead() {
+    setMarkingRead(true);
+    try {
+      await fetch(`/api/parent-reactions?team_id=${teamId}`, { method: 'PATCH' });
+      qc.setQueryData(['parent-reactions', teamId], (prev: ParentReactionItem[] | undefined) =>
+        (prev ?? []).map((r) => ({ ...r, is_read: true }))
+      );
+    } finally {
+      setMarkingRead(false);
+    }
+  }
+
+  function displayName(r: ParentReactionItem): string {
+    if (r.parent_name?.trim()) return r.parent_name.trim();
+    return 'A parent';
+  }
+
+  function playerName(r: ParentReactionItem): string {
+    return r.players?.nickname || r.players?.name || 'your player';
+  }
+
+  function timeAgo(ts: string): string {
+    const diff = Date.now() - new Date(ts).getTime();
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    return `${days}d ago`;
+  }
+
+  return (
+    <Card className="overflow-hidden border-pink-500/25">
+      <div className="bg-gradient-to-r from-pink-500/10 via-rose-500/5 to-transparent px-5 pt-4 pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-pink-500/20">
+              <span className="text-sm" aria-hidden="true">💌</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-zinc-100">Parent Messages</h3>
+                {unreadCount > 0 && (
+                  <Badge className="bg-pink-500/20 text-pink-300 text-[10px] px-1.5 py-0 h-4 border-0">
+                    {unreadCount} new
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-zinc-500">Parents are cheering you on</p>
+            </div>
+          </div>
+          {unreadCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-zinc-400 hover:text-zinc-200 px-2"
+              onClick={markAllRead}
+              disabled={markingRead}
+              aria-label="Mark all parent reactions as read"
+            >
+              {markingRead ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Mark read'}
+            </Button>
+          )}
+        </div>
+      </div>
+      <CardContent className="px-5 pb-5 pt-3 space-y-3">
+        {recent.map((r) => (
+          <div
+            key={r.id}
+            className={`flex items-start gap-3 rounded-xl p-3 transition-colors ${
+              !r.is_read ? 'bg-pink-500/8 border border-pink-500/20' : 'bg-zinc-900/50'
+            }`}
+          >
+            <span className="text-xl shrink-0 mt-0.5" aria-hidden="true">{r.reaction}</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-zinc-300">
+                {displayName(r)}{' '}
+                <span className="font-normal text-zinc-500">
+                  about <span className="text-zinc-400">{playerName(r)}</span>
+                </span>
+              </p>
+              {r.message && (
+                <p className="mt-0.5 text-sm text-zinc-200 leading-snug">&ldquo;{r.message}&rdquo;</p>
+              )}
+              <p className="mt-1 text-[11px] text-zinc-600">{timeAgo(r.created_at)}</p>
+            </div>
+            {!r.is_read && (
+              <div className="h-2 w-2 rounded-full bg-pink-500 shrink-0 mt-1.5" aria-hidden="true" />
+            )}
+          </div>
+        ))}
+        {data.length > 3 && (
+          <p className="text-xs text-zinc-600 text-center">
+            +{data.length - 3} more reaction{data.length - 3 !== 1 ? 's' : ''}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Streak Card ──────────────────────────────────────────────────────────────
 
 function StreakCard({ teamId }: { teamId: string }) {
@@ -1469,6 +1604,11 @@ export default function HomePage() {
           improving={pulse.skillTrends.improving}
           declining={pulse.skillTrends.declining}
         />
+      )}
+
+      {/* Parent Messages — shown when parents have sent reactions from share portal */}
+      {!isLoadingStats && stats && stats.players > 0 && (
+        <ParentMessagesCard teamId={activeTeam.id} />
       )}
 
       {/* More Insights — collapsible on mobile, always visible on desktop */}

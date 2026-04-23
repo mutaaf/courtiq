@@ -1,5 +1,6 @@
 import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { ParentViralCTA } from '@/components/share/parent-viral-cta';
+import { ParentReactionForm } from '@/components/share/parent-reaction-form';
 import { Megaphone } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -407,6 +408,15 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             </p>
           </div>
         )}
+
+        {/* ─── Parent Reaction ─── */}
+        <div className="mx-4 mt-4">
+          <ParentReactionForm
+            shareToken={token}
+            playerFirstName={firstName}
+            coachName={coachName}
+          />
+        </div>
 
         {/* ─── Viral CTA ─── */}
         <div className="mx-4 mt-6">

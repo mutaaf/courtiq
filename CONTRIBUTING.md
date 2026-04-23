@@ -203,6 +203,9 @@ You run every hour. Here's how to be effective.
 ### P25 — Quick Capture UX
 - [x] **Templates tab in Quick Capture widget** — the floating Zap button now offers two tabs: Voice (existing AI flow) and Templates (new no-AI path). Templates tab mirrors the practice timer mini-dropdown UX: sentiment toggle (Positive/Needs Work) → 10 template chips per side from `OBSERVATION_TEMPLATES` → player picker grid (roster lazy-loaded on first open) → "Saved!" auto-reset confirmation; no AI roundtrip, no voice, works in noisy gyms or with spotty WiFi; `source: 'template'` on saved observations; haptic feedback on save; query cache invalidated for home-stats, home-pulse, and observations; all existing voice behavior unchanged
 
+### P26 — Parent Feedback Loop
+- [x] **Parent Reactions** — parents viewing a player's share portal can tap an emoji reaction (❤️ 👏 🌟 🙌 🔥) and optionally add a message + their name to send direct appreciation to the coach; IP-rate-limited POST `/api/parent-reactions` (30/day) validates the share token before storing; coach sees a pink-accented "Parent Messages" card on the home dashboard showing up to 3 recent reactions with player attribution, unread badge count, and a one-tap "Mark read" button; GET/PATCH `/api/parent-reactions` for coach auth; `parent_reactions` table (migration 023); `parent-reaction-utils.ts` pure utility module (isValidReaction, isValidMessage, isValidParentName, getReactionLabel, formatReactionTime, buildDisplayName, countReactionsByType, countUnread, hasUnread, getRecentReactions, sortNewest, hasReactions, getTotalReactionCount, getReactionsWithMessages, getMostUsedReaction, buildSummaryLine, groupReactionsByPlayer); 43 unit tests; total suite: 1706 tests
+
 ---
 
 ## Architecture Rules

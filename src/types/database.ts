@@ -616,3 +616,18 @@ export interface TeamAnnouncement {
   expires_at: string | null;
   created_at: string;
 }
+
+// ─── Parent Reactions ─────────────────────────────────────────────────────────
+
+export interface ParentReaction {
+  id: string;
+  share_token: string;
+  player_id: string | null;
+  team_id: string | null;
+  coach_id: string | null;
+  reaction: string;
+  message: string | null;
+  parent_name: string | null;
+  is_read: boolean;
+  created_at: string;
+}
