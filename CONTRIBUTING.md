@@ -28,6 +28,7 @@ You run every hour. Here's how to be effective.
 - [ ] Fix any failing tests
 - [ ] Fix any lint errors
 - [ ] Fix any runtime errors reported in recent commits
+- [x] **Practice Timer observation data quality** — break-screen notes were saved with `sentiment: 'neutral'` + `category: 'general'`, making them invisible to AI debrief, momentum scores, skill trends, drill recommendations, and weekly star; fixed by adding a 👍/👎 sentiment toggle to the break screen, carrying `category` from drill library items through `QueueItem → CapturedNote → save`, and removing the triple player-name lookup in favour of storing `playerId` directly; save button colour matches selected sentiment; Done screen notes show colour-coded sentiment badges
 
 ### P0.9 — Trust & Legal
 - [x] **Terms of Service page** — `/terms` was a dead 404 linked from landing page footer and every parent share portal; created full ToS covering acceptable use, account responsibilities, subscription/payments, AI content disclaimer, IP, liability, and termination; updated `/privacy` title and added cross-link
