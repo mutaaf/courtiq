@@ -35,8 +35,9 @@ import {
   Bell,
   Flame,
   Timer,
+  Dumbbell,
 } from 'lucide-react';
-import type { Session } from '@/types/database';
+import type { Session, Drill } from '@/types/database';
 import { useAppStore } from '@/lib/store';
 import { PostPracticeDebrief } from '@/components/capture/post-practice-debrief';
 import { formatTimeAgo } from '@/lib/team-wins-utils';
@@ -69,6 +70,15 @@ import {
   capitaliseCategory,
 } from '@/lib/daily-focus-utils';
 import type { DailyFocusSuggestion } from '@/lib/daily-focus-utils';
+import {
+  selectDrillOfDay,
+  buildDrillDismissKey,
+  buildDrillViewUrl,
+  getDrillCategoryLabel,
+  getDrillDurationLabel,
+  getDrillCues,
+  getDrillPlayerCountLabel,
+} from '@/lib/drill-of-day-utils';
 import type { WeeklyStar } from '@/lib/ai/schemas';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -614,6 +624,110 @@ function DailyFocusCard({
             <Mic className="h-3.5 w-3.5" />
             Capture Observation
             <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+// ─── Drill of the Day ─────────────────────────────────────────────────────────
+
+function DrillOfDayCard({
+  drill,
+  category,
+  teamId,
+}: {
+  drill: Drill;
+  category: string;
+  teamId: string;
+}) {
+  const dateKey = new Date().toISOString().split('T')[0];
+  const dismissKey = buildDrillDismissKey(teamId, dateKey);
+
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(dismissKey) === '1';
+  });
+
+  if (dismissed) return null;
+
+  const cues = getDrillCues(drill, 1);
+  const duration = getDrillDurationLabel(drill.duration_minutes);
+  const categoryLabel = getDrillCategoryLabel(category);
+  const viewUrl = buildDrillViewUrl(category);
+
+  return (
+    <div className="rounded-2xl border border-orange-500/25 bg-orange-500/5 p-4 space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/20">
+            <Dumbbell className="h-4 w-4 text-orange-400" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-xs font-semibold uppercase tracking-wider text-orange-400">
+                Drill of the Day
+              </p>
+              <span className="rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] font-medium text-orange-300">
+                {categoryLabel}
+              </span>
+            </div>
+            <p className="text-sm font-bold text-zinc-100 leading-snug mt-0.5 truncate">
+              {drill.name}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => {
+            localStorage.setItem(dismissKey, '1');
+            setDismissed(true);
+          }}
+          className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800 transition-colors touch-manipulation"
+          aria-label="Dismiss drill of the day"
+        >
+          <span className="text-lg leading-none">×</span>
+        </button>
+      </div>
+
+      {drill.description && (
+        <p className="text-xs text-zinc-400 leading-relaxed pl-10 line-clamp-2">
+          {drill.description}
+        </p>
+      )}
+
+      {cues.length > 0 && (
+        <div className="pl-10">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">
+            Key coaching cue
+          </p>
+          <p className="text-xs text-zinc-300 italic">&ldquo;{cues[0]}&rdquo;</p>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between pl-10">
+        <div className="flex items-center gap-3">
+          {duration && (
+            <span className="flex items-center gap-1 text-xs text-zinc-500">
+              <Timer className="h-3 w-3" />
+              {duration}
+            </span>
+          )}
+          {drill.player_count_min > 0 && (
+            <span className="text-xs text-zinc-500">
+              {getDrillPlayerCountLabel(drill.player_count_min, drill.player_count_max)}
+            </span>
+          )}
+        </div>
+        <Link href={viewUrl}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1.5 border-orange-500/30 text-orange-300 hover:bg-orange-500/10 text-xs touch-manipulation"
+            aria-label={`View all ${categoryLabel} drills`}
+          >
+            <ArrowRight className="h-3 w-3" />
+            See Drills
           </Button>
         </Link>
       </div>
@@ -1423,6 +1537,28 @@ export default function HomePage() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Drills for Drill of the Day — only fetched when there's a known skill gap
+  const { data: drillsForGap = [] } = useQuery({
+    queryKey: ['drills-for-gap', activeTeam?.sport_id],
+    queryFn: async (): Promise<Drill[]> => {
+      if (!activeTeam?.sport_id) return [];
+      const result = await query<Drill[]>({
+        table: 'drills',
+        select: 'id, name, description, category, duration_minutes, player_count_min, player_count_max, teaching_cues, equipment, source',
+        filters: { sport_id: activeTeam.sport_id },
+        limit: 200,
+      });
+      return result ?? [];
+    },
+    enabled: !!activeTeam?.sport_id && !!pulse?.topFocusArea,
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+
+  const drillOfDay = useMemo(() => {
+    if (!pulse?.topFocusArea || !drillsForGap.length || !activeTeam) return null;
+    return selectDrillOfDay(drillsForGap, pulse.topFocusArea.category, activeTeam.id, new Date());
+  }, [pulse?.topFocusArea, drillsForGap, activeTeam]);
+
   // Today's and upcoming sessions — drives the session-awareness card on the home dashboard
   const { todayStr, tomorrowStr, in7DaysStr } = useMemo(() => {
     const now = Date.now();
@@ -1648,6 +1784,15 @@ export default function HomePage() {
       {/* Daily Focus — ONE actionable coaching task for today */}
       {pulse?.dailyFocus && (
         <DailyFocusCard suggestion={pulse.dailyFocus} teamId={activeTeam.id} />
+      )}
+
+      {/* Drill of the Day — targeted drill for the team's top skill gap */}
+      {drillOfDay && pulse?.topFocusArea && (
+        <DrillOfDayCard
+          drill={drillOfDay}
+          category={pulse.topFocusArea.category}
+          teamId={activeTeam.id}
+        />
       )}
 
       {/* Coaching streak */}
