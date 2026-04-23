@@ -48,6 +48,7 @@ import {
   type PracticeTemplate,
   type TemplateDrill,
 } from '@/lib/practice-templates';
+import { OBSERVATION_TEMPLATES } from '@/lib/observation-templates';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -97,12 +98,13 @@ function BreakScreen({
   drillJustFinished: string;
   nextDrillName?: string;
   players: Player[];
-  onSave: (note: string, playerId?: string, playerName?: string, sentiment?: Sentiment) => void;
+  onSave: (note: string, playerId?: string, playerName?: string, sentiment?: Sentiment, category?: string) => void;
   onSkip: () => void;
 }) {
   const [note, setNote] = useState('');
   const [selectedPlayer, setSelectedPlayer] = useState<string>('');
   const [sentiment, setSentiment] = useState<Sentiment>('positive');
+  const [templateCategory, setTemplateCategory] = useState<string | undefined>(undefined);
   const textRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -112,8 +114,10 @@ function BreakScreen({
   const handleSave = () => {
     if (!note.trim()) { onSkip(); return; }
     const player = players.find((p) => p.id === selectedPlayer);
-    onSave(note.trim(), player?.id, player?.name, sentiment);
+    onSave(note.trim(), player?.id, player?.name, sentiment, templateCategory);
   };
+
+  const visibleTemplates = OBSERVATION_TEMPLATES.filter((t) => t.sentiment === sentiment).slice(0, 5);
 
   return (
     <div className="flex flex-col min-h-screen bg-zinc-950 p-6">
@@ -144,7 +148,7 @@ function BreakScreen({
           <div className="flex gap-3">
             <button
               type="button"
-              onClick={() => setSentiment('positive')}
+              onClick={() => { setSentiment('positive'); setNote(''); setTemplateCategory(undefined); }}
               className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all touch-manipulation active:scale-[0.98] ${
                 sentiment === 'positive'
                   ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
@@ -156,7 +160,7 @@ function BreakScreen({
             </button>
             <button
               type="button"
-              onClick={() => setSentiment('needs-work')}
+              onClick={() => { setSentiment('needs-work'); setNote(''); setTemplateCategory(undefined); }}
               className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all touch-manipulation active:scale-[0.98] ${
                 sentiment === 'needs-work'
                   ? 'bg-red-500/20 border border-red-500/40 text-red-300'
@@ -166,6 +170,34 @@ function BreakScreen({
               <ThumbsDown className="h-4 w-4" />
               Needs Work
             </button>
+          </div>
+        </div>
+
+        {/* Quick templates */}
+        <div>
+          <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wide">Quick templates</p>
+          <div className="flex flex-wrap gap-2">
+            {visibleTemplates.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => {
+                  setNote(t.text);
+                  setTemplateCategory(t.category);
+                  textRef.current?.focus();
+                }}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors touch-manipulation active:scale-[0.97] ${
+                  note === t.text && templateCategory === t.category
+                    ? sentiment === 'positive'
+                      ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
+                      : 'bg-red-500/20 border border-red-500/40 text-red-300'
+                    : 'bg-zinc-800 border border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'
+                }`}
+              >
+                <span>{t.emoji}</span>
+                {t.text}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -203,10 +235,14 @@ function BreakScreen({
 
         <Textarea
           ref={textRef}
-          placeholder="Type an observation… (e.g. 'Great footwork on the pivot', 'Needs work on left-hand dribble')"
+          placeholder="Type an observation… or tap a template above"
           value={note}
-          onChange={(e) => setNote(e.target.value)}
-          className="min-h-[100px] text-base bg-zinc-900 border-zinc-700 resize-none"
+          onChange={(e) => {
+            setNote(e.target.value);
+            setTemplateCategory(undefined);
+          }}
+          rows={4}
+          className="min-h-[80px] text-base bg-zinc-900 border-zinc-700 resize-none"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && note.trim()) {
               handleSave();
@@ -584,7 +620,7 @@ export default function PracticeTimerPage({
     setMode('break');
   };
 
-  const handleBreakSave = (note: string, playerId?: string, playerName?: string, sentiment: Sentiment = 'positive') => {
+  const handleBreakSave = (note: string, playerId?: string, playerName?: string, sentiment: Sentiment = 'positive', category?: string) => {
     const drill = queue[currentIdx];
     setNotes((prev) => [
       ...prev,
@@ -594,7 +630,7 @@ export default function PracticeTimerPage({
         playerId,
         playerName,
         sentiment,
-        category: drill.category || 'general',
+        category: category || drill.category || 'general',
         timestamp: new Date(),
       },
     ]);

@@ -30,6 +30,9 @@ You run every hour. Here's how to be effective.
 - [ ] Fix any runtime errors reported in recent commits
 - [x] **Practice Timer observation data quality** — break-screen notes were saved with `sentiment: 'neutral'` + `category: 'general'`, making them invisible to AI debrief, momentum scores, skill trends, drill recommendations, and weekly star; fixed by adding a 👍/👎 sentiment toggle to the break screen, carrying `category` from drill library items through `QueueItem → CapturedNote → save`, and removing the triple player-name lookup in favour of storing `playerId` directly; save button colour matches selected sentiment; Done screen notes show colour-coded sentiment badges
 
+### P36 — Practice Timer UX Polish
+- [x] **Quick Observation Templates on Break Screen** — 5 sentiment-filtered template chips shown between the sentiment toggle and player picker on the Practice Timer break screen; tapping a chip fills the textarea and carries the template's skill category (overriding the drill's default category) so saved observations are filed under the correct skill rather than the drill's category; sentiment toggle clears the current chip selection; manual typing in the textarea also clears chip selection; category passthrough added as optional 5th arg to `onSave` / `handleBreakSave`; consistent with existing template chips in Quick Capture widget (P25) and Practice Mini-Dropdown (P1.5)
+
 ### P0.9 — Trust & Legal
 - [x] **Terms of Service page** — `/terms` was a dead 404 linked from landing page footer and every parent share portal; created full ToS covering acceptable use, account responsibilities, subscription/payments, AI content disclaimer, IP, liability, and termination; updated `/privacy` title and added cross-link
 
