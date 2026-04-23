@@ -289,6 +289,8 @@ function DoneScreen({
   saveError,
   onSave,
   sessionId,
+  isRecovered,
+  onStartFresh,
 }: {
   drillsRun: QueueItem[];
   notes: CapturedNote[];
@@ -296,18 +298,45 @@ function DoneScreen({
   saveError: string | null;
   onSave: () => void;
   sessionId: string;
+  isRecovered?: boolean;
+  onStartFresh?: () => void;
 }) {
   return (
     <div className="flex flex-col min-h-screen bg-zinc-950 p-6">
       <div className="flex-1 flex flex-col items-center justify-center gap-6 max-w-xl mx-auto w-full text-center">
+
+        {/* Recovery banner — shown when session was restored from a crash */}
+        {isRecovered && (
+          <div className="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex items-start gap-3 text-left">
+            <RotateCcw className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-300">
+                Recovered {notes.length} observation{notes.length !== 1 ? 's' : ''}
+              </p>
+              <p className="text-xs text-amber-400/70 mt-0.5">
+                The app was closed before these were saved. Save them now to keep them.
+              </p>
+            </div>
+            {onStartFresh && (
+              <button
+                onClick={onStartFresh}
+                className="shrink-0 text-xs text-zinc-500 hover:text-zinc-300 underline"
+              >
+                Discard
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/20">
           <Trophy className="h-10 w-10 text-emerald-400" />
         </div>
         <div>
           <h2 className="text-3xl font-bold text-zinc-100">Practice Done!</h2>
           <p className="text-zinc-400 mt-2">
-            {drillsRun.length} drill{drillsRun.length !== 1 ? 's' : ''} •{' '}
-            {fmt(totalDuration(drillsRun))} total
+            {drillsRun.length > 0
+              ? `${drillsRun.length} drill${drillsRun.length !== 1 ? 's' : ''} • ${fmt(totalDuration(drillsRun))} total`
+              : `${notes.length} observation${notes.length !== 1 ? 's' : ''} captured`}
           </p>
         </div>
 
@@ -396,14 +425,51 @@ export default function PracticeTimerPage({
   const templateIdParam = searchParams.get('templateId');
   const { activeTeam, coach } = useActiveTeam();
 
+  // ── Persistence keys ─────────────────────────────────────────────────────
+  const NOTES_KEY = `practice-timer-notes-v1-${sessionId}`;
+  const QUEUE_KEY = `practice-timer-queue-v1-${sessionId}`;
+
   // ── State ────────────────────────────────────────────────────────────────
-  const [mode, setMode] = useState<TimerMode>('setup');
-  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [notes, setNotes] = useState<CapturedNote[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem(`practice-timer-notes-v1-${sessionId}`);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as any[];
+      return parsed.map((n) => ({ ...n, timestamp: new Date(n.timestamp) }));
+    } catch { return []; }
+  });
+  const [isRecovered, setIsRecovered] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const raw = localStorage.getItem(`practice-timer-notes-v1-${sessionId}`);
+      if (!raw) return false;
+      return (JSON.parse(raw) as any[]).length > 0;
+    } catch { return false; }
+  });
+  const [mode, setMode] = useState<TimerMode>(() => {
+    if (typeof window === 'undefined') return 'setup';
+    try {
+      const raw = localStorage.getItem(`practice-timer-notes-v1-${sessionId}`);
+      if (!raw) return 'setup';
+      return (JSON.parse(raw) as any[]).length > 0 ? 'done' : 'setup';
+    } catch { return 'setup'; }
+  });
+  const [queue, setQueue] = useState<QueueItem[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const notesRaw = localStorage.getItem(`practice-timer-notes-v1-${sessionId}`);
+      const hasNotes = notesRaw && (JSON.parse(notesRaw) as any[]).length > 0;
+      if (hasNotes) return [];
+      const raw = localStorage.getItem(`practice-timer-queue-v1-${sessionId}`);
+      if (!raw) return [];
+      return JSON.parse(raw) as QueueItem[];
+    } catch { return []; }
+  });
   const [currentIdx, setCurrentIdx] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [cueIdx, setCueIdx] = useState(0);
-  const [notes, setNotes] = useState<CapturedNote[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -468,7 +534,7 @@ export default function PracticeTimerPage({
 
   // ── Load plan queue from planId search param ─────────────────────────────
   useEffect(() => {
-    if (!planId || queue.length > 0) return;
+    if (!planId || queue.length > 0 || isRecovered) return;
 
     setPlanLoading(true);
     query<Plan>({
@@ -534,7 +600,7 @@ export default function PracticeTimerPage({
 
   // ── Auto-load template from templateId URL param (from FirstPracticeLauncher) ──
   useEffect(() => {
-    if (!templateIdParam || queue.length > 0) return;
+    if (!templateIdParam || queue.length > 0 || isRecovered) return;
     const template = getTemplateById(templateIdParam);
     if (!template) return;
     const items: QueueItem[] = template.drills.map((d: TemplateDrill, i: number) => ({
@@ -593,6 +659,26 @@ export default function PracticeTimerPage({
   useEffect(() => {
     return () => clearIntervals();
   }, [clearIntervals]);
+
+  // Auto-persist captured notes so they survive accidental app closes
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      if (notes.length > 0) {
+        localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+      }
+    } catch { /* quota errors are non-fatal */ }
+  }, [notes, NOTES_KEY]);
+
+  // Auto-persist drill queue so setup isn't lost on accidental close
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      if (queue.length > 0 && mode === 'setup') {
+        localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+      }
+    } catch { /* quota errors are non-fatal */ }
+  }, [queue, mode, QUEUE_KEY]);
 
   const handlePauseResume = () => {
     if (isPaused) {
@@ -686,6 +772,11 @@ export default function PracticeTimerPage({
         data: rows,
       });
 
+      // Clear persisted data — observations are now in the DB
+      try {
+        localStorage.removeItem(NOTES_KEY);
+        localStorage.removeItem(QUEUE_KEY);
+      } catch { /* ignore */ }
       setSaveSuccess(true);
       // Navigate back after brief success delay
       setTimeout(() => router.push(`/sessions/${sessionId}`), 1200);
@@ -693,6 +784,18 @@ export default function PracticeTimerPage({
       setSaveError(err.message || 'Failed to save observations');
       setIsSaving(false);
     }
+  };
+
+  // ── Discard recovered data and start fresh ───────────────────────────────
+  const handleStartFresh = () => {
+    try {
+      localStorage.removeItem(NOTES_KEY);
+      localStorage.removeItem(QUEUE_KEY);
+    } catch { /* ignore */ }
+    setNotes([]);
+    setQueue([]);
+    setIsRecovered(false);
+    setMode('setup');
   };
 
   // ── Queue management ─────────────────────────────────────────────────────
@@ -777,6 +880,8 @@ export default function PracticeTimerPage({
         saveError={saveError}
         onSave={handleSaveObservations}
         sessionId={sessionId}
+        isRecovered={isRecovered}
+        onStartFresh={handleStartFresh}
       />
     );
   }
