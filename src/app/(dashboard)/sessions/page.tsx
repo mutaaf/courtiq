@@ -16,6 +16,7 @@ import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { RecurringSessionsPanel } from '@/components/sessions/recurring-sessions-panel';
 import { AnnouncementsPanel } from '@/components/sessions/announcements-panel';
 import type { Session, SessionType } from '@/types/database';
+import { parseResult, getResultBadgeClasses, getResultLabel } from '@/lib/season-record-utils';
 
 const SESSION_TYPE_CONFIG: Record<SessionType, { label: string; color: string }> = {
   practice: { label: 'Practice', color: 'bg-blue-500/20 text-blue-400' },
@@ -152,6 +153,7 @@ export default function SessionsPage() {
           {sessions?.map((session: any) => {
             const typeConfig = SESSION_TYPE_CONFIG[session.type as SessionType];
             const obsCount = session.observations?.[0]?.count || 0;
+            const parsedResult = parseResult(session.result);
 
             return (
               <Link key={session.id} href={`/sessions/${session.id}`}>
@@ -159,12 +161,19 @@ export default function SessionsPage() {
                   <CardContent className="p-5 sm:p-4">
                     <div className="flex items-start justify-between">
                       <div className="space-y-1.5">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span
                             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${typeConfig.color}`}
                           >
                             {typeConfig.label}
                           </span>
+                          {parsedResult && (
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold ${getResultBadgeClasses(parsedResult)}`}
+                            >
+                              {getResultLabel(parsedResult)}
+                            </span>
+                          )}
                           {session.opponent && (
                             <span className="text-sm text-zinc-300">
                               vs {session.opponent}

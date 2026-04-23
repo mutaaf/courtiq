@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, TrendingDown, Minus, Users, Eye, Calendar, Target, AlertTriangle, CheckCircle2, Activity, LineChart as LineChartIcon, LayoutGrid, BarChart2, ArrowRight, Download, ChevronDown, Share2, X, Copy, Check, Lightbulb, Star } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Users, Eye, Calendar, Target, AlertTriangle, CheckCircle2, Activity, LineChart as LineChartIcon, LayoutGrid, BarChart2, ArrowRight, Download, ChevronDown, Share2, X, Copy, Check, Lightbulb, Star, Trophy } from 'lucide-react';
 import { UpgradeGate } from '@/components/ui/upgrade-gate';
 import { PrintButton } from '@/components/ui/print-button';
 import type { Observation, Player, Session, Sentiment } from '@/types/database';
@@ -45,6 +45,23 @@ import {
   filterRated,
   type RatedSession,
 } from '@/lib/session-quality-utils';
+import {
+  calculateSeasonRecord,
+  getCurrentStreak,
+  formatStreakLabel,
+  formatRecordString,
+  getWinPct,
+  getWinPctLabel,
+  getRecordLabel,
+  getRecordColor,
+  getResultBadgeClasses,
+  getResultLabel,
+  getRecentFormArray,
+  hasEnoughDataForRecord,
+  countBySessionType,
+  buildSeasonRecordSummary,
+  type RecordSession,
+} from '@/lib/season-record-utils';
 
 // Lazily-loaded chart components — each lives in its own chunk so the analytics
 // page shell renders immediately while chart code downloads in parallel with data.
@@ -495,6 +512,140 @@ function MetricPill({
   );
 }
 
+// ─── Season Record Card ───────────────────────────────────────────────────────
+
+function SeasonRecordCard({ sessions }: { sessions: RecordSession[] }) {
+  const record = calculateSeasonRecord(sessions);
+  const streak = getCurrentStreak(sessions);
+  const winPct = getWinPct(record);
+  const recentForm = getRecentFormArray(sessions, 5);
+  const breakdown = countBySessionType(sessions);
+  const recordLabel = getRecordLabel(record);
+  const recordColor = getRecordColor(record);
+  const summary = buildSeasonRecordSummary(record);
+  const streakLabel = formatStreakLabel(streak);
+  const streakColor =
+    streak?.type === 'win'
+      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+      : streak?.type === 'loss'
+      ? 'bg-red-500/20 text-red-400 border-red-500/30'
+      : 'bg-zinc-500/20 text-zinc-400 border-zinc-500/30';
+
+  return (
+    <Card className="border-emerald-500/20">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Trophy className="h-4 w-4 text-emerald-400" />
+            Season Record
+          </CardTitle>
+          {streakLabel && (
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${streakColor}`}>
+              {streakLabel} streak
+            </span>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Big record display */}
+        <div className="flex items-end gap-4">
+          <div>
+            <p className={`text-4xl font-black tabular-nums tracking-tight ${recordColor}`}>
+              {formatRecordString(record)}
+            </p>
+            <p className="text-[10px] text-zinc-500 mt-0.5">W – L{record.ties > 0 ? ' – T' : ''}</p>
+          </div>
+          <div className="mb-1.5 space-y-0.5">
+            <p className="text-sm font-semibold text-zinc-200">{recordLabel}</p>
+            <p className="text-[10px] text-zinc-500">
+              {getWinPctLabel(winPct)} win rate &middot; {summary.includes('No') ? 'Record this season' : summary.split(',')[1]?.trim() ?? ''}
+            </p>
+          </div>
+        </div>
+
+        {/* Win % bar */}
+        {record.wins + record.losses + record.ties > 0 && (
+          <div className="space-y-1">
+            <div className="flex h-3 w-full overflow-hidden rounded-full bg-zinc-800">
+              <div
+                className="h-full bg-emerald-500 transition-all"
+                style={{ width: `${(record.wins / (record.wins + record.losses + record.ties)) * 100}%` }}
+              />
+              <div
+                className="h-full bg-zinc-600 transition-all"
+                style={{ width: `${(record.ties / (record.wins + record.losses + record.ties)) * 100}%` }}
+              />
+              <div
+                className="h-full bg-red-500/70 transition-all"
+                style={{ width: `${(record.losses / (record.wins + record.losses + record.ties)) * 100}%` }}
+              />
+            </div>
+            <div className="flex gap-3 text-[10px] text-zinc-500">
+              <span className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block" />
+                {record.wins} W
+              </span>
+              {record.ties > 0 && (
+                <span className="flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-zinc-600 inline-block" />
+                  {record.ties} T
+                </span>
+              )}
+              <span className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-red-500/70 inline-block" />
+                {record.losses} L
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Recent form */}
+        {recentForm.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">
+              Recent Form
+            </p>
+            <div className="flex gap-1.5">
+              {recentForm.map((r, i) => (
+                <span
+                  key={i}
+                  className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold border ${getResultBadgeClasses(r)}`}
+                >
+                  {getResultLabel(r)}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Per-type breakdown */}
+        {Object.keys(breakdown).length > 1 && (
+          <div className="space-y-1">
+            <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">
+              By Session Type
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {(Object.entries(breakdown) as [string, { wins: number; losses: number; ties: number }][]).map(
+                ([type, rec]) => (
+                  <div
+                    key={type}
+                    className="flex items-center gap-1.5 rounded-lg bg-zinc-900/60 border border-zinc-800 px-3 py-1.5"
+                  >
+                    <span className="text-[10px] text-zinc-400 capitalize">{type}</span>
+                    <span className="text-xs font-semibold text-zinc-200">
+                      {formatRecordString(rec, false)}
+                    </span>
+                  </div>
+                ),
+              )}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Session Quality Card ─────────────────────────────────────────────────────
 
 function SessionQualityCard({ sessions }: { sessions: RatedSession[] }) {
@@ -775,9 +926,9 @@ export default function AnalyticsPage() {
     queryKey: ['analytics-sessions', activeTeam?.id],
     queryFn: async () => {
       if (!activeTeam) return [];
-      const data = await query<Pick<Session, 'id' | 'type' | 'date' | 'quality_rating'>[]>({
+      const data = await query<Pick<Session, 'id' | 'type' | 'date' | 'quality_rating' | 'result' | 'opponent'>[]>({
         table: 'sessions',
-        select: 'id, type, date, quality_rating',
+        select: 'id, type, date, quality_rating, result, opponent',
         filters: { team_id: activeTeam.id },
         order: { column: 'date', ascending: false },
       });
@@ -1657,6 +1808,11 @@ export default function AnalyticsPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* ── Season Record ────────────────────────────────────────────────────── */}
+      {!isLoading && hasEnoughDataForRecord(sessions as RecordSession[]) && (
+        <SeasonRecordCard sessions={sessions as RecordSession[]} />
       )}
 
       {/* ── Session Quality ───────────────────────────────────────────────────── */}
