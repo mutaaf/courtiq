@@ -34,9 +34,12 @@ import {
   RotateCcw,
   ClipboardList,
   Layers,
+  ThumbsUp,
+  ThumbsDown,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Drill, Player, Session, Plan } from '@/types/database';
+import type { Sentiment } from '@/types/database';
 import {
   getTemplatesForSport,
   getTemplateById,
@@ -55,6 +58,7 @@ interface QueueItem {
   durationSecs: number;
   cues: string[];
   description: string;
+  category?: string; // skill category (from drill library or template)
 }
 
 type TimerMode = 'setup' | 'running' | 'break' | 'done';
@@ -63,6 +67,9 @@ interface CapturedNote {
   drillName: string;
   note: string;
   playerName?: string;
+  playerId?: string;
+  sentiment: Sentiment;
+  category: string;
   timestamp: Date;
 }
 
@@ -90,16 +97,23 @@ function BreakScreen({
   drillJustFinished: string;
   nextDrillName?: string;
   players: Player[];
-  onSave: (note: string, playerName?: string) => void;
+  onSave: (note: string, playerId?: string, playerName?: string, sentiment?: Sentiment) => void;
   onSkip: () => void;
 }) {
   const [note, setNote] = useState('');
   const [selectedPlayer, setSelectedPlayer] = useState<string>('');
+  const [sentiment, setSentiment] = useState<Sentiment>('positive');
   const textRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     textRef.current?.focus();
   }, []);
+
+  const handleSave = () => {
+    if (!note.trim()) { onSkip(); return; }
+    const player = players.find((p) => p.id === selectedPlayer);
+    onSave(note.trim(), player?.id, player?.name, sentiment);
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-zinc-950 p-6">
@@ -114,7 +128,7 @@ function BreakScreen({
         )}
       </div>
 
-      <div className="flex-1 flex flex-col gap-6 max-w-xl mx-auto w-full">
+      <div className="flex-1 flex flex-col gap-5 max-w-xl mx-auto w-full">
         <div>
           <h2 className="text-2xl font-bold text-zinc-100 mb-1">
             What did you observe?
@@ -122,6 +136,37 @@ function BreakScreen({
           <p className="text-sm text-zinc-500">
             Drill just finished: <span className="text-zinc-300">{drillJustFinished}</span>
           </p>
+        </div>
+
+        {/* Sentiment toggle */}
+        <div>
+          <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wide">Observation type</p>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setSentiment('positive')}
+              className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all touch-manipulation active:scale-[0.98] ${
+                sentiment === 'positive'
+                  ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
+                  : 'bg-zinc-900 border border-zinc-700 text-zinc-500 hover:border-zinc-600'
+              }`}
+            >
+              <ThumbsUp className="h-4 w-4" />
+              Positive
+            </button>
+            <button
+              type="button"
+              onClick={() => setSentiment('needs-work')}
+              className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all touch-manipulation active:scale-[0.98] ${
+                sentiment === 'needs-work'
+                  ? 'bg-red-500/20 border border-red-500/40 text-red-300'
+                  : 'bg-zinc-900 border border-zinc-700 text-zinc-500 hover:border-zinc-600'
+              }`}
+            >
+              <ThumbsDown className="h-4 w-4" />
+              Needs Work
+            </button>
+          </div>
         </div>
 
         {/* Player selector */}
@@ -161,26 +206,22 @@ function BreakScreen({
           placeholder="Type an observation… (e.g. 'Great footwork on the pivot', 'Needs work on left-hand dribble')"
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          className="min-h-[120px] text-base bg-zinc-900 border-zinc-700 resize-none"
+          className="min-h-[100px] text-base bg-zinc-900 border-zinc-700 resize-none"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && note.trim()) {
-              const playerName = players.find((p) => p.id === selectedPlayer)?.name;
-              onSave(note.trim(), playerName);
+              handleSave();
             }
           }}
         />
 
         <div className="flex gap-3">
           <Button
-            onClick={() => {
-              if (note.trim()) {
-                const playerName = players.find((p) => p.id === selectedPlayer)?.name;
-                onSave(note.trim(), playerName);
-              } else {
-                onSkip();
-              }
-            }}
-            className="flex-1 h-12 bg-orange-500 hover:bg-orange-600 text-white font-semibold"
+            onClick={handleSave}
+            className={`flex-1 h-12 font-semibold text-white ${
+              sentiment === 'needs-work'
+                ? 'bg-red-500 hover:bg-red-600'
+                : 'bg-emerald-600 hover:bg-emerald-700'
+            }`}
           >
             {note.trim() ? (
               <>
@@ -253,7 +294,19 @@ function DoneScreen({
             </p>
             {notes.map((n, i) => (
               <div key={i} className="bg-zinc-900 rounded-lg px-4 py-3 space-y-1">
-                <p className="text-xs text-zinc-500">{n.drillName}{n.playerName ? ` · ${n.playerName}` : ''}</p>
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                    n.sentiment === 'positive'
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : n.sentiment === 'needs-work'
+                      ? 'bg-red-500/20 text-red-400'
+                      : 'bg-zinc-700 text-zinc-400'
+                  }`}>
+                    {n.sentiment === 'positive' ? '👍' : n.sentiment === 'needs-work' ? '👎' : '—'}
+                    {n.sentiment === 'positive' ? 'Positive' : n.sentiment === 'needs-work' ? 'Needs Work' : 'Neutral'}
+                  </span>
+                  <p className="text-xs text-zinc-500">{n.drillName}{n.playerName ? ` · ${n.playerName}` : ''}</p>
+                </div>
                 <p className="text-sm text-zinc-200">{n.note}</p>
               </div>
             ))}
@@ -531,11 +584,19 @@ export default function PracticeTimerPage({
     setMode('break');
   };
 
-  const handleBreakSave = (note: string, playerName?: string) => {
+  const handleBreakSave = (note: string, playerId?: string, playerName?: string, sentiment: Sentiment = 'positive') => {
     const drill = queue[currentIdx];
     setNotes((prev) => [
       ...prev,
-      { drillName: drill.name, note, playerName, timestamp: new Date() },
+      {
+        drillName: drill.name,
+        note,
+        playerId,
+        playerName,
+        sentiment,
+        category: drill.category || 'general',
+        timestamp: new Date(),
+      },
     ]);
     advanceToNextDrill();
   };
@@ -569,22 +630,19 @@ export default function PracticeTimerPage({
     setSaveError(null);
 
     try {
-      const rows = notes.map((n) => {
-        const player = players.find((p) => p.name === n.playerName);
-        return {
-          team_id: activeTeam.id,
-          coach_id: coach.id,
-          session_id: sessionId,
-          player_id: player?.id || null,
-          text: n.note,
-          raw_text: n.note,
-          category: 'general',
-          sentiment: 'neutral' as const,
-          source: 'typed' as const,
-          ai_parsed: false,
-          coach_edited: false,
-        };
-      });
+      const rows = notes.map((n) => ({
+        team_id: activeTeam.id,
+        coach_id: coach.id,
+        session_id: sessionId,
+        player_id: n.playerId || null,
+        text: n.note,
+        raw_text: n.note,
+        category: n.category,
+        sentiment: n.sentiment,
+        source: 'typed' as const,
+        ai_parsed: false,
+        coach_edited: false,
+      }));
 
       await mutate({
         table: 'observations',
@@ -610,6 +668,7 @@ export default function PracticeTimerPage({
       durationSecs: (drill.duration_minutes ?? 10) * 60,
       cues: drill.teaching_cues || [],
       description: drill.description,
+      category: drill.category,
     };
     setQueue((prev) => [...prev, item]);
     setShowDrillPicker(false);
