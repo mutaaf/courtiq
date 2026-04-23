@@ -2,6 +2,15 @@ import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { ParentViralCTA } from '@/components/share/parent-viral-cta';
 import { ParentReactionForm } from '@/components/share/parent-reaction-form';
 import { Megaphone } from 'lucide-react';
+import {
+  buildSeasonStats,
+  getImprovingSkills,
+  formatCategoryLabel,
+  buildProgressMessage,
+  hasEnoughDataForJourney,
+  sortSkillsByImprovingFirst,
+} from '@/lib/skill-journey-utils';
+import type { SkillProgress, ShareObservation } from '@/lib/skill-journey-utils';
 
 // ---------------------------------------------------------------------------
 // Data fetching
@@ -155,6 +164,8 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     skillProgress,
     recommendedDrills,
     announcements,
+    totalObservationCount,
+    recentObservationActivity,
   } = data;
 
   const playerName = player?.nickname || player?.name || 'your player';
@@ -163,6 +174,17 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
   const teamName = team?.name || 'the team';
   const season = team?.season || null;
   const brandColor = branding?.primary_color || '#F97316'; // orange fallback
+
+  // Skill journey — computed from the lightweight observation activity payload
+  const safeObs: ShareObservation[] = Array.isArray(recentObservationActivity)
+    ? recentObservationActivity
+    : [];
+  const safeSkills: SkillProgress[] = Array.isArray(skillProgress) ? skillProgress : [];
+  const seasonStats = buildSeasonStats(safeObs, safeSkills);
+  const improvingSkills = getImprovingSkills(safeSkills);
+  const sortedSkills = sortSkillsByImprovingFirst(safeSkills);
+  const showJourney = hasEnoughDataForJourney(safeObs, safeSkills) || (totalObservationCount ?? 0) >= 3;
+  const progressMessage = buildProgressMessage(firstName, improvingSkills, totalObservationCount ?? 0);
 
   // Extract celebratable items from report card
   const celebrations: string[] = [];
@@ -292,8 +314,66 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           </div>
         )}
 
+        {/* ─── Season Stats ─── */}
+        {showJourney && (totalObservationCount > 0 || safeSkills.length > 0) && (
+          <div className="mx-4 mt-4 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-100 p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-lg">{'\u{1F4C8}'}</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-orange-600">
+                Season at a Glance
+              </h3>
+            </div>
+            <p className="text-sm leading-relaxed text-gray-700 mb-4">{progressMessage}</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-xl bg-white/80 p-3 text-center shadow-sm">
+                <p className="text-2xl font-bold text-orange-500">{totalObservationCount ?? 0}</p>
+                <p className="mt-0.5 text-[11px] text-gray-500 leading-tight">Coach<br />Observations</p>
+              </div>
+              <div className="rounded-xl bg-white/80 p-3 text-center shadow-sm">
+                <p className="text-2xl font-bold text-emerald-500">{seasonStats.improvingSkillCount}</p>
+                <p className="mt-0.5 text-[11px] text-gray-500 leading-tight">Skills<br />Improving</p>
+              </div>
+              <div className="rounded-xl bg-white/80 p-3 text-center shadow-sm">
+                <p className="text-2xl font-bold text-blue-500">{seasonStats.recentObsCount}</p>
+                <p className="mt-0.5 text-[11px] text-gray-500 leading-tight">This<br />Fortnight</p>
+              </div>
+            </div>
+            {seasonStats.mostActiveCategory && (
+              <p className="mt-3 text-center text-xs text-gray-500">
+                Most practised: <span className="font-semibold text-gray-700">{formatCategoryLabel(seasonStats.mostActiveCategory)}</span>
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ─── Skills on the Rise ─── */}
+        {improvingSkills.length > 0 && (
+          <div className="mx-4 mt-4 rounded-2xl bg-emerald-50 border border-emerald-100 p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-lg">{'\u{1F680}'}</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                Skills on the Rise
+              </h3>
+            </div>
+            <p className="mb-3 text-sm text-gray-600 leading-relaxed">
+              {firstName}&apos;s coach has observed improvement in these areas:
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {improvingSkills.map((s) => (
+                <span
+                  key={s.skill_id}
+                  className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-sm font-medium text-emerald-800"
+                >
+                  <span className="text-emerald-500">↑</span>
+                  {s.skill_name || formatCategoryLabel(s.category)}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ─── Skill Progress ─── */}
-        {skillProgress && skillProgress.length > 0 && (
+        {sortedSkills.length > 0 && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center gap-2">
               <span className="text-lg">{'\u{1F4CA}'}</span>
@@ -302,7 +382,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
               </h3>
             </div>
             <div className="space-y-4">
-              {skillProgress.map((skill: any) => (
+              {sortedSkills.map((skill: any) => (
                 <SkillBar key={skill.skill_id} skill={skill} />
               ))}
             </div>

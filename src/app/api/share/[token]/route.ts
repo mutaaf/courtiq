@@ -123,6 +123,25 @@ export async function GET(
       }
     }
 
+    // Always fetch total observation count + recent observation activity for the
+    // "Season Stats" and "Skills on the Rise" sections on the share portal.
+    // We fetch the last 90 days with category + created_at (no text) to keep
+    // the payload light while still enabling monthly/weekly trend computation.
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: allRecentObs, count: totalObsCount } = await supabase
+      .from('observations')
+      .select('category, created_at, sentiment', { count: 'exact' })
+      .eq('player_id', share.player_id)
+      .gte('created_at', ninetyDaysAgo)
+      .order('created_at', { ascending: false });
+    reportData.totalObservationCount = totalObsCount ?? 0;
+    // Include category+date data for skill activity computation on the client
+    reportData.recentObservationActivity = (allRecentObs ?? []).map((o: any) => ({
+      category: o.category,
+      sentiment: o.sentiment,
+      created_at: o.created_at,
+    }));
+
     if (share.include_goals) {
       const { data: proficiency } = await supabase
         .from('player_skill_proficiency')
