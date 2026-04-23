@@ -55,6 +55,7 @@ import {
   Send,
   Share2,
   Plus,
+  Eye,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
@@ -1980,6 +1981,9 @@ export default function SessionDetailPage() {
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const mediaInputRef = useRef<HTMLInputElement>(null);
 
+  const [observerLinkGenerating, setObserverLinkGenerating] = useState(false);
+  const [observerLinkCopied, setObserverLinkCopied] = useState(false);
+
   const { data: session, isLoading: sessionLoading } = useQuery({
     queryKey: ['session', sessionId],
     queryFn: async () => {
@@ -2039,6 +2043,26 @@ export default function SessionDetailPage() {
     },
     enabled: !!activeTeam,
   });
+
+  const handleObserverLink = async () => {
+    setObserverLinkGenerating(true);
+    try {
+      const res = await fetch('/api/observer-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId }),
+      });
+      if (!res.ok) return;
+      const { url } = await res.json();
+      await navigator.clipboard.writeText(url);
+      setObserverLinkCopied(true);
+      setTimeout(() => setObserverLinkCopied(false), 3000);
+    } catch {
+      // clipboard write failed — silently skip
+    } finally {
+      setObserverLinkGenerating(false);
+    }
+  };
 
   const handleMediaUpload = async (files: FileList) => {
     if (!activeTeam || !session) return;
@@ -2196,6 +2220,25 @@ export default function SessionDetailPage() {
               <span className="hidden sm:inline">Attendance</span>
             </Button>
           </Link>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleObserverLink}
+            disabled={observerLinkGenerating}
+            title="Share observer link — let a parent volunteer capture observations"
+            className="border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-emerald-400 hover:border-emerald-700"
+          >
+            {observerLinkGenerating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : observerLinkCopied ? (
+              <Check className="h-4 w-4 text-emerald-400" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">
+              {observerLinkCopied ? 'Copied!' : 'Observer'}
+            </span>
+          </Button>
           <Link href={`/sessions/${sessionId}/replay`}>
             <Button variant="outline" size="sm" className="border-zinc-700 text-zinc-400 hover:bg-zinc-800">
               <Play className="h-4 w-4" />

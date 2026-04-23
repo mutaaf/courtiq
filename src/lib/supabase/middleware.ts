@@ -35,6 +35,8 @@ export async function updateSession(request: NextRequest) {
   const publicPaths = [
     '/share/',
     '/api/share/',
+    '/observe/',
+    '/api/observe/',
     '/api/health',
     '/api/debug',
     '/api/auth/',
