@@ -83,59 +83,87 @@ export async function POST(request: Request) {
       extractedText = result.response.text();
     }
 
-    // Parse the JSON response — be very strict about what constitutes a player name
-    let parsed: RosterImport;
+    // Parse the AI response to extract player names
+    console.log('Roster import raw AI response:', extractedText.slice(0, 1000));
+
+    let parsed: RosterImport = { players: [] };
+
+    // Strategy 1: Try to parse as JSON
+    let jsonParsed = false;
     try {
       let jsonText = extractedText.trim();
       // Strip markdown code fences
-      const jsonMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (jsonMatch) jsonText = jsonMatch[1].trim();
-      // Find the outermost JSON object
+      const fenceMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (fenceMatch) jsonText = fenceMatch[1].trim();
+      // Find JSON object or array
       const objMatch = jsonText.match(/\{[\s\S]*\}/);
       if (objMatch) jsonText = objMatch[0];
 
       const raw = JSON.parse(jsonText);
 
-      // Handle various response shapes
+      // Extract player array from various shapes
       let playerArray: any[] = [];
       if (raw.players && Array.isArray(raw.players)) {
         playerArray = raw.players;
       } else if (Array.isArray(raw)) {
         playerArray = raw;
+      } else if (raw.name && typeof raw.name === 'string') {
+        playerArray = [raw]; // single player object
       }
 
-      // Validate each player — must have a real name (not JSON fragments)
-      const validPlayers = playerArray
-        .filter((p: any) => {
-          if (!p || typeof p !== 'object') return false;
-          const name = p.name || p.player_name || p.full_name;
-          if (!name || typeof name !== 'string') return false;
-          // Reject JSON-looking names
-          if (name.includes('"') || name.includes(':') || name.includes('{') || name.includes('[')) return false;
-          // Reject very short or very long names
-          if (name.trim().length < 2 || name.trim().length > 60) return false;
-          // Reject names that look like field names
-          if (/^(confidence|jersey_number|position|name|players|null|true|false)$/i.test(name.trim())) return false;
-          return true;
-        })
-        .map((p: any) => ({
-          name: (p.name || p.player_name || p.full_name).trim(),
-          jersey_number: typeof p.jersey_number === 'number' ? p.jersey_number : null,
-          position: typeof p.position === 'string' && p.position.length < 20 ? p.position : 'Flex',
-        }));
+      if (playerArray.length > 0) {
+        const validPlayers = playerArray
+          .map((p: any) => {
+            const name = (p.name || p.player_name || p.full_name || '').toString().trim();
+            return {
+              name,
+              jersey_number: typeof p.jersey_number === 'number' ? p.jersey_number : null,
+              position: typeof p.position === 'string' && p.position.length < 20 ? p.position : 'Flex',
+            };
+          })
+          .filter((p) => {
+            // Must be a real human name
+            if (p.name.length < 2 || p.name.length > 60) return false;
+            // Reject JSON field names or fragments
+            if (/^(confidence|jersey_number|position|name|players|null|true|false|high|medium|low)$/i.test(p.name)) return false;
+            if (/[{}[\]"]/.test(p.name)) return false;
+            return true;
+          });
 
-      if (validPlayers.length === 0) {
+        if (validPlayers.length > 0) {
+          parsed = { players: validPlayers };
+          jsonParsed = true;
+        }
+      }
+    } catch {
+      // JSON parse failed — will try text extraction below
+    }
+
+    // Strategy 2: If JSON failed, extract names from plain text
+    if (!jsonParsed!) {
+      // Look for lines that look like human names (First Last pattern)
+      const namePattern = /^[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+$/;
+      const lines = extractedText.split('\n')
+        .map(l => l.replace(/^[-•*\d.)\s]+/, '').replace(/[",{}[\]]/g, '').trim())
+        .filter(l => {
+          if (l.length < 3 || l.length > 60) return false;
+          // Must look like a name (capitalized words)
+          if (namePattern.test(l)) return true;
+          // Also accept "First Last" even with different casing
+          const words = l.split(/\s+/);
+          return words.length >= 2 && words.every(w => /^[a-zA-Z'-]+$/.test(w));
+        });
+
+      if (lines.length > 0) {
+        parsed = {
+          players: lines.map(name => ({ name, jersey_number: null, position: 'Flex' })),
+        };
+      } else {
         return NextResponse.json({
-          error: 'AI could not identify player names in this image. Try a clearer screenshot showing a list of names.',
+          error: 'Could not extract player names from the image. Try a clearer screenshot showing a list of names.',
+          debug: extractedText.slice(0, 300),
         }, { status: 400 });
       }
-
-      parsed = { players: validPlayers };
-    } catch (parseErr) {
-      console.error('Roster JSON parse failed:', parseErr, 'Raw:', extractedText.slice(0, 500));
-      return NextResponse.json({
-        error: 'Could not extract player data from the image. Try a clearer screenshot with visible player names.',
-      }, { status: 400 });
     }
 
     // Check for duplicates against existing roster
