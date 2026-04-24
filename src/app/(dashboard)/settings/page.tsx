@@ -20,6 +20,7 @@ import {
   Webhook,
   History,
   Contrast,
+  ShieldAlert,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from '@/hooks/use-theme';
@@ -57,6 +58,13 @@ const CATEGORIES: SettingCategory[] = [
         description: 'View tier features and upgrade your plan',
         icon: Rocket,
         iconColor: 'text-emerald-400 bg-emerald-500/20',
+      },
+      {
+        href: '/settings/data',
+        label: 'Data & Privacy',
+        description: 'Export your data or delete your account',
+        icon: ShieldAlert,
+        iconColor: 'text-rose-400 bg-rose-500/20',
       },
     ],
   },
