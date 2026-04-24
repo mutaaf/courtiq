@@ -316,7 +316,7 @@ export function DashboardShell({ coach, children }: Props) {
       </aside>
 
       {/* Main content */}
-      <main id="main-content" tabIndex={-1} className="flex flex-1 flex-col overflow-hidden">
+      <main id="main-content" tabIndex={-1} className="flex flex-1 flex-col min-h-0">
         {/* Mobile header */}
         <header className="flex items-center justify-between border-b border-zinc-800 px-4 pt-12 min-h-[5rem] lg:hidden">
           <div className="flex items-center gap-2">
