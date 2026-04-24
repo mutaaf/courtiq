@@ -61,7 +61,7 @@ NO code changes needed — it's all env-var driven.
 - [ ] Coach users: 3 teams, unlimited players/AI, report cards, parent sharing
 - [ ] Pro users: unlimited everything + assistant + analytics + media
 - [x] Org users: everything + multi-coach + admin + custom branding — **Branding Settings**: org admins can set logo URL, accent color, and report header text from Settings → Organization; live preview card; gated behind `canAccess('custom_branding')`; non-Org tiers see contextual upgrade prompt; uses existing GET/PUT /api/branding (no new routes/tables)
-- [ ] Upgrade prompts: contextual, value-first, link to checkout
+- [x] Upgrade prompts: contextual, value-first, link to checkout — **UpgradeGate redesigned**: 9 feature configs (analytics, assistant, report_cards, parent_sharing, multi_coach, org_analytics, custom_branding, tendencies, media_upload) each with a unique icon, headline, tagline, and 5 specific benefit bullets; correct tier + price displayed per gate; auto-escalates to org tier if user is already on required tier; accent colour differentiated by feature; orange "Upgrade →" CTA links to /settings/upgrade; graceful fallback for unknown feature keys
 - [ ] Downgrade handling: features locked gracefully, data preserved
 - [x] Past-due banner: visible on all pages, links to billing portal — fixed `/api/me` to include `subscription_status`; `Organization` type updated; `useTier()` now exposes `subscriptionStatus`; data flows through to DashboardShell banner
 - [x] Cancel-at-period-end: show expiration date, allow resubscription — amber banner in DashboardShell; `useTier()` exposes `cancelAtPeriodEnd` + `currentPeriodEnd`
