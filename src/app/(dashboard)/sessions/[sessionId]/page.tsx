@@ -57,6 +57,7 @@ import {
   Plus,
   Eye,
   Megaphone,
+  Pencil,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
@@ -73,6 +74,14 @@ import {
   buildHalftimeShareText,
 } from '@/lib/halftime-utils';
 import { getRatingLabel, getRatingColor, isValidRating } from '@/lib/session-quality-utils';
+import {
+  isGameType,
+  parseResult,
+  extractScore,
+  buildResultString,
+  type ResultValue,
+} from '@/lib/season-record-utils';
+import { Input } from '@/components/ui/input';
 import {
   buildHuddleShareText,
   hasNextSessionHint,
@@ -2186,6 +2195,12 @@ export default function SessionDetailPage() {
   const [observerLinkGenerating, setObserverLinkGenerating] = useState(false);
   const [observerLinkCopied, setObserverLinkCopied] = useState(false);
 
+  // Quick result entry state
+  const [resultEditing, setResultEditing] = useState(false);
+  const [resultPendingOutcome, setResultPendingOutcome] = useState<ResultValue | null>(null);
+  const [resultScore, setResultScore] = useState('');
+  const [resultSaved, setResultSaved] = useState(false);
+
   const { data: session, isLoading: sessionLoading } = useQuery({
     queryKey: ['session', sessionId],
     queryFn: async () => {
@@ -2328,6 +2343,30 @@ export default function SessionDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
     },
   });
+
+  const resultMutation = useMutation({
+    mutationFn: async (resultStr: string) => {
+      await mutate({
+        table: 'sessions',
+        operation: 'update',
+        data: { result: resultStr },
+        filters: { id: sessionId },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
+      setResultEditing(false);
+      setResultPendingOutcome(null);
+      setResultScore('');
+      setResultSaved(true);
+      setTimeout(() => setResultSaved(false), 2500);
+    },
+  });
+
+  function handleSaveResult() {
+    if (!resultPendingOutcome) return;
+    resultMutation.mutate(buildResultString(resultPendingOutcome, resultScore));
+  }
 
   function formatDate(dateStr: string) {
     return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
@@ -2481,9 +2520,106 @@ export default function SessionDetailPage() {
           {session.curriculum_week && (
             <Badge variant="secondary">Curriculum Week {session.curriculum_week}</Badge>
           )}
-          {session.result && (
-            <p className="text-sm text-zinc-300">Result: {session.result}</p>
-          )}
+
+          {/* ─── Quick Result Entry (game/scrimmage/tournament only) ─── */}
+          {isGameType(session.type) && (() => {
+            const parsedResult = parseResult(session.result);
+            const existingScore = extractScore(session.result);
+
+            const RESULT_OPTIONS: { value: ResultValue; label: string; classes: string; activeClasses: string }[] = [
+              { value: 'win',  label: 'Win',  classes: 'border-zinc-700 text-zinc-400 hover:border-emerald-600 hover:text-emerald-400', activeClasses: 'border-emerald-500 bg-emerald-500/15 text-emerald-300' },
+              { value: 'loss', label: 'Loss', classes: 'border-zinc-700 text-zinc-400 hover:border-red-600 hover:text-red-400',     activeClasses: 'border-red-500 bg-red-500/15 text-red-300' },
+              { value: 'tie',  label: 'Tie',  classes: 'border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300',   activeClasses: 'border-zinc-500 bg-zinc-700 text-zinc-200' },
+            ];
+
+            const RESULT_BADGE: Record<ResultValue, { label: string; bg: string; text: string }> = {
+              win:  { label: 'WIN',  bg: 'bg-emerald-500/15 border-emerald-500/40', text: 'text-emerald-300' },
+              loss: { label: 'LOSS', bg: 'bg-red-500/15 border-red-500/40',         text: 'text-red-300' },
+              tie:  { label: 'TIE',  bg: 'bg-zinc-700/60 border-zinc-600',          text: 'text-zinc-300' },
+            };
+
+            if (!resultEditing && parsedResult) {
+              const badge = RESULT_BADGE[parsedResult];
+              return (
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-sm font-bold ${badge.bg} ${badge.text}`}>
+                    <Trophy className="h-3.5 w-3.5" />
+                    {badge.label}
+                    {existingScore && <span className="font-normal text-xs ml-0.5 opacity-80">{existingScore}</span>}
+                  </span>
+                  {resultSaved && (
+                    <span className="text-xs text-emerald-400 flex items-center gap-1"><Check className="h-3 w-3" />Saved</span>
+                  )}
+                  <button
+                    onClick={() => {
+                      setResultPendingOutcome(parsedResult);
+                      setResultScore(existingScore || '');
+                      setResultEditing(true);
+                    }}
+                    className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+                    aria-label="Edit result"
+                  >
+                    <Pencil className="h-3 w-3" />
+                    Edit
+                  </button>
+                </div>
+              );
+            }
+
+            if (resultEditing || !parsedResult) {
+              return (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-zinc-400">
+                    {parsedResult ? 'Edit result' : 'Record result'}
+                  </p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {RESULT_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setResultPendingOutcome(opt.value)}
+                        className={`rounded-lg border px-4 py-1.5 text-sm font-semibold transition-all touch-manipulation ${
+                          resultPendingOutcome === opt.value ? opt.activeClasses : opt.classes
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                    <Input
+                      placeholder="Score (e.g. 42-38)"
+                      value={resultScore}
+                      onChange={(e) => setResultScore(e.target.value)}
+                      className="h-8 w-32 text-xs bg-zinc-800 border-zinc-700 placeholder:text-zinc-600"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleSaveResult}
+                      disabled={!resultPendingOutcome || resultMutation.isPending}
+                      className="h-7 text-xs"
+                    >
+                      {resultMutation.isPending ? (
+                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                      ) : (
+                        <Check className="h-3 w-3 mr-1" />
+                      )}
+                      Save
+                    </Button>
+                    {resultEditing && (
+                      <button
+                        onClick={() => { setResultEditing(false); setResultPendingOutcome(null); setResultScore(''); }}
+                        className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
+            return null;
+          })()}
         </CardContent>
       </Card>
 

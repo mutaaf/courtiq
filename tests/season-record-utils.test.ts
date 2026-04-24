@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   isGameType,
   parseResult,
+  extractScore,
+  buildResultString,
   filterGameSessions,
   filterSessionsWithResults,
   sortSessionsByDate,
@@ -80,6 +82,33 @@ describe('parseResult', () => {
   it('returns null for empty string', () => expect(parseResult('')).toBe(null));
   it('returns null for null', () => expect(parseResult(null)).toBe(null));
   it('returns null for unknown value', () => expect(parseResult('forfeit')).toBe(null));
+  it('parses "win 42-38"', () => expect(parseResult('win 42-38')).toBe('win'));
+  it('parses "loss 30-35"', () => expect(parseResult('loss 30-35')).toBe('loss'));
+  it('parses "tie 28-28"', () => expect(parseResult('tie 28-28')).toBe('tie'));
+  it('parses "w 15-10"', () => expect(parseResult('w 15-10')).toBe('win'));
+  it('parses "l 8-12"', () => expect(parseResult('l 8-12')).toBe('loss'));
+  it('parses "t 5-5"', () => expect(parseResult('t 5-5')).toBe('tie'));
+});
+
+// ─── extractScore ─────────────────────────────────────────────────────────────
+
+describe('extractScore', () => {
+  it('returns null for plain "win"', () => expect(extractScore('win')).toBe(null));
+  it('returns null for null', () => expect(extractScore(null)).toBe(null));
+  it('extracts score from "win 42-38"', () => expect(extractScore('win 42-38')).toBe('42-38'));
+  it('extracts score from "loss 30-35"', () => expect(extractScore('loss 30-35')).toBe('30-35'));
+  it('extracts score from "tie 28-28"', () => expect(extractScore('tie 28-28')).toBe('28-28'));
+  it('handles multi-word score "win Final 42-38"', () => expect(extractScore('win Final 42-38')).toBe('Final 42-38'));
+});
+
+// ─── buildResultString ────────────────────────────────────────────────────────
+
+describe('buildResultString', () => {
+  it('returns just outcome when no score', () => expect(buildResultString('win')).toBe('win'));
+  it('returns just outcome when score is empty', () => expect(buildResultString('win', '')).toBe('win'));
+  it('returns outcome + score', () => expect(buildResultString('win', '42-38')).toBe('win 42-38'));
+  it('trims score whitespace', () => expect(buildResultString('loss', '  30-35  ')).toBe('loss 30-35'));
+  it('handles tie with score', () => expect(buildResultString('tie', '28-28')).toBe('tie 28-28'));
 });
 
 // ─── filterGameSessions ───────────────────────────────────────────────────────

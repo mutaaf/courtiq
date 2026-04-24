@@ -32,10 +32,25 @@ export function isGameType(type: string): boolean {
 export function parseResult(result: string | null): ResultValue | null {
   if (!result) return null;
   const lower = result.toLowerCase().trim();
-  if (lower === 'win' || lower === 'w') return 'win';
-  if (lower === 'loss' || lower === 'l' || lower === 'lose') return 'loss';
-  if (lower === 'tie' || lower === 't' || lower === 'draw' || lower === 'd') return 'tie';
+  if (lower === 'win' || lower === 'w' || lower.startsWith('win ') || lower.startsWith('w ')) return 'win';
+  if (lower === 'loss' || lower === 'l' || lower === 'lose' || lower.startsWith('loss ') || lower.startsWith('l ') || lower.startsWith('lose ')) return 'loss';
+  if (lower === 'tie' || lower === 't' || lower === 'draw' || lower === 'd' || lower.startsWith('tie ') || lower.startsWith('t ') || lower.startsWith('draw ')) return 'tie';
   return null;
+}
+
+/** Extracts the optional score string from a result value like "win 42-38" → "42-38". */
+export function extractScore(result: string | null): string | null {
+  if (!result) return null;
+  const parts = result.trim().split(/\s+/);
+  if (parts.length < 2) return null;
+  const score = parts.slice(1).join(' ');
+  return score || null;
+}
+
+/** Builds the stored result string: "win", "loss", "tie" or "win 42-38" etc. */
+export function buildResultString(outcome: ResultValue, score?: string): string {
+  const trimmed = score?.trim();
+  return trimmed ? `${outcome} ${trimmed}` : outcome;
 }
 
 // ─── Filtering / sorting ─────────────────────────────────────────────────────
