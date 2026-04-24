@@ -383,6 +383,7 @@ export default function PlansPage() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
+  const [showMoreGenerators, setShowMoreGenerators] = useState(false);
   const [generatedPreview, setGeneratedPreview] = useState<unknown>(null);
   const [lastInsights, setLastInsights] = useState<ObservationInsights | null>(null);
   const [generatingNewsletter, setGeneratingNewsletter] = useState(false);
@@ -2421,29 +2422,30 @@ export default function PlansPage() {
             </Button>
           </div>
 
-          {/* Smart Plan chip + suggestion chips */}
+          {/* Quick actions — show AI-Tailored + suggestion chips. Other generators hidden in "More" */}
           <div className="space-y-2">
-            {/* Smart Plan — data-driven, always first */}
+            {/* Smart Plan — always visible */}
             <button
               onClick={() => generateFromPrompt('', true)}
               disabled={generating || !activeTeam}
-              className="flex w-full items-center gap-2.5 rounded-xl border border-orange-500/40 bg-gradient-to-r from-orange-500/15 to-orange-500/5 px-4 py-3 text-left transition-all hover:border-orange-500/60 hover:from-orange-500/20 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
+              className="flex w-full items-center gap-2.5 rounded-xl border border-orange-500/40 bg-gradient-to-r from-orange-500/15 to-orange-500/5 px-3 py-2.5 text-left transition-all hover:border-orange-500/60 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
             >
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/25">
                 <Activity className="h-4 w-4 text-orange-400" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-orange-300">AI-Tailored Plan</p>
-                <p className="text-xs text-zinc-500">Auto-generated from your team&apos;s recent observation data</p>
+                <p className="text-xs text-zinc-500">From your observation data</p>
               </div>
-              <TrendingUp className="h-4 w-4 text-orange-500/50 shrink-0" />
             </button>
 
-            {/* Weekly Parent Newsletter */}
+            {/* More generators — collapsible on mobile */}
+            {showMoreGenerators && (
+            <>
             <button
               onClick={generateNewsletter}
               disabled={generatingNewsletter || generating || !activeTeam}
-              className="flex w-full items-center gap-2.5 rounded-xl border border-violet-500/40 bg-gradient-to-r from-violet-500/15 to-violet-500/5 px-4 py-3 text-left transition-all hover:border-violet-500/60 hover:from-violet-500/20 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
+              className="flex w-full items-center gap-2.5 rounded-xl border border-violet-500/40 bg-gradient-to-r from-violet-500/15 to-violet-500/5 px-3 py-2.5 text-left transition-all hover:border-violet-500/60 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
             >
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/25">
                 {generatingNewsletter ? (
@@ -2728,6 +2730,18 @@ export default function PlansPage() {
                 </div>
               )}
             </div>
+
+            </>
+            )}
+
+            {/* Toggle more generators */}
+            <button
+              onClick={() => setShowMoreGenerators(!showMoreGenerators)}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-700/50 py-2 text-xs font-medium text-zinc-500 hover:text-zinc-300 hover:border-zinc-600 transition-colors touch-manipulation"
+            >
+              {showMoreGenerators ? 'Show less' : 'More generators (Newsletter, Awards, Storyline...)'}
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showMoreGenerators ? 'rotate-180' : ''}`} />
+            </button>
 
             {/* Generic suggestion chips */}
             <div className="flex flex-wrap gap-2">
