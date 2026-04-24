@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Home, Mic, Users, ClipboardList, Settings, Calendar, Sparkles, Sun, Moon, LineChart, LogOut, Search, X, Square, ChevronLeft, CheckCircle2 } from 'lucide-react';
+import { Home, Mic, Users, ClipboardList, Settings, Calendar, Sparkles, Sun, Moon, LineChart, LogOut, Search, X, Square, ChevronLeft, CheckCircle2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NotificationBell } from '@/components/layout/notification-bell';
 import { TeamSwitcher } from '@/components/layout/team-switcher';
@@ -18,6 +18,7 @@ import { useArrowKeyNav } from '@/hooks/use-arrow-key-nav';
 import { PwaInstallPrompt } from '@/components/ui/pwa-install-prompt';
 import { useAppStore } from '@/lib/store';
 import { useActiveTeam } from '@/hooks/use-active-team';
+import { useTier } from '@/hooks/use-tier';
 import { useQueryClient } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
 import { OBSERVATION_TEMPLATES } from '@/lib/observation-templates';
@@ -70,6 +71,7 @@ export function DashboardShell({ coach, children }: Props) {
   const { navRef: mobileNavRef, onKeyDown: mobileNavKeyDown } = useArrowKeyNav();
 
   const { activeTeam } = useActiveTeam();
+  const { subscriptionStatus } = useTier();
   const queryClient = useQueryClient();
 
   const isRecording = useAppStore((s) => s.isRecording);
@@ -268,6 +270,14 @@ export function DashboardShell({ coach, children }: Props) {
 
       {/* Main content */}
       <main id="main-content" tabIndex={-1} className="flex flex-1 flex-col min-h-0 lg:pt-12">
+        {/* Past-due subscription warning */}
+        {subscriptionStatus === 'past_due' && (
+          <div className="bg-red-500/10 border-b border-red-500/30 px-4 py-2 flex items-center gap-2 text-sm text-red-400">
+            <AlertCircle className="h-4 w-4" />
+            <span>Payment failed — <Link href="/settings/upgrade" className="underline font-medium">update your payment method</Link></span>
+          </div>
+        )}
+
         {/* Mobile header */}
         <header className="flex items-center justify-between border-b border-zinc-800 px-4 pt-12 min-h-[5rem] lg:hidden">
           <div className="flex items-center gap-2">

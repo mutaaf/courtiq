@@ -28,6 +28,50 @@ You run every hour. Here's how to be effective.
 - [ ] Fix any failing tests
 - [ ] Fix any lint errors
 - [ ] Fix any runtime errors reported in recent commits
+- [ ] Fix any build failures (`npm run build`)
+
+### P0.5 — Billing, Payments & Account Management (MUST BE BULLETPROOF)
+
+**Stripe Integration:**
+- [x] Stripe products + prices created (Coach $9.99, Pro $24.99, Org $49.99)
+- [x] Database: stripe_customer_id, stripe_subscription_id, subscription_status columns
+- [x] /api/stripe/create-checkout — creates Stripe Checkout session
+- [x] /api/stripe/webhook — handles subscription lifecycle events
+- [x] /api/stripe/portal — opens Stripe Billing Portal
+- [x] Vercel env vars set for all Stripe keys + price IDs
+- [ ] Webhook signature verification (STRIPE_WEBHOOK_SECRET needed after registering webhook in Stripe dashboard)
+- [ ] Test full checkout flow: upgrade → pay → tier changes → features unlock
+- [ ] Test cancellation flow: cancel → webhook → downgrade at period end
+- [ ] Test payment failure: failed payment → past_due status → warning banner
+- [ ] Test resubscription: free user re-upgrades after cancellation
+
+**Switching to Production Stripe:**
+To go live, the ONLY changes needed:
+1. Replace `sk_test_*` with `sk_live_*` in Vercel env vars
+2. Replace `pk_test_*` with `pk_live_*` in Vercel env vars
+3. Run the product/price creation script with live keys → get new price IDs
+4. Update the 6 `STRIPE_PRICE_*` env vars with live price IDs
+5. Register live webhook URL in Stripe dashboard → get live `STRIPE_WEBHOOK_SECRET`
+6. Update `STRIPE_WEBHOOK_SECRET` env var
+NO code changes needed — it's all env-var driven.
+
+**Role-Based Gating (must work flawlessly):**
+- [ ] Free users: limited to 1 team, 10 players, 5 AI calls, basic features
+- [ ] Coach users: 3 teams, unlimited players/AI, report cards, parent sharing
+- [ ] Pro users: unlimited everything + assistant + analytics + media
+- [ ] Org users: everything + multi-coach + admin + custom branding
+- [ ] Upgrade prompts: contextual, value-first, link to checkout
+- [ ] Downgrade handling: features locked gracefully, data preserved
+- [ ] Past-due banner: visible on all pages, links to billing portal
+- [ ] Cancel-at-period-end: show expiration date, allow resubscription
+
+**Account Management:**
+- [ ] Admin panel: manage coaches, roles, tiers
+- [ ] Invite coaches: email invite with role assignment
+- [ ] Role changes: admin can promote/demote coaches
+- [ ] Org settings: name, branding, billing email
+- [ ] Data export: coaches can export their data
+- [ ] Account deletion: COPPA-compliant data removal on request
 - [x] **Practice Timer observation data quality** — break-screen notes were saved with `sentiment: 'neutral'` + `category: 'general'`, making them invisible to AI debrief, momentum scores, skill trends, drill recommendations, and weekly star; fixed by adding a 👍/👎 sentiment toggle to the break screen, carrying `category` from drill library items through `QueueItem → CapturedNote → save`, and removing the triple player-name lookup in favour of storing `playerId` directly; save button colour matches selected sentiment; Done screen notes show colour-coded sentiment badges
 
 ### P39 — Practice Timer Intelligence

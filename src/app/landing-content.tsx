@@ -349,7 +349,7 @@ export default function LandingContent() {
               ))}
             </ul>
             <Button asChild className="mt-6 w-full shadow-lg shadow-orange-500/25">
-              <Link href="/signup">Start Coaching</Link>
+              <Link href="/signup?plan=coach">Start Coaching</Link>
             </Button>
           </Card>
 
@@ -370,7 +370,7 @@ export default function LandingContent() {
               ))}
             </ul>
             <Button asChild variant="outline" className="mt-6 w-full border-zinc-300 text-zinc-700 hover:bg-zinc-100">
-              <Link href="/signup">Go Pro</Link>
+              <Link href="/signup?plan=pro_coach">Go Pro</Link>
             </Button>
           </Card>
 
@@ -390,7 +390,7 @@ export default function LandingContent() {
               ))}
             </ul>
             <Button asChild variant="outline" className="mt-6 w-full border-zinc-300 text-zinc-700 hover:bg-zinc-100">
-              <Link href="/demo">Contact Us</Link>
+              <Link href="mailto:sales@youthsportsiq.com">Contact Us</Link>
             </Button>
           </Card>
         </div>

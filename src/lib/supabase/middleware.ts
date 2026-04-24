@@ -40,6 +40,7 @@ export async function updateSession(request: NextRequest) {
     '/api/health',
     '/api/debug',
     '/api/auth/',
+    '/api/stripe/webhook',
     '/login',
     '/signup',
     '/onboarding',
