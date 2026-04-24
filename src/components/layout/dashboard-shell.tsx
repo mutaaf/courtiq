@@ -498,7 +498,7 @@ export function DashboardShell({ coach, children }: Props) {
 
         {/* Swipe handlers on mobile content area — lg:pb-0 is desktop, touch won't fire there */}
         <div
-          className="flex-1 overflow-y-auto pb-36 lg:pb-0"
+          className="flex-1 overflow-y-auto pb-48 lg:pb-0"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
         >
