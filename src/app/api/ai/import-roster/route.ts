@@ -83,31 +83,62 @@ export async function POST(request: Request) {
       extractedText = result.response.text();
     }
 
-    // Parse the JSON response
+    // Parse the JSON response — be very strict about what constitutes a player name
     let parsed: RosterImport;
     try {
       let jsonText = extractedText.trim();
+      // Strip markdown code fences
       const jsonMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (jsonMatch) jsonText = jsonMatch[1].trim();
-      // Try to find JSON object in the response
+      // Find the outermost JSON object
       const objMatch = jsonText.match(/\{[\s\S]*\}/);
       if (objMatch) jsonText = objMatch[0];
-      parsed = rosterImportSchema.parse(JSON.parse(jsonText));
-    } catch {
-      // Fallback: try to extract names line by line
-      const lines = extractedText.split('\n').filter(l => l.trim().length > 2);
-      const players = lines
-        .map(l => l.replace(/^[-•*\d.)\s]+/, '').trim())
-        .filter(l => l.length > 1 && l.length < 50 && !l.includes('{'))
-        .map(name => ({ name, jersey_number: null, position: 'Flex' }));
 
-      if (players.length === 0) {
-        return NextResponse.json({ error: 'Could not extract player names from the image. Try a clearer screenshot.' }, { status: 400 });
+      const raw = JSON.parse(jsonText);
+
+      // Handle various response shapes
+      let playerArray: any[] = [];
+      if (raw.players && Array.isArray(raw.players)) {
+        playerArray = raw.players;
+      } else if (Array.isArray(raw)) {
+        playerArray = raw;
       }
-      parsed = { players };
+
+      // Validate each player — must have a real name (not JSON fragments)
+      const validPlayers = playerArray
+        .filter((p: any) => {
+          if (!p || typeof p !== 'object') return false;
+          const name = p.name || p.player_name || p.full_name;
+          if (!name || typeof name !== 'string') return false;
+          // Reject JSON-looking names
+          if (name.includes('"') || name.includes(':') || name.includes('{') || name.includes('[')) return false;
+          // Reject very short or very long names
+          if (name.trim().length < 2 || name.trim().length > 60) return false;
+          // Reject names that look like field names
+          if (/^(confidence|jersey_number|position|name|players|null|true|false)$/i.test(name.trim())) return false;
+          return true;
+        })
+        .map((p: any) => ({
+          name: (p.name || p.player_name || p.full_name).trim(),
+          jersey_number: typeof p.jersey_number === 'number' ? p.jersey_number : null,
+          position: typeof p.position === 'string' && p.position.length < 20 ? p.position : 'Flex',
+        }));
+
+      if (validPlayers.length === 0) {
+        return NextResponse.json({
+          error: 'AI could not identify player names in this image. Try a clearer screenshot showing a list of names.',
+        }, { status: 400 });
+      }
+
+      parsed = { players: validPlayers };
+    } catch (parseErr) {
+      console.error('Roster JSON parse failed:', parseErr, 'Raw:', extractedText.slice(0, 500));
+      return NextResponse.json({
+        error: 'Could not extract player data from the image. Try a clearer screenshot with visible player names.',
+      }, { status: 400 });
     }
 
-    // Deduplicate against existing roster
+    // Check for duplicates against existing roster
     const { data: existingPlayers } = await admin
       .from('players')
       .select('name')
@@ -117,12 +148,25 @@ export async function POST(request: Request) {
       (existingPlayers || []).map((p: any) => p.name.toLowerCase().trim())
     );
 
+    const body2 = await request.clone().json().catch(() => ({}));
+    const autoImport = body2.autoImport !== false; // default: auto-import
+
     const newPlayers = parsed.players.filter(
       (p) => !existingNames.has(p.name.toLowerCase().trim())
     );
     const duplicates = parsed.players.filter(
       (p) => existingNames.has(p.name.toLowerCase().trim())
     );
+
+    // If autoImport is false, just return the extracted data for preview
+    if (!autoImport) {
+      return NextResponse.json({
+        extracted: parsed.players,
+        newPlayers,
+        duplicates: duplicates.map((p) => p.name),
+        total_extracted: parsed.players.length,
+      });
+    }
 
     const { data: team } = await admin
       .from('teams')
