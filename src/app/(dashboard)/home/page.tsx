@@ -92,6 +92,7 @@ import { TestimonialPrompt } from '@/components/onboarding/testimonial-prompt';
 import { FreemiumNudge } from '@/components/ui/freemium-nudge';
 import { SeasonalPromo } from '@/components/onboarding/seasonal-promo';
 import { FirstPracticeLauncher } from '@/components/home/first-practice-launcher';
+import { GettingStartedCard } from '@/components/home/getting-started-card';
 import {
   filterBirthdaysToday,
   filterUpcomingBirthdays,
@@ -1887,6 +1888,16 @@ export default function HomePage() {
         </Link>
       </div>
 
+      {/* Getting Started checklist — shown until all 3 first actions are complete */}
+      {!isLoadingStats && stats && coach && (
+        <GettingStartedCard
+          players={stats.players}
+          sessions={stats.sessions}
+          observations={stats.observations}
+          teamId={activeTeam.id}
+        />
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         {isLoadingStats ? (
@@ -2065,46 +2076,6 @@ export default function HomePage() {
         );
       })()}
 
-      {/* Empty state prompt for new users — only shown after data loads */}
-      {!isLoadingStats && stats && stats.players === 0 && stats.observations === 0 && stats.sessions === 0 && (
-        <Card className="border-dashed border-zinc-700 overflow-hidden">
-          <CardContent className="flex flex-col items-center text-center p-8 sm:p-10">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-500/10 mb-5">
-              <Sparkles className="h-8 w-8 text-orange-500" />
-            </div>
-            <h3 className="text-xl font-semibold text-zinc-200">Get started in 3 steps</h3>
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-lg">
-              <Link href="/roster/add" className="group">
-                <div className="rounded-xl border border-zinc-800 p-4 text-center hover:border-blue-500/50 transition-colors">
-                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/20 mb-2">
-                    <Users className="h-5 w-5 text-blue-500" />
-                  </div>
-                  <p className="text-sm font-medium">Add Players</p>
-                  <p className="text-xs text-zinc-500 mt-1">Build your roster</p>
-                </div>
-              </Link>
-              <Link href="/capture" className="group">
-                <div className="rounded-xl border border-zinc-800 p-4 text-center hover:border-orange-500/50 transition-colors">
-                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-orange-500/20 mb-2">
-                    <Mic className="h-5 w-5 text-orange-500" />
-                  </div>
-                  <p className="text-sm font-medium">Capture</p>
-                  <p className="text-xs text-zinc-500 mt-1">Record observations</p>
-                </div>
-              </Link>
-              <Link href="/plans" className="group">
-                <div className="rounded-xl border border-zinc-800 p-4 text-center hover:border-emerald-500/50 transition-colors">
-                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 mb-2">
-                    <ClipboardList className="h-5 w-5 text-emerald-500" />
-                  </div>
-                  <p className="text-sm font-medium">Plan</p>
-                  <p className="text-xs text-zinc-500 mt-1">Generate AI plans</p>
-                </div>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
     </PullToRefresh>
 
