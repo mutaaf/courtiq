@@ -29,6 +29,7 @@ You run every hour. Here's how to be effective.
 - [ ] Fix any lint errors
 - [ ] Fix any runtime errors reported in recent commits
 - [ ] Fix any build failures (`npm run build`)
+- [x] **Build crash: Stripe lazy init** — `new Stripe(STRIPE_SECRET_KEY)` at module level caused `next build` to throw "Neither apiKey nor config.authenticator provided" during page data collection; converted to `getStripe()` lazy factory; updated all 3 Stripe route files
 
 ### P0.5 — Billing, Payments & Account Management (MUST BE BULLETPROOF)
 
@@ -62,8 +63,8 @@ NO code changes needed — it's all env-var driven.
 - [ ] Org users: everything + multi-coach + admin + custom branding
 - [ ] Upgrade prompts: contextual, value-first, link to checkout
 - [ ] Downgrade handling: features locked gracefully, data preserved
-- [ ] Past-due banner: visible on all pages, links to billing portal
-- [ ] Cancel-at-period-end: show expiration date, allow resubscription
+- [x] Past-due banner: visible on all pages, links to billing portal — fixed `/api/me` to include `subscription_status`; `Organization` type updated; `useTier()` now exposes `subscriptionStatus`; data flows through to DashboardShell banner
+- [x] Cancel-at-period-end: show expiration date, allow resubscription — amber banner in DashboardShell; `useTier()` exposes `cancelAtPeriodEnd` + `currentPeriodEnd`
 
 **Account Management:**
 - [ ] Admin panel: manage coaches, roles, tiers
@@ -95,6 +96,7 @@ NO code changes needed — it's all env-var driven.
 - [x] Add pull-to-refresh on mobile pages — PullToRefresh component on Home, Sessions, Roster, Plans; haptic feedback at threshold + on complete
 - [x] Add swipe gestures for navigation — useSwipeNavigation hook; left/right swipe cycles Home→Assistant→Capture→Plans→Settings; 80px threshold + vertical-ratio guard avoids conflict with scroll and pull-to-refresh
 - [x] Smooth page transitions/animations — CSS fade-in + slide-up via PageTransition component, respects prefers-reduced-motion
+- [x] **Getting Started checklist on home dashboard** — replaces buried all-zeros empty-state card with a prominent 3-step progress card (Add Players / Start Practice / Capture Observation) positioned between Quick Actions and Stats; current next step highlighted in orange with tappable row; done steps show green checkmark; auto-hides when all 3 done; 30-day per-team localStorage dismissal; `src/components/home/getting-started-card.tsx`
 
 ### P2 — AI Intelligence
 - [x] Better phonetic matching in observation segmentation — `src/lib/player-match.ts` (Soundex + Levenshtein); replaces inline `findPlayerId` in capture/review and quick-capture-widget; 26 unit tests
