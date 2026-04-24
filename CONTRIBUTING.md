@@ -60,7 +60,7 @@ NO code changes needed — it's all env-var driven.
 - [x] Free users: limited to 1 team, 10 players, 5 AI calls, basic features — player limit already enforced in /api/data/mutate; **monthly AI call quota now enforced server-side in callAI()**: TierLimitError (status 402) thrown when free-tier org exceeds 5 successful ai_interactions this calendar month; handleAIError returns { error, upgrade: true }; AIUpgradePrompt component shown on capture/review page with direct link to /settings/upgrade; all 20+ AI routes get enforcement for free via the shared callAI() entry point
 - [ ] Coach users: 3 teams, unlimited players/AI, report cards, parent sharing
 - [ ] Pro users: unlimited everything + assistant + analytics + media
-- [ ] Org users: everything + multi-coach + admin + custom branding
+- [x] Org users: everything + multi-coach + admin + custom branding — **Branding Settings**: org admins can set logo URL, accent color, and report header text from Settings → Organization; live preview card; gated behind `canAccess('custom_branding')`; non-Org tiers see contextual upgrade prompt; uses existing GET/PUT /api/branding (no new routes/tables)
 - [ ] Upgrade prompts: contextual, value-first, link to checkout
 - [ ] Downgrade handling: features locked gracefully, data preserved
 - [x] Past-due banner: visible on all pages, links to billing portal — fixed `/api/me` to include `subscription_status`; `Organization` type updated; `useTier()` now exposes `subscriptionStatus`; data flows through to DashboardShell banner
