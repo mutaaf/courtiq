@@ -30,6 +30,7 @@ import Link from 'next/link';
 import { findPlayerByName } from '@/lib/player-match';
 import { localDB } from '@/lib/storage/local-db';
 import type { Sentiment, ObservationSource } from '@/types/database';
+import { AIUpgradePrompt } from '@/components/ui/ai-upgrade-prompt';
 
 interface ParsedObservation {
   id: string;
@@ -68,6 +69,7 @@ export default function ReviewPage() {
   const [savedOffline, setSavedOffline] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [aiUpgrade, setAiUpgrade] = useState<{ message: string } | null>(null);
   const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -85,6 +87,13 @@ export default function ReviewPage() {
         setRecordingId(data.recording_id || null);
         setTranscript(data.transcript || '');
         setSource(data.source === 'typed' ? 'typed' : 'voice');
+
+        // Monthly tier limit — show upgrade prompt instead of generic error
+        if (data.upgrade && data.error) {
+          setAiUpgrade({ message: data.error });
+          setLoading(false);
+          return;
+        }
 
         // Read error field
         if (data.error) {
@@ -300,6 +309,25 @@ export default function ReviewPage() {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
+
+  // Monthly AI tier limit — show upgrade prompt in place of review content
+  if (aiUpgrade) {
+    return (
+      <div className="mx-auto max-w-lg space-y-6 p-4 lg:p-8 pb-8">
+        <Link
+          href="/capture"
+          className="inline-flex items-center gap-1 text-sm text-zinc-400 transition-colors hover:text-zinc-200"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Capture
+        </Link>
+        <AIUpgradePrompt
+          message={aiUpgrade.message}
+          feature="Observation AI Processing"
+        />
       </div>
     );
   }

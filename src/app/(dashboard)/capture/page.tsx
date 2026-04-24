@@ -401,6 +401,23 @@ export default function CapturePage() {
         const errData = await response.json().catch(() => ({}));
         const errMsg = errData.error || 'AI processing failed';
 
+        // Monthly tier limit — send to review page with upgrade prompt
+        if (response.status === 402 && errData.upgrade) {
+          sessionStorage.setItem(
+            'pending_observations',
+            JSON.stringify({
+              recording_id: recordingId,
+              observations: [],
+              transcript: currentTranscript,
+              unmatched_names: [],
+              error: errMsg,
+              upgrade: true,
+            })
+          );
+          router.push(`/capture/review?recording_id=${recordingId}`);
+          return;
+        }
+
         if (checkApiKeyError(errMsg)) {
           setIsApiKeyError(true);
           setErrorMessage(errMsg);

@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
  * Shared catch-block handler for all /api/ai/* routes.
  *
  * Handles:
+ * - TierLimitError (status 402) → returns 402 with upgrade flag
  * - RateLimitError (status 429) → returns 429 with Retry-After header
  * - Everything else              → returns 500 with the error message
  *
@@ -13,7 +14,20 @@ import { NextResponse } from 'next/server';
 export function handleAIError(error: unknown, context: string): NextResponse {
   const e = error as any;
 
-  // Rate limit exceeded — thrown by callAI via checkAIRateLimit
+  // Monthly tier limit exceeded — thrown by callAI for free-tier orgs
+  if (e?.status === 402 && e?.upgrade) {
+    return NextResponse.json(
+      {
+        error: e.message || 'Monthly AI limit reached. Upgrade to continue.',
+        upgrade: true,
+        tier: e.tier,
+        limit: e.limit,
+      },
+      { status: 402 }
+    );
+  }
+
+  // Hourly rate limit exceeded — thrown by callAI via checkAIRateLimit
   if (e?.status === 429) {
     const resetAt: number = e.resetAt ?? Date.now() + 3_600_000;
     const retryAfter = Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));

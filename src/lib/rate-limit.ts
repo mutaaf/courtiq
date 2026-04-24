@@ -6,7 +6,7 @@ import { redis } from '@/lib/cache/redis';
 const AI_RATE_LIMIT = Number(process.env.AI_RATE_LIMIT_PER_HOUR ?? 20);
 const WINDOW_SECS = 3600; // 1 hour
 
-// ─── Error class ─────────────────────────────────────────────────────────────
+// ─── Error classes ───────────────────────────────────────────────────────────
 
 /** Thrown by callAI when a coach exceeds their hourly AI request quota. */
 export class RateLimitError extends Error {
@@ -23,6 +23,27 @@ export class RateLimitError extends Error {
     this.name = 'RateLimitError';
     this.limit = limit;
     this.resetAt = resetAt;
+  }
+}
+
+/**
+ * Thrown by callAI when a free-tier org has exceeded their monthly AI call quota.
+ * Status 402 signals "upgrade required" to the API route error handler.
+ */
+export class TierLimitError extends Error {
+  readonly status = 402;
+  readonly tier: string;
+  readonly limit: number;
+  readonly upgrade = true;
+
+  constructor(tier: string, limit: number) {
+    super(
+      `You've used all ${limit} AI calls included in your ${tier.replace('_', ' ')} plan this month. ` +
+        `Upgrade to Coach for unlimited AI observations, practice plans, and player reports.`
+    );
+    this.name = 'TierLimitError';
+    this.tier = tier;
+    this.limit = limit;
   }
 }
 
