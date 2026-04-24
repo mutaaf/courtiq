@@ -778,8 +778,9 @@ export default function PracticeTimerPage({
         localStorage.removeItem(QUEUE_KEY);
       } catch { /* ignore */ }
       setSaveSuccess(true);
-      // Navigate back after brief success delay
-      setTimeout(() => router.push(`/sessions/${sessionId}`), 1200);
+      // Navigate back with practice-complete context so the session page can show next-step guidance
+      const uniquePlayerCount = new Set(notes.filter(n => n.playerId).map(n => n.playerId!)).size;
+      setTimeout(() => router.push(`/sessions/${sessionId}?fromPractice=1&obsCount=${notes.length}&playerCount=${uniquePlayerCount}`), 1200);
     } catch (err: any) {
       setSaveError(err.message || 'Failed to save observations');
       setIsSaving(false);

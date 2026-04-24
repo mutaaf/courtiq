@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
@@ -2166,8 +2166,16 @@ function AIDebriefCard({
 export default function SessionDetailPage() {
   const params = useParams();
   const sessionId = params.sessionId as string;
+  const searchParams = useSearchParams();
   const { activeTeam } = useActiveTeam();
   const queryClient = useQueryClient();
+
+  // Practice Complete banner — shown when arriving from the practice timer
+  const fromPractice = searchParams?.get('fromPractice') === '1';
+  const fromPracticeObsCount = parseInt(searchParams?.get('obsCount') || '0', 10);
+  const fromPracticePlayerCount = parseInt(searchParams?.get('playerCount') || '0', 10);
+  const [practiceBannerDismissed, setPracticeBannerDismissed] = useState(false);
+  const showPracticeComplete = fromPractice && !practiceBannerDismissed;
 
   const [debrief, setDebrief] = useState('');
   const [debriefInitialized, setDebriefInitialized] = useState(false);
@@ -2479,6 +2487,58 @@ export default function SessionDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Practice Complete Banner — shown when arriving from practice timer */}
+      {showPracticeComplete && (
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 relative">
+          <button
+            onClick={() => setPracticeBannerDismissed(true)}
+            className="absolute top-3 right-3 text-zinc-500 hover:text-zinc-300 transition-colors"
+            aria-label="Dismiss practice complete banner"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20">
+              <Trophy className="h-5 w-5 text-emerald-400" />
+            </div>
+            <div className="flex-1 min-w-0 pr-5">
+              <h3 className="font-semibold text-emerald-300 text-sm">Practice complete! 🎉</h3>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                {fromPracticeObsCount > 0
+                  ? `${fromPracticeObsCount} observation${fromPracticeObsCount !== 1 ? 's' : ''} saved${fromPracticePlayerCount > 0 ? ` for ${fromPracticePlayerCount} player${fromPracticePlayerCount !== 1 ? 's' : ''}` : ''}.`
+                  : 'Session recorded.'}
+                {' '}What would you like to do next?
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setPracticeBannerDismissed(true);
+                    document.getElementById('player-messages-section')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="h-8 bg-teal-600 hover:bg-teal-500 text-white text-xs gap-1.5"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  Send Parent Updates
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setPracticeBannerDismissed(true);
+                    document.getElementById('ai-debrief-section')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="h-8 border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-xs gap-1.5"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  AI Debrief
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Pre-Session AI Briefing */}
       {activeTeam && (
         <PreSessionBriefingCard
@@ -2558,17 +2618,19 @@ export default function SessionDetailPage() {
       </div>
 
       {/* AI Post-Session Analysis */}
-      {activeTeam && (
-        <AIDebriefCard
-          sessionId={sessionId}
-          teamId={activeTeam.id}
-          observationCount={observations?.length || 0}
-          savedDebrief={savedDebrief}
-          onDebriefSaved={() =>
-            queryClient.invalidateQueries({ queryKey: ['session', sessionId] })
-          }
-        />
-      )}
+      <div id="ai-debrief-section">
+        {activeTeam && (
+          <AIDebriefCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+            observationCount={observations?.length || 0}
+            savedDebrief={savedDebrief}
+            onDebriefSaved={() =>
+              queryClient.invalidateQueries({ queryKey: ['session', sessionId] })
+            }
+          />
+        )}
+      </div>
 
       {/* Half-Time Adjustments — game/scrimmage/tournament only */}
       {activeTeam && (session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
@@ -2596,13 +2658,15 @@ export default function SessionDetailPage() {
       )}
 
       {/* Player Session Messages — quick send-ready notes for players/parents */}
-      {activeTeam && (
-        <PlayerSessionMessagesCard
-          sessionId={sessionId}
-          teamId={activeTeam.id}
-          observationCount={observations?.length || 0}
-        />
-      )}
+      <div id="player-messages-section">
+        {activeTeam && (
+          <PlayerSessionMessagesCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+            observationCount={observations?.length || 0}
+          />
+        )}
+      </div>
 
       {/* Team Group Message — one-tap WhatsApp/SMS for the parent group chat */}
       {activeTeam && (
