@@ -191,28 +191,40 @@ function MarkdownContent({ content }: { content: string }) {
 
 const QUICK_ACTIONS = [
   {
-    icon: Dumbbell,
+    icon: Sparkles,
     label: 'Generate a practice plan for tomorrow\'s session',
-    color: 'text-blue-400',
-    bg: 'bg-blue-500/10 border-blue-500/20',
+    color: 'text-orange-400',
+    bg: 'bg-orange-500/10',
+    border: 'border-orange-500/30',
+    iconBg: 'bg-orange-500/20',
+    hoverBg: 'hover:bg-orange-500/15',
   },
   {
-    icon: ClipboardList,
+    icon: Dumbbell,
     label: 'Create a drill for teaching pick and roll',
     color: 'text-emerald-400',
-    bg: 'bg-emerald-500/10 border-emerald-500/20',
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/30',
+    iconBg: 'bg-emerald-500/20',
+    hoverBg: 'hover:bg-emerald-500/15',
   },
   {
     icon: BarChart3,
     label: 'How is the team progressing this week?',
-    color: 'text-purple-400',
-    bg: 'bg-purple-500/10 border-purple-500/20',
+    color: 'text-blue-400',
+    bg: 'bg-blue-500/10',
+    border: 'border-blue-500/30',
+    iconBg: 'bg-blue-500/20',
+    hoverBg: 'hover:bg-blue-500/15',
   },
   {
     icon: FileText,
     label: 'Write a parent update for this week\'s practice',
-    color: 'text-pink-400',
-    bg: 'bg-pink-500/10 border-pink-500/20',
+    color: 'text-purple-400',
+    bg: 'bg-purple-500/10',
+    border: 'border-purple-500/30',
+    iconBg: 'bg-purple-500/20',
+    hoverBg: 'hover:bg-purple-500/15',
   },
 ];
 
@@ -396,7 +408,6 @@ export default function AssistantPage() {
         }),
       });
       if (!res.ok) throw new Error('Failed to save');
-      // Could show a toast here
     } catch {
       setError('Failed to save plan');
     }
@@ -557,7 +568,7 @@ export default function AssistantPage() {
                 <button
                   key={i}
                   onClick={() => handleSuggestionClick(suggestion)}
-                  className="rounded-full border border-zinc-700 bg-zinc-800/50 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 hover:border-zinc-600 transition-colors"
+                  className="rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-xs font-medium text-orange-300 hover:bg-orange-500/20 hover:border-orange-500/40 transition-colors active:scale-[0.97] touch-manipulation"
                 >
                   {suggestion}
                 </button>
@@ -571,8 +582,8 @@ export default function AssistantPage() {
         </div>
 
         {isUser && (
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-700">
-            <User className="h-4 w-4 text-zinc-300" />
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-500/30">
+            <User className="h-4 w-4 text-orange-300" />
           </div>
         )}
       </div>
@@ -601,7 +612,7 @@ export default function AssistantPage() {
               <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 px-2.5 py-1">
                 <History className="h-3 w-3 text-orange-400" />
                 <span className="text-[10px] font-medium text-orange-400">
-                  {messages.length} turn{messages.length !== 1 ? 's' : ''} remembered
+                  {messages.length} turn{messages.length !== 1 ? 's' : ''}
                 </span>
               </div>
               <button
@@ -620,28 +631,30 @@ export default function AssistantPage() {
       </div>
 
       {/* Chat area */}
-      <div className="flex-1 overflow-y-auto pb-2">
+      <div className="flex-1 overflow-y-auto">
         {!hasMessages ? (
-          /* Welcome state with quick actions */
-          <div className="flex h-full flex-col items-center justify-center px-4 py-8">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-500/20 mb-4">
-              <Sparkles className="h-8 w-8 text-orange-400" />
+          /* Welcome state with quick actions — compact on mobile */
+          <div className="flex h-full flex-col items-center justify-center px-4 py-4 sm:py-8">
+            <div className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-orange-500/20 mb-3 sm:mb-4">
+              <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-orange-400" />
             </div>
-            <h2 className="text-xl font-bold text-zinc-100 mb-1">What can I help you with?</h2>
-            <p className="text-sm text-zinc-500 mb-8 text-center max-w-sm">
-              I can generate practice plans, create drills, analyze player progress, and more.
+            <h2 className="text-lg sm:text-xl font-bold text-zinc-100 mb-0.5">What can I help with?</h2>
+            <p className="text-xs sm:text-sm text-zinc-500 mb-4 sm:mb-8 text-center max-w-sm">
+              Practice plans, drills, player analysis, and more.
             </p>
 
-            <div className="w-full max-w-lg space-y-3">
+            <div className="w-full max-w-lg space-y-2 sm:space-y-3">
               {QUICK_ACTIONS.map((action, i) => {
                 const Icon = action.icon;
                 return (
                   <button
                     key={i}
                     onClick={() => handleQuickAction(action.label)}
-                    className={`flex w-full items-center gap-4 rounded-xl border ${action.bg} p-4 text-left transition-all hover:scale-[1.01] active:scale-[0.99] touch-manipulation`}
+                    className={`flex w-full items-center gap-3 rounded-xl border ${action.border} ${action.bg} ${action.hoverBg} p-3 sm:p-4 text-left transition-all active:scale-[0.97] touch-manipulation`}
                   >
-                    <Icon className={`h-5 w-5 shrink-0 ${action.color}`} />
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${action.iconBg}`}>
+                      <Icon className={`h-5 w-5 ${action.color}`} />
+                    </div>
                     <span className="text-sm font-medium text-zinc-200">{action.label}</span>
                   </button>
                 );
@@ -678,8 +691,8 @@ export default function AssistantPage() {
         )}
       </div>
 
-      {/* Input area */}
-      <div className="border-t border-zinc-800 bg-zinc-900/50 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:px-8">
+      {/* Input area — pinned to bottom, minimal spacing */}
+      <div className="border-t border-zinc-800 bg-zinc-900/80 px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 lg:px-8">
         <div className="mx-auto flex max-w-3xl items-end gap-2">
           {/* Voice input wrapper */}
           <div className={`relative flex-1 rounded-xl border bg-zinc-800 transition-all focus-within:ring-1 ${
@@ -694,7 +707,7 @@ export default function AssistantPage() {
                 if (!voice.isRecording) setInput(e.target.value);
               }}
               onKeyDown={handleKeyDown}
-              placeholder={voice.isRecording ? 'Listening…' : 'Ask anything about coaching…'}
+              placeholder={voice.isRecording ? 'Listening...' : 'Ask anything about coaching...'}
               rows={1}
               disabled={!activeTeam || isLoading}
               readOnly={voice.isRecording}
@@ -713,7 +726,7 @@ export default function AssistantPage() {
             )}
           </div>
 
-          {/* Mic button — only shown when Web Speech API is available */}
+          {/* Mic button — orange themed */}
           {voice.isSupported && (
             <button
               onClick={handleVoiceToggle}
@@ -723,7 +736,7 @@ export default function AssistantPage() {
               className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors touch-manipulation disabled:opacity-30 ${
                 voice.isRecording
                   ? 'bg-red-500 hover:bg-red-600 text-white'
-                  : 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300'
+                  : 'bg-orange-500/15 hover:bg-orange-500/25 text-orange-400 border border-orange-500/30'
               }`}
             >
               {voice.isRecording ? (
@@ -738,7 +751,7 @@ export default function AssistantPage() {
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || !activeTeam || isLoading || voice.isRecording}
             size="icon"
-            className="h-11 w-11 shrink-0 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-30"
+            className="h-11 w-11 shrink-0 rounded-xl bg-orange-500 hover:bg-orange-600 text-white disabled:bg-zinc-700 disabled:text-zinc-500 disabled:opacity-100"
           >
             {isLoading ? (
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -750,7 +763,7 @@ export default function AssistantPage() {
 
         {/* Recording hint */}
         {voice.isRecording && (
-          <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-red-400/80">
+          <p className="mx-auto mt-1.5 max-w-3xl text-center text-[11px] text-red-400/80">
             Tap the mic again to stop and use your message
           </p>
         )}

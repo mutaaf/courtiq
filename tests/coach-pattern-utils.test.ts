@@ -321,12 +321,16 @@ describe('isoWeekKey', () => {
   });
 
   it('returns the same key for two dates in the same ISO week', () => {
-    // 2024-01-08 (Mon) and 2024-01-12 (Fri) are in the same week
-    expect(isoWeekKey(new Date('2024-01-08'))).toBe(isoWeekKey(new Date('2024-01-12')));
+    // 2024-01-15 (Mon) and 2024-01-19 (Fri) are in the same ISO week 3
+    const mon = isoWeekKey(new Date('2024-01-15T12:00:00Z'));
+    const fri = isoWeekKey(new Date('2024-01-19T12:00:00Z'));
+    expect(mon).toBe(fri);
   });
 
   it('returns different keys for adjacent weeks', () => {
-    expect(isoWeekKey(new Date('2024-01-07'))).not.toBe(isoWeekKey(new Date('2024-01-08')));
+    const sun = isoWeekKey(new Date('2024-01-14T12:00:00Z'));
+    const mon = isoWeekKey(new Date('2024-01-15T12:00:00Z'));
+    expect(sun).not.toBe(mon);
   });
 
   it('handles year boundary correctly', () => {
