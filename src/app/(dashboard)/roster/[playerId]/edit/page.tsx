@@ -25,6 +25,7 @@ export default function EditPlayerPage({ params }: { params: Promise<{ playerId:
     position: 'Flex',
     jersey_number: '',
     age_group: '8-10',
+    date_of_birth: '',
     parent_name: '',
     parent_email: '',
     parent_phone: '',
@@ -48,6 +49,7 @@ export default function EditPlayerPage({ params }: { params: Promise<{ playerId:
             position: player.position || 'Flex',
             jersey_number: player.jersey_number?.toString() || '',
             age_group: player.age_group || '8-10',
+            date_of_birth: player.date_of_birth || '',
             parent_name: player.parent_name || '',
             parent_email: player.parent_email || '',
             parent_phone: player.parent_phone || '',
@@ -85,6 +87,7 @@ export default function EditPlayerPage({ params }: { params: Promise<{ playerId:
           position: form.position,
           jersey_number: form.jersey_number ? parseInt(form.jersey_number, 10) : null,
           age_group: form.age_group,
+          date_of_birth: form.date_of_birth || null,
           parent_name: form.parent_name.trim() || null,
           parent_email: form.parent_email.trim() || null,
           parent_phone: form.parent_phone.trim() || null,
@@ -190,6 +193,17 @@ export default function EditPlayerPage({ params }: { params: Promise<{ playerId:
                 <option key={ag} value={ag}>{ag}</option>
               ))}
             </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm text-zinc-400">Birthday <span className="text-zinc-600">(optional)</span></label>
+            <input
+              type="date"
+              value={form.date_of_birth}
+              onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+            />
+            <p className="text-xs text-zinc-500">Used for birthday recognition on the home dashboard.</p>
           </div>
 
           <div className="space-y-2">

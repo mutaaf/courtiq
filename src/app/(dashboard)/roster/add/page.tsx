@@ -27,6 +27,7 @@ export default function AddPlayerPage() {
     position: SYSTEM_DEFAULTS.sport.positions[0],
     jersey_number: '',
     age_group: SYSTEM_DEFAULTS.sport.age_groups[0],
+    date_of_birth: '',
     parent_name: '',
     parent_email: '',
   });
@@ -57,6 +58,7 @@ export default function AddPlayerPage() {
           position: form.position,
           jersey_number: form.jersey_number ? parseInt(form.jersey_number, 10) : null,
           age_group: form.age_group,
+          date_of_birth: form.date_of_birth || null,
           parent_name: form.parent_name.trim() || null,
           parent_email: form.parent_email.trim() || null,
           is_active: true,
@@ -176,6 +178,18 @@ export default function AddPlayerPage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Birthday */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-zinc-300">Birthday <span className="text-zinc-500 font-normal">(optional)</span></label>
+            <input
+              type="date"
+              value={form.date_of_birth}
+              onChange={(e) => updateField('date_of_birth', e.target.value)}
+              className="flex h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+            />
+            <p className="text-[11px] text-zinc-500">Used for birthday recognition cards and age-appropriate coaching tips.</p>
           </div>
         </CardContent>
       </Card>
