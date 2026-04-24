@@ -71,8 +71,8 @@ NO code changes needed — it's all env-var driven.
 - [ ] Invite coaches: email invite with role assignment
 - [ ] Role changes: admin can promote/demote coaches
 - [ ] Org settings: name, branding, billing email
-- [ ] Data export: coaches can export their data
-- [ ] Account deletion: COPPA-compliant data removal on request
+- [x] **Data export**: coaches can export their data — `/settings/data` page with one-tap CSV download for observations, roster, and sessions (all tiers, no analytics page required)
+- [x] **Account deletion**: COPPA-compliant data removal on request — 3-step confirmation (intent → confirm → type "delete my account"); POST /api/account/delete cascades through all player/team/org tables in FK-safe order when coach is the only member; Supabase auth user deleted last; client signs out and redirects to /login?deleted=1; COPPA notice confirms no backup copies retained
 - [x] **Practice Timer observation data quality** — break-screen notes were saved with `sentiment: 'neutral'` + `category: 'general'`, making them invisible to AI debrief, momentum scores, skill trends, drill recommendations, and weekly star; fixed by adding a 👍/👎 sentiment toggle to the break screen, carrying `category` from drill library items through `QueueItem → CapturedNote → save`, and removing the triple player-name lookup in favour of storing `playerId` directly; save button colour matches selected sentiment; Done screen notes show colour-coded sentiment badges
 
 ### P39 — Practice Timer Intelligence
