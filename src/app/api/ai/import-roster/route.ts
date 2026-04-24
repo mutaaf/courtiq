@@ -39,48 +39,86 @@ export async function POST(request: Request) {
     const prompt = PROMPT_REGISTRY.importRoster();
     const fullPrompt = prompt.user + '\n\nRespond with JSON only: { "players": [{ "name": "...", "jersey_number": null, "position": "..." }] }';
 
-    let extractedText = '';
+    // Normalize mime type for vision APIs
+    const validMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
+    type VisionMimeType = typeof validMimeTypes[number];
+    const normalizedMime: VisionMimeType = validMimeTypes.includes(mimeType as VisionMimeType)
+      ? (mimeType as VisionMimeType)
+      : 'image/jpeg';
 
-    // Use vision API directly (not callAI which puts images in text)
-    if (provider === 'anthropic') {
-      const client = new Anthropic({ apiKey });
-      const response = await client.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2048,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: mimeType as 'image/jpeg', data: imageBase64 } },
-            { type: 'text', text: fullPrompt },
-          ],
-        }],
-      });
-      extractedText = response.content
-        .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-        .map((b) => b.text)
-        .join('');
-    } else if (provider === 'openai') {
-      const client = new OpenAI({ apiKey });
-      const response = await client.chat.completions.create({
-        model: 'gpt-4o',
-        max_tokens: 2048,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
-            { type: 'text', text: fullPrompt },
-          ],
-        }],
-      });
-      extractedText = response.choices[0]?.message?.content || '';
-    } else if (provider === 'gemini') {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-      const result = await model.generateContent([
-        { inlineData: { mimeType, data: imageBase64 } },
-        fullPrompt,
-      ]);
-      extractedText = result.response.text();
+    let extractedText = '';
+    const errors: string[] = [];
+
+    // Try each provider — fall through on failure
+    // Try Gemini first for vision (best at image extraction, cheapest)
+    const geminiKey = (body as any).geminiKey || ((await admin.from('organizations').select('settings').eq('id', coach?.org_id).single()).data?.settings as any)?.ai_keys?.gemini;
+
+    if (!extractedText && geminiKey) {
+      try {
+        const genAI = new GoogleGenerativeAI(geminiKey);
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const result = await model.generateContent([
+          { inlineData: { mimeType: normalizedMime, data: imageBase64 } },
+          fullPrompt,
+        ]);
+        extractedText = result.response.text();
+      } catch (e: any) {
+        errors.push(`Gemini: ${e.message}`);
+      }
+    }
+
+    // Fallback to configured provider
+    if (!extractedText) {
+      try {
+        if (provider === 'anthropic') {
+          const client = new Anthropic({ apiKey });
+          const response = await client.messages.create({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 2048,
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'image', source: { type: 'base64', media_type: normalizedMime, data: imageBase64 } },
+                { type: 'text', text: fullPrompt },
+              ],
+            }],
+          });
+          extractedText = response.content
+            .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+            .map((b) => b.text)
+            .join('');
+        } else if (provider === 'openai') {
+          const client = new OpenAI({ apiKey });
+          const response = await client.chat.completions.create({
+            model: 'gpt-4o',
+            max_tokens: 2048,
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'image_url', image_url: { url: `data:${normalizedMime};base64,${imageBase64}` } },
+                { type: 'text', text: fullPrompt },
+              ],
+            }],
+          });
+          extractedText = response.choices[0]?.message?.content || '';
+        } else if (provider === 'gemini') {
+          const genAI = new GoogleGenerativeAI(apiKey);
+          const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+          const result = await model.generateContent([
+            { inlineData: { mimeType: normalizedMime, data: imageBase64 } },
+            fullPrompt,
+          ]);
+          extractedText = result.response.text();
+        }
+      } catch (e: any) {
+        errors.push(`${provider}: ${e.message}`);
+      }
+    }
+
+    if (!extractedText) {
+      return NextResponse.json({
+        error: `AI could not process the image. ${errors.join('; ')}`,
+      }, { status: 500 });
     }
 
     // Parse the AI response to extract player names

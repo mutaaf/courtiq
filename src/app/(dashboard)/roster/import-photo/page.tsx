@@ -149,6 +149,81 @@ export default function ImportPhotoPage() {
     }
   };
 
+  const [textMode, setTextMode] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  const [bulkSaving, setBulkSaving] = useState(false);
+
+  const handleBulkTextImport = async () => {
+    if (!bulkText.trim() || !activeTeam) return;
+    setBulkSaving(true);
+    setError(null);
+
+    const names = bulkText
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length >= 2 && l.length <= 60);
+
+    if (names.length === 0) {
+      setError('No valid names found. Enter one name per line.');
+      setBulkSaving(false);
+      return;
+    }
+
+    try {
+      // Check for existing players
+      const existingRes = await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table: 'players', select: 'name', filters: { team_id: activeTeam.id } }),
+      });
+      const existingData = await existingRes.json();
+      const existingNames = new Set(
+        ((existingData.data || []) as any[]).map((p: any) => p.name.toLowerCase().trim())
+      );
+
+      const newNames = names.filter(n => !existingNames.has(n.toLowerCase().trim()));
+      const dupes = names.filter(n => existingNames.has(n.toLowerCase().trim()));
+
+      if (newNames.length > 0) {
+        // Get team age group
+        const teamRes = await fetch('/api/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ table: 'teams', select: 'age_group', filters: { id: activeTeam.id }, single: true }),
+        });
+        const teamData = await teamRes.json();
+        const ageGroup = teamData.data?.age_group || '8-10';
+
+        await fetch('/api/data/mutate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            table: 'players',
+            operation: 'insert',
+            data: newNames.map(name => ({
+              team_id: activeTeam.id,
+              name,
+              position: 'Flex',
+              age_group: ageGroup,
+            })),
+          }),
+        });
+      }
+
+      setSavedCount(newNames.length);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.players.all(activeTeam.id) });
+
+      if (dupes.length > 0) {
+        setError(`${dupes.length} already on roster: ${dupes.join(', ')}`);
+      }
+      setStep('done');
+    } catch (err: any) {
+      setError(err.message || 'Failed to import players');
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+
   if (!activeTeam) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center">
@@ -205,8 +280,63 @@ export default function ImportPhotoPage() {
         </Card>
       )}
 
-      {/* Upload Step */}
+      {/* Mode Toggle */}
       {step === 'upload' && (
+        <div className="flex gap-2">
+          <button
+            onClick={() => setTextMode(false)}
+            className={`flex-1 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${!textMode ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'}`}
+          >
+            <Camera className="h-4 w-4 inline mr-2" />
+            Photo Import
+          </button>
+          <button
+            onClick={() => setTextMode(true)}
+            className={`flex-1 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${textMode ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'}`}
+          >
+            <Users className="h-4 w-4 inline mr-2" />
+            Paste Names
+          </button>
+        </div>
+      )}
+
+      {/* Text Paste Mode */}
+      {step === 'upload' && textMode && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Paste Player Names</CardTitle>
+            <CardDescription>
+              Enter one player name per line. We&apos;ll deduplicate against your existing roster.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <textarea
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              placeholder={"Amin Makki\nFuzail Saleem\nIbrahim Nanlawala\nIsa Aziz\nLucas Medina"}
+              rows={8}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+            />
+            <p className="text-xs text-zinc-500">
+              {bulkText.split('\n').filter(l => l.trim().length >= 2).length} names detected
+            </p>
+            <Button
+              onClick={handleBulkTextImport}
+              disabled={bulkSaving || !bulkText.trim()}
+              className="w-full"
+            >
+              {bulkSaving ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Importing...</>
+              ) : (
+                <><Upload className="h-4 w-4" /> Import {bulkText.split('\n').filter(l => l.trim().length >= 2).length} Players</>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Photo Upload Step */}
+      {step === 'upload' && !textMode && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Upload Roster Photo</CardTitle>
