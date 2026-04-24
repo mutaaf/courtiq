@@ -166,6 +166,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     announcements,
     totalObservationCount,
     recentObservationActivity,
+    achievements,
   } = data;
 
   const playerName = player?.nickname || player?.name || 'your player';
@@ -174,6 +175,20 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
   const teamName = team?.name || 'the team';
   const season = team?.season || null;
   const brandColor = branding?.primary_color || '#F97316'; // orange fallback
+
+  // Achievement badge metadata — emoji + colour per badge type
+  const BADGE_META: Record<string, { emoji: string; name: string; description: string; color: string }> = {
+    first_star:       { emoji: '⭐', name: 'First Star',       description: 'Earned first positive observation',          color: 'bg-amber-50 border-amber-200 text-amber-800' },
+    team_player:      { emoji: '🤝', name: 'Team Player',      description: '10+ positive observations recorded',          color: 'bg-blue-50 border-blue-200 text-blue-800' },
+    grinder:          { emoji: '💪', name: 'Grinder',          description: '25+ total observations recorded',             color: 'bg-orange-50 border-orange-200 text-orange-800' },
+    all_rounder:      { emoji: '🎯', name: 'All-Rounder',      description: 'Observed in 4+ skill categories',             color: 'bg-purple-50 border-purple-200 text-purple-800' },
+    breakthrough:     { emoji: '🚀', name: 'Breakthrough',     description: 'Reached game-ready proficiency',              color: 'bg-emerald-50 border-emerald-200 text-emerald-800' },
+    game_changer:     { emoji: '⚡', name: 'Game Changer',     description: 'Stood out during a game or scrimmage',        color: 'bg-yellow-50 border-yellow-200 text-yellow-800' },
+    session_regular:  { emoji: '📅', name: 'Session Regular',  description: 'Showed up to 10+ sessions',                   color: 'bg-teal-50 border-teal-200 text-teal-800' },
+    coach_pick:       { emoji: '🏆', name: "Coach's Pick",     description: 'Awarded for outstanding effort or attitude',   color: 'bg-rose-50 border-rose-200 text-rose-800' },
+    most_improved:    { emoji: '📈', name: 'Most Improved',    description: 'Greatest improvement on the team',            color: 'bg-indigo-50 border-indigo-200 text-indigo-800' },
+    rising_star:      { emoji: '🌟', name: 'Rising Star',      description: 'Shows exceptional promise and potential',     color: 'bg-pink-50 border-pink-200 text-pink-800' },
+  };
 
   // Skill journey — computed from the lightweight observation activity payload
   const safeObs: ShareObservation[] = Array.isArray(recentObservationActivity)
@@ -368,6 +383,41 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
                   {s.skill_name || formatCategoryLabel(s.category)}
                 </span>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* ─── Achievement Badges ─── */}
+        {Array.isArray(achievements) && achievements.length > 0 && (
+          <div className="mx-4 mt-4 rounded-2xl bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-lg">🏅</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+                Achievements Earned
+              </h3>
+            </div>
+            <p className="mb-4 text-sm text-gray-600 leading-relaxed">
+              {firstName} has earned {achievements.length === 1 ? 'this badge' : `${achievements.length} badges`} this season!
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {achievements.map((a: { badge_type: string; awarded_at: string; note?: string }) => {
+                const meta = BADGE_META[a.badge_type];
+                if (!meta) return null;
+                return (
+                  <div
+                    key={a.badge_type}
+                    className={`flex items-start gap-2.5 rounded-xl border p-3 ${meta.color}`}
+                  >
+                    <span className="text-2xl leading-none shrink-0" aria-hidden="true">{meta.emoji}</span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold leading-tight">{meta.name}</p>
+                      <p className="mt-0.5 text-[11px] leading-tight opacity-75">
+                        {a.note || meta.description}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

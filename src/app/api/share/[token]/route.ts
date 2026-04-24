@@ -170,6 +170,19 @@ export async function GET(
       reportData.recommendedDrills = drills;
     }
 
+    // Always fetch earned achievement badges — shown on the parent portal
+    // regardless of share settings to celebrate the player's milestones.
+    const { data: achievements } = await supabase
+      .from('player_achievements')
+      .select('badge_type, awarded_at, note')
+      .eq('player_id', share.player_id)
+      .order('awarded_at', { ascending: true });
+    reportData.achievements = (achievements ?? []).map((a: any) => ({
+      badge_type: a.badge_type,
+      awarded_at: a.awarded_at,
+      note: a.note ?? null,
+    }));
+
     // Active team announcements (visible to parents)
     const now = new Date().toISOString();
     const { data: announcements } = await supabase
