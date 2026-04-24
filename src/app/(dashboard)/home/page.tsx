@@ -1508,6 +1508,13 @@ export default function HomePage() {
   const [showInsights, setShowInsights] = useState(false);
   const [showDebrief, setShowDebrief] = useState(false);
 
+  const hasAIKeys = (() => {
+    const settings = (coach as any)?.organizations?.settings;
+    if (!settings) return false;
+    const keys = settings.ai_keys || {};
+    return !!(keys.anthropic || keys.openai || keys.gemini);
+  })();
+
   const practiceActive = useAppStore((s) => s.practiceActive);
   const setPracticeActive = useAppStore((s) => s.setPracticeActive);
   const practiceSessionId = useAppStore((s) => s.practiceSessionId);
@@ -1815,6 +1822,36 @@ export default function HomePage() {
           Season {activeTeam.season || 'Not set'} &middot; Week {activeTeam.current_week}
         </p>
       </div>
+
+      {/* AI Keys Onboarding Banner */}
+      {!hasAIKeys && (
+        <Card className="border-orange-500/30 bg-gradient-to-r from-orange-500/10 to-orange-500/5 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-500/20">
+              <Sparkles className="h-5 w-5 text-orange-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-orange-300">Set up AI to get started</p>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Connect an AI provider to unlock voice capture, practice plans, report cards, and the AI assistant.
+              </p>
+              <div className="flex gap-2 mt-3">
+                <Link href="/settings/ai">
+                  <Button size="sm" className="text-xs">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Set Up AI
+                  </Button>
+                </Link>
+                <Link href="/settings/upgrade">
+                  <Button size="sm" variant="outline" className="text-xs">
+                    Or upgrade for managed AI
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Session CTA — End Practice (active) / Today's Session / Start Practice */}
       {practiceActive ? (

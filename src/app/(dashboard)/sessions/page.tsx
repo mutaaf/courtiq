@@ -96,7 +96,7 @@ export default function SessionsPage() {
       </div>
 
       {/* Type filter */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
+      <div className="flex flex-wrap gap-2">
         <Filter className="h-4 w-4 text-zinc-500 shrink-0" />
         {FILTER_OPTIONS.map((opt) => (
           <button

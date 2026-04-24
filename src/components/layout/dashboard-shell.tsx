@@ -5,13 +5,13 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Home, Mic, Users, ClipboardList, Settings, Calendar, Sparkles, Sun, Moon, LineChart, LogOut, Search, X, Square, ChevronLeft, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Home, Mic, Users, ClipboardList, Settings, Calendar, Sparkles, Sun, Moon, LineChart, LogOut, Search, X, Square, ChevronLeft, CheckCircle2, AlertCircle, MoreHorizontal, Dumbbell, BookOpen, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NotificationBell } from '@/components/layout/notification-bell';
 import { TeamSwitcher } from '@/components/layout/team-switcher';
 import { PageTransition } from '@/components/layout/page-transition';
 import { useTheme } from '@/hooks/use-theme';
-import { useSwipeNavigation } from '@/hooks/use-swipe-navigation';
+
 import { useSyncEngine } from '@/hooks/use-sync-engine';
 import { usePrefetchAdjacentPages, usePrefetchOnIntent } from '@/hooks/use-prefetch-navigation';
 import { useArrowKeyNav } from '@/hooks/use-arrow-key-nav';
@@ -38,13 +38,12 @@ const CommandPalette = dynamic(
   { ssr: false }
 );
 
-// Bottom nav: Home | Roster | CAPTURE (center FAB) | Plans | Settings
+// Bottom nav: Home | Sessions | CAPTURE (center FAB) | Plans | More
 const navItems = [
   { href: '/home', label: 'Home', icon: Home },
-  { href: '/assistant', label: 'Assistant', icon: Sparkles },
+  { href: '/sessions', label: 'Sessions', icon: Calendar },
   { href: '/capture', label: 'Capture', icon: Mic, primary: true },
   { href: '/plans', label: 'Plans', icon: ClipboardList },
-  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 const dockItems = [
@@ -66,7 +65,6 @@ interface Props {
 export function DashboardShell({ coach, children }: Props) {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
-  const { onTouchStart, onTouchEnd } = useSwipeNavigation();
   const prefetchOnIntent = usePrefetchOnIntent();
   const { navRef: mobileNavRef, onKeyDown: mobileNavKeyDown } = useArrowKeyNav();
 
@@ -166,6 +164,7 @@ export function DashboardShell({ coach, children }: Props) {
     }
   }
 
+  const [moreOpen, setMoreOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const openCommandPalette = useCallback(() => setCommandPaletteOpen(true), []);
   const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), []);
@@ -467,11 +466,8 @@ export function DashboardShell({ coach, children }: Props) {
           </div>
         )}
 
-        {/* Swipe handlers on mobile content area — lg:pb-0 is desktop, touch won't fire there */}
         <div
-          className="flex-1 overflow-y-auto pb-48 lg:pb-24"
-          onTouchStart={onTouchStart}
-          onTouchEnd={onTouchEnd}
+          className="flex-1 overflow-y-auto overflow-x-hidden pb-48 lg:pb-24"
         >
           {/* Periodic nudge during practice */}
           {showNudge && practiceActive && (
@@ -496,6 +492,52 @@ export function DashboardShell({ coach, children }: Props) {
 
         {/* Command Palette — Cmd/Ctrl+K or search button */}
         {commandPaletteOpen && <CommandPalette onClose={closeCommandPalette} />}
+
+        {/* "More" slide-up sheet */}
+        {moreOpen && (
+          <>
+            {/* Backdrop */}
+            <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setMoreOpen(false)} />
+            {/* Sheet */}
+            <div className="fixed bottom-16 left-0 right-0 z-50 rounded-t-2xl border-t border-zinc-800 bg-zinc-900 px-4 pb-4 pt-3 lg:hidden">
+              <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-zinc-700" />
+              <div className="grid grid-cols-4 gap-4">
+                {[
+                  { href: '/roster', label: 'Roster', icon: Users },
+                  { href: '/assistant', label: 'Assistant', icon: Sparkles },
+                  { href: '/analytics', label: 'Analytics', icon: LineChart },
+                  { href: '/drills', label: 'Drills', icon: Dumbbell },
+                  { href: '/curriculum', label: 'Curriculum', icon: BookOpen },
+                  { href: '/settings', label: 'Settings', icon: Settings },
+                  { href: '/admin', label: 'Admin', icon: ShieldCheck },
+                ].map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMoreOpen(false)}
+                    className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 active:scale-95 transition-all"
+                  >
+                    <item.icon className="h-6 w-6" />
+                    <span className="text-[10px]">{item.label}</span>
+                  </Link>
+                ))}
+                {/* Sign Out */}
+                <button
+                  onClick={async () => {
+                    const { createClient } = await import('@/lib/supabase/client');
+                    const supabase = createClient();
+                    await supabase.auth.signOut();
+                    window.location.href = '/login';
+                  }}
+                  className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-red-400 hover:bg-zinc-800 active:scale-95 transition-all"
+                >
+                  <LogOut className="h-6 w-6" />
+                  <span className="text-[10px]">Sign Out</span>
+                </button>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Mobile bottom nav — 5 items, Capture centered as FAB */}
         <nav
@@ -534,6 +576,14 @@ export function DashboardShell({ coach, children }: Props) {
               </Link>
             );
           })}
+          {/* More button */}
+          <button
+            onClick={() => setMoreOpen(!moreOpen)}
+            className="flex flex-1 flex-col items-center justify-center gap-1 min-h-[44px] min-w-[44px] py-3 text-[11px] font-medium touch-manipulation text-zinc-500"
+          >
+            <MoreHorizontal className="h-6 w-6" />
+            <span>More</span>
+          </button>
         </nav>
       </main>
     </div>
