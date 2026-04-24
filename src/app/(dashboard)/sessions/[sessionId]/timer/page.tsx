@@ -37,6 +37,8 @@ import {
   ThumbsUp,
   ThumbsDown,
   Eye,
+  Mic,
+  MicOff,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Drill, Player, Session, Plan } from '@/types/database';
@@ -56,6 +58,7 @@ import {
   buildFocusLabel,
   type NeedsWorkObs,
 } from '@/lib/timer-focus-utils';
+import { useVoiceInput } from '@/hooks/use-voice-input';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -115,10 +118,28 @@ function BreakScreen({
   const [sentiment, setSentiment] = useState<Sentiment>('positive');
   const [templateCategory, setTemplateCategory] = useState<string | undefined>(undefined);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const voice = useVoiceInput();
 
   useEffect(() => {
     textRef.current?.focus();
   }, []);
+
+  const handleMicToggle = () => {
+    if (voice.isRecording) {
+      const result = voice.stop();
+      if (result.trim()) {
+        setNote(result.trim());
+        setTemplateCategory(undefined);
+      }
+    } else {
+      voice.start();
+    }
+  };
+
+  // Live display: while recording show accumulated + interim transcript
+  const voiceLiveText = voice.isRecording
+    ? [voice.transcript, voice.interimTranscript].filter(Boolean).join(' ')
+    : '';
 
   const handleSave = () => {
     if (!note.trim()) { onSkip(); return; }
@@ -273,22 +294,50 @@ function BreakScreen({
           </div>
         )}
 
-        <Textarea
-          ref={textRef}
-          placeholder="Type an observation… or tap a template above"
-          value={note}
-          onChange={(e) => {
-            setNote(e.target.value);
-            setTemplateCategory(undefined);
-          }}
-          rows={4}
-          className="min-h-[80px] text-base bg-zinc-900 border-zinc-700 resize-none"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && note.trim()) {
-              handleSave();
-            }
-          }}
-        />
+        <div className="relative">
+          <Textarea
+            ref={textRef}
+            placeholder={voice.isSupported ? 'Tap 🎤 to speak, or type…' : 'Type an observation… or tap a template above'}
+            value={voice.isRecording ? voiceLiveText : note}
+            readOnly={voice.isRecording}
+            onChange={(e) => {
+              if (!voice.isRecording) {
+                setNote(e.target.value);
+                setTemplateCategory(undefined);
+              }
+            }}
+            rows={4}
+            className={`min-h-[80px] text-base bg-zinc-900 border-zinc-700 resize-none pr-12 transition-colors ${
+              voice.isRecording ? 'border-red-500/50 text-zinc-400' : ''
+            }`}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && note.trim()) {
+                handleSave();
+              }
+            }}
+          />
+          {voice.isSupported && (
+            <button
+              type="button"
+              onClick={handleMicToggle}
+              aria-label={voice.isRecording ? 'Stop voice input' : 'Start voice input'}
+              aria-pressed={voice.isRecording}
+              className={`absolute right-3 top-3 rounded-full p-2 transition-colors touch-manipulation active:scale-95 ${
+                voice.isRecording
+                  ? 'bg-red-500/20 text-red-400 animate-pulse'
+                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
+              }`}
+            >
+              {voice.isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            </button>
+          )}
+        </div>
+        {voice.isRecording && (
+          <div className="flex items-center gap-2 -mt-2">
+            <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+            <span className="text-xs text-red-400">Listening…</span>
+          </div>
+        )}
 
         <div className="flex gap-3">
           <Button
