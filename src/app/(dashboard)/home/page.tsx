@@ -2047,22 +2047,35 @@ export default function HomePage() {
         const hasWeeklyStar = !isLoadingStats && stats && stats.observations >= 5 && stats.players > 0;
         const hasWins = !isLoadingStats && stats && stats.players > 0;
         if (!hasTips && !hasWeeklyStar && !hasWins) return null;
+        const insightCount = [hasTips, hasWeeklyStar, hasWins].filter(Boolean).length;
         return (
           <>
             {/* Mobile: collapsible toggle */}
             <div className="sm:hidden">
               <button
                 onClick={() => setShowInsights(!showInsights)}
-                className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-200 w-full py-2"
+                className="flex items-center justify-between w-full rounded-xl border border-orange-500/30 bg-orange-500/5 px-4 py-3 transition-colors hover:bg-orange-500/10"
               >
-                <ChevronDown className={`h-4 w-4 transition-transform ${showInsights ? 'rotate-180' : ''}`} />
-                More Insights
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 rounded-full bg-orange-500" />
+                  <span className="text-sm font-semibold text-orange-400">
+                    {insightCount} More Insight{insightCount !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <ChevronDown className={`h-4 w-4 text-orange-400 transition-transform ${showInsights ? 'rotate-180' : ''}`} />
               </button>
               {showInsights && (
-                <div className="space-y-4 mt-2">
+                <div className="space-y-4 mt-3">
                   {hasTips && <CoachingTipsCard teamId={activeTeam.id} />}
                   {hasWeeklyStar && <WeeklyStarCard teamId={activeTeam.id} />}
                   {hasWins && <TeamWinsCard teamId={activeTeam.id} />}
+                  <button
+                    onClick={() => setShowInsights(false)}
+                    className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-zinc-800 py-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
+                  >
+                    <ChevronDown className="h-3.5 w-3.5 rotate-180" />
+                    Show Less
+                  </button>
                 </div>
               )}
             </div>

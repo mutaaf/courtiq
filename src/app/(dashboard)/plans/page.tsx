@@ -3021,21 +3021,17 @@ export default function PlansPage() {
                     </CardContent>
                   </Card>
 
-                  {/* Expanded preview */}
+                  {/* Expanded preview — rendered with structured content parser */}
                   {isExpanded && (
                     <Card className="mt-1 border-zinc-800/50">
-                      <CardContent className="p-4 max-h-64 overflow-y-auto">
-                        <div className="text-sm text-zinc-300 whitespace-pre-wrap line-clamp-[12]">
-                          {plan.content?.slice(0, 500) || 'No content preview available.'}
-                          {(plan.content?.length || 0) > 500 && (
-                            <button
-                              onClick={() => setSelectedPlan(plan)}
-                              className="mt-2 text-xs text-orange-500 hover:text-orange-400 font-medium"
-                            >
-                              View full plan
-                            </button>
-                          )}
-                        </div>
+                      <CardContent className="p-4 max-h-80 overflow-y-auto">
+                        {renderStructuredContent(plan)}
+                        <button
+                          onClick={() => setSelectedPlan(plan)}
+                          className="mt-3 text-xs text-orange-500 hover:text-orange-400 font-medium"
+                        >
+                          View full plan
+                        </button>
                       </CardContent>
                     </Card>
                   )}

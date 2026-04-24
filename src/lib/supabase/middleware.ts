@@ -41,6 +41,7 @@ export async function updateSession(request: NextRequest) {
     '/api/debug',
     '/api/auth/',
     '/api/stripe/webhook',
+    '/api/parent-reactions',
     '/login',
     '/signup',
     '/onboarding',

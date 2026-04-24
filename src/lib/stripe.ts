@@ -1,10 +1,14 @@
 import Stripe from 'stripe';
 
-let _stripe: Stripe | undefined;
+let _stripe: Stripe | null = null;
 
 export function getStripe(): Stripe {
   if (!_stripe) {
-    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) {
+      throw new Error('STRIPE_SECRET_KEY is not set');
+    }
+    _stripe = new Stripe(key, {
       apiVersion: '2026-04-22.dahlia',
     });
   }
@@ -13,16 +17,16 @@ export function getStripe(): Stripe {
 
 export const PRICE_IDS = {
   coach: {
-    monthly: process.env.STRIPE_PRICE_COACH_MONTHLY!,
-    annual: process.env.STRIPE_PRICE_COACH_ANNUAL!,
+    monthly: process.env.STRIPE_PRICE_COACH_MONTHLY ?? '',
+    annual: process.env.STRIPE_PRICE_COACH_ANNUAL ?? '',
   },
   pro_coach: {
-    monthly: process.env.STRIPE_PRICE_PRO_MONTHLY!,
-    annual: process.env.STRIPE_PRICE_PRO_ANNUAL!,
+    monthly: process.env.STRIPE_PRICE_PRO_MONTHLY ?? '',
+    annual: process.env.STRIPE_PRICE_PRO_ANNUAL ?? '',
   },
   organization: {
-    monthly: process.env.STRIPE_PRICE_ORG_MONTHLY!,
-    annual: process.env.STRIPE_PRICE_ORG_ANNUAL!,
+    monthly: process.env.STRIPE_PRICE_ORG_MONTHLY ?? '',
+    annual: process.env.STRIPE_PRICE_ORG_ANNUAL ?? '',
   },
 } as const;
 

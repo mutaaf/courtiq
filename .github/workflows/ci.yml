@@ -56,7 +56,33 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
           NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_dummy
+          STRIPE_SECRET_KEY: sk_test_dummy
+          STRIPE_WEBHOOK_SECRET: whsec_dummy
+          STRIPE_PRICE_COACH_MONTHLY: price_dummy
+          STRIPE_PRICE_COACH_ANNUAL: price_dummy
+          STRIPE_PRICE_PRO_MONTHLY: price_dummy
+          STRIPE_PRICE_PRO_ANNUAL: price_dummy
+          STRIPE_PRICE_ORG_MONTHLY: price_dummy
+          STRIPE_PRICE_ORG_ANNUAL: price_dummy
+      - name: Start server
+        run: npm start &
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_dummy
+          STRIPE_SECRET_KEY: sk_test_dummy
+          STRIPE_WEBHOOK_SECRET: whsec_dummy
+          PORT: 3000
+      - name: Wait for server
+        run: |
+          for i in $(seq 1 30); do
+            curl -s http://localhost:3000 > /dev/null && break
+            sleep 1
+          done
       - run: npm run test:e2e || true
+        env:
+          E2E_BASE_URL: http://localhost:3000
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

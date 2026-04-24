@@ -384,8 +384,8 @@ export function QuickCaptureWidget() {
             onClick={!isBusy ? close : undefined}
           />
 
-          {/* Bottom sheet */}
-          <div className="animate-quick-capture-enter relative w-full max-w-md rounded-t-2xl border-t border-zinc-700 bg-zinc-900 px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5">
+          {/* Bottom sheet — raised above tab bar */}
+          <div className="animate-quick-capture-enter relative w-full max-w-md rounded-t-2xl border-t border-zinc-700 bg-zinc-900 px-5 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-5 mb-[calc(4rem+env(safe-area-inset-bottom))] lg:mb-0 lg:pb-[max(1.5rem,env(safe-area-inset-bottom))]">
             {/* Handle bar */}
             <div className="absolute left-1/2 top-2 h-1 w-8 -translate-x-1/2 rounded-full bg-zinc-700" />
 
@@ -448,7 +448,7 @@ export function QuickCaptureWidget() {
             {activeTab === 'voice' && (
               <>
                 {(widgetState === 'idle' || widgetState === 'recording') && (
-                  <div className="flex flex-col items-center gap-4 pb-2">
+                  <div className="flex flex-col items-center gap-4 pb-20 lg:pb-2">
                     <button
                       type="button"
                       onClick={widgetState === 'recording' ? stopAndProcess : startRecording}
@@ -576,7 +576,7 @@ export function QuickCaptureWidget() {
                     </div>
 
                     {/* Template chips */}
-                    <div className="grid grid-cols-2 gap-2 pb-1">
+                    <div className="grid grid-cols-2 gap-2 pb-20 lg:pb-1">
                       {shownTemplates.map((tpl) => (
                         <button
                           key={tpl.id}
