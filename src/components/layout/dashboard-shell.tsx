@@ -71,7 +71,7 @@ export function DashboardShell({ coach, children }: Props) {
   const { navRef: mobileNavRef, onKeyDown: mobileNavKeyDown } = useArrowKeyNav();
 
   const { activeTeam } = useActiveTeam();
-  const { subscriptionStatus } = useTier();
+  const { subscriptionStatus, cancelAtPeriodEnd, currentPeriodEnd } = useTier();
   const queryClient = useQueryClient();
 
   const isRecording = useAppStore((s) => s.isRecording);
@@ -275,6 +275,16 @@ export function DashboardShell({ coach, children }: Props) {
           <div className="bg-red-500/10 border-b border-red-500/30 px-4 py-2 flex items-center gap-2 text-sm text-red-400">
             <AlertCircle className="h-4 w-4" />
             <span>Payment failed — <Link href="/settings/upgrade" className="underline font-medium">update your payment method</Link></span>
+          </div>
+        )}
+        {/* Cancel-at-period-end warning */}
+        {cancelAtPeriodEnd && currentPeriodEnd && subscriptionStatus !== 'past_due' && (
+          <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 flex items-center gap-2 text-sm text-amber-400">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>
+              Your plan expires on {new Date(currentPeriodEnd).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} —{' '}
+              <Link href="/settings/upgrade" className="underline font-medium">resubscribe to keep access</Link>
+            </span>
           </div>
         )}
 

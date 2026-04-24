@@ -10,7 +10,7 @@ export async function GET() {
 
   const { data: coach } = await admin
     .from('coaches')
-    .select('*, organizations(id, name, slug, tier, sport_config)')
+    .select('*, organizations(id, name, slug, tier, sport_config, subscription_status, current_period_end, cancel_at_period_end)')
     .eq('id', user.id)
     .single();
 
