@@ -23,6 +23,16 @@ export default function CapturePage() {
   const router = useRouter();
   const { activeTeam, coach } = useActiveTeam();
 
+  // URL context params — read client-side to avoid Suspense requirement
+  const [urlSessionId, setUrlSessionId] = useState<string | null>(null);
+  const [urlPlayerId, setUrlPlayerId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setUrlSessionId(params.get('sessionId'));
+    setUrlPlayerId(params.get('playerId') || params.get('player'));
+  }, []);
+
   const [captureState, setCaptureState] = useState<CaptureState>('idle');
   const [transcript, setTranscript] = useState('');
   const [liveTranscript, setLiveTranscript] = useState('');
@@ -407,6 +417,7 @@ export default function CapturePage() {
             'pending_observations',
             JSON.stringify({
               recording_id: recordingId,
+              session_id: urlSessionId,
               observations: [],
               transcript: currentTranscript,
               unmatched_names: [],
@@ -446,6 +457,7 @@ export default function CapturePage() {
         'pending_observations',
         JSON.stringify({
           recording_id: recordingId,
+          session_id: urlSessionId,
           observations: result.observations || [],
           transcript: result.transcript || currentTranscript,
           unmatched_names: result.unmatched_names || [],
@@ -493,6 +505,7 @@ export default function CapturePage() {
           'pending_observations',
           JSON.stringify({
             recording_id: null,
+            session_id: urlSessionId,
             observations: result.observations || [],
             transcript: quickNote.trim(),
             unmatched_names: result.unmatched_names || [],
@@ -516,6 +529,7 @@ export default function CapturePage() {
           'pending_observations',
           JSON.stringify({
             recording_id: null,
+            session_id: urlSessionId,
             observations: [],
             transcript: quickNote.trim(),
             unmatched_names: [],
@@ -532,6 +546,7 @@ export default function CapturePage() {
         'pending_observations',
         JSON.stringify({
           recording_id: null,
+          session_id: urlSessionId,
           observations: [],
           transcript: quickNote.trim(),
           unmatched_names: [],
@@ -629,6 +644,7 @@ export default function CapturePage() {
         'pending_observations',
         JSON.stringify({
           recording_id: null,
+          session_id: urlSessionId,
           observations: result.observations || [],
           transcript: uploadTranscript.trim(),
           unmatched_names: result.unmatched_names || [],
@@ -691,6 +707,16 @@ export default function CapturePage() {
           <p className="mt-1 text-sm text-zinc-400">{activeTeam.name}</p>
         </div>
 
+        {/* Session context banner — shown when navigated from a session/player-specific link */}
+        {urlSessionId && (
+          <div className="flex items-center gap-2.5 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3">
+            <span className="text-blue-400 text-sm">📍</span>
+            <p className="text-sm text-blue-300">
+              Observations will be linked to your session
+            </p>
+          </div>
+        )}
+
         {/* Recovery Banner */}
         {recoveryData && captureState === 'idle' && (
           <Card className="border-amber-500/30 bg-amber-500/5">
@@ -711,6 +737,7 @@ export default function CapturePage() {
                   if (accumulatedObsRef.current.length > 0) {
                     sessionStorage.setItem('pending_observations', JSON.stringify({
                       recording_id: recoveryData.recordingId,
+                      session_id: urlSessionId,
                       observations: accumulatedObsRef.current,
                       transcript: '',
                       source: 'voice',
@@ -1036,7 +1063,8 @@ export default function CapturePage() {
             <QuickTemplates
               teamId={activeTeam.id}
               coachId={coach.id}
-              sessionId={null}
+              sessionId={urlSessionId}
+              preselectPlayerId={urlPlayerId}
             />
           </>
         )}

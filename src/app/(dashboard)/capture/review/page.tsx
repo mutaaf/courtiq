@@ -63,6 +63,7 @@ export default function ReviewPage() {
   const [observations, setObservations] = useState<ParsedObservation[]>([]);
   const [transcript, setTranscript] = useState('');
   const [recordingId, setRecordingId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [source, setSource] = useState<ObservationSource>('voice');
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState<number | null>(null);
@@ -85,6 +86,7 @@ export default function ReviewPage() {
       try {
         const data = JSON.parse(raw);
         setRecordingId(data.recording_id || null);
+        setSessionId(data.session_id || null);
         setTranscript(data.transcript || '');
         setSource(data.source === 'typed' ? 'typed' : 'voice');
 
@@ -214,6 +216,7 @@ export default function ReviewPage() {
         team_id: activeTeam.id,
         coach_id: coach.id,
         player_id: findPlayerId(obs.player_name),
+        session_id: sessionId,
         recording_id: recordingId,
         category: obs.category,
         sentiment: obs.sentiment,
@@ -269,7 +272,7 @@ export default function ReviewPage() {
               playerId: findPlayerByName(obs.player_name, cachedPlayers ?? []),
               teamId: activeTeam.id,
               coachId: coach.id,
-              sessionId: null,
+              sessionId,
               recordingId,
               category: obs.category,
               sentiment: obs.sentiment,

@@ -31,6 +31,7 @@ interface QuickTemplatesProps {
   teamId: string;
   coachId: string;
   sessionId?: string | null;
+  preselectPlayerId?: string | null;
 }
 
 // ── Sentiment tab ──────────────────────────────────────────────────────────────
@@ -57,6 +58,7 @@ interface PlayerPickerProps {
   teamId: string;
   coachId: string;
   sessionId?: string | null;
+  preselectPlayerId?: string | null;
   onClose: () => void;
   onSaved: (playerName: string) => void;
 }
@@ -66,6 +68,7 @@ function PlayerPicker({
   teamId,
   coachId,
   sessionId,
+  preselectPlayerId,
   onClose,
   onSaved,
 }: PlayerPickerProps) {
@@ -192,24 +195,43 @@ function PlayerPicker({
             <p className="px-2 py-4 text-center text-sm text-zinc-500">No active players on this team.</p>
           )}
 
-          {players?.map((player) => {
+          {players
+            ?.slice()
+            .sort((a, b) => {
+              if (preselectPlayerId) {
+                if (a.id === preselectPlayerId) return -1;
+                if (b.id === preselectPlayerId) return 1;
+              }
+              return 0;
+            })
+            .map((player) => {
             const isSaving = savingId === player.id;
+            const isPreselected = preselectPlayerId === player.id;
             return (
               <button
                 key={player.id}
                 onClick={() => save(player)}
                 disabled={!!savingId}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition-colors hover:bg-zinc-800/70 active:scale-[0.98] touch-manipulation disabled:opacity-60"
+                className={cn(
+                  'flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition-colors hover:bg-zinc-800/70 active:scale-[0.98] touch-manipulation disabled:opacity-60',
+                  isPreselected && 'border border-orange-500/40 bg-orange-500/8'
+                )}
               >
                 {/* Jersey badge */}
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-xs font-bold text-zinc-300">
+                <div className={cn(
+                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold',
+                  isPreselected ? 'bg-orange-500/20 text-orange-300' : 'bg-zinc-800 text-zinc-300'
+                )}>
                   {player.jersey_number != null ? `#${player.jersey_number}` : '—'}
                 </div>
-                <span className="flex-1 text-sm font-medium text-zinc-200">{player.name}</span>
+                <span className={cn('flex-1 text-sm font-medium', isPreselected ? 'text-orange-200' : 'text-zinc-200')}>
+                  {player.name}
+                  {isPreselected && <span className="ml-2 text-xs text-orange-400/80">suggested</span>}
+                </span>
                 {isSaving ? (
                   <Loader2 className="h-4 w-4 animate-spin text-orange-400" />
                 ) : (
-                  <ChevronRight className="h-4 w-4 text-zinc-600" />
+                  <ChevronRight className={cn('h-4 w-4', isPreselected ? 'text-orange-400' : 'text-zinc-600')} />
                 )}
               </button>
             );
@@ -246,7 +268,7 @@ function SuccessToast({ message, onDismiss }: { message: string; onDismiss: () =
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function QuickTemplates({ teamId, coachId, sessionId }: QuickTemplatesProps) {
+export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId }: QuickTemplatesProps) {
   const [activeTab, setActiveTab] = useState<TemplateSentiment>('positive');
   const [selectedTemplate, setSelectedTemplate] = useState<ObservationTemplate | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -337,6 +359,7 @@ export function QuickTemplates({ teamId, coachId, sessionId }: QuickTemplatesPro
           teamId={teamId}
           coachId={coachId}
           sessionId={sessionId}
+          preselectPlayerId={preselectPlayerId}
           onClose={handleClose}
           onSaved={handleSaved}
         />
