@@ -5,14 +5,12 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Home, Mic, Users, ClipboardList, Settings, Calendar, CalendarDays, BookOpen, BarChart3, Sparkles, Sun, Moon, LineChart, LogOut, Lock, ShieldCheck, Store, Search, Eye, X, Square, ChevronLeft, CheckCircle2 } from 'lucide-react';
+import { Home, Mic, Users, ClipboardList, Settings, Calendar, Sparkles, Sun, Moon, LineChart, LogOut, Search, X, Square, ChevronLeft, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NotificationBell } from '@/components/layout/notification-bell';
 import { TeamSwitcher } from '@/components/layout/team-switcher';
-import { SyncIndicator } from '@/components/layout/sync-indicator';
 import { PageTransition } from '@/components/layout/page-transition';
 import { useTheme } from '@/hooks/use-theme';
-import { useTier } from '@/hooks/use-tier';
 import { useSwipeNavigation } from '@/hooks/use-swipe-navigation';
 import { useSyncEngine } from '@/hooks/use-sync-engine';
 import { usePrefetchAdjacentPages, usePrefetchOnIntent } from '@/hooks/use-prefetch-navigation';
@@ -48,20 +46,15 @@ const navItems = [
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
-const sidebarItems = [
-  { href: '/home', label: 'Home', icon: Home, tourId: undefined, feature: undefined },
-  { href: '/assistant', label: 'Assistant', icon: Sparkles, tourId: 'assistant', feature: 'assistant' },
-  { href: '/capture', label: 'Capture', icon: Mic, tourId: 'capture', feature: undefined },
-  { href: '/analytics', label: 'Analytics', icon: LineChart, tourId: undefined, feature: 'analytics' },
-  { href: '/roster', label: 'Roster', icon: Users, tourId: 'roster', feature: undefined },
-  { href: '/sessions', label: 'Sessions', icon: Calendar, tourId: undefined, feature: undefined },
-  { href: '/observations', label: 'Observations', icon: Eye, tourId: undefined, feature: undefined },
-  { href: '/calendar', label: 'Calendar', icon: CalendarDays, tourId: undefined, feature: undefined },
-  { href: '/curriculum', label: 'Curriculum', icon: BookOpen, tourId: undefined, feature: undefined },
-  { href: '/marketplace', label: 'Marketplace', icon: Store, tourId: undefined, feature: undefined },
-  { href: '/plans', label: 'Plans', icon: ClipboardList, tourId: undefined, feature: undefined },
-  { href: '/drills', label: 'Drills', icon: BarChart3, tourId: undefined, feature: undefined },
-  { href: '/settings', label: 'Settings', icon: Settings, tourId: 'settings', feature: undefined },
+const dockItems = [
+  { href: '/home', label: 'Home', icon: Home },
+  { href: '/assistant', label: 'AI Assistant', icon: Sparkles },
+  { href: '/capture', label: 'Capture', icon: Mic },
+  { href: '/plans', label: 'Plans', icon: ClipboardList },
+  { href: '/roster', label: 'Roster', icon: Users },
+  { href: '/sessions', label: 'Sessions', icon: Calendar },
+  { href: '/analytics', label: 'Analytics', icon: LineChart },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 interface Props {
@@ -72,11 +65,8 @@ interface Props {
 export function DashboardShell({ coach, children }: Props) {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
-  const { canAccess: canAccessFeature } = useTier();
   const { onTouchStart, onTouchEnd } = useSwipeNavigation();
-  const isAdmin = coach.role === 'admin' && ((coach as any).organizations?.tier === 'organization');
   const prefetchOnIntent = usePrefetchOnIntent();
-  const { navRef: sidebarNavRef, onKeyDown: sidebarKeyDown } = useArrowKeyNav();
   const { navRef: mobileNavRef, onKeyDown: mobileNavKeyDown } = useArrowKeyNav();
 
   const { activeTeam } = useActiveTeam();
@@ -199,124 +189,85 @@ export function DashboardShell({ coach, children }: Props) {
 
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-100">
-      {/* Desktop Sidebar */}
-      <aside aria-label="Sidebar" className="hidden w-64 flex-col border-r border-zinc-800 bg-zinc-900/50 pt-[env(safe-area-inset-top)] lg:flex">
-        <div className="flex h-16 items-center gap-3 border-b border-zinc-800 px-6">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500 p-1">
-            <Image src="/logo.svg" alt="SportsIQ" width={24} height={24} className="invert" />
+      {/* Desktop top header */}
+      <header className="hidden lg:flex fixed top-0 left-0 right-0 z-50 h-12 items-center justify-between border-b border-zinc-800 bg-zinc-900/90 backdrop-blur-xl px-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500 p-0.5">
+            <Image src="/logo.svg" alt="SportsIQ" width={20} height={20} className="invert" />
           </div>
-          <span className="font-bold text-lg">SportsIQ</span>
+          <span className="font-bold">SportsIQ</span>
         </div>
-
-        <div className="border-b border-zinc-800 p-4">
-          <TeamSwitcher />
-        </div>
-
-        {/* Search / Command Palette trigger + notification bell */}
-        <div className="border-b border-zinc-800 px-4 py-2">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={openCommandPalette}
-              aria-label="Open command palette (⌘K)"
-              aria-keyshortcuts="Meta+K Control+K"
-              className="flex flex-1 items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-zinc-500 hover:border-zinc-600 hover:text-zinc-300 transition-colors"
-            >
-              <Search className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span className="flex-1 text-left text-xs">Search…</span>
-              <kbd className="hidden text-[10px] text-zinc-600 sm:inline">⌘K</kbd>
-            </button>
-            <NotificationBell />
-          </div>
-        </div>
-
-        <nav
-          ref={(el) => { sidebarNavRef.current = el; }}
-          aria-label="Main"
-          className="flex-1 space-y-1 p-4"
-          onKeyDown={sidebarKeyDown}
-        >
-          {sidebarItems.map((item) => {
-            const isActive = pathname.startsWith(item.href);
-            const isLocked = item.feature ? !canAccessFeature(item.feature) : false;
-            const prefetch = prefetchOnIntent(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                data-tour={item.tourId}
-                onMouseEnter={prefetch}
-                onFocus={prefetch}
-                aria-current={isActive ? 'page' : undefined}
-                className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-orange-500/10 text-orange-500'
-                    : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                {item.label}
-                {isLocked && <Lock className="ml-auto h-3.5 w-3.5 text-zinc-600" />}
-              </Link>
-            );
-          })}
-          {isAdmin && (
-            <Link
-              href="/admin"
-              onMouseEnter={prefetchOnIntent('/admin')}
-              onFocus={prefetchOnIntent('/admin')}
-              className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                pathname.startsWith('/admin')
-                  ? 'bg-orange-500/10 text-orange-500'
-                  : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'
-              )}
-            >
-              <ShieldCheck className="h-5 w-5" />
-              Admin
-            </Link>
-          )}
-        </nav>
-
-        {/* Theme toggle */}
-        <div className="border-t border-zinc-800 px-4 pt-3">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={openCommandPalette}
+            aria-label="Open command palette (⌘K)"
+            aria-keyshortcuts="Meta+K Control+K"
+            className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/50 px-3 py-1.5 text-sm text-zinc-500 hover:border-zinc-600 hover:text-zinc-300 transition-colors"
+          >
+            <Search className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span className="text-xs">Search…</span>
+            <kbd className="text-[10px] text-zinc-600">⌘K</kbd>
+          </button>
+          <NotificationBell />
           <button
             onClick={toggleTheme}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-100 transition-colors"
           >
-            {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
+          <TeamSwitcher compact />
         </div>
+      </header>
 
-        <div className="border-t border-zinc-800 p-4">
-          <SyncIndicator />
-          <div className="mt-3 flex items-center gap-3 px-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-700 text-xs font-medium">
-              {coach.full_name.split(' ').map(n => n[0]).join('')}
+      {/* Desktop Dock */}
+      <div className="hidden lg:flex fixed bottom-4 left-1/2 -translate-x-1/2 z-50 items-center gap-1 rounded-2xl border border-zinc-700/50 bg-zinc-900/90 backdrop-blur-xl px-3 py-2 shadow-2xl">
+        {dockItems.map((item) => {
+          const isActive = pathname.startsWith(item.href);
+          return (
+            <div key={item.href} className="group relative">
+              <Link
+                href={item.href}
+                className={cn(
+                  'flex h-12 w-12 items-center justify-center rounded-xl transition-all duration-200 hover:scale-110 hover:bg-zinc-800',
+                  isActive && 'bg-orange-500/15'
+                )}
+              >
+                <item.icon className={cn('h-5 w-5', isActive ? 'text-orange-500' : 'text-zinc-400 group-hover:text-zinc-100')} />
+              </Link>
+              {isActive && (
+                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-orange-500" />
+              )}
+              {/* Tooltip */}
+              <div className="absolute -top-9 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                <div className="bg-zinc-800 text-zinc-200 text-[11px] font-medium px-2.5 py-1 rounded-lg whitespace-nowrap shadow-xl border border-zinc-700/50">
+                  {item.label}
+                </div>
+              </div>
             </div>
-            <div className="flex-1 truncate">
-              <p className="truncate text-sm font-medium">{coach.full_name}</p>
-              <p className="truncate text-xs text-zinc-400">{coach.organizations?.name}</p>
+          );
+        })}
+
+        {/* Divider */}
+        <div className="h-8 w-px bg-zinc-700/50 mx-1" />
+
+        {/* Profile */}
+        <div className="group relative">
+          <button className="flex h-12 w-12 items-center justify-center rounded-xl hover:bg-zinc-800 transition-all hover:scale-110">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-700 text-xs font-medium text-zinc-200">
+              {coach.full_name.split(' ').map(n => n[0]).join('').slice(0,2)}
+            </div>
+          </button>
+          <div className="absolute -top-9 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            <div className="bg-zinc-800 text-zinc-200 text-[11px] font-medium px-2.5 py-1 rounded-lg whitespace-nowrap shadow-xl border border-zinc-700/50">
+              {coach.full_name}
             </div>
           </div>
-          <button
-            onClick={async () => {
-              const { createClient } = await import('@/lib/supabase/client');
-              const supabase = createClient();
-              await supabase.auth.signOut();
-              window.location.href = '/login';
-            }}
-            className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-500 hover:bg-zinc-800 hover:text-red-400 transition-colors"
-          >
-            <LogOut className="h-4 w-4" />
-            Sign Out
-          </button>
         </div>
-      </aside>
+      </div>
 
       {/* Main content */}
-      <main id="main-content" tabIndex={-1} className="flex flex-1 flex-col min-h-0">
+      <main id="main-content" tabIndex={-1} className="flex flex-1 flex-col min-h-0 lg:pt-12">
         {/* Mobile header */}
         <header className="flex items-center justify-between border-b border-zinc-800 px-4 pt-12 min-h-[5rem] lg:hidden">
           <div className="flex items-center gap-2">
@@ -498,7 +449,7 @@ export function DashboardShell({ coach, children }: Props) {
 
         {/* Swipe handlers on mobile content area — lg:pb-0 is desktop, touch won't fire there */}
         <div
-          className="flex-1 overflow-y-auto pb-48 lg:pb-0"
+          className="flex-1 overflow-y-auto pb-48 lg:pb-24"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
         >

@@ -147,12 +147,21 @@ export function NotificationBell() {
         )}
       </button>
 
+      {/* Backdrop overlay — mobile only */}
+      {open && (
+        <div
+          className="fixed inset-0 z-[59] bg-black/40 lg:hidden"
+          onClick={() => setOpen(false)}
+          aria-hidden
+        />
+      )}
+
       {/* Panel */}
       {open && (
         <div
           role="dialog"
           aria-label="Notifications"
-          className="absolute right-0 top-10 z-50 w-80 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-xl shadow-black/50"
+          className="fixed left-0 right-0 top-[5rem] z-[60] mx-auto max-h-[60vh] overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-xl shadow-black/50 lg:absolute lg:left-auto lg:right-0 lg:top-10 lg:mx-0 lg:w-80 lg:max-h-[26rem] lg:z-50"
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
@@ -177,7 +186,7 @@ export function NotificationBell() {
           </div>
 
           {/* Body */}
-          <div className="max-h-[26rem] overflow-y-auto">
+          <div className="max-h-[calc(60vh-6rem)] overflow-y-auto lg:max-h-[26rem]">
             {loading && (
               <div className="space-y-2 p-4">
                 {[0, 1, 2].map((i) => (
