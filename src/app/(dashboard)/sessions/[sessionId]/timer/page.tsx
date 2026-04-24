@@ -36,6 +36,7 @@ import {
   Layers,
   ThumbsUp,
   ThumbsDown,
+  Eye,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Drill, Player, Session, Plan } from '@/types/database';
@@ -49,6 +50,12 @@ import {
   type TemplateDrill,
 } from '@/lib/practice-templates';
 import { OBSERVATION_TEMPLATES } from '@/lib/observation-templates';
+import {
+  getPlayerFocusForCategory,
+  hasEnoughObsForFocus,
+  buildFocusLabel,
+  type NeedsWorkObs,
+} from '@/lib/timer-focus-utils';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -532,6 +539,30 @@ export default function PracticeTimerPage({
     enabled: !!activeTeam,
   });
 
+  // Fetch recent needs-work observations (last 30 days) for player focus callouts.
+  // Loaded once on mount; cached for 5 minutes so it doesn't slow drill transitions.
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const { data: needsWorkObs = [] } = useQuery({
+    queryKey: ['timer-needs-work-obs', activeTeam?.id],
+    queryFn: async () => {
+      if (!activeTeam) return [];
+      const data = await query<NeedsWorkObs[]>({
+        table: 'observations',
+        select: 'player_id, category',
+        filters: {
+          team_id: activeTeam.id,
+          sentiment: 'needs-work',
+          created_at: { op: 'gte', value: thirtyDaysAgo.toISOString() },
+        },
+        limit: 300,
+      });
+      return data || [];
+    },
+    enabled: !!activeTeam,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // ── Load plan queue from planId search param ─────────────────────────────
   useEffect(() => {
     if (!planId || queue.length > 0 || isRecovered) return;
@@ -976,6 +1007,31 @@ export default function PracticeTimerPage({
               <p className="text-sm text-zinc-200 leading-relaxed">{currentCue}</p>
             </div>
           )}
+
+          {/* Player focus callouts — who to watch based on recent needs-work obs */}
+          {(() => {
+            if (!hasEnoughObsForFocus(needsWorkObs)) return null;
+            const focus = getPlayerFocusForCategory(drill?.category, needsWorkObs, players);
+            if (focus.length === 0) return null;
+            return (
+              <div className="flex flex-col items-center gap-2 max-w-sm w-full">
+                <p className="text-xs text-zinc-600 uppercase tracking-wide flex items-center gap-1">
+                  <Eye className="h-3 w-3" />
+                  Watch closely
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {focus.map((f) => (
+                    <span
+                      key={f.playerId}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 px-3 py-1.5 text-sm font-medium text-amber-300"
+                    >
+                      {buildFocusLabel(f)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Next drill preview */}
           {nextDrill && (
