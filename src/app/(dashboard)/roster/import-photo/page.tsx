@@ -44,72 +44,100 @@ export default function ImportPhotoPage() {
   const [players, setPlayers] = useState<ImportedPlayer[]>([]);
   const [savedCount, setSavedCount] = useState(0);
 
+  // Resize image to max 1200px wide to stay under token limits
+  async function resizeImage(file: File, maxWidth = 1200): Promise<{ base64: string; mimeType: string }> {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const base64 = dataUrl.split(',')[1];
+        resolve({ base64, mimeType: 'image/jpeg' });
+      };
+      img.onerror = reject;
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    // Support multiple images
+    const file = files[0];
     setImageFile(file);
     setError(null);
     const reader = new FileReader();
     reader.onload = () => setImagePreview(reader.result as string);
     reader.readAsDataURL(file);
+
+    // If multiple files, process them all
+    if (files.length > 1) {
+      setMultipleFiles(Array.from(files));
+    }
   };
 
+  const [multipleFiles, setMultipleFiles] = useState<File[]>([]);
+
   const processScreenshot = async () => {
-    if (!imageFile || !activeTeam) return;
+    if (!activeTeam) return;
+    const filesToProcess = multipleFiles.length > 0 ? multipleFiles : (imageFile ? [imageFile] : []);
+    if (filesToProcess.length === 0) return;
+
     setAiProcessing(true);
     setError(null);
 
+    let totalImported = 0;
+    const allDuplicates: string[] = [];
+
     try {
-      // Convert to base64
-      const buffer = await imageFile.arrayBuffer();
-      const base64 = btoa(
-        new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-      );
+      for (const file of filesToProcess) {
+        // Resize image to stay under AI token limits
+        const { base64, mimeType } = await resizeImage(file);
 
-      const response = await fetch('/api/ai/import-roster', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          teamId: activeTeam.id,
-          imageBase64: base64,
-        }),
-      });
+        const response = await fetch('/api/ai/import-roster', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            teamId: activeTeam.id,
+            imageBase64: base64,
+            mimeType,
+          }),
+        });
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to process screenshot');
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || 'Failed to process screenshot');
+        }
+
+        const result = await response.json();
+        totalImported += (result.imported || []).length;
+        allDuplicates.push(...(result.duplicates || []));
       }
 
-      const result = await response.json();
-
-      // The API auto-imports — show results
-      const imported = result.imported || [];
-      const duplicates = result.duplicates || [];
-
-      if (imported.length === 0 && duplicates.length === 0 && result.total_extracted === 0) {
-        setError('No players could be extracted from the image. Try a clearer photo or use text import.');
-        return;
-      }
-
-      // Build preview list from imported + duplicates info
-      const parsed: ImportedPlayer[] = imported.map(
-        (p: { name: string; jersey_number?: number | null; position?: string }) => ({
-          name: p.name,
-          jersey_number: p.jersey_number ?? null,
-          position: p.position || SYSTEM_DEFAULTS.sport.positions[0],
-          included: true,
-        })
-      );
-
-      setSavedCount(imported.length);
+      setSavedCount(totalImported);
 
       // Invalidate roster cache
       await queryClient.invalidateQueries({
         queryKey: queryKeys.players.all(activeTeam.id),
       });
 
-      if (duplicates.length > 0) {
-        setError(`${duplicates.length} player(s) already on roster: ${duplicates.join(', ')}`);
+      if (totalImported === 0 && allDuplicates.length === 0) {
+        setError('No players could be extracted from the image(s). Try a clearer photo or use text import.');
+        return;
+      }
+
+      if (allDuplicates.length > 0) {
+        setError(`${allDuplicates.length} player(s) already on roster: ${allDuplicates.join(', ')}`);
       }
 
       setStep('done');
@@ -117,6 +145,7 @@ export default function ImportPhotoPage() {
       setError(err.message || 'Failed to process screenshot.');
     } finally {
       setAiProcessing(false);
+      setMultipleFiles([]);
     }
   };
 
@@ -190,7 +219,7 @@ export default function ImportPhotoPage() {
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              capture="environment"
+              multiple
               onChange={handleImageSelect}
               className="hidden"
             />
