@@ -101,12 +101,14 @@ function BreakScreen({
   players,
   onSave,
   onSkip,
+  capturedPlayerIds,
 }: {
   drillJustFinished: string;
   nextDrillName?: string;
   players: Player[];
   onSave: (note: string, playerId?: string, playerName?: string, sentiment?: Sentiment, category?: string) => void;
   onSkip: () => void;
+  capturedPlayerIds?: Set<string>;
 }) {
   const [note, setNote] = useState('');
   const [selectedPlayer, setSelectedPlayer] = useState<string>('');
@@ -211,32 +213,63 @@ function BreakScreen({
         {/* Player selector */}
         {players.length > 0 && (
           <div>
-            <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wide">Player (optional)</p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setSelectedPlayer('')}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                  selectedPlayer === ''
-                    ? 'bg-orange-500 text-white'
-                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                }`}
-              >
-                Team
-              </button>
-              {players.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => setSelectedPlayer(p.id === selectedPlayer ? '' : p.id)}
-                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                    selectedPlayer === p.id
-                      ? 'bg-orange-500 text-white'
-                      : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                  }`}
-                >
-                  {p.jersey_number ? `#${p.jersey_number} ` : ''}{p.name.split(' ')[0]}
-                </button>
-              ))}
-            </div>
+            {(() => {
+              const observedCount = capturedPlayerIds ? players.filter(p => capturedPlayerIds.has(p.id)).length : 0;
+              const unobservedCount = players.length - observedCount;
+              // Sort: unobserved players first so coaches instantly see who they've missed
+              const sortedPlayers = capturedPlayerIds
+                ? [...players].sort((a, b) => {
+                    const aObs = capturedPlayerIds.has(a.id) ? 1 : 0;
+                    const bObs = capturedPlayerIds.has(b.id) ? 1 : 0;
+                    return aObs - bObs;
+                  })
+                : players;
+              return (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs text-zinc-500 uppercase tracking-wide">Player (optional)</p>
+                    {capturedPlayerIds && players.length > 0 && observedCount > 0 && (
+                      <span className={`text-xs font-medium ${unobservedCount === 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        {unobservedCount === 0 ? '✓ All players observed' : `${observedCount}/${players.length} observed`}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setSelectedPlayer('')}
+                      className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                        selectedPlayer === ''
+                          ? 'bg-orange-500 text-white'
+                          : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                      }`}
+                    >
+                      Team
+                    </button>
+                    {sortedPlayers.map((p) => {
+                      const isObserved = capturedPlayerIds?.has(p.id) ?? false;
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => setSelectedPlayer(p.id === selectedPlayer ? '' : p.id)}
+                          className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                            selectedPlayer === p.id
+                              ? 'bg-orange-500 text-white'
+                              : isObserved
+                                ? 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700 ring-1 ring-emerald-500/40'
+                                : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                          }`}
+                        >
+                          {p.jersey_number ? `#${p.jersey_number} ` : ''}{p.name.split(' ')[0]}
+                          {isObserved && selectedPlayer !== p.id && (
+                            <span className="ml-1 text-emerald-500">✓</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         )}
 
@@ -922,6 +955,7 @@ export default function PracticeTimerPage({
   if (mode === 'break') {
     const drill = queue[currentIdx];
     const nextDrill = queue[currentIdx + 1];
+    const capturedPlayerIds = new Set(notes.filter(n => n.playerId).map(n => n.playerId!));
     return (
       <BreakScreen
         drillJustFinished={drill?.name ?? ''}
@@ -929,6 +963,7 @@ export default function PracticeTimerPage({
         players={players}
         onSave={handleBreakSave}
         onSkip={handleBreakSkip}
+        capturedPlayerIds={capturedPlayerIds}
       />
     );
   }
