@@ -57,7 +57,7 @@ To go live, the ONLY changes needed:
 NO code changes needed — it's all env-var driven.
 
 **Role-Based Gating (must work flawlessly):**
-- [ ] Free users: limited to 1 team, 10 players, 5 AI calls, basic features
+- [x] Free users: limited to 1 team, 10 players, 5 AI calls, basic features — player limit already enforced in /api/data/mutate; **monthly AI call quota now enforced server-side in callAI()**: TierLimitError (status 402) thrown when free-tier org exceeds 5 successful ai_interactions this calendar month; handleAIError returns { error, upgrade: true }; AIUpgradePrompt component shown on capture/review page with direct link to /settings/upgrade; all 20+ AI routes get enforcement for free via the shared callAI() entry point
 - [ ] Coach users: 3 teams, unlimited players/AI, report cards, parent sharing
 - [ ] Pro users: unlimited everything + assistant + analytics + media
 - [ ] Org users: everything + multi-coach + admin + custom branding
