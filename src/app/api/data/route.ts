@@ -40,7 +40,13 @@ export async function POST(request: Request) {
       } else if (typeof value === 'object' && value !== null) {
         const op = value as { op: string; value: unknown };
         switch (op.op) {
-          case 'neq': query = query.neq(key, op.value); break;
+          case 'neq':
+            if (op.value === null) {
+              query = query.not(key, 'is', null);
+            } else {
+              query = query.neq(key, op.value as string | number);
+            }
+            break;
           case 'gt': query = query.gt(key, op.value); break;
           case 'gte': query = query.gte(key, op.value); break;
           case 'lt': query = query.lt(key, op.value); break;
