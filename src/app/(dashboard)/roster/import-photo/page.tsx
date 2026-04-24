@@ -59,9 +59,11 @@ export default function ImportPhotoPage() {
         canvas.height = height;
         const ctx = canvas.getContext('2d')!;
         ctx.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        // Convert to PNG (universal support, no transparency issues)
+        const dataUrl = canvas.toDataURL('image/png');
+        const actualMime = dataUrl.substring(dataUrl.indexOf(':') + 1, dataUrl.indexOf(';'));
         const base64 = dataUrl.split(',')[1];
-        resolve({ base64, mimeType: 'image/jpeg' });
+        resolve({ base64, mimeType: actualMime });
       };
       img.onerror = reject;
       img.src = URL.createObjectURL(file);
