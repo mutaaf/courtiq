@@ -183,6 +183,45 @@ export async function GET(
       note: a.note ?? null,
     }));
 
+    // Most recent AI-generated session message for this player.
+    // player_messages plans are team-level; we match by player name.
+    let latestSessionMessage = null;
+    if (player?.name) {
+      const { data: msgPlans } = await supabase
+        .from('plans')
+        .select('content_structured, created_at')
+        .eq('team_id', share.team_id)
+        .eq('type', 'player_messages')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (msgPlans && msgPlans.length > 0) {
+        const playerNameLower = player.name.toLowerCase().trim();
+        const playerFirstName = player.name.split(' ')[0].toLowerCase().trim();
+        for (const plan of msgPlans) {
+          const content = plan.content_structured as any;
+          const match = (content?.messages ?? []).find((m: any) => {
+            const msgName = (m.player_name || '').toLowerCase().trim();
+            return (
+              msgName === playerNameLower ||
+              msgName === playerFirstName ||
+              msgName.startsWith(playerFirstName + ' ')
+            );
+          });
+          if (match) {
+            latestSessionMessage = {
+              message: match.message,
+              highlight: match.highlight,
+              next_focus: match.next_focus,
+              session_label: content.session_label || '',
+            };
+            break;
+          }
+        }
+      }
+    }
+    reportData.latestSessionMessage = latestSessionMessage;
+
     // Active team announcements (visible to parents)
     const now = new Date().toISOString();
     const { data: announcements } = await supabase

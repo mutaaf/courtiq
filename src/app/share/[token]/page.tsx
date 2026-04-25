@@ -1,7 +1,7 @@
 import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { ParentViralCTA } from '@/components/share/parent-viral-cta';
 import { ParentReactionForm } from '@/components/share/parent-reaction-form';
-import { Megaphone } from 'lucide-react';
+import { Megaphone, MessageCircle } from 'lucide-react';
 import {
   buildSeasonStats,
   getImprovingSkills,
@@ -167,6 +167,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     totalObservationCount,
     recentObservationActivity,
     achievements,
+    latestSessionMessage,
   } = data;
 
   const playerName = player?.nickname || player?.name || 'your player';
@@ -287,6 +288,65 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             </p>
           </div>
         </div>
+
+        {/* ─── Coach's Latest Session Update ─── */}
+        {latestSessionMessage && (
+          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm border border-emerald-100">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100">
+                  <MessageCircle className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+                </div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                  Coach&apos;s Update
+                </h3>
+              </div>
+              {latestSessionMessage.session_label && (
+                <span className="text-[11px] text-gray-400">
+                  {latestSessionMessage.session_label}
+                </span>
+              )}
+            </div>
+
+            <p className="text-sm leading-relaxed text-gray-800">
+              {latestSessionMessage.message}
+            </p>
+
+            {latestSessionMessage.highlight && (
+              <div className="mt-3 flex items-start gap-2 rounded-xl bg-emerald-50 px-3 py-2.5">
+                <span className="mt-0.5 shrink-0 text-sm" aria-hidden="true">✨</span>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+                    Highlight
+                  </p>
+                  <p className="mt-0.5 text-sm text-gray-700">
+                    {latestSessionMessage.highlight}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {latestSessionMessage.next_focus && (
+              <div className="mt-2 flex items-start gap-2 rounded-xl bg-orange-50 px-3 py-2.5">
+                <span className="mt-0.5 shrink-0 text-sm" aria-hidden="true">🎯</span>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-orange-700">
+                    Next Focus
+                  </p>
+                  <p className="mt-0.5 text-sm text-gray-700">
+                    {latestSessionMessage.next_focus}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {coachName && (
+              <p className="mt-3 text-right text-xs font-medium text-gray-500">
+                — Coach {coachName}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* ─── Team Announcements ─── */}
         {announcements && announcements.length > 0 && (
