@@ -68,12 +68,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
   }
 
-  const { email } = await request.json();
+  const { email, role: initialRole = 'coach' } = await request.json();
   if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 });
 
-  // Invite user via Supabase Auth
+  const validRoles = ['admin', 'head_coach', 'coach', 'assistant'];
+  if (!validRoles.includes(initialRole)) {
+    return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+  // Invite user via Supabase Auth — embed org_id + initial_role in metadata
+  // so the auth callback can join the correct org instead of creating a new one
   const { data: invite, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { org_id: coach.org_id },
+    data: { org_id: coach.org_id, initial_role: initialRole },
+    redirectTo: `${appUrl}/api/auth/callback`,
   });
 
   if (inviteError) {

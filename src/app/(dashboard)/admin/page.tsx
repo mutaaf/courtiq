@@ -53,6 +53,7 @@ export default function AdminPage() {
   const [teams, setTeams] = useState<OrgTeam[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<CoachRole>('coach');
   const [inviting, setInviting] = useState(false);
   const [inviteResult, setInviteResult] = useState<string | null>(null);
   const [updatingRole, setUpdatingRole] = useState<string | null>(null);
@@ -89,11 +90,11 @@ export default function AdminPage() {
       const res = await fetch('/api/admin/coaches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inviteEmail.trim() }),
+        body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
       });
       const data = await res.json();
       if (res.ok) {
-        setInviteResult(`Invitation sent to ${inviteEmail}`);
+        setInviteResult(`Invitation sent to ${inviteEmail} as ${inviteRole.replace('_', ' ')}`);
         setInviteEmail('');
         loadData();
       } else {
@@ -262,14 +263,31 @@ export default function AdminPage() {
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
               className="flex-1"
+              onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
             />
+            <select
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value as CoachRole)}
+              className="h-10 rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-orange-500"
+            >
+              {ROLE_OPTIONS.filter((r) => r !== 'admin').map((r) => (
+                <option key={r} value={r}>
+                  {r.replace('_', ' ')}
+                </option>
+              ))}
+            </select>
             <Button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}>
               {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
               Invite
             </Button>
           </div>
+          <p className="text-xs text-zinc-500">
+            The invited coach will receive an email and automatically join your organization with the selected role.
+          </p>
           {inviteResult && (
-            <p className="text-sm text-zinc-400">{inviteResult}</p>
+            <p className={`text-sm ${inviteResult.startsWith('Invitation sent') ? 'text-emerald-400' : 'text-red-400'}`}>
+              {inviteResult}
+            </p>
           )}
         </CardContent>
       </Card>

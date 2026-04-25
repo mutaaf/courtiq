@@ -22,8 +22,25 @@ export async function GET(request: Request) {
         .single();
 
       if (!coach) {
-        // Create org + coach for new OAuth user
         const name = data.user.user_metadata.full_name || data.user.email?.split('@')[0] || 'Coach';
+
+        // Invited coaches have org_id set in user_metadata by the admin invite API
+        const inviteOrgId = data.user.user_metadata?.org_id as string | undefined;
+        const initialRole = (data.user.user_metadata?.initial_role as string | undefined) || 'coach';
+
+        if (inviteOrgId) {
+          // Join the inviting organization instead of creating a new one
+          await adminSupabase.from('coaches').insert({
+            id: data.user.id,
+            org_id: inviteOrgId,
+            full_name: name,
+            email: data.user.email!,
+            role: initialRole,
+          });
+          return NextResponse.redirect(`${origin}/home`);
+        }
+
+        // New self-signup — create their own organization
         const { data: org, error: orgError } = await adminSupabase
           .from('organizations')
           .insert({
