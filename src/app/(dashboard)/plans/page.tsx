@@ -52,6 +52,7 @@ import {
   Copy,
   Megaphone,
   Lock,
+  Fingerprint,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { PrintButton } from '@/components/ui/print-button';
@@ -83,6 +84,7 @@ const PLAN_TYPE_CONFIG: Record<
   team_group_message: { label: 'Team Group Message', icon: Users, color: 'text-emerald-400' },
   season_awards: { label: 'Season Awards', icon: Trophy, color: 'text-amber-400' },
   huddle_script: { label: 'Huddle Script', icon: Megaphone, color: 'text-lime-400' },
+  team_personality: { label: 'Team Personality', icon: Fingerprint, color: 'text-violet-400' },
 };
 
 const SUGGESTION_CHIPS = [
@@ -420,6 +422,11 @@ export default function PlansPage() {
   const [seasonAwardsStats, setSeasonAwardsStats] = useState<{ playersAwarded: number; totalObservations: number; summaryLabel: string } | null>(null);
   const [awardCopiedIndex, setAwardCopiedIndex] = useState<number | null>(null);
 
+  // Team Personality state
+  const [generatingTeamPersonality, setGeneratingTeamPersonality] = useState(false);
+  const [teamPersonalityStats, setTeamPersonalityStats] = useState<{ observationsAnalyzed: number; sessionsIncluded: number; playersObserved: number; healthScore: number } | null>(null);
+  const [personalityCopied, setPersonalityCopied] = useState(false);
+
   // Run Practice modal state
   const [showRunModal, setShowRunModal] = useState(false);
   const [creatingSession, setCreatingSession] = useState(false);
@@ -632,6 +639,32 @@ export default function PlansPage() {
       setError(err instanceof Error ? err.message : 'Season awards generation failed');
     } finally {
       setGeneratingSeasonAwards(false);
+    }
+  };
+
+  const generateTeamPersonality = async () => {
+    if (!activeTeam) return;
+    setGeneratingTeamPersonality(true);
+    setError(null);
+    setTeamPersonalityStats(null);
+    try {
+      const res = await fetch('/api/ai/team-personality', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate team personality');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      if (data.stats) setTeamPersonalityStats(data.stats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Team personality generation failed');
+    } finally {
+      setGeneratingTeamPersonality(false);
     }
   };
 
@@ -2127,6 +2160,143 @@ export default function PlansPage() {
       );
     }
 
+    // Team Personality renderer
+    if (
+      typeof structured.team_type === 'string' &&
+      typeof structured.tagline === 'string' &&
+      Array.isArray(structured.traits) &&
+      typeof structured.team_motto === 'string'
+    ) {
+      const personality = structured as any;
+      return (
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="rounded-2xl border border-violet-500/30 bg-gradient-to-br from-violet-500/10 to-violet-500/5 p-5 text-center space-y-2">
+            <div className="text-3xl mb-1">{personality.type_emoji || '🎯'}</div>
+            <h2 className="text-xl font-bold text-violet-200">{personality.team_type}</h2>
+            <p className="text-sm font-medium text-violet-300/80 italic">&ldquo;{personality.tagline}&rdquo;</p>
+          </div>
+
+          {/* Description */}
+          <p className="text-sm text-zinc-300 leading-relaxed px-1">{personality.description}</p>
+
+          {/* Traits */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 px-1">Team Traits</p>
+            {(personality.traits as any[]).map((trait: any, i: number) => {
+              const score = typeof trait.score === 'number' ? trait.score : 50;
+              const barColor = score >= 75 ? 'bg-emerald-500' : score >= 50 ? 'bg-orange-500' : score >= 30 ? 'bg-amber-500' : 'bg-zinc-500';
+              const textColor = score >= 75 ? 'text-emerald-400' : score >= 50 ? 'text-orange-400' : score >= 30 ? 'text-amber-400' : 'text-zinc-400';
+              return (
+                <div key={i} className="space-y-1.5">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-sm font-medium text-zinc-200">{trait.name}</span>
+                    <span className={`text-xs font-bold tabular-nums ${textColor}`}>{score}</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-800">
+                    <div
+                      className={`h-full rounded-full transition-all ${barColor}`}
+                      style={{ width: `${Math.max(0, Math.min(100, score))}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-zinc-500 px-1 leading-relaxed">{trait.description}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Strengths + Growth */}
+          <div className="grid grid-cols-2 gap-3">
+            {Array.isArray(personality.strengths) && personality.strengths.length > 0 && (
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
+                <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Strengths</p>
+                <ul className="space-y-1">
+                  {(personality.strengths as string[]).map((s: string, i: number) => (
+                    <li key={i} className="text-xs text-zinc-300 flex items-start gap-1.5">
+                      <span className="text-emerald-400 mt-0.5 shrink-0">✓</span>
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {Array.isArray(personality.growth_areas) && personality.growth_areas.length > 0 && (
+              <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-3 space-y-2">
+                <p className="text-xs font-semibold text-orange-400 uppercase tracking-wider">Growing</p>
+                <ul className="space-y-1">
+                  {(personality.growth_areas as string[]).map((g: string, i: number) => (
+                    <li key={i} className="text-xs text-zinc-300 flex items-start gap-1.5">
+                      <span className="text-orange-400 mt-0.5 shrink-0">→</span>
+                      {g}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Coaching Tips */}
+          {Array.isArray(personality.coaching_tips) && personality.coaching_tips.length > 0 && (
+            <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 space-y-2">
+              <p className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Coaching Tips for This Team</p>
+              <ul className="space-y-2">
+                {(personality.coaching_tips as string[]).map((tip: string, i: number) => (
+                  <li key={i} className="text-sm text-zinc-300 flex items-start gap-2">
+                    <span className="text-blue-400 font-bold shrink-0 mt-0.5">{i + 1}.</span>
+                    {tip}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Team Motto */}
+          <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4 text-center">
+            <p className="text-xs font-semibold uppercase tracking-widest text-violet-500 mb-2">Team Motto</p>
+            <p className="text-base font-bold text-violet-200">&ldquo;{personality.team_motto}&rdquo;</p>
+          </div>
+
+          {/* Share button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full border-violet-500/30 text-violet-300 hover:bg-violet-500/10"
+            onClick={async () => {
+              const text = [
+                `${personality.type_emoji} ${personality.team_type}`,
+                `"${personality.tagline}"`,
+                '',
+                personality.description,
+                '',
+                `Team Motto: "${personality.team_motto}"`,
+                '',
+                `Strengths: ${Array.isArray(personality.strengths) ? personality.strengths.join(', ') : ''}`,
+                `Working on: ${Array.isArray(personality.growth_areas) ? personality.growth_areas.join(', ') : ''}`,
+                '',
+                'Powered by SportsIQ 🏀',
+              ].join('\n');
+              try {
+                if (navigator.share) {
+                  await navigator.share({ title: personality.team_type, text });
+                } else {
+                  await navigator.clipboard.writeText(text);
+                  setPersonalityCopied(true);
+                  setTimeout(() => setPersonalityCopied(false), 2000);
+                }
+              } catch { /* user cancelled */ }
+            }}
+            aria-label="Share team personality profile"
+          >
+            {personalityCopied ? (
+              <><Check className="h-4 w-4 mr-1.5 text-emerald-400" /> Copied!</>
+            ) : (
+              <><Share2 className="h-4 w-4 mr-1.5" /> Share Team Personality</>
+            )}
+          </Button>
+        </div>
+      );
+    }
+
     // Team Group Message renderer
     if (
       typeof structured.message === 'string' &&
@@ -2505,6 +2675,27 @@ export default function PlansPage() {
               <Star className="h-4 w-4 text-amber-500/50 shrink-0" />
             </button>
 
+            {/* Team Personality — who is this team? */}
+            <button
+              onClick={generateTeamPersonality}
+              disabled={generatingTeamPersonality || generating || !activeTeam}
+              className="flex w-full items-center gap-2.5 rounded-xl border border-violet-500/40 bg-gradient-to-r from-violet-500/15 to-violet-500/5 px-4 py-3 text-left transition-all hover:border-violet-500/60 hover:from-violet-500/20 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
+              aria-label="Generate team personality profile"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/25">
+                {generatingTeamPersonality ? (
+                  <Loader2 className="h-4 w-4 text-violet-400 animate-spin" />
+                ) : (
+                  <Fingerprint className="h-4 w-4 text-violet-400" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-violet-300">Team Personality</p>
+                <p className="text-xs text-zinc-500">Discover your team&apos;s identity — share with players &amp; parents</p>
+              </div>
+              <Sparkles className="h-4 w-4 text-violet-500/50 shrink-0" />
+            </button>
+
             {/* Season Storyline — player-specific */}
             <div className="rounded-xl border border-indigo-500/40 bg-gradient-to-r from-indigo-500/15 to-indigo-500/5 p-3 space-y-2.5">
               <div className="flex items-center gap-2.5">
@@ -2833,6 +3024,37 @@ export default function PlansPage() {
                 <p className="text-sm font-medium text-indigo-300">Writing season storyline...</p>
                 <p className="text-xs text-zinc-500">Analyzing the full season of observations and crafting the player&apos;s arc</p>
               </div>
+            </div>
+          )}
+
+          {/* Team Personality generating indicator */}
+          {generatingTeamPersonality && (
+            <div className="flex items-center gap-3 rounded-lg border border-violet-500/20 bg-violet-500/5 p-3">
+              <Loader2 className="h-5 w-5 text-violet-400 animate-spin" />
+              <div>
+                <p className="text-sm font-medium text-violet-300">Discovering your team&apos;s personality...</p>
+                <p className="text-xs text-zinc-500">Analyzing observation patterns and crafting your team&apos;s identity</p>
+              </div>
+            </div>
+          )}
+
+          {/* Team Personality stats badge */}
+          {!generatingTeamPersonality && teamPersonalityStats && (
+            <div className="flex items-start gap-3 rounded-lg border border-violet-500/20 bg-violet-500/5 p-3">
+              <Fingerprint className="h-4 w-4 text-violet-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-violet-300">Team Personality generated</p>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  {teamPersonalityStats.observationsAnalyzed} obs &middot; {teamPersonalityStats.sessionsIncluded} sessions &middot; {teamPersonalityStats.playersObserved} players &middot; {teamPersonalityStats.healthScore}% positive
+                </p>
+              </div>
+              <button
+                onClick={() => setTeamPersonalityStats(null)}
+                className="text-zinc-600 hover:text-zinc-400 shrink-0"
+                aria-label="Dismiss team personality stats"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
           )}
 

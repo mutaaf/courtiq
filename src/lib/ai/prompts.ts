@@ -889,4 +889,62 @@ export const PROMPT_REGISTRY = {
       '{ "huddle_script": "full 4-6 sentence script under 80 words", "player_spotlight": { "name": "FirstName", "achievement": "specific achievement" }, "team_shoutout": "what the whole team did well", "team_challenge": "one skill to practise", "next_session_hint": "optional" }',
     ].filter(Boolean).join('\n'),
   }),
+
+  teamPersonality: (params: PromptParams & {
+    totalObservations: number;
+    totalSessions: number;
+    totalPlayers: number;
+    healthScore: number;
+    categoryBreakdown: Array<{ category: string; positive: number; needsWork: number; total: number }>;
+    topStrengths: string[];
+    topChallenges: string[];
+    sessionQualityAvg: number | null;
+    effortObsRatio: number;
+    teamworkObsRatio: number;
+    coachingPatternLabel: string;
+    sampleObservations: Array<{ playerName: string; category: string; sentiment: string; text: string }>;
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You write creative, accurate, and uplifting team personality profiles for youth sports teams.',
+      '',
+      'Rules:',
+      '- team_type: 3–5 words, always starts with "The" (e.g. "The Grinders", "The Playmakers", "The Defenders"). Make it specific to THIS team\'s data, not generic.',
+      '- type_emoji: single emoji that captures the personality best.',
+      '- tagline: punchy one-liner that would make coaches smile and want to share it.',
+      '- description: 2–3 sentences drawing directly from the observation data — be specific about what makes this team unique.',
+      '- traits: 3–5 key traits. Score 0–100 reflects the data (e.g. 85+ = defining characteristic, 40–60 = developing, <40 = challenge area). Every trait description must reference something specific from the data.',
+      '- strengths: 1–3 things this team genuinely does well (from observations).',
+      '- growth_areas: 1–3 honest areas for improvement (frame positively, not negatively).',
+      '- coaching_tips: 2–4 specific coaching strategies that work for THIS team type (actionable, not generic advice).',
+      '- team_motto: a short phrase (3–8 words) the team could adopt as their identity. Should feel earned, not cheesy.',
+      '- Tone: warm, celebratory, data-grounded. This will be shown to coaches AND players.',
+    ].join('\n'),
+    user: [
+      `Team: ${params.teamName || 'the team'} (${params.ageGroup || 'youth'} ${params.sportName || 'basketball'})`,
+      `Coach: ${params.coachName || 'Coach'}`,
+      `Season stats: ${params.totalObservations} observations · ${params.totalSessions} sessions · ${params.totalPlayers} players`,
+      `Overall health score: ${params.healthScore}% positive observations`,
+      params.sessionQualityAvg ? `Average session quality rating: ${params.sessionQualityAvg.toFixed(1)}/5` : '',
+      '',
+      'Observation breakdown by skill category:',
+      params.categoryBreakdown.map((c) =>
+        `- ${c.category}: ${c.total} obs (${c.positive} positive, ${c.needsWork} needs-work)`
+      ).join('\n') || '(none)',
+      '',
+      `Top strengths from data: ${params.topStrengths.join(', ') || 'none identified'}`,
+      `Top challenges from data: ${params.topChallenges.join(', ') || 'none identified'}`,
+      `Effort/hustle observation ratio: ${Math.round(params.effortObsRatio * 100)}% of total obs`,
+      `Teamwork observation ratio: ${Math.round(params.teamworkObsRatio * 100)}% of total obs`,
+      `Coach observation pattern: ${params.coachingPatternLabel}`,
+      '',
+      'Sample observations (representative moments):',
+      params.sampleObservations.slice(0, 15).map((o) =>
+        `- ${o.playerName}: [${o.sentiment}/${o.category}] ${o.text}`
+      ).join('\n') || '(none)',
+      '',
+      'Generate team personality JSON:',
+      '{ "team_type": "The [Name]", "type_emoji": "emoji", "tagline": "punchy one-liner", "description": "2-3 sentences", "traits": [{ "name": "Trait Name", "score": 0-100, "description": "1 sentence from data" }], "strengths": ["string"], "growth_areas": ["string"], "coaching_tips": ["actionable tip"], "team_motto": "short motto" }',
+    ].filter(Boolean).join('\n'),
+  }),
 } as const;

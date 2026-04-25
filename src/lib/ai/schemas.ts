@@ -388,3 +388,21 @@ export const huddleScriptSchema = z.object({
 });
 
 export type HuddleScript = z.infer<typeof huddleScriptSchema>;
+
+export const teamPersonalitySchema = z.object({
+  team_type: z.string().min(3).max(40),          // e.g. "The Grinders"
+  type_emoji: z.string().min(1).max(4),          // e.g. "💪"
+  tagline: z.string().min(10).max(80),           // e.g. "Hard work is their superpower"
+  description: z.string().min(30),              // 2-3 sentences about this team's personality
+  traits: z.array(z.object({
+    name: z.string().min(2).max(30),             // e.g. "Work Ethic"
+    score: z.number().int().min(0).max(100),     // 0-100 score
+    description: z.string().min(10),            // 1 sentence: what this score means for them
+  })).min(3).max(5),
+  strengths: z.array(z.string().min(3)).min(1).max(3),
+  growth_areas: z.array(z.string().min(3)).min(1).max(3),
+  coaching_tips: z.array(z.string().min(10)).min(2).max(4),  // What works for this team type
+  team_motto: z.string().min(5).max(60),         // Short punchy motto: "Leave it all on the court"
+});
+
+export type TeamPersonality = z.infer<typeof teamPersonalitySchema>;
