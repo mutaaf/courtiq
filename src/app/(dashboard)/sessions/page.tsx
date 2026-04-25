@@ -2,21 +2,28 @@
 
 import { useState } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { useQuery } from '@tanstack/react-query';
-import { query } from '@/lib/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { CACHE_PROFILES } from '@/lib/query/config';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight } from 'lucide-react';
+import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { RecurringSessionsPanel } from '@/components/sessions/recurring-sessions-panel';
 import { AnnouncementsPanel } from '@/components/sessions/announcements-panel';
 import type { Session, SessionType } from '@/types/database';
-import { parseResult, getResultBadgeClasses, getResultLabel } from '@/lib/season-record-utils';
+import {
+  parseResult,
+  getResultBadgeClasses,
+  getResultLabel,
+  buildResultString,
+  isGameType,
+  type ResultValue,
+} from '@/lib/season-record-utils';
 
 const SESSION_TYPE_CONFIG: Record<SessionType, { label: string; color: string }> = {
   practice: { label: 'Practice', color: 'bg-blue-500/20 text-blue-400' },
@@ -35,9 +42,32 @@ const FILTER_OPTIONS: { value: SessionType | 'all'; label: string }[] = [
   { value: 'training', label: 'Training' },
 ];
 
+const RESULT_BUTTONS: { outcome: ResultValue; label: string; classes: string }[] = [
+  {
+    outcome: 'win',
+    label: 'W',
+    classes: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 active:scale-95',
+  },
+  {
+    outcome: 'loss',
+    label: 'L',
+    classes: 'bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/30 active:scale-95',
+  },
+  {
+    outcome: 'tie',
+    label: 'T',
+    classes: 'bg-zinc-600/30 text-zinc-400 border border-zinc-600/50 hover:bg-zinc-600/50 active:scale-95',
+  },
+];
+
 export default function SessionsPage() {
   const { activeTeam } = useActiveTeam();
+  const queryClient = useQueryClient();
   const [typeFilter, setTypeFilter] = useState<SessionType | 'all'>('all');
+  // Optimistic result overrides keyed by session ID
+  const [localResults, setLocalResults] = useState<Record<string, string>>({});
+  // Tracks which session + outcome is currently being saved
+  const [savingResult, setSavingResult] = useState<{ sessionId: string; outcome: ResultValue } | null>(null);
 
   const { data: sessions, isLoading, refetch } = useQuery({
     queryKey: [...queryKeys.sessions.all(activeTeam?.id || ''), typeFilter],
@@ -58,6 +88,35 @@ export default function SessionsPage() {
     enabled: !!activeTeam,
     ...CACHE_PROFILES.sessions,
   });
+
+  async function handleQuickResult(e: React.MouseEvent, sessionId: string, outcome: ResultValue) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (savingResult) return;
+
+    const resultStr = buildResultString(outcome);
+    setSavingResult({ sessionId, outcome });
+    setLocalResults((prev) => ({ ...prev, [sessionId]: resultStr }));
+
+    try {
+      await mutate({
+        table: 'sessions',
+        operation: 'update',
+        data: { result: resultStr },
+        filters: { id: sessionId },
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all(activeTeam?.id || '') });
+    } catch {
+      // Rollback optimistic update on failure
+      setLocalResults((prev) => {
+        const next = { ...prev };
+        delete next[sessionId];
+        return next;
+      });
+    } finally {
+      setSavingResult(null);
+    }
+  }
 
   function formatDate(dateStr: string) {
     return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
@@ -153,14 +212,18 @@ export default function SessionsPage() {
           {sessions?.map((session: any) => {
             const typeConfig = SESSION_TYPE_CONFIG[session.type as SessionType];
             const obsCount = session.observations?.[0]?.count || 0;
-            const parsedResult = parseResult(session.result);
+            // Use optimistic override if present, otherwise DB value
+            const effectiveResult = localResults[session.id] ?? session.result;
+            const parsedResult = parseResult(effectiveResult);
+            const isGame = isGameType(session.type);
+            const isSavingThis = savingResult?.sessionId === session.id;
 
             return (
               <Link key={session.id} href={`/sessions/${session.id}`}>
                 <Card className="transition-colors hover:border-zinc-700 cursor-pointer active:scale-[0.98] touch-manipulation">
                   <CardContent className="p-5 sm:p-4">
                     <div className="flex items-start justify-between">
-                      <div className="space-y-1.5">
+                      <div className="space-y-1.5 flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span
                             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${typeConfig.color}`}
@@ -202,8 +265,35 @@ export default function SessionsPage() {
                             </span>
                           )}
                         </div>
+
+                        {/* Inline quick-result entry: only for game types without a result */}
+                        {isGame && !parsedResult && (
+                          <div
+                            className="flex items-center gap-2 pt-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <span className="text-xs text-zinc-500 shrink-0">Log result:</span>
+                            {RESULT_BUTTONS.map(({ outcome, label, classes }) => {
+                              const isThisButton = isSavingThis && savingResult?.outcome === outcome;
+                              return (
+                                <button
+                                  key={outcome}
+                                  disabled={!!savingResult}
+                                  onClick={(e) => handleQuickResult(e, session.id, outcome)}
+                                  aria-label={`Log ${outcome}`}
+                                  className={`flex h-7 w-8 items-center justify-center rounded-md text-xs font-bold transition-all touch-manipulation disabled:opacity-50 ${classes}`}
+                                >
+                                  {isThisButton
+                                    ? <Loader2 className="h-3 w-3 animate-spin" />
+                                    : label
+                                  }
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-1 text-sm text-zinc-500">
+                      <div className="flex items-center gap-1 text-sm text-zinc-500 shrink-0 ml-3">
                         <Eye className="h-3.5 w-3.5" />
                         {obsCount}
                       </div>
