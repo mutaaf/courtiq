@@ -56,14 +56,22 @@ export async function GET(request: Request) {
 
     if (!playerRow) return NextResponse.json({ error: 'Player not found' }, { status: 404 });
 
-    const { data: membership } = await admin
-      .from('team_coaches')
+    // Check coach access: primary coach OR team_coaches member
+    const { data: teamOwner } = await admin
+      .from('teams')
       .select('id')
-      .eq('team_id', playerRow.team_id)
+      .eq('id', playerRow.team_id)
       .eq('coach_id', user.id)
       .single();
-
-    if (!membership) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!teamOwner) {
+      const { data: membership } = await admin
+        .from('team_coaches')
+        .select('id')
+        .eq('team_id', playerRow.team_id)
+        .eq('coach_id', user.id)
+        .single();
+      if (!membership) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     const { data: rows } = await admin
       .from('session_attendance')
@@ -87,14 +95,21 @@ export async function GET(request: Request) {
   }
 
   // ── Team mode ────────────────────────────────────────────────────────────
-  const { data: membership } = await admin
-    .from('team_coaches')
+  const { data: teamOwnerT } = await admin
+    .from('teams')
     .select('id')
-    .eq('team_id', teamId!)
+    .eq('id', teamId!)
     .eq('coach_id', user.id)
     .single();
-
-  if (!membership) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!teamOwnerT) {
+    const { data: membership } = await admin
+      .from('team_coaches')
+      .select('id')
+      .eq('team_id', teamId!)
+      .eq('coach_id', user.id)
+      .single();
+    if (!membership) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   const { data: players } = await admin
     .from('players')

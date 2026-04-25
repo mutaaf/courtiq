@@ -36,16 +36,21 @@ export async function GET(request: Request) {
 
   const admin = await createServiceSupabase();
 
-  // Verify coach belongs to this team
-  const { data: membership } = await admin
-    .from('team_coaches')
+  // Verify coach access: primary coach OR team_coaches member
+  const { data: teamOwner } = await admin
+    .from('teams')
     .select('id')
-    .eq('team_id', teamId)
+    .eq('id', teamId)
     .eq('coach_id', user.id)
     .single();
-
-  if (!membership) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!teamOwner) {
+    const { data: membership } = await admin
+      .from('team_coaches')
+      .select('id')
+      .eq('team_id', teamId)
+      .eq('coach_id', user.id)
+      .single();
+    if (!membership) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const [{ data: players }, { data: shares }] = await Promise.all([
