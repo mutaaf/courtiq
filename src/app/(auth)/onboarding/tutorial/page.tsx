@@ -20,15 +20,20 @@ export default function TutorialPage() {
 
   async function handleFinish() {
     setLoading(true);
+    let planIntent: string | null = null;
+    try { planIntent = sessionStorage.getItem('sportsiq_plan_intent'); } catch {}
+
     try {
       await fetch('/api/auth/complete-onboarding', { method: 'POST' });
+    } catch {}
+
+    if (planIntent) {
+      try { sessionStorage.removeItem('sportsiq_plan_intent'); } catch {}
+      router.push(`/settings/upgrade?intent=${planIntent}`);
+    } else {
       router.push('/home');
-      router.refresh();
-    } catch {
-      // Still redirect even if the API call fails
-      router.push('/home');
-      router.refresh();
     }
+    router.refresh();
   }
 
   const slide = slides[step];

@@ -7,7 +7,12 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, Loader2, CheckCircle2, CreditCard, Sparkles } from 'lucide-react';
+
+const PLAN_CONFIG: Record<string, { label: string; price: string; icon: React.ComponentType<{ className?: string }>; color: string }> = {
+  coach: { label: 'Coach Plan', price: '$9.99/mo', icon: CreditCard, color: 'text-orange-400' },
+  pro_coach: { label: 'Pro Coach Plan', price: '$24.99/mo', icon: Sparkles, color: 'text-purple-400' },
+};
 
 export default function SignupPage() {
   return (
@@ -27,6 +32,8 @@ function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const refCode = searchParams.get('ref') ?? '';
+  const planParam = searchParams.get('plan') ?? '';
+  const planConfig = PLAN_CONFIG[planParam] ?? null;
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -44,6 +51,11 @@ function SignupForm() {
     }
     setError('');
     setLoading(true);
+
+    // Persist plan intent so the tutorial page can redirect to upgrade after onboarding
+    if (planParam && PLAN_CONFIG[planParam]) {
+      try { sessionStorage.setItem('sportsiq_plan_intent', planParam); } catch {}
+    }
 
     const supabase = createClient();
     const { data, error: signUpError } = await supabase.auth.signUp({
@@ -88,6 +100,11 @@ function SignupForm() {
             <p className="mt-2 text-sm text-zinc-400">
               We sent a confirmation link to <strong>{email}</strong>
             </p>
+            {planConfig && (
+              <p className="mt-3 text-xs text-zinc-500">
+                Your <span className={planConfig.color}>{planConfig.label}</span> will be ready to activate after you confirm your email.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -103,16 +120,40 @@ function SignupForm() {
           </div>
           <CardTitle className="text-2xl">Create your account</CardTitle>
           <CardDescription>
-            {refCode ? 'You were invited by a fellow coach!' : 'Start coaching smarter with SportsIQ'}
+            {refCode
+              ? 'You were invited by a fellow coach!'
+              : planConfig
+                ? `You're one step away from your ${planConfig.label}`
+                : 'Start coaching smarter with SportsIQ'}
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Plan intent banner */}
+          {planConfig && (() => {
+            const Icon = planConfig.icon;
+            return (
+              <div className="mb-4 flex items-center gap-3 rounded-lg border border-orange-500/20 bg-orange-500/10 p-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/20">
+                  <Icon className="h-4 w-4 text-orange-400" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-orange-300">{planConfig.label}</p>
+                  <p className="text-xs text-zinc-400">
+                    {planConfig.price} · unlocks after account setup
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Referral banner */}
           {refCode && (
             <div className="mb-4 flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3 text-sm text-emerald-400">
               <CheckCircle2 className="h-4 w-4 shrink-0" />
               Referral applied — your coach connection will be tracked
             </div>
           )}
+
           <form onSubmit={handleSignup} className="space-y-4">
             {error && (
               <div className="flex items-center gap-2 rounded-lg bg-red-500/10 p-3 text-sm text-red-400">
@@ -164,7 +205,7 @@ function SignupForm() {
             </label>
             <Button type="submit" className="w-full" disabled={loading || !ageConfirmed}>
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              Create Account
+              {planConfig ? `Create Account & Continue to ${planConfig.label}` : 'Create Account'}
             </Button>
           </form>
           <p className="mt-6 text-center text-sm text-zinc-400">

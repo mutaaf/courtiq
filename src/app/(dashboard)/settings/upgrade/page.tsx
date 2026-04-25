@@ -13,15 +13,25 @@ import Link from 'next/link';
 import type { Tier } from '@/lib/tier';
 import { TIER_LIMITS } from '@/lib/tier';
 
+const INTENT_CONFIG: Record<string, { label: string; tagline: string }> = {
+  coach: { label: 'Coach Plan', tagline: 'Unlock unlimited players, AI observations, report cards, and parent sharing.' },
+  pro_coach: { label: 'Pro Coach Plan', tagline: 'Add advanced analytics, the AI assistant, media uploads, and custom prompts.' },
+  organization: { label: 'Organization Plan', tagline: 'Multi-coach collaboration, program-wide analytics, and custom branding.' },
+};
+
 export default function UpgradePage() {
   const { coach } = useActiveTeam();
   const searchParams = useSearchParams();
   const [annual, setAnnual] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'canceled'; message: string } | null>(null);
+  const [intentDismissed, setIntentDismissed] = useState(false);
 
   const orgId = (coach as any)?.organizations?.id;
   const currentTier = ((coach as any)?.organizations?.tier || 'free') as Tier;
+
+  const intentParam = searchParams.get('intent') ?? '';
+  const intentConfig = !intentDismissed && INTENT_CONFIG[intentParam] ? INTENT_CONFIG[intentParam] : null;
 
   // Handle Stripe redirect query params
   useEffect(() => {
@@ -167,6 +177,32 @@ export default function UpgradePage() {
         </div>
       </div>
 
+      {/* Post-onboarding intent welcome banner */}
+      {intentConfig && (
+        <div className="relative flex items-start gap-4 rounded-2xl border border-orange-500/30 bg-gradient-to-r from-orange-500/10 to-orange-500/5 p-5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500/20">
+            <Sparkles className="h-5 w-5 text-orange-400" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-orange-300">Welcome! You&apos;re almost set up.</p>
+            <p className="mt-0.5 text-sm text-zinc-400">
+              You chose the <span className="font-medium text-orange-300">{intentConfig.label}</span>.{' '}
+              {intentConfig.tagline}
+            </p>
+            <p className="mt-2 text-xs text-zinc-500">
+              Your account is ready — tap the plan card below to complete your upgrade.
+            </p>
+          </div>
+          <button
+            onClick={() => setIntentDismissed(true)}
+            className="shrink-0 rounded-lg p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+            aria-label="Dismiss"
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
       {/* Current Plan Banner */}
       <Card className="border-zinc-800 bg-zinc-900/60">
         <CardContent className="p-5">
@@ -267,8 +303,11 @@ export default function UpgradePage() {
           const price = annual ? plan.annualPrice : plan.monthlyPrice;
           const period = annual ? '/mo (billed yearly)' : '/month';
 
+          const isIntended = intentParam === plan.tier && !isCurrent;
           const borderColor = isCurrent
             ? 'border-orange-500/50 bg-orange-500/5 shadow-lg shadow-orange-500/10'
+            : isIntended
+            ? 'border-orange-500 bg-orange-500/5 shadow-xl shadow-orange-500/20 ring-1 ring-orange-500/30'
             : plan.popular
             ? 'border-blue-500/30 bg-blue-500/5'
             : 'border-zinc-800 bg-zinc-900/40';
@@ -279,7 +318,14 @@ export default function UpgradePage() {
               className={`relative flex flex-col rounded-2xl border p-6 transition-all ${borderColor}`}
             >
               {/* Badges */}
-              {plan.popular && !isCurrent && (
+              {isIntended && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <Badge className="bg-orange-500 text-white text-xs px-3 py-0.5 shadow-sm animate-in fade-in">
+                    Your Choice ✓
+                  </Badge>
+                </div>
+              )}
+              {plan.popular && !isCurrent && !isIntended && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <Badge className="bg-blue-500 text-white text-xs px-3 py-0.5 shadow-sm">
                     Most Popular
@@ -363,7 +409,7 @@ export default function UpgradePage() {
                   {loading === plan.tier ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
                   ) : null}
-                  Upgrade to {plan.name}
+                  {isIntended ? `Activate ${plan.name}` : `Upgrade to ${plan.name}`}
                 </Button>
               )}
             </div>
