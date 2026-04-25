@@ -17,6 +17,8 @@ const SESSION_TYPES: { value: SessionType; label: string; description: string; i
   { value: 'practice', label: 'Practice', description: 'Regular team practice', icon: '🏋️' },
   { value: 'game', label: 'Game', description: 'Competitive game', icon: '🏀' },
   { value: 'scrimmage', label: 'Scrimmage', description: 'Intra-squad or friendly', icon: '🤝' },
+  { value: 'tournament', label: 'Tournament', description: 'Multi-game tournament', icon: '🏆' },
+  { value: 'training', label: 'Training', description: 'Skills & conditioning', icon: '💪' },
 ];
 
 export default function NewSessionPage() {
@@ -57,7 +59,7 @@ export default function NewSessionPage() {
           date,
           start_time: startTime || null,
           location: location || null,
-          opponent: type === 'game' ? opponent || null : null,
+          opponent: (type === 'game' || type === 'scrimmage' || type === 'tournament') ? opponent || null : null,
           curriculum_week: curriculumWeek ? parseInt(curriculumWeek) : null,
         },
         select: '*',
@@ -84,7 +86,7 @@ export default function NewSessionPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold">New Session</h1>
-          <p className="text-zinc-400 text-sm">Log a practice, game, or scrimmage</p>
+          <p className="text-zinc-400 text-sm">Log a practice, game, tournament, or training</p>
         </div>
       </div>
 
@@ -92,7 +94,7 @@ export default function NewSessionPage() {
         {/* Session type selector */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-zinc-300">Session Type</label>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {SESSION_TYPES.map((st) => (
               <button
                 key={st.value}
@@ -152,15 +154,15 @@ export default function NewSessionPage() {
           />
         </div>
 
-        {/* Opponent (game only) */}
-        {type === 'game' && (
+        {/* Opponent (game, scrimmage, tournament) */}
+        {(type === 'game' || type === 'scrimmage' || type === 'tournament') && (
           <div className="space-y-2">
             <label className="text-sm font-medium text-zinc-300 flex items-center gap-1.5">
               <Users className="h-3.5 w-3.5 text-zinc-500" />
-              Opponent
+              {type === 'tournament' ? 'Tournament Name' : 'Opponent'}
             </label>
             <Input
-              placeholder="e.g. Eagles, Team Blue"
+              placeholder={type === 'tournament' ? 'e.g. Spring Classic, City Championship' : 'e.g. Eagles, Team Blue'}
               value={opponent}
               onChange={(e) => setOpponent(e.target.value)}
             />
