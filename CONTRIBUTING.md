@@ -67,9 +67,9 @@ NO code changes needed — it's all env-var driven.
 - [x] Cancel-at-period-end: show expiration date, allow resubscription — amber banner in DashboardShell; `useTier()` exposes `cancelAtPeriodEnd` + `currentPeriodEnd`
 
 **Account Management:**
-- [ ] Admin panel: manage coaches, roles, tiers
-- [ ] Invite coaches: email invite with role assignment
-- [ ] Role changes: admin can promote/demote coaches
+- [x] **Admin panel**: manage coaches, roles, tiers — `/admin` page lists all org coaches + teams; org-plan badge; link to cross-team analytics
+- [x] **Invite coaches**: email invite with role assignment — admin enters email + selects initial role (head_coach/coach/assistant); `inviteUserByEmail` embeds `org_id` + `initial_role` in user metadata + sets `redirectTo` to auth callback; invited coach automatically joins the org on first login (no new-org creation)
+- [x] **Role changes**: admin can promote/demote coaches — optimistic role-select dropdown per coach row; PATCH `/api/admin/coaches` verifies same-org constraint; rollback on failure with inline error
 - [ ] Org settings: name, branding, billing email
 - [x] **Data export**: coaches can export their data — `/settings/data` page with one-tap CSV download for observations, roster, and sessions (all tiers, no analytics page required)
 - [x] **Account deletion**: COPPA-compliant data removal on request — 3-step confirmation (intent → confirm → type "delete my account"); POST /api/account/delete cascades through all player/team/org tables in FK-safe order when coach is the only member; Supabase auth user deleted last; client signs out and redirects to /login?deleted=1; COPPA notice confirms no backup copies retained
