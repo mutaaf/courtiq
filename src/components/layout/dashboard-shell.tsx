@@ -269,6 +269,16 @@ export function DashboardShell({ coach, children }: Props) {
 
       {/* Main content */}
       <main id="main-content" tabIndex={-1} className="flex flex-1 flex-col min-h-0 lg:pt-12">
+        {/* Subscription ended — downgrade notice */}
+        {subscriptionStatus === 'canceled' && !cancelAtPeriodEnd && (
+          <div className="bg-zinc-800/80 border-b border-zinc-700 px-4 py-2 flex items-center gap-2 text-sm text-zinc-300">
+            <AlertCircle className="h-4 w-4 shrink-0 text-zinc-400" />
+            <span>
+              Your subscription has ended — your data is safe.{' '}
+              <Link href="/settings/upgrade" className="underline font-medium text-orange-400">Resubscribe to re-enable features</Link>
+            </span>
+          </div>
+        )}
         {/* Past-due subscription warning */}
         {subscriptionStatus === 'past_due' && (
           <div className="bg-red-500/10 border-b border-red-500/30 px-4 py-2 flex items-center gap-2 text-sm text-red-400">

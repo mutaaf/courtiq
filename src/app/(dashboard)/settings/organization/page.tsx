@@ -57,6 +57,7 @@ export default function OrganizationSettingsPage() {
   // Org details
   const [orgName, setOrgName] = useState('');
   const [orgSlug, setOrgSlug] = useState('');
+  const [billingEmail, setBillingEmail] = useState('');
   const [initialized, setInitialized] = useState(false);
 
   // Branding
@@ -94,6 +95,7 @@ export default function OrganizationSettingsPage() {
     if (org && !initialized) {
       setOrgName(org.name || '');
       setOrgSlug(org.slug || '');
+      setBillingEmail((org.settings as any)?.billing_email || '');
       setInitialized(true);
     }
   }, [org, initialized]);
@@ -110,10 +112,18 @@ export default function OrganizationSettingsPage() {
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!org) throw new Error('No organization');
+      const existingSettings = (org.settings as Record<string, unknown>) || {};
       await mutate({
         table: 'organizations',
         operation: 'update',
-        data: { name: orgName, slug: orgSlug },
+        data: {
+          name: orgName,
+          slug: orgSlug,
+          settings: {
+            ...existingSettings,
+            billing_email: billingEmail.trim() || null,
+          },
+        },
         filters: { id: org.id },
       });
     },
@@ -205,6 +215,16 @@ export default function OrganizationSettingsPage() {
                   placeholder="westside-basketball"
                 />
                 <p className="text-xs text-zinc-500">Used in share links and public pages</p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Billing Email</label>
+                <Input
+                  type="email"
+                  value={billingEmail}
+                  onChange={(e) => setBillingEmail(e.target.value)}
+                  placeholder="billing@yourorg.com"
+                />
+                <p className="text-xs text-zinc-500">Invoice receipts and billing notifications are sent here</p>
               </div>
               <div className="flex justify-end pt-2">
                 <Button onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}>
