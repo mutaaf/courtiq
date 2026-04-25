@@ -323,6 +323,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     recentObservationActivity,
     achievements,
     latestSessionMessage,
+    skillChallenge,
   } = data;
 
   const playerName = player?.nickname || player?.name || 'your player';
@@ -627,6 +628,64 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
                   <span className="text-emerald-500">↑</span>
                   {s.skill_name || formatCategoryLabel(s.category)}
                 </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ─── Practice at Home ─── */}
+        {skillChallenge && Array.isArray(skillChallenge.challenges) && skillChallenge.challenges.length > 0 && (
+          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm border border-blue-100">
+            <div className="mb-1 flex items-center gap-2">
+              <span className="text-lg" aria-hidden="true">🏠</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-blue-700">
+                Practice at Home
+              </h3>
+            </div>
+            {skillChallenge.week_label && (
+              <p className="mb-1 text-[11px] text-gray-400">{skillChallenge.week_label}</p>
+            )}
+            {skillChallenge.parent_note && (
+              <p className="mb-4 text-sm text-gray-600 leading-relaxed">
+                {skillChallenge.parent_note}
+              </p>
+            )}
+            <div className="space-y-4">
+              {skillChallenge.challenges.slice(0, 2).map((challenge: any, i: number) => (
+                <div key={i} className="rounded-xl bg-blue-50 p-4">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h4 className="text-sm font-bold text-blue-900">{challenge.title}</h4>
+                    <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                      {challenge.minutes_per_day} min/day
+                    </span>
+                  </div>
+                  {challenge.description && (
+                    <p className="mb-3 text-xs text-blue-700 leading-relaxed">{challenge.description}</p>
+                  )}
+                  {Array.isArray(challenge.steps) && challenge.steps.length > 0 && (
+                    <ol className="mb-3 space-y-1">
+                      {challenge.steps.map((step: string, j: number) => (
+                        <li key={j} className="flex items-start gap-2 text-xs text-gray-700">
+                          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-blue-200 text-[9px] font-bold text-blue-800">
+                            {j + 1}
+                          </span>
+                          {step}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                  {challenge.success_criteria && (
+                    <div className="flex items-start gap-1.5 rounded-lg bg-emerald-50 px-3 py-2">
+                      <span className="mt-0.5 shrink-0 text-xs text-emerald-600">✓</span>
+                      <p className="text-xs text-emerald-700 leading-relaxed">
+                        <span className="font-semibold">Goal:</span> {challenge.success_criteria}
+                      </p>
+                    </div>
+                  )}
+                  {challenge.encouragement && (
+                    <p className="mt-2 text-xs italic text-gray-500">{challenge.encouragement}</p>
+                  )}
+                </div>
               ))}
             </div>
           </div>

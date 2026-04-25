@@ -222,6 +222,18 @@ export async function GET(
     }
     reportData.latestSessionMessage = latestSessionMessage;
 
+    // Most recent AI-generated skill challenge for this player — shown as
+    // "Practice at Home" on the parent portal so parents have actionable
+    // home-practice steps without the coach having to do anything extra.
+    const { data: skillChallengePlans } = await supabase
+      .from('plans')
+      .select('content_structured, created_at')
+      .eq('player_id', share.player_id)
+      .eq('type', 'skill_challenge')
+      .order('created_at', { ascending: false })
+      .limit(1);
+    reportData.skillChallenge = skillChallengePlans?.[0]?.content_structured || null;
+
     // Active team announcements (visible to parents)
     const now = new Date().toISOString();
     const { data: announcements } = await supabase
