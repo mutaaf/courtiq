@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useEffect, useCallback, useRef } from 'react';
+import { use, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery } from '@tanstack/react-query';
@@ -57,7 +57,12 @@ import {
   getPlayerFocusForCategory,
   hasEnoughObsForFocus,
   buildFocusLabel,
+  buildLastObsByPlayer,
+  formatLastObsTime,
+  truncateObsText,
   type NeedsWorkObs,
+  type RecentObs,
+  type LastObsInfo,
 } from '@/lib/timer-focus-utils';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 import type { PlayerAvailability } from '@/types/database';
@@ -108,6 +113,7 @@ function BreakScreen({
   onSave,
   onSkip,
   capturedPlayerIds,
+  lastObsByPlayer = {},
 }: {
   drillJustFinished: string;
   nextDrillName?: string;
@@ -115,6 +121,7 @@ function BreakScreen({
   onSave: (note: string, playerId?: string, playerName?: string, sentiment?: Sentiment, category?: string) => void;
   onSkip: () => void;
   capturedPlayerIds?: Set<string>;
+  lastObsByPlayer?: Record<string, LastObsInfo>;
 }) {
   const [note, setNote] = useState('');
   const [selectedPlayer, setSelectedPlayer] = useState<string>('');
@@ -296,6 +303,33 @@ function BreakScreen({
             })()}
           </div>
         )}
+
+        {/* Last observation context — shown when a specific player is selected */}
+        {selectedPlayer && lastObsByPlayer[selectedPlayer] && (() => {
+          const obs = lastObsByPlayer[selectedPlayer];
+          const timeLabel = formatLastObsTime(obs.daysAgo, obs.fromCurrentSession);
+          const isPositive = obs.sentiment === 'positive';
+          return (
+            <div className={`flex items-start gap-2 rounded-xl px-3 py-2.5 text-xs border ${
+              obs.fromCurrentSession
+                ? 'bg-orange-500/10 border-orange-500/20 text-orange-200'
+                : isPositive
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-200'
+                  : 'bg-amber-500/10 border-amber-500/20 text-amber-200'
+            }`}>
+              <span className="shrink-0 mt-0.5" aria-hidden="true">
+                {obs.fromCurrentSession ? '📝' : isPositive ? '✓' : '!'}
+              </span>
+              <div className="min-w-0">
+                <span className="font-semibold mr-1 opacity-70">{timeLabel}:</span>
+                <span>{truncateObsText(obs.text)}</span>
+                {obs.category && (
+                  <span className="ml-1 opacity-50">· {obs.category}</span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="relative">
           <Textarea
@@ -720,6 +754,41 @@ export default function PracticeTimerPage({
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fetch recent observations (all sentiments, last 30 days) for last-obs context
+  // on the break screen. Piggybacked at the same staleTime so no extra round-trip
+  // when the focus-callout data is already warm.
+  const { data: recentObs = [] } = useQuery({
+    queryKey: ['timer-recent-obs', activeTeam?.id],
+    queryFn: async () => {
+      if (!activeTeam) return [];
+      const data = await query<RecentObs[]>({
+        table: 'observations',
+        select: 'player_id, text, sentiment, category, created_at',
+        filters: {
+          team_id: activeTeam.id,
+          created_at: { op: 'gte', value: thirtyDaysAgo.toISOString() },
+        },
+        order: { column: 'created_at', ascending: false },
+        limit: 300,
+      });
+      return (data || []).filter((o): o is RecentObs => !!o.player_id && !!o.text);
+    },
+    enabled: !!activeTeam,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Build a lookup of the most recent observation per player for break-screen context.
+  // Current-session notes take priority over DB observations so coaches see the most
+  // relevant context ("You just said Marcus was doing great — is he still on a roll?").
+  const lastObsByPlayer = useMemo(
+    () =>
+      buildLastObsByPlayer(
+        notes.map((n) => ({ playerId: n.playerId, note: n.note, sentiment: n.sentiment, category: n.category })),
+        recentObs
+      ),
+    [notes, recentObs]
+  );
+
   // ── Load plan queue from planId search param ─────────────────────────────
   useEffect(() => {
     if (!planId || queue.length > 0 || isRecovered) return;
@@ -1088,6 +1157,7 @@ export default function PracticeTimerPage({
         onSave={handleBreakSave}
         onSkip={handleBreakSkip}
         capturedPlayerIds={capturedPlayerIds}
+        lastObsByPlayer={lastObsByPlayer}
       />
     );
   }

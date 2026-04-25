@@ -6,8 +6,13 @@ import {
   getPlayerFocusForCategory,
   hasEnoughObsForFocus,
   buildFocusLabel,
+  buildLastObsByPlayer,
+  formatLastObsTime,
+  truncateObsText,
   type NeedsWorkObs,
   type PlayerRef,
+  type RecentObs,
+  type SessionNote,
 } from '@/lib/timer-focus-utils';
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
@@ -267,5 +272,207 @@ describe('buildFocusLabel', () => {
     expect(
       buildFocusLabel({ playerId: 'p2', playerName: 'Jordan', jerseyNumber: null, count: 1 })
     ).toBe('Jordan');
+  });
+});
+
+// ─── Helpers for new tests ────────────────────────────────────────────────────
+
+function recentObs(
+  player_id: string,
+  text: string,
+  sentiment: string,
+  category: string,
+  created_at: string
+): RecentObs {
+  return { player_id, text, sentiment, category, created_at };
+}
+
+function sessionNote(playerId: string, note: string, sentiment = 'positive', category = 'dribbling'): SessionNote {
+  return { playerId, note, sentiment, category };
+}
+
+const DAY_MS = 86_400_000;
+const NOW = new Date('2024-06-15T12:00:00Z').getTime();
+
+// ─── buildLastObsByPlayer ─────────────────────────────────────────────────────
+
+describe('buildLastObsByPlayer', () => {
+  it('returns empty record when no notes and no recentObs', () => {
+    expect(buildLastObsByPlayer([], [], NOW)).toEqual({});
+  });
+
+  it('uses current-session note for a player', () => {
+    const notes = [sessionNote('p1', 'Good cut to basket', 'positive', 'offense')];
+    const result = buildLastObsByPlayer(notes, [], NOW);
+    expect(result['p1']).toMatchObject({
+      text: 'Good cut to basket',
+      sentiment: 'positive',
+      category: 'offense',
+      daysAgo: 0,
+      fromCurrentSession: true,
+    });
+  });
+
+  it('uses DB observation for a player not in current session', () => {
+    const dbObs = [
+      recentObs('p2', 'Needs work on footwork', 'needs-work', 'defense', new Date(NOW - 2 * DAY_MS).toISOString()),
+    ];
+    const result = buildLastObsByPlayer([], dbObs, NOW);
+    expect(result['p2']).toMatchObject({
+      text: 'Needs work on footwork',
+      sentiment: 'needs-work',
+      daysAgo: 2,
+      fromCurrentSession: false,
+    });
+  });
+
+  it('current-session note overrides DB observation for same player', () => {
+    const notes = [sessionNote('p1', 'Improved dribbling today', 'positive', 'dribbling')];
+    const dbObs = [
+      recentObs('p1', 'Old observation from DB', 'needs-work', 'dribbling', new Date(NOW - 5 * DAY_MS).toISOString()),
+    ];
+    const result = buildLastObsByPlayer(notes, dbObs, NOW);
+    expect(result['p1'].text).toBe('Improved dribbling today');
+    expect(result['p1'].fromCurrentSession).toBe(true);
+  });
+
+  it('picks most recent DB observation when multiple exist for same player', () => {
+    const dbObs = [
+      recentObs('p1', 'Older obs', 'positive', 'defense', new Date(NOW - 10 * DAY_MS).toISOString()),
+      recentObs('p1', 'Newer obs', 'needs-work', 'offense', new Date(NOW - 2 * DAY_MS).toISOString()),
+      recentObs('p1', 'Middle obs', 'positive', 'dribbling', new Date(NOW - 5 * DAY_MS).toISOString()),
+    ];
+    const result = buildLastObsByPlayer([], dbObs, NOW);
+    expect(result['p1'].text).toBe('Newer obs');
+    expect(result['p1'].daysAgo).toBe(2);
+  });
+
+  it('handles multiple players independently', () => {
+    const notes = [sessionNote('p1', 'Note for p1')];
+    const dbObs = [
+      recentObs('p2', 'DB note for p2', 'positive', 'passing', new Date(NOW - 1 * DAY_MS).toISOString()),
+    ];
+    const result = buildLastObsByPlayer(notes, dbObs, NOW);
+    expect(result['p1'].fromCurrentSession).toBe(true);
+    expect(result['p2'].fromCurrentSession).toBe(false);
+    expect(result['p2'].text).toBe('DB note for p2');
+  });
+
+  it('last session note wins when player has multiple current-session notes', () => {
+    const notes = [
+      sessionNote('p1', 'First note'),
+      sessionNote('p1', 'Second note'),
+      sessionNote('p1', 'Third note'),
+    ];
+    const result = buildLastObsByPlayer(notes, [], NOW);
+    expect(result['p1'].text).toBe('Third note');
+  });
+
+  it('ignores session notes without a playerId', () => {
+    const notes = [{ note: 'Team note', sentiment: 'positive', category: 'general', playerId: undefined }];
+    const result = buildLastObsByPlayer(notes, [], NOW);
+    expect(Object.keys(result)).toHaveLength(0);
+  });
+
+  it('calculates daysAgo = 0 for today DB obs', () => {
+    const dbObs = [
+      recentObs('p1', 'Today obs', 'positive', 'dribbling', new Date(NOW - 3600_000).toISOString()),
+    ];
+    const result = buildLastObsByPlayer([], dbObs, NOW);
+    expect(result['p1'].daysAgo).toBe(0);
+  });
+
+  it('calculates daysAgo correctly for 7-day-old obs', () => {
+    const dbObs = [
+      recentObs('p1', 'Week old obs', 'positive', 'dribbling', new Date(NOW - 7 * DAY_MS).toISOString()),
+    ];
+    const result = buildLastObsByPlayer([], dbObs, NOW);
+    expect(result['p1'].daysAgo).toBe(7);
+  });
+
+  it('handles empty recentObs array', () => {
+    const result = buildLastObsByPlayer([], [], NOW);
+    expect(result).toEqual({});
+  });
+});
+
+// ─── formatLastObsTime ────────────────────────────────────────────────────────
+
+describe('formatLastObsTime', () => {
+  it('returns "This session" for current-session obs', () => {
+    expect(formatLastObsTime(0, true)).toBe('This session');
+  });
+
+  it('returns "This session" even when daysAgo > 0 and fromCurrentSession is true', () => {
+    expect(formatLastObsTime(5, true)).toBe('This session');
+  });
+
+  it('returns "Today" for 0 days ago (not current session)', () => {
+    expect(formatLastObsTime(0, false)).toBe('Today');
+  });
+
+  it('returns "Yesterday" for 1 day ago', () => {
+    expect(formatLastObsTime(1, false)).toBe('Yesterday');
+  });
+
+  it('returns "Xd ago" for 2-6 days', () => {
+    expect(formatLastObsTime(2, false)).toBe('2d ago');
+    expect(formatLastObsTime(6, false)).toBe('6d ago');
+  });
+
+  it('returns "1 week ago" for exactly 7 days', () => {
+    expect(formatLastObsTime(7, false)).toBe('1 week ago');
+  });
+
+  it('returns "X weeks ago" for 14+ days', () => {
+    expect(formatLastObsTime(14, false)).toBe('2 weeks ago');
+    expect(formatLastObsTime(21, false)).toBe('3 weeks ago');
+  });
+
+  it('returns "1 week ago" for 8-13 days', () => {
+    expect(formatLastObsTime(8, false)).toBe('1 week ago');
+    expect(formatLastObsTime(13, false)).toBe('1 week ago');
+  });
+});
+
+// ─── truncateObsText ──────────────────────────────────────────────────────────
+
+describe('truncateObsText', () => {
+  it('returns text unchanged when shorter than maxLen', () => {
+    expect(truncateObsText('Short text', 80)).toBe('Short text');
+  });
+
+  it('returns text unchanged when exactly maxLen', () => {
+    const text = 'a'.repeat(72);
+    expect(truncateObsText(text)).toBe(text);
+  });
+
+  it('truncates and appends ellipsis when longer than maxLen', () => {
+    const text = 'a'.repeat(100);
+    const result = truncateObsText(text, 72);
+    expect(result).toHaveLength(72);
+    expect(result.endsWith('…')).toBe(true);
+  });
+
+  it('uses default maxLen of 72', () => {
+    const text = 'Good footwork and balance during the layup drill, showing real improvement';
+    const result = truncateObsText(text);
+    expect(result.length).toBeLessThanOrEqual(72);
+    expect(result.endsWith('…')).toBe(true);
+  });
+
+  it('handles empty string', () => {
+    expect(truncateObsText('', 72)).toBe('');
+  });
+
+  it('does not truncate at exactly maxLen characters', () => {
+    const text = 'a'.repeat(72);
+    expect(truncateObsText(text, 72)).toBe(text);
+  });
+
+  it('truncates at custom maxLen', () => {
+    const result = truncateObsText('Hello world', 8);
+    expect(result.length).toBeLessThanOrEqual(8);
+    expect(result.endsWith('…')).toBe(true);
   });
 });
