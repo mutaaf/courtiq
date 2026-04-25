@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { randomBytes } from 'crypto';
+import { canAccess, type Tier } from '@/lib/tier';
 
 export async function POST(request: Request) {
   // Use server supabase only for auth check
@@ -33,6 +34,20 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Check tier: parent_sharing requires coach+ plan
+    const { data: coachRow } = await supabase
+      .from('coaches')
+      .select('org_id, organizations(tier)')
+      .eq('id', user.id)
+      .single();
+    const orgTier = ((coachRow as any)?.organizations?.tier || 'free') as Tier;
+    if (!canAccess(orgTier, 'parent_sharing')) {
+      return NextResponse.json(
+        { error: 'Parent sharing requires a Coach plan or higher. Please upgrade to share player reports.' },
+        { status: 403 }
+      );
+    }
+
     // Verify player belongs to team
     const { data: player } = await supabase
       .from('players')

@@ -5,6 +5,7 @@ import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { buildAIContext } from '@/lib/ai/context-builder';
 import { reportCardSchema, type ReportCard } from '@/lib/ai/schemas';
 import { handleAIError } from '@/lib/ai/error';
+import { canAccess, type Tier } from '@/lib/tier';
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabase();
@@ -21,12 +22,20 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Get coach org_id for AI provider resolution
-    const { data: coach } = await admin
+    // Check tier: report_cards requires coach+ plan
+    const { data: coachTierRow } = await admin
       .from('coaches')
-      .select('org_id')
+      .select('org_id, organizations(tier)')
       .eq('id', user.id)
       .single();
+    const orgTier = ((coachTierRow as any)?.organizations?.tier || 'free') as Tier;
+    if (!canAccess(orgTier, 'report_cards')) {
+      return NextResponse.json(
+        { error: 'Report cards require a Coach plan or higher. Please upgrade to generate player reports.' },
+        { status: 403 }
+      );
+    }
+    const coach = coachTierRow;
 
     const context = await buildAIContext(teamId, admin);
 

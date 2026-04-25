@@ -43,6 +43,7 @@ import {
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 import { PrintButton } from '@/components/ui/print-button';
+import { UpgradeGate } from '@/components/ui/upgrade-gate';
 import { AchievementBadgesPanel } from '@/components/player/achievement-badges';
 import { PlayerGoalsPanel } from '@/components/player/player-goals-panel';
 import { PlayerNotesPanel } from '@/components/player/player-notes-panel';
@@ -1064,6 +1065,7 @@ export default function PlayerDetailPage({
       )}
 
       {activeTab === 'report-card' && (
+        <UpgradeGate feature="report_cards" featureLabel="Report Cards">
         <div className="space-y-4">
           {reportCardError && (
             <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
@@ -1127,6 +1129,7 @@ export default function PlayerDetailPage({
             </Card>
           )}
         </div>
+        </UpgradeGate>
       )}
 
       {activeTab === 'challenges' && (
@@ -1751,6 +1754,7 @@ export default function PlayerDetailPage({
       )}
 
       {activeTab === 'media' && (
+        <UpgradeGate feature="media_upload" featureLabel="Photo Capture">
         <div className="space-y-4">
           {/* Snap Observation CTA */}
           <Card>
@@ -1792,6 +1796,7 @@ export default function PlayerDetailPage({
             </p>
           </div>
         </div>
+        </UpgradeGate>
       )}
 
       {activeTab === 'goals' && activeTeam && (
@@ -1803,6 +1808,7 @@ export default function PlayerDetailPage({
       )}
 
       {activeTab === 'share' && (
+        <UpgradeGate feature="parent_sharing" featureLabel="Parent Sharing">
         <div className="space-y-4">
           {shareLinkError && (
             <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
@@ -1892,6 +1898,7 @@ export default function PlayerDetailPage({
             </Card>
           )}
         </div>
+        </UpgradeGate>
       )}
     </div>
   );

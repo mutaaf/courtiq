@@ -599,9 +599,28 @@ describe('Share create POST route', () => {
     expect(res.status).toBe(400);
   });
 
+  it('returns 403 when free-tier coach tries to create a share link', async () => {
+    setAuthUser('free-coach');
+    const freeTierCoach = { org_id: 'org-free', organizations: { tier: 'free' } };
+    mockFromFn.mockReturnValue(buildChain(freeTierCoach));
+    const req = new Request('http://localhost/api/share/create', {
+      method: 'POST',
+      body: JSON.stringify({ playerId: 'player-1', teamId: 'team-1' }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const res = await shareCreatePost(req);
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toContain('Coach plan');
+  });
+
   it('returns 404 when player is not found in the given team', async () => {
     setAuthUser();
-    mockFromFn.mockReturnValue(buildChain(null)); // player lookup returns null
+    const coachWithOrg = { org_id: 'org-1', organizations: { tier: 'coach' } };
+    mockFromFn.mockImplementation((table: string) => {
+      if (table === 'coaches') return buildChain(coachWithOrg);
+      return buildChain(null); // player lookup returns null
+    });
     const req = new Request('http://localhost/api/share/create', {
       method: 'POST',
       body: JSON.stringify({ playerId: 'ghost', teamId: 't1' }),
@@ -615,8 +634,10 @@ describe('Share create POST route', () => {
     setAuthUser('coach-1');
     const player = { id: 'player-1', name: 'Jordan' };
     const shareRecord = { id: 'share-1', share_token: 'db-stored-token', player_id: 'player-1', team_id: 'team-1' };
+    const coachWithOrg = { org_id: 'org-1', organizations: { tier: 'coach' } };
 
     mockFromFn.mockImplementation((table: string) => {
+      if (table === 'coaches') return buildChain(coachWithOrg);
       if (table === 'players') return buildChain(player);
       if (table === 'parent_shares') return buildChain(shareRecord);
       return buildChain(null);
@@ -639,8 +660,10 @@ describe('Share create POST route', () => {
     setAuthUser('coach-1');
     const player = { id: 'player-1', name: 'Taylor' };
     const shareRecord = { id: 'share-2', share_token: 'exp-token', player_id: 'player-1', team_id: 'team-1' };
+    const coachWithOrg = { org_id: 'org-1', organizations: { tier: 'coach' } };
 
     mockFromFn.mockImplementation((table: string) => {
+      if (table === 'coaches') return buildChain(coachWithOrg);
       if (table === 'players') return buildChain(player);
       if (table === 'parent_shares') return buildChain(shareRecord);
       return buildChain(null);
