@@ -13,6 +13,161 @@ import {
 import type { SkillProgress, ShareObservation } from '@/lib/skill-journey-utils';
 
 // ---------------------------------------------------------------------------
+// Skill Radar Chart — pure SVG, server-component safe, light-mode
+// ---------------------------------------------------------------------------
+
+const PROFICIENCY_SCORE: Record<string, number> = {
+  exploring: 0.25,
+  practicing: 0.5,
+  got_it: 0.75,
+  game_ready: 1.0,
+};
+
+function SkillRadarChart({ skills }: { skills: any[] }) {
+  // Keep 3–8 skills; prefer those with real data
+  const candidates = skills
+    .filter((s) => s.proficiency_level && s.proficiency_level !== 'insufficient_data')
+    .slice(0, 8);
+
+  if (candidates.length < 3) return null;
+
+  const n = candidates.length;
+  const size = 260;
+  const cx = 130;
+  const cy = 130;
+  const r = 88;
+
+  const angle = (i: number) => -Math.PI / 2 + (2 * Math.PI * i) / n;
+
+  const pt = (i: number, val: number) => ({
+    x: cx + r * val * Math.cos(angle(i)),
+    y: cy + r * val * Math.sin(angle(i)),
+  });
+
+  const score = (s: any): number => {
+    if (s.success_rate != null) return Math.min(1, s.success_rate);
+    return PROFICIENCY_SCORE[s.proficiency_level] ?? 0.1;
+  };
+
+  const polygon = () => {
+    const pts = candidates.map((s, i) => pt(i, score(s)));
+    return pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ') + ' Z';
+  };
+
+  const gridRing = (frac: number) => {
+    const pts = candidates.map((_, i) => {
+      const p = pt(i, frac);
+      return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+    });
+    return `M${pts[0]} ${pts.slice(1).map((p) => `L${p}`).join(' ')} Z`;
+  };
+
+  const labelPos = (i: number) => {
+    const a = angle(i);
+    const offset = 16;
+    return { x: cx + (r + offset) * Math.cos(a), y: cy + (r + offset) * Math.sin(a) };
+  };
+
+  const textAnchor = (i: number) => {
+    const lp = labelPos(i);
+    if (lp.x < cx - 8) return 'end';
+    if (lp.x > cx + 8) return 'start';
+    return 'middle';
+  };
+
+  const textBaseline = (i: number) => {
+    const lp = labelPos(i);
+    if (lp.y < cy - 8) return 'auto';
+    if (lp.y > cy + 8) return 'hanging';
+    return 'middle';
+  };
+
+  return (
+    <svg
+      viewBox={`0 0 ${size} ${size}`}
+      className="w-full max-w-[260px] mx-auto"
+      aria-hidden="true"
+    >
+      {/* Grid rings */}
+      {[0.25, 0.5, 0.75, 1].map((frac) => (
+        <path
+          key={frac}
+          d={gridRing(frac)}
+          fill="none"
+          stroke={frac === 1 ? '#d1d5db' : '#f3f4f6'}
+          strokeWidth={frac === 1 ? 1.5 : 1}
+        />
+      ))}
+
+      {/* Axis lines */}
+      {candidates.map((_, i) => {
+        const p = pt(i, 1);
+        return (
+          <line
+            key={i}
+            x1={cx}
+            y1={cy}
+            x2={p.x.toFixed(1)}
+            y2={p.y.toFixed(1)}
+            stroke="#e5e7eb"
+            strokeWidth="1"
+          />
+        );
+      })}
+
+      {/* Player polygon */}
+      <path
+        d={polygon()}
+        fill="rgba(249,115,22,0.15)"
+        stroke="rgb(249,115,22)"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+      />
+
+      {/* Vertex dots */}
+      {candidates.map((s, i) => {
+        const p = pt(i, score(s));
+        return (
+          <circle
+            key={i}
+            cx={p.x.toFixed(1)}
+            cy={p.y.toFixed(1)}
+            r="4"
+            fill="rgb(249,115,22)"
+            stroke="white"
+            strokeWidth="1.5"
+          />
+        );
+      })}
+
+      {/* Skill labels */}
+      {candidates.map((s, i) => {
+        const lp = labelPos(i);
+        const label = (s.skill_name || formatCategoryLabel(s.category || s.skill_id || ''))
+          .split(' ')
+          .slice(0, 2)
+          .join(' ');
+        return (
+          <text
+            key={i}
+            x={lp.x.toFixed(1)}
+            y={lp.y.toFixed(1)}
+            textAnchor={textAnchor(i)}
+            dominantBaseline={textBaseline(i)}
+            fontSize="9"
+            fontWeight="600"
+            fill="#374151"
+            fontFamily="system-ui, sans-serif"
+          >
+            {label}
+          </text>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Data fetching
 // ---------------------------------------------------------------------------
 
@@ -418,6 +573,36 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
                 Most practised: <span className="font-semibold text-gray-700">{formatCategoryLabel(seasonStats.mostActiveCategory)}</span>
               </p>
             )}
+          </div>
+        )}
+
+        {/* ─── Skill Radar Chart ─── */}
+        {sortedSkills.length >= 3 && (
+          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
+            <div className="mb-1 flex items-center gap-2">
+              <span className="text-lg" aria-hidden="true">🕸️</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Skills at a Glance
+              </h3>
+            </div>
+            <p className="mb-4 text-xs text-gray-500 leading-relaxed">
+              {firstName}&apos;s skill profile across all tracked areas this season.
+            </p>
+            <SkillRadarChart skills={sortedSkills} />
+            {/* Proficiency legend */}
+            <div className="mt-4 flex flex-wrap justify-center gap-x-3 gap-y-1 border-t border-gray-100 pt-3">
+              {[
+                { label: 'Exploring', color: 'bg-amber-400' },
+                { label: 'Practicing', color: 'bg-blue-400' },
+                { label: 'Got It!', color: 'bg-emerald-400' },
+                { label: 'Game Ready', color: 'bg-purple-500' },
+              ].map((l) => (
+                <span key={l.label} className="flex items-center gap-1 text-[10px] text-gray-500">
+                  <span className={`inline-block h-2 w-2 rounded-full ${l.color}`} />
+                  {l.label}
+                </span>
+              ))}
+            </div>
           </div>
         )}
 
