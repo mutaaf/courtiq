@@ -707,7 +707,7 @@ export default function PlayerDetailPage({
   }
 
   return (
-    <div className="space-y-6 p-4 lg:p-8 pb-8">
+    <div className="space-y-6 p-4 lg:p-8 pb-8 overflow-x-hidden">
       {/* Back link */}
       <Link
         href="/roster"
@@ -755,20 +755,21 @@ export default function PlayerDetailPage({
       </Card>
 
       {/* Tabs */}
-      <div className="flex gap-1 overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900/50 p-1">
+      <div className="flex gap-1 overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900/50 p-1 scrollbar-hide">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+            title={tab.label}
+            className={`flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-2 text-sm font-medium transition-colors sm:px-3 ${
               activeTab === tab.id
                 ? 'bg-orange-500/20 text-orange-400'
                 : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
             }`}
           >
             {tab.icon}
-            {tab.label}
+            <span className="hidden sm:inline">{tab.label}</span>
           </button>
         ))}
       </div>
