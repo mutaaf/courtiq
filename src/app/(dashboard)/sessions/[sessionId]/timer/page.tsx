@@ -39,6 +39,7 @@ import {
   Eye,
   Mic,
   MicOff,
+  Star,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Drill, Player, Session, Plan } from '@/types/database';
@@ -60,6 +61,7 @@ import {
 } from '@/lib/timer-focus-utils';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 import type { PlayerAvailability } from '@/types/database';
+import { getRatingLabel, getRatingColor } from '@/lib/session-quality-utils';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -391,6 +393,24 @@ function DoneScreen({
   isRecovered?: boolean;
   onStartFresh?: () => void;
 }) {
+  const [rating, setRating] = useState<number>(0);
+  const [ratingSaved, setRatingSaved] = useState(false);
+
+  async function handleRate(n: number) {
+    setRating(n);
+    try {
+      await mutate({
+        table: 'sessions',
+        operation: 'update',
+        data: { quality_rating: n },
+        filters: { id: sessionId },
+      });
+      setRatingSaved(true);
+    } catch {
+      // Silently fail — coach can still rate from the session detail page
+    }
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-zinc-950 p-6">
       <div className="flex-1 flex flex-col items-center justify-center gap-6 max-w-xl mx-auto w-full text-center">
@@ -467,6 +487,36 @@ function DoneScreen({
             ))}
           </div>
         )}
+
+        {/* Session quality rating — capture it at the natural end-of-practice moment */}
+        <div className="w-full rounded-xl bg-zinc-900 border border-zinc-800 p-4 space-y-2.5">
+          <p className="text-sm font-semibold text-zinc-300 text-center">How did practice go?</p>
+          <div className="flex items-center justify-center gap-2">
+            {([1, 2, 3, 4, 5] as const).map((n) => (
+              <button
+                key={n}
+                aria-label={`Rate practice ${n} star${n !== 1 ? 's' : ''}`}
+                onClick={() => handleRate(n)}
+                className="h-12 w-12 flex items-center justify-center rounded-lg transition-all touch-manipulation active:scale-90 hover:bg-zinc-800"
+              >
+                <Star
+                  className={`h-8 w-8 transition-colors ${
+                    n <= rating ? 'fill-amber-400 text-amber-400' : 'text-zinc-600'
+                  }`}
+                />
+              </button>
+            ))}
+          </div>
+          {rating > 0 && (
+            <p className={`text-sm font-medium text-center ${getRatingColor(rating)}`}>
+              {getRatingLabel(rating as 1 | 2 | 3 | 4 | 5)}
+              {ratingSaved && <span className="ml-2 text-xs text-zinc-500 font-normal">Saved</span>}
+            </p>
+          )}
+          {rating === 0 && (
+            <p className="text-xs text-zinc-600 text-center">Tap a star — helps track session quality over time</p>
+          )}
+        </div>
 
         {saveError && (
           <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 rounded-lg px-4 py-3 w-full">
