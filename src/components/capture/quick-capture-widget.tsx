@@ -357,7 +357,7 @@ export function QuickCaptureWidget() {
           }}
           className={cn(
             'fixed bottom-[5.5rem] right-4 z-40 lg:bottom-6',
-            'flex h-12 w-12 items-center justify-center rounded-full',
+            'flex h-11 w-11 lg:h-12 lg:w-12 items-center justify-center rounded-full',
             'bg-orange-500 shadow-lg shadow-orange-500/25',
             'hover:bg-orange-600 active:scale-95 touch-manipulation transition-transform duration-150',
             'ring-4 ring-orange-500/20'

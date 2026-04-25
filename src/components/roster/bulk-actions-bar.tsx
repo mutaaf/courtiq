@@ -109,7 +109,7 @@ export function BulkActionsBar({ selectedPlayers, teamId, coachId, onClear }: Bu
   return (
     <>
       {/* Sticky action bar */}
-      <div className="fixed bottom-16 sm:bottom-4 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none">
+      <div className="fixed bottom-20 sm:bottom-4 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none">
         <div className="pointer-events-auto w-full max-w-lg rounded-2xl border border-orange-500/40 bg-zinc-900/95 shadow-2xl shadow-orange-500/10 backdrop-blur-sm p-3 flex items-center gap-3">
           {/* Count badge */}
           <div className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-orange-500 px-3 text-sm font-bold text-white shrink-0">
@@ -159,7 +159,7 @@ export function BulkActionsBar({ selectedPlayers, teamId, coachId, onClear }: Bu
 
       {/* Feedback toast */}
       {feedbackMsg && (
-        <div className={`fixed bottom-28 sm:bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium shadow-lg ${feedbackOk ? 'bg-emerald-600 text-white' : feedbackErr ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-200'}`}>
+        <div className={`fixed bottom-36 sm:bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium shadow-lg ${feedbackOk ? 'bg-emerald-600 text-white' : feedbackErr ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-200'}`}>
           {feedbackOk ? <CheckCircle className="h-4 w-4 shrink-0" /> : feedbackErr ? <AlertCircle className="h-4 w-4 shrink-0" /> : null}
           {feedbackMsg}
         </div>

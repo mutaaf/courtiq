@@ -152,7 +152,7 @@ export default function RosterPage() {
 
   return (
     <PullToRefresh onRefresh={async () => { await Promise.all([refetchPlayers(), refetchObs(), refetchAvailability()]); }}>
-    <div className="p-4 lg:p-8 space-y-6 pb-8">
+    <div className="p-4 lg:p-8 space-y-6 pb-28 lg:pb-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -173,6 +173,13 @@ export default function RosterPage() {
               <span className="hidden sm:inline">{selectMode ? `${selectedIds.size} selected` : 'Select'}</span>
             </Button>
           )}
+          {/* Mobile: compact add button */}
+          <Link href="/roster/add" className="sm:hidden">
+            <Button size="sm">
+              <Plus className="h-4 w-4" />
+              Add
+            </Button>
+          </Link>
           <div className="hidden sm:flex items-center gap-2">
             {players.length >= 2 && (
               <Link href="/roster/compare">
@@ -262,6 +269,32 @@ export default function RosterPage() {
               ))}
             </select>
           </div>
+        </div>
+      )}
+
+      {/* Mobile quick actions — Import & Photo Import */}
+      {players.length > 0 && (
+        <div className="flex sm:hidden gap-2">
+          <Link href="/roster/import" className="flex-1">
+            <Button variant="outline" size="sm" className="w-full h-10 gap-1.5">
+              <Upload className="h-4 w-4" />
+              Import
+            </Button>
+          </Link>
+          <Link href="/roster/import-photo" className="flex-1">
+            <Button variant="outline" size="sm" className="w-full h-10 gap-1.5">
+              <Camera className="h-4 w-4" />
+              Photo Import
+            </Button>
+          </Link>
+          {players.length >= 2 && (
+            <Link href="/roster/compare" className="flex-1">
+              <Button variant="outline" size="sm" className="w-full h-10 gap-1.5">
+                <GitCompareArrows className="h-4 w-4" />
+                Compare
+              </Button>
+            </Link>
+          )}
         </div>
       )}
 

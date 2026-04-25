@@ -196,7 +196,7 @@ export default function SettingsPage() {
   const isAdmin = coach?.role === 'admin' || coach?.role === 'head_coach';
 
   return (
-    <div className="p-4 lg:p-8 space-y-6 pb-8">
+    <div className="p-4 lg:p-8 space-y-6 pb-24 lg:pb-8">
       <div>
         <h1 className="text-2xl font-bold">Settings</h1>
         <p className="text-zinc-400 text-sm">Manage your account and preferences</p>
@@ -212,11 +212,11 @@ export default function SettingsPage() {
             <div key={category.name}>
               <button
                 onClick={() => toggleCategory(category.name)}
-                className="flex items-center gap-2 w-full py-2 text-sm font-semibold text-zinc-300 hover:text-zinc-100"
+                className="flex items-center gap-2 w-full py-2 text-sm font-semibold text-zinc-100 hover:text-zinc-100"
               >
                 <ChevronDown className={`h-4 w-4 text-zinc-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                 {category.name}
-                <span className="text-xs font-normal text-zinc-600 ml-auto">{visibleItems.length}</span>
+                <span className="text-xs font-normal text-zinc-400 ml-auto">{visibleItems.length}</span>
               </button>
               {isExpanded && (
                 <div className="space-y-2 mt-1">
@@ -231,7 +231,7 @@ export default function SettingsPage() {
 
         {/* Appearance toggles always visible */}
         <div>
-          <p className="py-2 text-sm font-semibold text-zinc-300">Appearance</p>
+          <p className="py-2 text-sm font-semibold text-zinc-100">Appearance</p>
           <div className="space-y-2">
             <Card
               className="h-full cursor-pointer transition-colors hover:border-zinc-700 active:scale-[0.98] touch-manipulation"
@@ -292,7 +292,7 @@ export default function SettingsPage() {
           if (visibleItems.length === 0) return null;
           return (
             <div key={category.name}>
-              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">{category.name}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">{category.name}</p>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {visibleItems.map((card) => (
                   <SettingCardItem key={card.href} card={card} />
