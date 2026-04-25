@@ -9,19 +9,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RecordingButton } from '@/components/capture/recording-button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Send, Keyboard, Mic, AlertCircle, Sparkles, Upload, FileAudio, Camera } from 'lucide-react';
+import { Loader2, Send, Keyboard, Mic, AlertCircle, Sparkles, Upload, FileAudio, Camera, Lock } from 'lucide-react';
 import { generateId } from '@/lib/utils';
 import { localDB } from '@/lib/storage/local-db';
 import Link from 'next/link';
 import { QuickTemplates } from '@/components/capture/quick-templates';
 import { useAppStore } from '@/lib/store';
 import { Check } from 'lucide-react';
+import { useTier } from '@/hooks/use-tier';
 
 type CaptureState = 'idle' | 'recording' | 'processing' | 'error';
 
 export default function CapturePage() {
   const router = useRouter();
   const { activeTeam, coach } = useActiveTeam();
+  const { canAccess } = useTier();
+  const canUsePhoto = canAccess('media_upload');
 
   // URL context params — read client-side to avoid Suspense requirement
   const [urlSessionId, setUrlSessionId] = useState<string | null>(null);
@@ -894,10 +897,12 @@ export default function CapturePage() {
                 />
               </label>
               <Link
-                href="/capture/photo"
+                href={canUsePhoto ? '/capture/photo' : '/settings/upgrade'}
                 className="text-sm text-zinc-400 flex items-center gap-1.5 hover:text-zinc-200 active:scale-95 touch-manipulation"
               >
-                <Camera className="h-4 w-4" /> Photo
+                {canUsePhoto ? <Camera className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                Photo
+                {!canUsePhoto && <span className="text-[10px] font-semibold uppercase tracking-wide text-teal-400 bg-teal-500/15 px-1.5 py-0.5 rounded-full">Pro</span>}
               </Link>
             </div>
             {/* Desktop: full card grid */}
@@ -935,14 +940,23 @@ export default function CapturePage() {
                 />
               </label>
               <Link
-                href="/capture/photo"
+                href={canUsePhoto ? '/capture/photo' : '/settings/upgrade'}
                 className="flex items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 text-left transition-colors hover:border-zinc-700 hover:bg-zinc-800/50 active:scale-[0.98] touch-manipulation"
               >
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
-                  <Camera className="h-6 w-6 text-amber-400" />
+                  {canUsePhoto ? (
+                    <Camera className="h-6 w-6 text-amber-400" />
+                  ) : (
+                    <Lock className="h-6 w-6 text-amber-400" />
+                  )}
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-zinc-200">Snap photo</p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-zinc-200">Snap photo</p>
+                    {!canUsePhoto && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-teal-400 bg-teal-500/15 px-1.5 py-0.5 rounded-full">Pro</span>
+                    )}
+                  </div>
                   <p className="text-xs text-zinc-500">AI analyzes practice photo</p>
                 </div>
               </Link>

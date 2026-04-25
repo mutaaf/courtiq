@@ -51,9 +51,11 @@ import {
   PenLine,
   Copy,
   Megaphone,
+  Lock,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { PrintButton } from '@/components/ui/print-button';
+import { useTier } from '@/hooks/use-tier';
 import type { Plan, Player, PlanType, Session } from '@/types/database';
 import type { ObservationInsights } from '@/app/api/ai/plan/route';
 import { getCategoryLabel, getCategoryColor } from '@/lib/coach-reflection-utils';
@@ -377,6 +379,8 @@ function HuddleScriptRenderer({ data }: { data: HuddleScriptData }) {
 export default function PlansPage() {
   const { activeTeam, coach } = useActiveTeam();
   const router = useRouter();
+  const { canAccess } = useTier();
+  const canUseGameDayPrep = canAccess('tendencies');
   const qc = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
@@ -2542,28 +2546,38 @@ export default function PlansPage() {
             </div>
 
             {/* Game Day Prep — scouting-based */}
-            <div className="rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 to-emerald-500/5 overflow-hidden">
+            <div className={`rounded-xl border overflow-hidden ${canUseGameDayPrep ? 'border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 to-emerald-500/5' : 'border-zinc-700 bg-zinc-900/40'}`}>
               <button
                 type="button"
-                onClick={() => setShowGamedayForm((v) => !v)}
+                onClick={() => canUseGameDayPrep ? setShowGamedayForm((v) => !v) : router.push('/settings/upgrade')}
                 disabled={generatingGameday || generating || !activeTeam}
                 className="flex w-full items-center gap-2.5 p-3 text-left transition-all hover:from-emerald-500/20 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/25">
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${canUseGameDayPrep ? 'bg-emerald-500/25' : 'bg-zinc-700/50'}`}>
                   {generatingGameday ? (
                     <Loader2 className="h-4 w-4 text-emerald-400 animate-spin" />
-                  ) : (
+                  ) : canUseGameDayPrep ? (
                     <Trophy className="h-4 w-4 text-emerald-400" />
+                  ) : (
+                    <Lock className="h-4 w-4 text-zinc-500" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-emerald-300">Game Day Prep</p>
+                  <div className="flex items-center gap-2">
+                    <p className={`text-sm font-semibold ${canUseGameDayPrep ? 'text-emerald-300' : 'text-zinc-400'}`}>Game Day Prep</p>
+                    {!canUseGameDayPrep && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-teal-400 bg-teal-500/15 px-1.5 py-0.5 rounded-full">Pro</span>
+                    )}
+                  </div>
                   <p className="text-xs text-zinc-500">Scouting-based AI prep sheet with matchups &amp; strategy</p>
                 </div>
-                {showGamedayForm ? (
+                {canUseGameDayPrep && (showGamedayForm ? (
                   <ChevronUp className="h-4 w-4 text-emerald-500/60 shrink-0" />
                 ) : (
                   <ChevronDown className="h-4 w-4 text-emerald-500/60 shrink-0" />
+                ))}
+                {!canUseGameDayPrep && (
+                  <ChevronRight className="h-4 w-4 text-zinc-600 shrink-0" />
                 )}
               </button>
 

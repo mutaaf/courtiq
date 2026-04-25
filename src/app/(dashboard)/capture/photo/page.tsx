@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { findPlayerByName } from '@/lib/player-match';
+import { UpgradeGate } from '@/components/ui/upgrade-gate';
 import {
   ArrowLeft,
   Camera,
@@ -259,6 +260,7 @@ export default function PhotoCapturePage() {
   const selectedCount = observations.filter((o) => o.selected).length;
 
   return (
+    <UpgradeGate feature="media_upload" featureLabel="Photo Capture">
     <div className="mx-auto max-w-2xl space-y-4 p-4 lg:p-8 pb-8">
       {/* Header */}
       <div className="flex items-center gap-3">
@@ -492,5 +494,6 @@ export default function PhotoCapturePage() {
         </div>
       )}
     </div>
+    </UpgradeGate>
   );
 }
