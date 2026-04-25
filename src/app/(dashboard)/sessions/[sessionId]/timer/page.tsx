@@ -59,6 +59,7 @@ import {
   type NeedsWorkObs,
 } from '@/lib/timer-focus-utils';
 import { useVoiceInput } from '@/hooks/use-voice-input';
+import type { PlayerAvailability } from '@/types/database';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -621,6 +622,30 @@ export default function PracticeTimerPage({
     enabled: !!activeTeam,
   });
 
+  // Fetch player availability so injured/absent players are excluded from the break-screen picker.
+  const { data: availabilityMap = {} } = useQuery<Record<string, PlayerAvailability>>({
+    queryKey: ['player-availability', activeTeam?.id],
+    queryFn: async () => {
+      if (!activeTeam) return {};
+      const res = await fetch(`/api/player-availability?team_id=${activeTeam.id}`);
+      if (!res.ok) return {};
+      const d = await res.json();
+      return (d.availability ?? {}) as Record<string, PlayerAvailability>;
+    },
+    enabled: !!activeTeam,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Players who are injured / sick / unavailable should be hidden from the observation picker.
+  // 'limited' players can still participate and be observed.
+  const EXCLUDED_STATUSES = new Set(['injured', 'sick', 'unavailable']);
+  const presentPlayers = players.filter(
+    (p) => !availabilityMap[p.id] || !EXCLUDED_STATUSES.has(availabilityMap[p.id].status)
+  );
+  const absentPlayers = players.filter(
+    (p) => availabilityMap[p.id] && EXCLUDED_STATUSES.has(availabilityMap[p.id].status)
+  );
+
   // Fetch recent needs-work observations (last 30 days) for player focus callouts.
   // Loaded once on mount; cached for 5 minutes so it doesn't slow drill transitions.
   const thirtyDaysAgo = new Date();
@@ -1009,7 +1034,7 @@ export default function PracticeTimerPage({
       <BreakScreen
         drillJustFinished={drill?.name ?? ''}
         nextDrillName={nextDrill?.name}
-        players={players}
+        players={presentPlayers}
         onSave={handleBreakSave}
         onSkip={handleBreakSkip}
         capturedPlayerIds={capturedPlayerIds}
@@ -1095,7 +1120,7 @@ export default function PracticeTimerPage({
           {/* Player focus callouts — who to watch based on recent needs-work obs */}
           {(() => {
             if (!hasEnoughObsForFocus(needsWorkObs)) return null;
-            const focus = getPlayerFocusForCategory(drill?.category, needsWorkObs, players);
+            const focus = getPlayerFocusForCategory(drill?.category, needsWorkObs, presentPlayers);
             if (focus.length === 0) return null;
             return (
               <div className="flex flex-col items-center gap-2 max-w-sm w-full">
@@ -1191,6 +1216,21 @@ export default function PracticeTimerPage({
         <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-sm text-emerald-300">
           <Layers className="h-4 w-4 shrink-0" />
           Loaded template: <span className="font-medium">{loadedTemplateName}</span>
+        </div>
+      )}
+
+      {/* Absent/unavailable players banner */}
+      {absentPlayers.length > 0 && (
+        <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-sm text-amber-300">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>
+            <span className="font-medium">
+              {absentPlayers.length === 1
+                ? absentPlayers[0].name
+                : `${absentPlayers.slice(0, 2).map((p) => p.name).join(', ')}${absentPlayers.length > 2 ? ` +${absentPlayers.length - 2} more` : ''}`}
+            </span>{' '}
+            {absentPlayers.length === 1 ? 'is' : 'are'} marked unavailable and won&apos;t appear in your observation picker.
+          </span>
         </div>
       )}
 
