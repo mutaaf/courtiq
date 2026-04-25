@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
+import { memCached, TTL } from '@/lib/cache/memory';
 import type { AttendanceStatus } from '@/types/database';
 import { computePlayerStat, computeTeamStats } from '@/lib/attendance-utils';
 
@@ -73,23 +74,25 @@ export async function GET(request: Request) {
       if (!membership) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { data: rows } = await admin
-      .from('session_attendance')
-      .select('status, sessions(date, type)')
-      .eq('player_id', playerId)
-      .order('created_at', { ascending: false })
-      .limit(50);
+    const stat = await memCached(`attendance:player:${playerId}`, TTL.MEDIUM, async () => {
+      const { data: rows } = await admin
+        .from('session_attendance')
+        .select('status, sessions(date, type)')
+        .eq('player_id', playerId)
+        .order('created_at', { ascending: false })
+        .limit(50);
 
-    const records = (rows || []).map((r) => ({
-      status: r.status as AttendanceStatus,
-      date: (r.sessions as any)?.date ?? '',
-      type: (r.sessions as any)?.type ?? 'practice',
-    }));
+      const records = (rows || []).map((r) => ({
+        status: r.status as AttendanceStatus,
+        date: (r.sessions as any)?.date ?? '',
+        type: (r.sessions as any)?.type ?? 'practice',
+      }));
 
-    const stat = computePlayerStat(
-      { id: playerRow.id, name: playerRow.name, jersey_number: playerRow.jersey_number },
-      records,
-    );
+      return computePlayerStat(
+        { id: playerRow.id, name: playerRow.name, jersey_number: playerRow.jersey_number },
+        records,
+      );
+    });
 
     return NextResponse.json(stat);
   }
@@ -111,36 +114,38 @@ export async function GET(request: Request) {
     if (!membership) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { data: players } = await admin
-    .from('players')
-    .select('id, name, jersey_number')
-    .eq('team_id', teamId!)
-    .eq('is_active', true)
-    .order('name');
+  const teamStats = await memCached(`attendance:team:${teamId}`, TTL.MEDIUM, async () => {
+    const { data: players } = await admin
+      .from('players')
+      .select('id, name, jersey_number')
+      .eq('team_id', teamId!)
+      .eq('is_active', true)
+      .order('name');
 
-  if (!players || players.length === 0) {
-    return NextResponse.json({
-      totalTrackedSessions: 0,
-      avgAttendancePct: 0,
-      players: [],
-    } satisfies TeamAttendanceStats);
-  }
+    if (!players || players.length === 0) {
+      return {
+        totalTrackedSessions: 0,
+        avgAttendancePct: 0,
+        players: [],
+      } satisfies TeamAttendanceStats;
+    }
 
-  const { data: attendanceRows } = await admin
-    .from('session_attendance')
-    .select('player_id, status, sessions!inner(id, date, type, team_id)')
-    .eq('sessions.team_id', teamId!)
-    .order('created_at', { ascending: false });
+    const { data: attendanceRows } = await admin
+      .from('session_attendance')
+      .select('player_id, status, sessions!inner(id, date, type, team_id)')
+      .eq('sessions.team_id', teamId!)
+      .order('created_at', { ascending: false });
 
-  const rows = (attendanceRows || []).map((r) => ({
-    player_id: r.player_id,
-    status: r.status as AttendanceStatus,
-    session_id: (r.sessions as any)?.id ?? '',
-    date: (r.sessions as any)?.date ?? '',
-    type: (r.sessions as any)?.type ?? 'practice',
-  }));
+    const rows = (attendanceRows || []).map((r) => ({
+      player_id: r.player_id,
+      status: r.status as AttendanceStatus,
+      session_id: (r.sessions as any)?.id ?? '',
+      date: (r.sessions as any)?.date ?? '',
+      type: (r.sessions as any)?.type ?? 'practice',
+    }));
 
-  const teamStats = computeTeamStats(players, rows);
+    return computeTeamStats(players, rows);
+  });
 
-  return NextResponse.json(teamStats satisfies TeamAttendanceStats);
+  return NextResponse.json(teamStats);
 }

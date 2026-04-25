@@ -2,6 +2,7 @@ import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/serv
 import { NextResponse } from 'next/server';
 import { TIER_LIMITS, type Tier } from '@/lib/tier';
 import { fireWebhooks } from '@/lib/webhooks';
+import { memBustPrefix } from '@/lib/cache/memory';
 import type { WebhookEvent } from '@/types/database';
 
 export async function POST(request: Request) {
@@ -55,9 +56,16 @@ export async function POST(request: Request) {
       }
     }
 
+    // Bust cached queries for this table after any mutation
+    const bustTableCache = () => {
+      memBustPrefix(`data:post:${user.id}:${table}:`);
+      memBustPrefix(`data:get:${user.id}:${table}:`);
+    };
+
     if (operation === 'insert') {
       const { data, error } = await admin.from(table).insert(payload).select(select);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      bustTableCache();
       // Fire webhooks for key insert events (fire-and-forget)
       const webhookInsertMap: Partial<Record<string, WebhookEvent>> = {
         observations: 'observation.created',
@@ -83,6 +91,7 @@ export async function POST(request: Request) {
       }
       const { data, error } = await query.select(select);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      bustTableCache();
       // Fire session.updated webhook (fire-and-forget)
       if (table === 'sessions') {
         const { data: coach } = await admin.from('coaches').select('org_id').eq('id', user.id).single();
@@ -101,6 +110,7 @@ export async function POST(request: Request) {
       }
       const { error } = await query;
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      bustTableCache();
       return NextResponse.json({ success: true });
     }
 

@@ -76,13 +76,22 @@ const CACHEABLE_TYPES: AIInteractionType[] = [
   'generate_development_card',
   'generate_parent_report',
   'generate_report_card',
+  'generate_gameday_sheet',
+  'generate_weekly_plan',
+  'generate_season_storyline',
   'transcription',
   'segment_transcript',
+  'roster_import',
 ];
 
-// Shorter TTL for types where input context (roster) changes frequently
+// Type-specific TTLs (seconds)
 const CACHE_TTL: Partial<Record<AIInteractionType, number>> = {
-  segment_transcript: 3600, // 1 hour — roster changes frequently
+  segment_transcript: 3600,       // 1hr — roster changes frequently
+  roster_import: 7200,            // 2hr — same image = same result
+  generate_practice_plan: 43200,  // 12hr — plans are session-specific
+  generate_gameday_sheet: 43200,  // 12hr
+  generate_weekly_plan: 43200,    // 12hr
+  generate_season_storyline: 86400, // 24hr — rarely changes
 };
 const DEFAULT_CACHE_TTL = 86400; // 24 hours
 
