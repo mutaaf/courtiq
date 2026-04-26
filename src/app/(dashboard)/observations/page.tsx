@@ -26,6 +26,12 @@ import {
   Minus,
   Star,
   Dumbbell,
+  Edit2,
+  Trash2,
+  Check,
+  X,
+  ClipboardList,
+  Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
@@ -48,6 +54,8 @@ const SOURCE_ICON: Record<ObservationSource, React.ComponentType<{ className?: s
   cv: Video,
   import: Keyboard,
   debrief: MessageSquare,
+  template: ClipboardList,
+  observer: Users,
 };
 
 const DATE_RANGES = [
@@ -63,6 +71,12 @@ const SENTIMENT_FILTERS = [
   { value: 'positive' as const, label: 'Positive' },
   { value: 'needs-work' as const, label: 'Needs Work' },
   { value: 'neutral' as const, label: 'Neutral' },
+];
+
+const CATEGORIES = [
+  'offense', 'defense', 'passing', 'dribbling', 'shooting',
+  'footwork', 'rebounding', 'hustle', 'teamwork', 'leadership',
+  'awareness', 'iq', 'effort', 'general',
 ];
 
 const PAGE_SIZE = 50;
@@ -136,109 +150,270 @@ function StarButton({
 
 // ─── Observation card ─────────────────────────────────────────────────────────
 
+type EditDraft = { text: string; sentiment: Sentiment; category: string };
+
 function ObservationCard({
   obs,
   playerName,
   onToggleHighlight,
+  onEdit,
+  onDelete,
 }: {
   obs: Observation & { players?: { name: string } | null };
   playerName: string;
   onToggleHighlight: (id: string, next: boolean) => void;
+  onEdit: (id: string, updates: EditDraft) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [draft, setDraft] = useState<EditDraft>({
+    text: obs.text,
+    sentiment: obs.sentiment,
+    category: obs.category || '',
+  });
+
   const sentiment = SENTIMENT_CONFIG[obs.sentiment];
   const SentimentIcon = sentiment.icon;
   const SourceIcon = SOURCE_ICON[obs.source] ?? Keyboard;
   const name = playerName || 'Team';
   const isLong = obs.text.length > 120;
 
+  const startEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDraft({ text: obs.text, sentiment: obs.sentiment, category: obs.category || '' });
+    setConfirmDelete(false);
+    setEditing(true);
+  };
+
+  const cancelEdit = () => setEditing(false);
+
+  const saveEdit = async () => {
+    if (!draft.text.trim()) return;
+    setSaving(true);
+    try {
+      await onEdit(obs.id, { text: draft.text.trim(), sentiment: draft.sentiment, category: draft.category });
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await onDelete(obs.id);
+    } finally {
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  };
+
   return (
     <Card className={`transition-colors hover:border-zinc-700 ${obs.is_highlighted ? 'border-amber-500/40 bg-amber-500/5' : ''}`}>
       <CardContent className="p-4 sm:p-5">
-        <div className="flex items-start gap-3">
-          {/* Avatar */}
-          <div
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${avatarColor(name)}`}
-            aria-hidden="true"
-          >
-            {playerInitials(name)}
-          </div>
 
-          <div className="min-w-0 flex-1">
-            {/* Top row: player + sentiment + source + time + star */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium text-sm text-zinc-100">{name}</span>
-              <span
-                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${sentiment.color}`}
-                aria-label={`Sentiment: ${sentiment.label}`}
-              >
-                <SentimentIcon className="h-3 w-3" />
-                {sentiment.label}
-              </span>
-              {obs.category && (
-                <Badge variant="secondary" className="text-[11px] capitalize">
-                  {obs.category}
-                </Badge>
-              )}
-              {obs.is_highlighted && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[11px] font-semibold text-amber-400">
-                  <Star className="h-2.5 w-2.5 fill-amber-400" />
-                  Highlight
-                </span>
-              )}
-              <span className="ml-auto flex items-center gap-1 text-[11px] text-zinc-500">
-                <SourceIcon className="h-3 w-3" aria-hidden />
-                <span>{formatRelative(obs.created_at!)}</span>
-              </span>
-              <StarButton
-                obsId={obs.id}
-                isHighlighted={obs.is_highlighted}
-                onToggle={onToggleHighlight}
-              />
+        {editing ? (
+          /* ── Edit mode ── */
+          <div className="space-y-3">
+            {/* Sentiment toggle */}
+            <div className="flex gap-2">
+              {(['positive', 'needs-work', 'neutral'] as Sentiment[]).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setDraft((d) => ({ ...d, sentiment: s }))}
+                  className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors touch-manipulation ${
+                    draft.sentiment === s
+                      ? s === 'positive'
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                        : s === 'needs-work'
+                          ? 'bg-red-500/20 text-red-400 border border-red-500/40'
+                          : 'bg-zinc-500/20 text-zinc-400 border border-zinc-500/40'
+                      : 'bg-zinc-800 text-zinc-500 border border-zinc-700 hover:text-zinc-300'
+                  }`}
+                >
+                  {s === 'positive' ? 'Positive' : s === 'needs-work' ? 'Needs Work' : 'Neutral'}
+                </button>
+              ))}
             </div>
 
-            {/* Observation text */}
-            <p className={`mt-1.5 text-sm leading-relaxed text-zinc-300 ${!expanded && isLong ? 'line-clamp-2' : ''}`}>
-              {obs.text}
-            </p>
-            {isLong && (
+            {/* Category select */}
+            <div className="relative">
+              <select
+                value={draft.category}
+                onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value }))}
+                className="w-full h-9 appearance-none rounded-lg border border-zinc-700 bg-zinc-800 pl-3 pr-8 text-sm text-zinc-100 capitalize outline-none focus:border-orange-500 transition-colors"
+                aria-label="Category"
+              >
+                <option value="">No category</option>
+                {CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat} className="capitalize">{cat}</option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" aria-hidden />
+            </div>
+
+            {/* Text area */}
+            <textarea
+              value={draft.text}
+              onChange={(e) => setDraft((d) => ({ ...d, text: e.target.value }))}
+              rows={3}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 resize-none transition-colors"
+              placeholder="Observation text…"
+              aria-label="Edit observation text"
+            />
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-2">
               <button
-                onClick={() => setExpanded((v) => !v)}
-                className="mt-1 flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
-                aria-expanded={expanded}
+                onClick={cancelEdit}
+                className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors touch-manipulation"
+                aria-label="Cancel edit"
               >
-                {expanded ? (
-                  <><ChevronUp className="h-3 w-3" />Show less</>
-                ) : (
-                  <><ChevronDown className="h-3 w-3" />Show more</>
-                )}
+                <X className="h-3.5 w-3.5" />
+                Cancel
               </button>
-            )}
-
-            {/* Session link + drill shortcut */}
-            <div className="mt-2 flex flex-wrap items-center gap-3">
-              {obs.session_id && (
-                <Link
-                  href={`/sessions/${obs.session_id}`}
-                  className="inline-flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition-colors"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  View session
-                </Link>
-              )}
-              {obs.sentiment === 'needs-work' && obs.category && (
-                <Link
-                  href={`/drills?category=${encodeURIComponent(obs.category)}`}
-                  className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
-                  title={`Find ${obs.category} drills`}
-                >
-                  <Dumbbell className="h-3 w-3" />
-                  Find drill
-                </Link>
-              )}
+              <button
+                onClick={saveEdit}
+                disabled={saving || !draft.text.trim()}
+                className="flex items-center gap-1 rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-400 disabled:opacity-50 transition-colors touch-manipulation"
+                aria-label="Save observation"
+              >
+                <Check className="h-3.5 w-3.5" />
+                {saving ? 'Saving…' : 'Save'}
+              </button>
             </div>
           </div>
-        </div>
+        ) : (
+          /* ── View mode ── */
+          <div className="flex items-start gap-3">
+            {/* Avatar */}
+            <div
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${avatarColor(name)}`}
+              aria-hidden="true"
+            >
+              {playerInitials(name)}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              {/* Top row: player + sentiment + source + time + star */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-sm text-zinc-100">{name}</span>
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${sentiment.color}`}
+                  aria-label={`Sentiment: ${sentiment.label}`}
+                >
+                  <SentimentIcon className="h-3 w-3" />
+                  {sentiment.label}
+                </span>
+                {obs.category && (
+                  <Badge variant="secondary" className="text-[11px] capitalize">
+                    {obs.category}
+                  </Badge>
+                )}
+                {obs.is_highlighted && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[11px] font-semibold text-amber-400">
+                    <Star className="h-2.5 w-2.5 fill-amber-400" />
+                    Highlight
+                  </span>
+                )}
+                <span className="ml-auto flex items-center gap-1 text-[11px] text-zinc-500">
+                  <SourceIcon className="h-3 w-3" aria-hidden />
+                  <span>{formatRelative(obs.created_at!)}</span>
+                </span>
+                <StarButton
+                  obsId={obs.id}
+                  isHighlighted={obs.is_highlighted}
+                  onToggle={onToggleHighlight}
+                />
+              </div>
+
+              {/* Observation text */}
+              <p className={`mt-1.5 text-sm leading-relaxed text-zinc-300 ${!expanded && isLong ? 'line-clamp-2' : ''}`}>
+                {obs.text}
+              </p>
+              {isLong && (
+                <button
+                  onClick={() => setExpanded((v) => !v)}
+                  className="mt-1 flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                  aria-expanded={expanded}
+                >
+                  {expanded ? (
+                    <><ChevronUp className="h-3 w-3" />Show less</>
+                  ) : (
+                    <><ChevronDown className="h-3 w-3" />Show more</>
+                  )}
+                </button>
+              )}
+
+              {/* Bottom row: session link + drill shortcut + edit + delete */}
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                {obs.session_id && (
+                  <Link
+                    href={`/sessions/${obs.session_id}`}
+                    className="inline-flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition-colors"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    View session
+                  </Link>
+                )}
+                {obs.sentiment === 'needs-work' && obs.category && (
+                  <Link
+                    href={`/drills?category=${encodeURIComponent(obs.category)}`}
+                    className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                    title={`Find ${obs.category} drills`}
+                  >
+                    <Dumbbell className="h-3 w-3" />
+                    Find drill
+                  </Link>
+                )}
+
+                {/* Edit button */}
+                <button
+                  onClick={startEdit}
+                  className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 transition-colors touch-manipulation"
+                  aria-label="Edit observation"
+                >
+                  <Edit2 className="h-3.5 w-3.5" />
+                </button>
+
+                {/* Delete / Confirm delete */}
+                {confirmDelete ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-red-400">Delete?</span>
+                    <button
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="flex items-center gap-1 rounded-md bg-red-500/20 px-2 py-1 text-xs font-semibold text-red-400 hover:bg-red-500/30 disabled:opacity-50 transition-colors touch-manipulation"
+                      aria-label="Confirm delete"
+                    >
+                      {deleting ? '…' : 'Yes'}
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(false)}
+                      className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors touch-manipulation"
+                      aria-label="Cancel delete"
+                    >
+                      No
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-colors touch-manipulation"
+                    aria-label="Delete observation"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
       </CardContent>
     </Card>
   );
@@ -278,10 +453,16 @@ export default function ObservationsPage() {
     ...CACHE_PROFILES.roster,
   });
 
+  // Cache key matches for all mutations
+  const cacheKey = useMemo(
+    () => ['observations', 'feed', activeTeam?.id || '', playerFilter, sentimentFilter, dateRange],
+    [activeTeam?.id, playerFilter, sentimentFilter, dateRange],
+  );
+
   // Fetch observations — server-side filters: team, player, sentiment, date range
   // Text search + category + highlights are applied client-side
   const { data: observations, isLoading, refetch } = useQuery({
-    queryKey: ['observations', 'feed', activeTeam?.id || '', playerFilter, sentimentFilter, dateRange],
+    queryKey: cacheKey,
     queryFn: async () => {
       if (!activeTeam) return [];
       const filters: Record<string, unknown> = { team_id: activeTeam.id };
@@ -309,9 +490,6 @@ export default function ObservationsPage() {
 
   // Optimistic highlight toggle — updates cache immediately, then persists
   const handleToggleHighlight = useCallback(async (obsId: string, nextHighlighted: boolean) => {
-    const cacheKey = ['observations', 'feed', activeTeam?.id || '', playerFilter, sentimentFilter, dateRange];
-
-    // Optimistic update
     qc.setQueryData<(Observation & { players: { name: string } | null })[]>(cacheKey, (prev) =>
       prev ? prev.map((o) => o.id === obsId ? { ...o, is_highlighted: nextHighlighted } : o) : prev,
     );
@@ -324,12 +502,44 @@ export default function ObservationsPage() {
         filters: { id: obsId },
       });
     } catch {
-      // Roll back on error
       qc.setQueryData<(Observation & { players: { name: string } | null })[]>(cacheKey, (prev) =>
         prev ? prev.map((o) => o.id === obsId ? { ...o, is_highlighted: !nextHighlighted } : o) : prev,
       );
     }
-  }, [activeTeam?.id, playerFilter, sentimentFilter, dateRange, qc]);
+  }, [cacheKey, qc]);
+
+  // Optimistic edit
+  const handleEditObservation = useCallback(async (obsId: string, updates: EditDraft) => {
+    qc.setQueryData<(Observation & { players: { name: string } | null })[]>(cacheKey, (prev) =>
+      prev ? prev.map((o) => o.id === obsId ? { ...o, ...updates } : o) : prev,
+    );
+    try {
+      await mutate({
+        table: 'observations',
+        operation: 'update',
+        data: updates,
+        filters: { id: obsId },
+      });
+    } catch {
+      qc.invalidateQueries({ queryKey: cacheKey });
+    }
+  }, [cacheKey, qc]);
+
+  // Optimistic delete
+  const handleDeleteObservation = useCallback(async (obsId: string) => {
+    qc.setQueryData<(Observation & { players: { name: string } | null })[]>(cacheKey, (prev) =>
+      prev ? prev.filter((o) => o.id !== obsId) : prev,
+    );
+    try {
+      await mutate({
+        table: 'observations',
+        operation: 'delete',
+        filters: { id: obsId },
+      });
+    } catch {
+      qc.invalidateQueries({ queryKey: cacheKey });
+    }
+  }, [cacheKey, qc]);
 
   // Client-side: text search + category filter + highlights-only
   const filtered = useMemo(() => {
@@ -554,6 +764,8 @@ export default function ObservationsPage() {
                     obs={obs}
                     playerName={playerName}
                     onToggleHighlight={handleToggleHighlight}
+                    onEdit={handleEditObservation}
+                    onDelete={handleDeleteObservation}
                   />
                 );
               })}
