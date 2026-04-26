@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Mic, MicOff, Sparkles, ArrowRight, Check, Edit2, Trash2, X, Lock } from 'lucide-react';
+import { Mic, MicOff, Sparkles, ArrowRight, Check, Edit2, Trash2, X, Lock, Wand2 } from 'lucide-react';
 import Link from 'next/link';
 
 // Enhanced mock data that plausibly matches common coaching observations
@@ -74,6 +74,7 @@ export default function DemoPage() {
   const [observations, setObservations] = useState(ENHANCED_MOCK_OBSERVATIONS);
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [textInput, setTextInput] = useState('');
+  const [fromAI, setFromAI] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -179,11 +180,12 @@ export default function DemoPage() {
   }, []);
 
   const processWithAI = async (rawTranscript: string) => {
-    // If transcript is empty, use mock data
+    // Empty transcript → show sample observations
     if (!rawTranscript || !rawTranscript.trim()) {
       setTimeout(() => {
         setObservations(ENHANCED_MOCK_OBSERVATIONS);
-        setTranscript('(No speech detected - showing sample observations)');
+        setFromAI(false);
+        setTranscript('(No speech detected — showing sample observations)');
         setStep('results');
         setTimeout(() => setShowSignupModal(true), 3000);
       }, 1500);
@@ -191,20 +193,19 @@ export default function DemoPage() {
     }
 
     try {
-      const response = await fetch('/api/ai/segment', {
+      // Public endpoint — no auth required, IP rate-limited
+      const response = await fetch('/api/ai/demo-segment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           transcript: rawTranscript,
-          teamId: DEMO_TEAM_CONTEXT.teamId,
-          demo: true,
           demoRoster: DEMO_TEAM_CONTEXT.roster,
         }),
       });
 
       if (response.ok) {
         const result = await response.json();
-        if (result.observations && result.observations.length > 0) {
+        if (!result.fallback && result.observations && result.observations.length > 0) {
           setObservations(
             result.observations.map((obs: any) => ({
               player_name: obs.player_name,
@@ -215,18 +216,20 @@ export default function DemoPage() {
               tendency: obs.tendency || null,
             }))
           );
+          setFromAI(true);
           setStep('results');
           setTimeout(() => setShowSignupModal(true), 3000);
           return;
         }
       }
     } catch {
-      // AI not available, fall through to mock
+      // Network error — fall through to mock
     }
 
-    // Fallback: use enhanced mock data
+    // Fallback: use pre-built sample observations
     setTimeout(() => {
       setObservations(ENHANCED_MOCK_OBSERVATIONS);
+      setFromAI(false);
       setStep('results');
       setTimeout(() => setShowSignupModal(true), 3000);
     }, 1500);
@@ -242,9 +245,6 @@ export default function DemoPage() {
 
   const formatTime = (s: number) =>
     `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
-
-  const getSentimentEmoji = (s: string) =>
-    s === 'positive' ? '+" ' : s === 'needs-work' ? '!' : '-';
 
   // -- INTRO SCREEN --
   if (step === 'intro') {
@@ -386,15 +386,28 @@ export default function DemoPage() {
   if (step === 'processing') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-zinc-950">
-        <div className="text-center">
+        <div className="text-center max-w-xs mx-auto px-4">
           <div className="relative mx-auto mb-6 h-16 w-16">
             <div className="absolute inset-0 animate-spin rounded-full border-4 border-orange-500 border-t-transparent" />
             <Sparkles className="absolute inset-0 m-auto h-6 w-6 text-orange-500 animate-pulse" />
           </div>
-          <h2 className="text-xl font-semibold text-zinc-100">AI is analyzing your coaching...</h2>
-          <p className="text-sm text-zinc-400 mt-2">Identifying players, categorizing observations, and extracting insights</p>
-          <div className="mt-6 flex flex-col gap-1 text-xs text-zinc-600">
-            <span className="animate-pulse">Matching player names from transcript...</span>
+          <h2 className="text-xl font-semibold text-zinc-100">Claude AI is reading your coaching…</h2>
+          <p className="text-sm text-zinc-400 mt-2">Identifying players, extracting skills, flagging growth areas</p>
+          <div className="mt-6 flex flex-col gap-2 text-xs">
+            {[
+              { label: '🎤 Transcribing speech to text', delay: '0s' },
+              { label: '👤 Matching player names phonetically', delay: '0.4s' },
+              { label: '🏀 Categorising observations by skill', delay: '0.8s' },
+              { label: '💡 Flagging needs-work vs positive', delay: '1.2s' },
+            ].map(({ label, delay }) => (
+              <span
+                key={label}
+                className="animate-pulse text-zinc-500"
+                style={{ animationDelay: delay }}
+              >
+                {label}
+              </span>
+            ))}
           </div>
         </div>
       </div>
@@ -408,14 +421,29 @@ export default function DemoPage() {
         <div className="mx-auto max-w-lg">
           <div className="mb-6 flex items-center justify-between">
             <h1 className="text-xl font-bold text-zinc-100">AI-Parsed Observations</h1>
-            <Badge variant="success">{observations.length} found</Badge>
+            <div className="flex items-center gap-2">
+              {fromAI && (
+                <span className="flex items-center gap-1 rounded-full bg-violet-500/15 px-2.5 py-1 text-[11px] font-semibold text-violet-300">
+                  <Wand2 className="h-3 w-3" />
+                  Live Claude AI
+                </span>
+              )}
+              <Badge variant="success">{observations.length} found</Badge>
+            </div>
           </div>
 
           {/* Transcript card */}
           {transcript && (
             <Card className="mb-4 border-zinc-800">
               <CardHeader className="pb-2">
-                <CardTitle className="text-xs text-zinc-500">Your transcript</CardTitle>
+                <CardTitle className="text-xs text-zinc-500 flex items-center gap-2">
+                  {fromAI ? (
+                    <>
+                      <Wand2 className="h-3 w-3 text-violet-400" />
+                      <span className="text-violet-400">Your words — processed by Claude AI</span>
+                    </>
+                  ) : 'Sample transcript'}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-zinc-400 italic">&ldquo;{transcript}&rdquo;</p>
