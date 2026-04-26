@@ -558,10 +558,14 @@ export function DashboardShell({ coach, children }: Props) {
         >
           {navItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
+            // During an active practice, link the Capture FAB to the session so observations are automatically linked
+            const itemHref = item.primary && practiceSessionId
+              ? `/capture?sessionId=${practiceSessionId}`
+              : item.href;
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={itemHref}
                 onMouseEnter={prefetchOnIntent(item.href)}
                 onFocus={prefetchOnIntent(item.href)}
                 onTouchStart={prefetchOnIntent(item.href)}

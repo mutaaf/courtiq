@@ -1411,7 +1411,7 @@ function TodaySessionCard({
             </Button>
           </Link>
         )}
-        <Link href={`/capture?session=${session.id}`}>
+        <Link href={`/capture?sessionId=${session.id}`}>
           <Button size="sm" variant="outline" className="shrink-0" aria-label="Capture observation">
             <Mic className="h-4 w-4" />
           </Button>
@@ -1900,7 +1900,7 @@ export default function HomePage() {
           </button>
           {/* Practice quick actions */}
           <div className="grid grid-cols-2 gap-3">
-            <Link href="/capture">
+            <Link href={practiceSessionId ? `/capture?sessionId=${practiceSessionId}` : '/capture'}>
               <div className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3 hover:border-zinc-700 transition-colors touch-manipulation active:scale-[0.97]">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-500/15">
                   <Mic className="h-4 w-4 text-orange-400" />

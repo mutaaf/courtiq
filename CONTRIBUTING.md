@@ -30,6 +30,7 @@ You run every hour. Here's how to be effective.
 - [ ] Fix any runtime errors reported in recent commits
 - [ ] Fix any build failures (`npm run build`)
 - [x] **Build crash: Stripe lazy init** — `new Stripe(STRIPE_SECRET_KEY)` at module level caused `next build` to throw "Neither apiKey nor config.authenticator provided" during page data collection; converted to `getStripe()` lazy factory; updated all 3 Stripe route files
+- [x] **Session ID missing on capture links** — three paths to the capture page were silently dropping the session context: (1) TodaySessionCard mic button used `?session=` instead of `?sessionId=`; (2) active-practice "Capture" quick action on the home page linked to `/capture` with no params; (3) mobile bottom-nav Capture FAB linked to `/capture` with no params. Fixed all three so observations are correctly linked to the active practice session, feeding the coverage tracker, session obs count in the "End Practice" button, and the post-session AI debrief
 
 ### P0.5 — Billing, Payments & Account Management (MUST BE BULLETPROOF)
 
