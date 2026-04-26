@@ -1791,6 +1791,25 @@ export default function HomePage() {
       .map((p) => ({ name: p.name, status: playerAvailability[p.id].status }));
   }, [pulse?.players, playerAvailability]);
 
+  // Live observation count for the active practice session — refreshed every 30s
+  const { data: sessionObsStats } = useQuery({
+    queryKey: ['session-obs-count', practiceSessionId],
+    queryFn: async () => {
+      if (!practiceSessionId) return null;
+      const obs = await query<{ player_id: string | null }[]>({
+        table: 'observations',
+        select: 'player_id',
+        filters: { session_id: practiceSessionId },
+      });
+      if (!obs) return null;
+      const players = new Set(obs.filter((o) => o.player_id).map((o) => o.player_id)).size;
+      return { count: obs.length, players };
+    },
+    enabled: !!practiceSessionId && practiceActive,
+    refetchInterval: 30_000,
+    staleTime: 20_000,
+  });
+
   if (!activeTeam) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center min-h-[60vh]">
@@ -1855,20 +1874,52 @@ export default function HomePage() {
 
       {/* Session CTA — End Practice (active) / Today's Session / Start Practice */}
       {practiceActive ? (
-        <button
-          onClick={() => setShowDebrief(true)}
-          className="w-full rounded-2xl bg-gradient-to-r from-red-500 to-red-600 p-5 text-left text-white shadow-lg shadow-red-500/20 active:scale-[0.98] transition-all touch-manipulation"
-        >
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/20">
-              <Square className="h-7 w-7" />
+        <div className="space-y-3">
+          <button
+            onClick={() => setShowDebrief(true)}
+            className="w-full rounded-2xl bg-gradient-to-r from-red-500 to-red-600 p-5 text-left text-white shadow-lg shadow-red-500/20 active:scale-[0.98] transition-all touch-manipulation"
+          >
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/20">
+                <Square className="h-7 w-7" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-lg font-bold">End Practice</p>
+                <p className="text-sm text-red-100">
+                  {sessionObsStats && sessionObsStats.count > 0
+                    ? `${sessionObsStats.count} obs · ${sessionObsStats.players} player${sessionObsStats.players !== 1 ? 's' : ''} covered`
+                    : 'Tap to wrap up and debrief'}
+                </p>
+              </div>
+              {sessionObsStats && sessionObsStats.count > 0 && (
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20">
+                  <span className="text-sm font-bold">{sessionObsStats.count}</span>
+                </div>
+              )}
             </div>
-            <div>
-              <p className="text-lg font-bold">End Practice</p>
-              <p className="text-sm text-red-100">Tap to wrap up and debrief</p>
-            </div>
+          </button>
+          {/* Practice quick actions */}
+          <div className="grid grid-cols-2 gap-3">
+            <Link href="/capture">
+              <div className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3 hover:border-zinc-700 transition-colors touch-manipulation active:scale-[0.97]">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-500/15">
+                  <Mic className="h-4 w-4 text-orange-400" />
+                </div>
+                <span className="text-sm font-medium text-zinc-300">Capture</span>
+              </div>
+            </Link>
+            {practiceSessionId && (
+              <Link href={`/sessions/${practiceSessionId}/timer`}>
+                <div className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3 hover:border-zinc-700 transition-colors touch-manipulation active:scale-[0.97]">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/15">
+                    <Timer className="h-4 w-4 text-blue-400" />
+                  </div>
+                  <span className="text-sm font-medium text-zinc-300">Open Timer</span>
+                </div>
+              </Link>
+            )}
           </div>
-        </button>
+        </div>
       ) : todaySessions.length > 0 ? (
         <TodaySessionCard
           session={todaySessions[0]}
