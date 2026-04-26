@@ -486,6 +486,30 @@ export default function DemoPage() {
             ))}
           </div>
 
+          {/* Parent portal preview CTA */}
+          <Card className="mb-4 border-emerald-500/30 bg-emerald-500/5">
+            <CardContent className="p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-lg">
+                  👨‍👩‍👦
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-zinc-100">See what parents see</p>
+                  <p className="mt-0.5 text-xs text-zinc-400">
+                    Beautiful progress reports with skill charts, achievement badges, and AI coaching updates — automatically generated from your observations.
+                  </p>
+                  <Link
+                    href="/demo/report"
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors"
+                  >
+                    View sample parent report
+                    <ArrowRight className="h-3 w-3" />
+                  </Link>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* CTA card */}
           <Card className="border-orange-500/30 bg-orange-500/5">
             <CardContent className="p-6 text-center">

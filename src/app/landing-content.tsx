@@ -180,11 +180,16 @@ export default function LandingContent() {
           ))}
         </div>
 
-        <div className="mt-12 text-center">
+        <div className="mt-12 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Button asChild size="lg">
             <Link href="/demo">
               See it in action
               <ArrowRight className="ml-1.5 h-4 w-4" />
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="lg" className="border-zinc-300 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">
+            <Link href="/demo/report">
+              See a sample parent report
             </Link>
           </Button>
         </div>
@@ -277,12 +282,19 @@ export default function LandingContent() {
               <p className="text-sm text-zinc-600 max-w-sm">
                 &ldquo;Hit record, coach like normal, and let AI turn your words into organized player notes.&rdquo;
               </p>
-              <Button asChild size="lg" className="shadow-lg shadow-orange-500/25">
-                <Link href="/demo">
-                  Try it yourself — no signup
-                  <ArrowRight className="ml-1.5 h-4 w-4" />
-                </Link>
-              </Button>
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                <Button asChild size="lg" className="w-full sm:w-auto shadow-lg shadow-orange-500/25">
+                  <Link href="/demo">
+                    Try it yourself — no signup
+                    <ArrowRight className="ml-1.5 h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="lg" className="w-full sm:w-auto border-orange-300 text-orange-700 hover:bg-orange-50">
+                  <Link href="/demo/report">
+                    See a sample report
+                  </Link>
+                </Button>
+              </div>
             </div>
           </Card>
         </div>
