@@ -1569,6 +1569,117 @@ function HuddleScriptCard({
   );
 }
 
+// ─── Pre-Practice Parent Reminder ────────────────────────────────────────────
+
+function PracticeReminderCard({
+  session,
+  teamName,
+}: {
+  session: Session;
+  teamName: string;
+}) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const sessionDate = new Date(session.date + 'T00:00:00');
+  const isUpcoming = sessionDate >= today;
+
+  function fmtTime(t: string | null) {
+    if (!t) return null;
+    const [h, m] = t.split(':');
+    const hour = parseInt(h);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    return `${hour % 12 || 12}:${m} ${ampm}`;
+  }
+
+  function buildDayLabel(dateStr: string) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const todayMs = today.getTime();
+    const tomorrowMs = todayMs + 86400000;
+    if (d.getTime() === todayMs) return 'Today';
+    if (d.getTime() === tomorrowMs) return 'Tomorrow';
+    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  }
+
+  const isGame = session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament';
+  const typeLabel = SESSION_TYPE_LABELS[session.type] ?? session.type;
+  const day = buildDayLabel(session.date);
+  const time = fmtTime(session.start_time);
+  const timeStr = time ? ` at ${time}` : '';
+  const locStr = session.location ? `\n📍 ${session.location}` : '';
+
+  const defaultMessage = isGame
+    ? `🏆 ${typeLabel} reminder!\n\n${teamName}${session.opponent ? ` vs ${session.opponent}` : ''} — ${day}${timeStr}${locStr}\n\nLet's go! 💪`
+    : `📣 Practice reminder!\n\n${teamName} — ${day}${timeStr}${locStr}\n\nSee you there! 👋`;
+
+  const [dismissed, setDismissed] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [message, setMessage] = useState(defaultMessage);
+
+  if (!isUpcoming || dismissed) return null;
+
+  const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(message);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <Card className="border-sky-500/20">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Megaphone className="h-5 w-5 text-sky-400" />
+            Parent Reminder
+          </CardTitle>
+          <button
+            onClick={() => setDismissed(true)}
+            className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-500 hover:text-zinc-300 transition-colors"
+            aria-label="Dismiss reminder card"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="text-xs text-zinc-500">
+          Send a quick reminder to your parent group chat
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          rows={5}
+          className="resize-none text-sm bg-zinc-900 border-zinc-700 text-zinc-200 focus-visible:ring-sky-500/50"
+          aria-label="Reminder message"
+        />
+        <div className="flex gap-2">
+          <Button
+            onClick={handleCopy}
+            variant="outline"
+            className="flex-1 border-zinc-700 text-zinc-300 hover:bg-zinc-800 gap-2"
+          >
+            {copied ? (
+              <><Check className="h-4 w-4 text-emerald-400" />Copied!</>
+            ) : (
+              <><Copy className="h-4 w-4" />Copy</>
+            )}
+          </Button>
+          <a
+            href={waUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-1 items-center justify-center gap-2 rounded-md border border-sky-700/50 bg-sky-600/10 px-4 py-2 text-sm font-medium text-sky-400 hover:bg-sky-600/20 transition-colors touch-manipulation"
+          >
+            <Send className="h-4 w-4" />
+            WhatsApp
+          </a>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Pre-Session Briefing ─────────────────────────────────────────────────────
 
 function PreSessionBriefingCard({
@@ -2673,6 +2784,11 @@ export default function SessionDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Pre-Practice Parent Reminder — upcoming/today sessions only */}
+      {activeTeam && (
+        <PracticeReminderCard session={session} teamName={activeTeam.name} />
       )}
 
       {/* Pre-Session AI Briefing */}
