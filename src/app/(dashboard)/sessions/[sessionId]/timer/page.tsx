@@ -41,6 +41,7 @@ import {
   Mic,
   MicOff,
   Star,
+  Repeat2,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Drill, Player, Session, Plan } from '@/types/database';
@@ -658,6 +659,7 @@ export default function PracticeTimerPage({
   const [showDrillPicker, setShowDrillPicker] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [loadedTemplateName, setLoadedTemplateName] = useState<string | null>(null);
+  const [lastPracticeQueue, setLastPracticeQueue] = useState<QueueItem[] | null>(null);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cueIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -791,6 +793,17 @@ export default function PracticeTimerPage({
   );
 
   // ── Load plan queue from planId search param ─────────────────────────────
+  // ── Load last practice queue from localStorage ───────────────────────────
+  useEffect(() => {
+    if (!activeTeam) return;
+    try {
+      const raw = localStorage.getItem(`last-practice-queue-${activeTeam.id}`);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as QueueItem[];
+      if (parsed.length > 0) setLastPracticeQueue(parsed);
+    } catch { /* ignore */ }
+  }, [activeTeam?.id]);
+
   useEffect(() => {
     if (!planId || queue.length > 0 || isRecovered) return;
 
@@ -1030,6 +1043,12 @@ export default function PracticeTimerPage({
         data: rows,
       });
 
+      // Persist this queue as "last practice" so coach can repeat it next time
+      if (activeTeam && queue.length > 0) {
+        try {
+          localStorage.setItem(`last-practice-queue-${activeTeam.id}`, JSON.stringify(queue));
+        } catch { /* ignore */ }
+      }
       // Clear persisted data — observations are now in the DB
       try {
         localStorage.removeItem(NOTES_KEY);
@@ -1365,6 +1384,22 @@ export default function PracticeTimerPage({
             {absentPlayers.length === 1 ? 'is' : 'are'} marked unavailable and won&apos;t appear in your observation picker.
           </span>
         </div>
+      )}
+
+      {/* Repeat Last Practice */}
+      {queue.length === 0 && !planLoading && lastPracticeQueue && lastPracticeQueue.length > 0 && (
+        <button
+          onClick={() => {
+            setQueue(lastPracticeQueue.map((item) => ({ ...item, id: `${item.id}-r${Date.now()}` })));
+          }}
+          className="flex items-center gap-2 w-full rounded-xl border border-dashed border-amber-700/50 bg-amber-500/5 px-4 py-3 text-sm font-medium text-amber-400 hover:bg-amber-500/10 transition-colors"
+        >
+          <Repeat2 className="h-4 w-4 shrink-0" />
+          <span className="flex-1 text-left">Repeat Last Practice</span>
+          <span className="text-xs text-amber-600 font-normal">
+            {lastPracticeQueue.length} drill{lastPracticeQueue.length !== 1 ? 's' : ''} · {fmt(totalDuration(lastPracticeQueue))}
+          </span>
+        </button>
       )}
 
       {/* Template Picker */}
