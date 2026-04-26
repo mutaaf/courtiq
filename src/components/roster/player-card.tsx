@@ -27,6 +27,7 @@ interface PlayerCardProps {
   player: Player;
   observationCount?: number;
   lastObserved?: string | null;
+  lastObsPreview?: { text: string; sentiment: string } | null;
   selectMode?: boolean;
   selected?: boolean;
   onSelect?: (playerId: string) => void;
@@ -48,6 +49,7 @@ export function PlayerCard({
   player,
   observationCount = 0,
   lastObserved = null,
+  lastObsPreview = null,
   selectMode = false,
   selected = false,
   onSelect,
@@ -145,10 +147,28 @@ export function PlayerCard({
             {(() => {
               const fmt = formatLastObserved(observationCount === 0 ? null : lastObserved);
               if (!fmt) return null;
+              const preview = observationCount > 0 ? lastObsPreview : null;
+              const previewColor = preview?.sentiment === 'positive'
+                ? 'text-emerald-400'
+                : preview?.sentiment === 'negative'
+                ? 'text-amber-400'
+                : 'text-zinc-500';
+              const previewText = preview?.text
+                ? preview.text.length > 55
+                  ? preview.text.slice(0, 55).trimEnd() + '…'
+                  : preview.text
+                : null;
               return (
-                <div className={cn('mt-1.5 flex items-center gap-1', fmt.className)}>
-                  <Clock className="h-3 w-3 shrink-0" aria-hidden="true" />
-                  <span className="text-[11px] leading-none">{fmt.label}</span>
+                <div className="mt-1.5 space-y-0.5">
+                  <div className={cn('flex items-center gap-1', fmt.className)}>
+                    <Clock className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    <span className="text-[11px] leading-none">{fmt.label}</span>
+                  </div>
+                  {previewText && (
+                    <p className={cn('text-[10px] italic leading-snug', previewColor)}>
+                      &ldquo;{previewText}&rdquo;
+                    </p>
+                  )}
                 </div>
               );
             })()}

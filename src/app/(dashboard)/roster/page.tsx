@@ -56,31 +56,34 @@ export default function RosterPage() {
     ...CACHE_PROFILES.roster,
   });
 
-  const { data: obsData = { counts: {}, lastObs: {} }, refetch: refetchObs } = useQuery({
+  const { data: obsData = { counts: {}, lastObs: {}, lastObsPreview: {} }, refetch: refetchObs } = useQuery({
     queryKey: [...queryKeys.observations.all(activeTeam?.id ?? ''), 'counts'],
     queryFn: async () => {
-      const data = await query<{ player_id: string; created_at: string }[]>({
+      const data = await query<{ player_id: string; created_at: string; text: string; sentiment: string }[]>({
         table: 'observations',
-        select: 'player_id, created_at',
+        select: 'player_id, created_at, text, sentiment',
         filters: { team_id: activeTeam!.id, player_id: { op: 'neq', value: null } },
       });
       const counts: Record<string, number> = {};
       const lastObs: Record<string, string> = {};
+      const lastObsPreview: Record<string, { text: string; sentiment: string }> = {};
       for (const obs of data || []) {
         if (obs.player_id) {
           counts[obs.player_id] = (counts[obs.player_id] || 0) + 1;
           if (!lastObs[obs.player_id] || obs.created_at > lastObs[obs.player_id]) {
             lastObs[obs.player_id] = obs.created_at;
+            if (obs.text) lastObsPreview[obs.player_id] = { text: obs.text, sentiment: obs.sentiment };
           }
         }
       }
-      return { counts, lastObs };
+      return { counts, lastObs, lastObsPreview };
     },
     enabled: !!activeTeam,
     ...CACHE_PROFILES.observations,
   });
   const obsCounts = obsData.counts;
   const lastObsMap = obsData.lastObs;
+  const lastObsPreviewMap = obsData.lastObsPreview;
 
   // Fetch momentum scores for all players
   const { data: momentumMap = {} } = useQuery({
@@ -355,6 +358,7 @@ export default function RosterPage() {
               player={player}
               observationCount={obsCounts[player.id] || 0}
               lastObserved={lastObsMap[player.id] ?? null}
+              lastObsPreview={lastObsPreviewMap[player.id] ?? null}
               selectMode={selectMode}
               selected={selectedIds.has(player.id)}
               onSelect={toggleSelect}
