@@ -42,6 +42,7 @@ import {
   MicOff,
   Star,
   Repeat2,
+  Shuffle,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Drill, Player, Session, Plan } from '@/types/database';
@@ -693,6 +694,7 @@ export default function PracticeTimerPage({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [loadedPlanTitle, setLoadedPlanTitle] = useState<string | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
+  const [showSwapSheet, setShowSwapSheet] = useState(false);
 
   // Setup state
   const [drillSearch, setDrillSearch] = useState('');
@@ -1173,6 +1175,42 @@ export default function PracticeTimerPage({
     setQueue((prev) => prev.map((d) => (d.id === id ? { ...d, durationSecs: secs } : d)));
   };
 
+  // ── Swap drill ────────────────────────────────────────────────────────────
+  // Returns up to 4 drills with the same category as the current drill,
+  // excluding any drill already in the queue (by id or name to catch custom items).
+  const swapAlternatives = useMemo((): Drill[] => {
+    const current = queue[currentIdx];
+    if (!current || !drills.length) return [];
+    const category = current.category;
+    const queuedIds = new Set(queue.map((q) => q.drillId).filter(Boolean));
+    const queuedNames = new Set(queue.map((q) => q.name.toLowerCase()));
+    return drills
+      .filter(
+        (d) =>
+          d.id !== current.drillId &&
+          !queuedIds.has(d.id) &&
+          !queuedNames.has(d.name.toLowerCase()) &&
+          (!category || d.category?.toLowerCase() === category?.toLowerCase())
+      )
+      .slice(0, 4);
+  }, [queue, currentIdx, drills]);
+
+  const handleSwapDrill = (replacement: Drill) => {
+    const newItem: QueueItem = {
+      id: `${replacement.id}-${Date.now()}`,
+      drillId: replacement.id,
+      name: replacement.name,
+      durationSecs: (replacement.duration_minutes ?? 10) * 60,
+      cues: replacement.teaching_cues || [],
+      description: replacement.description,
+      category: replacement.category,
+    };
+    setQueue((prev) => prev.map((item, idx) => (idx === currentIdx ? newItem : item)));
+    setShowSwapSheet(false);
+    // Restart countdown for the new drill
+    startTimerForDrill(currentIdx, queue.map((item, idx) => (idx === currentIdx ? newItem : item)));
+  };
+
   // ── Filtered drills ──────────────────────────────────────────────────────
   const filteredDrills = drills.filter(
     (d) =>
@@ -1348,7 +1386,17 @@ export default function PracticeTimerPage({
         </div>
 
         {/* Controls */}
-        <div className="p-6 flex gap-4 justify-center">
+        <div className="p-6 flex gap-4 justify-center items-center">
+          {swapAlternatives.length > 0 && (
+            <button
+              onClick={() => setShowSwapSheet(true)}
+              className="flex flex-col items-center gap-1 text-zinc-500 hover:text-zinc-300 transition-colors"
+              aria-label="Swap this drill for an alternative"
+            >
+              <Shuffle className="h-5 w-5" />
+              <span className="text-xs">Swap</span>
+            </button>
+          )}
           <Button
             onClick={handlePauseResume}
             size="lg"
@@ -1360,7 +1408,62 @@ export default function PracticeTimerPage({
           >
             {isPaused ? <Play className="h-6 w-6" /> : <Pause className="h-6 w-6" />}
           </Button>
+          {/* spacer to balance the Swap button */}
+          {swapAlternatives.length > 0 && <div className="w-9" />}
         </div>
+
+        {/* Swap Drill bottom sheet */}
+        {showSwapSheet && (
+          <div className="fixed inset-0 z-50 flex items-end" role="dialog" aria-modal="true" aria-label="Swap drill">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/60"
+              onClick={() => setShowSwapSheet(false)}
+            />
+            <div className="relative w-full bg-zinc-900 rounded-t-2xl border-t border-zinc-800 p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-zinc-100">Swap drill</h3>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    {queue[currentIdx]?.category
+                      ? `Same skill: ${queue[currentIdx].category}`
+                      : 'Choose a replacement drill'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowSwapSheet(false)}
+                  className="text-zinc-500 hover:text-zinc-300 transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="space-y-2">
+                {swapAlternatives.map((d) => (
+                  <button
+                    key={d.id}
+                    onClick={() => handleSwapDrill(d)}
+                    className="w-full text-left rounded-xl bg-zinc-800 hover:bg-zinc-700 active:scale-[0.98] transition-all p-4 space-y-1 touch-manipulation"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-zinc-100 text-sm">{d.name}</span>
+                      <span className="text-xs text-zinc-500">{d.duration_minutes ?? 10} min</span>
+                    </div>
+                    {d.description && (
+                      <p className="text-xs text-zinc-500 line-clamp-2">{d.description}</p>
+                    )}
+                    {d.teaching_cues?.[0] && (
+                      <p className="text-xs text-amber-400/80 flex items-center gap-1">
+                        <Lightbulb className="h-3 w-3 shrink-0" />
+                        {d.teaching_cues[0]}
+                      </p>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
