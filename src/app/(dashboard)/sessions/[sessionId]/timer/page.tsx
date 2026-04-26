@@ -21,7 +21,8 @@ import {
   Clock,
   Dumbbell,
   X,
-  GripVertical,
+  ChevronUp,
+  ChevronDown,
   Lightbulb,
   MessageSquare,
   Trophy,
@@ -1092,6 +1093,18 @@ export default function PracticeTimerPage({
     setQueue((prev) => prev.filter((d) => d.id !== id));
   };
 
+  const moveQueueItem = (id: string, direction: 'up' | 'down') => {
+    setQueue((prev) => {
+      const idx = prev.findIndex((d) => d.id === id);
+      if (idx === -1) return prev;
+      const next = [...prev];
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= next.length) return prev;
+      [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+      return next;
+    });
+  };
+
   const updateDuration = (id: string, mins: string) => {
     const secs = Math.max(60, parseInt(mins || '1') * 60);
     setQueue((prev) => prev.map((d) => (d.id === id ? { ...d, durationSecs: secs } : d)));
@@ -1443,9 +1456,27 @@ export default function PracticeTimerPage({
             {queue.map((item, idx) => (
               <div
                 key={item.id}
-                className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3"
+                className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-3"
               >
-                <GripVertical className="h-4 w-4 text-zinc-700 shrink-0" />
+                {/* Reorder buttons */}
+                <div className="flex flex-col shrink-0">
+                  <button
+                    onClick={() => moveQueueItem(item.id, 'up')}
+                    disabled={idx === 0}
+                    aria-label={`Move ${item.name} up`}
+                    className="text-zinc-600 hover:text-zinc-300 disabled:opacity-20 disabled:cursor-default transition-colors"
+                  >
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => moveQueueItem(item.id, 'down')}
+                    disabled={idx === queue.length - 1}
+                    aria-label={`Move ${item.name} down`}
+                    className="text-zinc-600 hover:text-zinc-300 disabled:opacity-20 disabled:cursor-default transition-colors"
+                  >
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                </div>
                 <span className="text-xs text-zinc-600 w-4 shrink-0">{idx + 1}</span>
                 <Dumbbell className="h-4 w-4 text-orange-500 shrink-0" />
                 <span className="flex-1 text-sm text-zinc-200 truncate">{item.name}</span>
