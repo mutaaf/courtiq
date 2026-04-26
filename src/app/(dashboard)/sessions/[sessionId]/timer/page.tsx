@@ -86,6 +86,7 @@ type TimerMode = 'setup' | 'running' | 'break' | 'done';
 
 interface CapturedNote {
   drillName: string;
+  drillId?: string;
   note: string;
   playerName?: string;
   playerId?: string;
@@ -498,31 +499,72 @@ function DoneScreen({
           ))}
         </div>
 
-        {notes.length > 0 && (
-          <div className="w-full space-y-2 text-left">
-            <p className="text-xs text-zinc-500 uppercase tracking-wide mb-3">
-              {notes.length} Observation{notes.length !== 1 ? 's' : ''} Captured
-            </p>
-            {notes.map((n, i) => (
-              <div key={i} className="bg-zinc-900 rounded-lg px-4 py-3 space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                    n.sentiment === 'positive'
-                      ? 'bg-emerald-500/20 text-emerald-400'
-                      : n.sentiment === 'needs-work'
-                      ? 'bg-red-500/20 text-red-400'
-                      : 'bg-zinc-700 text-zinc-400'
-                  }`}>
-                    {n.sentiment === 'positive' ? '👍' : n.sentiment === 'needs-work' ? '👎' : '—'}
-                    {n.sentiment === 'positive' ? 'Positive' : n.sentiment === 'needs-work' ? 'Needs Work' : 'Neutral'}
-                  </span>
-                  <p className="text-xs text-zinc-500">{n.drillName}{n.playerName ? ` · ${n.playerName}` : ''}</p>
-                </div>
-                <p className="text-sm text-zinc-200">{n.note}</p>
-              </div>
-            ))}
-          </div>
-        )}
+        {notes.length > 0 && (() => {
+          // Group observations by drill name
+          const drillOrder: string[] = [];
+          const byDrill: Record<string, CapturedNote[]> = {};
+          for (const n of notes) {
+            if (!byDrill[n.drillName]) {
+              drillOrder.push(n.drillName);
+              byDrill[n.drillName] = [];
+            }
+            byDrill[n.drillName].push(n);
+          }
+          return (
+            <div className="w-full text-left space-y-3">
+              <p className="text-xs text-zinc-500 uppercase tracking-wide">
+                {notes.length} Observation{notes.length !== 1 ? 's' : ''} Captured
+              </p>
+              {drillOrder.map((drillName) => {
+                const group = byDrill[drillName];
+                const pos = group.filter((n) => n.sentiment === 'positive').length;
+                const nw = group.filter((n) => n.sentiment === 'needs-work').length;
+                return (
+                  <div key={drillName} className="rounded-xl border border-zinc-800 bg-zinc-900/60 overflow-hidden">
+                    {/* Drill header */}
+                    <div className="flex items-center gap-2 px-4 py-2.5 border-b border-zinc-800/60 bg-zinc-900">
+                      <Dumbbell className="h-3.5 w-3.5 text-orange-400 shrink-0" />
+                      <span className="text-xs font-semibold text-zinc-300 flex-1 truncate">{drillName}</span>
+                      {pos > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
+                          👍 {pos}
+                        </span>
+                      )}
+                      {nw > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-400">
+                          👎 {nw}
+                        </span>
+                      )}
+                    </div>
+                    {/* Observations for this drill */}
+                    <div className="divide-y divide-zinc-800/50">
+                      {group.map((n, i) => (
+                        <div key={i} className="px-4 py-2.5 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                              n.sentiment === 'positive'
+                                ? 'bg-emerald-500/20 text-emerald-400'
+                                : n.sentiment === 'needs-work'
+                                ? 'bg-red-500/20 text-red-400'
+                                : 'bg-zinc-700 text-zinc-400'
+                            }`}>
+                              {n.sentiment === 'positive' ? '👍' : n.sentiment === 'needs-work' ? '👎' : '—'}
+                              {n.sentiment === 'positive' ? 'Positive' : n.sentiment === 'needs-work' ? 'Needs Work' : 'Neutral'}
+                            </span>
+                            {n.playerName && (
+                              <span className="text-xs text-zinc-500">{n.playerName}</span>
+                            )}
+                          </div>
+                          <p className="text-sm text-zinc-200">{n.note}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* Session quality rating — capture it at the natural end-of-practice moment */}
         <div className="w-full rounded-xl bg-zinc-900 border border-zinc-800 p-4 space-y-2.5">
@@ -983,6 +1025,7 @@ export default function PracticeTimerPage({
       ...prev,
       {
         drillName: drill.name,
+        drillId: drill.drillId,
         note,
         playerId,
         playerName,
@@ -1028,6 +1071,7 @@ export default function PracticeTimerPage({
         coach_id: coach.id,
         session_id: sessionId,
         player_id: n.playerId || null,
+        drill_id: n.drillId || null,
         text: n.note,
         raw_text: n.note,
         category: n.category,
