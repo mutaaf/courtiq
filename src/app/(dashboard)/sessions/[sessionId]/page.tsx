@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -2497,6 +2497,25 @@ export default function SessionDetailPage() {
     return `${displayHour}:${m} ${ampm}`;
   }
 
+  // Group observations by player so coaches get an at-a-glance per-player summary.
+  // Must be before any early returns (rules of hooks).
+  const playerGrouped = useMemo(() => {
+    if (!observations || observations.length === 0) return [];
+    const map = new Map<string, { name: string; jersey: number | null; obs: any[] }>();
+    for (const obs of observations) {
+      const key = obs.player_id ?? '__none__';
+      const name = obs.players?.name ?? 'Team / General';
+      const jersey = rosterPlayers.find((p: Player) => p.id === obs.player_id)?.jersey_number ?? null;
+      if (!map.has(key)) map.set(key, { name, jersey, obs: [] });
+      map.get(key)!.obs.push(obs);
+    }
+    return [...map.entries()].sort(([ka, a], [kb, b]) => {
+      if (ka === '__none__' && kb !== '__none__') return 1;
+      if (ka !== '__none__' && kb === '__none__') return -1;
+      return b.obs.length - a.obs.length;
+    });
+  }, [observations, rosterPlayers]);
+
   const isLoading = sessionLoading || obsLoading;
 
   if (isLoading) {
@@ -2832,37 +2851,69 @@ export default function SessionDetailPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-2">
-            {observations?.map((obs: any) => {
-              const sentimentConfig = SENTIMENT_CONFIG[obs.sentiment as Sentiment];
-              const SentimentIcon = sentimentConfig?.icon || MinusCircle;
-
+          <div className="space-y-4">
+            {playerGrouped.map(([key, group]) => {
+              const positiveCount = group.obs.filter((o: any) => o.sentiment === 'positive').length;
+              const needsWorkCount = group.obs.filter((o: any) => o.sentiment === 'needs-work').length;
+              const isGeneral = key === '__none__';
               return (
-                <Card key={obs.id}>
-                  <CardContent className="p-3">
-                    <div className="flex items-start gap-3">
-                      <SentimentIcon
-                        className={`h-5 w-5 mt-0.5 shrink-0 ${sentimentConfig?.color || 'text-zinc-400'}`}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          {obs.players?.name && (
-                            <span className="text-sm font-medium text-orange-400">
-                              {obs.players.name}
-                            </span>
-                          )}
-                          <Badge variant="secondary" className="text-[10px]">
-                            {obs.category}
-                          </Badge>
-                          <Badge variant="outline" className="text-[10px]">
-                            {obs.source}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-zinc-300">{obs.text}</p>
-                      </div>
+                <div key={key} className="space-y-2">
+                  {/* Player group header */}
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-zinc-200">
+                        {isGeneral ? 'Team / General' : group.name}
+                      </span>
+                      {!isGeneral && group.jersey !== null && (
+                        <span className="rounded-full bg-zinc-800 px-1.5 py-0.5 text-[10px] font-bold text-zinc-500">
+                          #{group.jersey}
+                        </span>
+                      )}
+                      <span className="text-xs text-zinc-600">{group.obs.length} obs</span>
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="flex items-center gap-2">
+                      {positiveCount > 0 && (
+                        <span className="flex items-center gap-0.5 text-xs text-emerald-400">
+                          <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                          {positiveCount}
+                        </span>
+                      )}
+                      {needsWorkCount > 0 && (
+                        <span className="flex items-center gap-0.5 text-xs text-amber-400">
+                          <AlertCircle className="h-3 w-3" aria-hidden="true" />
+                          {needsWorkCount}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {/* Individual observations within this player's group */}
+                  {group.obs.map((obs: any) => {
+                    const sentimentConfig = SENTIMENT_CONFIG[obs.sentiment as Sentiment];
+                    const SentimentIcon = sentimentConfig?.icon || MinusCircle;
+                    return (
+                      <Card key={obs.id}>
+                        <CardContent className="p-3">
+                          <div className="flex items-start gap-3">
+                            <SentimentIcon
+                              className={`h-4 w-4 mt-0.5 shrink-0 ${sentimentConfig?.color || 'text-zinc-400'}`}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {obs.category}
+                                </Badge>
+                                <Badge variant="outline" className="text-[10px]">
+                                  {obs.source}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-zinc-300">{obs.text}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
               );
             })}
           </div>
