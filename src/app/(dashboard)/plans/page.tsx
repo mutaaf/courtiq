@@ -88,12 +88,9 @@ const PLAN_TYPE_CONFIG: Record<
 };
 
 const SUGGESTION_CHIPS = [
-  '60-min practice for fundamentals',
+  '60-min practice',
   'Game day sheet',
-  'Ball handling and passing drills',
-  'Defensive positioning focus',
-  'Week recap and conditioning',
-  'Shooting skills for beginners',
+  'Ball handling drills',
 ];
 
 function PlayerMsgItem({ msg }: { msg: { player_name: string; message: string; highlight: string; next_focus: string } }) {
