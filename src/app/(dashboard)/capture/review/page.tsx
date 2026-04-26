@@ -25,6 +25,7 @@ import {
   AlertCircle,
   AlertTriangle,
   Sparkles,
+  Calendar,
 } from 'lucide-react';
 import Link from 'next/link';
 import { findPlayerByName } from '@/lib/player-match';
@@ -374,13 +375,29 @@ export default function ReviewPage() {
             <h2 className="text-xl font-bold text-zinc-100">Observations Saved</h2>
             <p className="mt-2 text-zinc-400">
               {savedCount} observation{savedCount !== 1 ? 's' : ''} saved successfully.
+              {sessionId && ' Head to the session for AI debrief and parent messages.'}
             </p>
-            <div className="mt-6 flex gap-3">
-              <Button variant="outline" onClick={() => router.push('/capture')}>
-                <Mic className="h-4 w-4" />
-                Capture More
-              </Button>
-              <Button onClick={() => router.push('/roster')}>View Roster</Button>
+            <div className="mt-6 flex flex-col gap-3 w-full sm:flex-row sm:justify-center">
+              {sessionId ? (
+                <>
+                  <Button onClick={() => router.push(`/sessions/${sessionId}`)}>
+                    <Calendar className="h-4 w-4" />
+                    View Session
+                  </Button>
+                  <Button variant="outline" onClick={() => router.push('/capture')}>
+                    <Mic className="h-4 w-4" />
+                    Capture More
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" onClick={() => router.push('/capture')}>
+                    <Mic className="h-4 w-4" />
+                    Capture More
+                  </Button>
+                  <Button onClick={() => router.push('/roster')}>View Roster</Button>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -438,8 +455,8 @@ export default function ReviewPage() {
                 These names weren&apos;t matched to your roster:{' '}
                 <span className="font-medium">{unmatchedNames.join(', ')}</span>.
                 You can add them as players in{' '}
-                <Link href="/settings/sport" className="underline hover:text-yellow-300">
-                  Settings &rarr; Roster
+                <Link href="/roster/add" className="underline hover:text-yellow-300">
+                  Roster &rarr; Add Player
                 </Link>.
               </p>
             </div>
