@@ -20,10 +20,13 @@ import { AvailabilityBadge } from '@/components/roster/availability-badge';
 import type { Player, PlayerAvailability } from '@/types/database';
 import type { PlayerMomentum } from '@/lib/momentum-utils';
 
+type SortMode = 'alpha' | 'attention' | 'momentum';
+
 export default function RosterPage() {
   const { activeTeam, coach } = useActiveTeam();
   const [search, setSearch] = useState('');
   const [positionFilter, setPositionFilter] = useState<string>('all');
+  const [sortMode, setSortMode] = useState<SortMode>('alpha');
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -134,6 +137,28 @@ export default function RosterPage() {
     }
     return result;
   }, [players, search, positionFilter]);
+
+  const sorted = useMemo(() => {
+    const result = [...filtered];
+    if (sortMode === 'attention') {
+      result.sort((a, b) => {
+        const aDate = lastObsMap[a.id] ?? '';
+        const bDate = lastObsMap[b.id] ?? '';
+        if (!aDate && !bDate) return a.name.localeCompare(b.name);
+        if (!aDate) return -1; // never observed → highest priority
+        if (!bDate) return 1;
+        return aDate.localeCompare(bDate); // oldest last observation first
+      });
+    } else if (sortMode === 'momentum') {
+      result.sort((a, b) => {
+        const aScore = momentumMap[a.id]?.score ?? -1;
+        const bScore = momentumMap[b.id]?.score ?? -1;
+        if (aScore === bScore) return a.name.localeCompare(b.name);
+        return aScore - bScore; // lowest momentum first
+      });
+    }
+    return result;
+  }, [filtered, sortMode, lastObsMap, momentumMap]);
 
   // Summary: players with a non-available status
   const unavailableCount = useMemo(
@@ -259,18 +284,30 @@ export default function RosterPage() {
                 className="pl-9 h-12 sm:h-10 text-base sm:text-sm"
               />
             </div>
-            <select
-              value={positionFilter}
-              onChange={(e) => setPositionFilter(e.target.value)}
-              className="h-12 sm:h-10 rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-base sm:text-sm text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
-            >
-              <option value="all">All Positions</option>
-              {positions.map((pos) => (
-                <option key={pos} value={pos}>
-                  {pos}
-                </option>
-              ))}
-            </select>
+            <div className="flex gap-2">
+              <select
+                value={positionFilter}
+                onChange={(e) => setPositionFilter(e.target.value)}
+                className="h-12 sm:h-10 flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-base sm:text-sm text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+              >
+                <option value="all">All Positions</option>
+                {positions.map((pos) => (
+                  <option key={pos} value={pos}>
+                    {pos}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value as SortMode)}
+                className="h-12 sm:h-10 flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-base sm:text-sm text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                aria-label="Sort players"
+              >
+                <option value="alpha">A – Z</option>
+                <option value="attention">Needs Attention</option>
+                <option value="momentum">By Momentum</option>
+              </select>
+            </div>
           </div>
         </div>
       )}
@@ -308,7 +345,7 @@ export default function RosterPage() {
             <Skeleton key={i} className="h-24 sm:h-20 rounded-xl" />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-700 p-10 sm:p-16 text-center">
           <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-500/10 mb-6">
             <UserPlus className="h-10 w-10 text-blue-500/60" />
@@ -352,7 +389,7 @@ export default function RosterPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((player) => (
+          {sorted.map((player) => (
             <PlayerCard
               key={player.id}
               player={player}
