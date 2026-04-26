@@ -21,9 +21,23 @@ import {
   Video,
   CheckCircle2,
   ChevronRight,
+  BarChart2,
+  CalendarClock,
+  ThumbsUp,
+  ThumbsDown,
 } from 'lucide-react';
 import Link from 'next/link';
-import type { Drill } from '@/types/database';
+import type { Drill, Observation, Player } from '@/types/database';
+import {
+  buildDrillUsageSummary,
+  buildUsageSummaryLabel,
+  formatLastUsed,
+  getLastUsedColor,
+  getSentimentClasses,
+  getRecentObservations,
+  resolvePlayerName,
+  hasUsageData,
+} from '@/lib/drill-usage-utils';
 
 export default function DrillDetailPage({
   params,
@@ -45,6 +59,36 @@ export default function DrillDetailPage({
       return data;
     },
     ...CACHE_PROFILES.drills,
+  });
+
+  const { data: drillObs = [] } = useQuery({
+    queryKey: queryKeys.drills.usage(drillId, activeTeam?.id ?? ''),
+    queryFn: async () => {
+      if (!activeTeam) return [] as Observation[];
+      return query<Observation[]>({
+        table: 'observations',
+        select: 'id,player_id,sentiment,text,created_at,session_id',
+        filters: { team_id: activeTeam.id, drill_id: drillId },
+        order: { column: 'created_at', ascending: false },
+        limit: 30,
+      });
+    },
+    enabled: !!activeTeam,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: rosterPlayers = [] } = useQuery({
+    queryKey: queryKeys.players.all(activeTeam?.id ?? ''),
+    queryFn: async () => {
+      if (!activeTeam) return [] as Player[];
+      return query<Player[]>({
+        table: 'players',
+        select: 'id,name',
+        filters: { team_id: activeTeam.id, is_active: true },
+      });
+    },
+    enabled: !!activeTeam,
+    staleTime: 5 * 60 * 1000,
   });
 
   if (isLoading) {
@@ -241,6 +285,98 @@ export default function DrillDetailPage({
           </CardContent>
         </Card>
       )}
+
+      {/* ── Drill History ─────────────────────────────────────────────────────── */}
+      {(() => {
+        const usage = buildDrillUsageSummary(drillObs);
+        const recent = getRecentObservations(drillObs, 5);
+        const lastUsedColor = getLastUsedColor(usage.lastUsedAt);
+
+        return (
+          <Card className="border-zinc-800/60">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <BarChart2 className="h-4 w-4 text-indigo-400" />
+                Your Team&apos;s Experience
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 space-y-4">
+              {!hasUsageData(drillObs) ? (
+                <div className="flex flex-col items-center gap-2 py-4 text-center">
+                  <Dumbbell className="h-8 w-8 text-zinc-700" />
+                  <p className="text-sm text-zinc-400">
+                    Run this drill in your practice timer to see your team&apos;s feedback here.
+                  </p>
+                  <Link href="/sessions/new">
+                    <Button variant="outline" size="sm" className="mt-1">
+                      Start a Practice
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <>
+                  {/* Stats strip */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="flex flex-col items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 text-center">
+                      <CalendarClock className="h-4 w-4 text-indigo-400" />
+                      <span className={`text-xs font-semibold ${lastUsedColor}`}>
+                        {formatLastUsed(usage.lastUsedAt)}
+                      </span>
+                      <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Last used</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 text-center">
+                      <ThumbsUp className="h-4 w-4 text-emerald-400" />
+                      <span className="text-sm font-bold text-emerald-400">{usage.positiveCount}</span>
+                      <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Positive</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 text-center">
+                      <ThumbsDown className="h-4 w-4 text-red-400" />
+                      <span className="text-sm font-bold text-red-400">{usage.needsWorkCount}</span>
+                      <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Needs Work</span>
+                    </div>
+                  </div>
+
+                  {usage.sessionCount > 0 && (
+                    <p className="text-xs text-zinc-500 text-center">
+                      {buildUsageSummaryLabel(usage.sessionCount)}
+                    </p>
+                  )}
+
+                  {/* Recent observations */}
+                  {recent.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Recent Observations</p>
+                      {recent.map((obs) => {
+                        const playerName = resolvePlayerName(obs.player_id, rosterPlayers);
+                        const ago = formatLastUsed(obs.created_at);
+                        return (
+                          <div
+                            key={obs.id}
+                            className="rounded-lg border border-zinc-800/60 bg-zinc-900/40 px-3 py-2.5 space-y-1.5"
+                          >
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${getSentimentClasses(obs.sentiment)}`}
+                              >
+                                {obs.sentiment === 'positive' ? '👍 Positive' : obs.sentiment === 'needs-work' ? '👎 Needs Work' : '— Neutral'}
+                              </span>
+                              {playerName && (
+                                <span className="text-xs font-medium text-zinc-300">{playerName}</span>
+                              )}
+                              <span className="ml-auto text-[10px] text-zinc-600">{ago}</span>
+                            </div>
+                            <p className="text-sm text-zinc-300 leading-snug">{obs.text}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* CTA — generate a practice plan using this drill */}
       <div className="fixed bottom-0 left-0 right-0 lg:static lg:pt-2 p-4 lg:p-0 bg-zinc-950/95 lg:bg-transparent backdrop-blur-sm lg:backdrop-blur-none border-t border-zinc-800 lg:border-0">
