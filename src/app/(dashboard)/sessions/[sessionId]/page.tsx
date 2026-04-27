@@ -58,6 +58,7 @@ import {
   Eye,
   Megaphone,
   Pencil,
+  Mail,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
@@ -981,10 +982,30 @@ function PlayerSessionMessagesCard({
   const [messages, setMessages] = useState<PlayerSessionMessagesResult | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [sharedIdx, setSharedIdx] = useState<number | null>(null);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailResult, setEmailResult] = useState<{ sent: number; skipped: number } | null>(null);
+
+  // Fetch how many roster players have parent_email — only once messages exist
+  const { data: rosterEmailCount = 0 } = useQuery({
+    queryKey: ['roster-email-count', teamId],
+    queryFn: async () => {
+      const players = await query<{ parent_email: string | null }[]>({
+        table: 'players',
+        select: 'parent_email',
+        filters: { team_id: teamId, is_active: true },
+      });
+      return (players ?? []).filter(
+        (p) => p.parent_email && p.parent_email.trim().length > 0,
+      ).length;
+    },
+    enabled: !!messages,
+    staleTime: 5 * 60 * 1000,
+  });
 
   async function handleGenerate() {
     setIsGenerating(true);
     setError(null);
+    setEmailResult(null);
     try {
       const res = await fetch('/api/ai/player-session-messages', {
         method: 'POST',
@@ -1044,6 +1065,32 @@ function PlayerSessionMessagesCard({
     }
   }
 
+  async function handleEmailParents() {
+    if (!messages) return;
+    setEmailSending(true);
+    try {
+      const res = await fetch('/api/send-parent-messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId,
+          messages: messages.messages,
+          sessionLabel: messages.session_label,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to send emails');
+      }
+      const data = await res.json();
+      setEmailResult({ sent: data.sent, skipped: data.skipped });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send emails');
+    } finally {
+      setEmailSending(false);
+    }
+  }
+
   const canGenerate = observationCount > 0;
 
   return (
@@ -1057,6 +1104,29 @@ function PlayerSessionMessagesCard({
             Player Messages
           </CardTitle>
           <div className="flex items-center gap-2">
+            {messages && rosterEmailCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleEmailParents}
+                disabled={emailSending || !!emailResult}
+                className="h-8 gap-1.5 text-xs"
+                aria-label={`Email ${rosterEmailCount} parent${rosterEmailCount !== 1 ? 's' : ''}`}
+              >
+                {emailSending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : emailResult ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                ) : (
+                  <Mail className="h-3.5 w-3.5 text-blue-400" />
+                )}
+                {emailResult
+                  ? `${emailResult.sent} sent`
+                  : emailSending
+                  ? 'Sending…'
+                  : `Email ${rosterEmailCount}`}
+              </Button>
+            )}
             {messages && (
               <Button
                 variant="ghost"
@@ -1186,6 +1256,17 @@ function PlayerSessionMessagesCard({
                   <p className="text-sm text-zinc-400 leading-relaxed">{messages.team_note}</p>
                 </div>
               </div>
+            )}
+
+            {/* Prompt to add parent emails when none are set up */}
+            {rosterEmailCount === 0 && (
+              <p className="text-xs text-zinc-600 text-center pt-1">
+                Add parent emails in{' '}
+                <Link href="/roster" className="text-zinc-500 underline underline-offset-2 hover:text-zinc-400">
+                  Roster
+                </Link>{' '}
+                to send these updates in one tap.
+              </p>
             )}
           </div>
         )}
