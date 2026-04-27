@@ -63,7 +63,7 @@ export default function LandingContent() {
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-orange-50 via-transparent to-transparent pointer-events-none" />
         <div className="relative flex flex-col items-center px-4 pt-12 pb-16 sm:pt-20 sm:pb-24 text-center max-w-3xl mx-auto">
-          <Badge className="mb-6">Used by 50+ youth coaches across YMCA, AAU &amp; rec leagues</Badge>
+          <Badge className="mb-6 bg-orange-100 text-orange-700 border-orange-200">Used by 50+ youth coaches across YMCA, AAU &amp; rec leagues</Badge>
 
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl leading-[1.1]">
             Every player deserves a coach{' '}
@@ -315,7 +315,7 @@ export default function LandingContent() {
               <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${annual ? 'translate-x-6' : 'translate-x-1'}`} />
             </button>
             <span className={`text-sm font-medium ${annual ? 'text-zinc-900' : 'text-zinc-400'}`}>Annual</span>
-            {annual && <Badge variant="success" className="ml-1">Save 20%</Badge>}
+            {annual && <Badge className="ml-1 bg-emerald-100 text-emerald-700 border-emerald-200">Save 20%</Badge>}
           </div>
         </div>
 
