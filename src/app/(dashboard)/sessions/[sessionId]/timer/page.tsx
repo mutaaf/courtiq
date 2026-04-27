@@ -112,6 +112,7 @@ function totalDuration(queue: QueueItem[]) {
 
 function BreakScreen({
   drillJustFinished,
+  drillCategory,
   nextDrillName,
   players,
   onSave,
@@ -120,6 +121,7 @@ function BreakScreen({
   lastObsByPlayer = {},
 }: {
   drillJustFinished: string;
+  drillCategory?: string;
   nextDrillName?: string;
   players: Player[];
   onSave: (note: string, playerId?: string, playerName?: string, sentiment?: Sentiment, category?: string) => void;
@@ -161,7 +163,15 @@ function BreakScreen({
     onSave(note.trim(), player?.id, player?.name, sentiment, templateCategory);
   };
 
-  const visibleTemplates = OBSERVATION_TEMPLATES.filter((t) => t.sentiment === sentiment).slice(0, 5);
+  const visibleTemplates = (() => {
+    const bySentiment = OBSERVATION_TEMPLATES.filter((t) => t.sentiment === sentiment);
+    if (!drillCategory) return bySentiment.slice(0, 5);
+    const cat = drillCategory.toLowerCase();
+    const match = bySentiment.find((t) => t.category.toLowerCase() === cat);
+    if (!match) return bySentiment.slice(0, 5);
+    const rest = bySentiment.filter((t) => t.id !== match.id);
+    return [match, ...rest].slice(0, 5);
+  })();
 
   return (
     <div className="flex flex-col min-h-screen bg-zinc-950 p-6">
@@ -219,29 +229,43 @@ function BreakScreen({
 
         {/* Quick templates */}
         <div>
-          <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wide">Quick templates</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs text-zinc-500 uppercase tracking-wide">Quick templates</p>
+            {drillCategory && visibleTemplates[0]?.category.toLowerCase() === drillCategory.toLowerCase() && (
+              <span className="text-[10px] text-orange-400/70 font-medium">
+                {drillCategory} drill — top match first
+              </span>
+            )}
+          </div>
           <div className="flex flex-wrap gap-2">
-            {visibleTemplates.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => {
-                  setNote(t.text);
-                  setTemplateCategory(t.category);
-                  textRef.current?.focus();
-                }}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors touch-manipulation active:scale-[0.97] ${
-                  note === t.text && templateCategory === t.category
-                    ? sentiment === 'positive'
-                      ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
-                      : 'bg-red-500/20 border border-red-500/40 text-red-300'
-                    : 'bg-zinc-800 border border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'
-                }`}
-              >
-                <span>{t.emoji}</span>
-                {t.text}
-              </button>
-            ))}
+            {visibleTemplates.map((t, idx) => {
+              const isDrillMatch = idx === 0 && drillCategory &&
+                t.category.toLowerCase() === drillCategory.toLowerCase();
+              const isSelected = note === t.text && templateCategory === t.category;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => {
+                    setNote(t.text);
+                    setTemplateCategory(t.category);
+                    textRef.current?.focus();
+                  }}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors touch-manipulation active:scale-[0.97] ${
+                    isSelected
+                      ? sentiment === 'positive'
+                        ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
+                        : 'bg-red-500/20 border border-red-500/40 text-red-300'
+                      : isDrillMatch
+                        ? 'bg-orange-500/10 border border-orange-500/30 text-orange-300 hover:border-orange-500/50'
+                        : 'bg-zinc-800 border border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'
+                  }`}
+                >
+                  <span>{t.emoji}</span>
+                  {t.text}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -1266,6 +1290,7 @@ export default function PracticeTimerPage({
     return (
       <BreakScreen
         drillJustFinished={drill?.name ?? ''}
+        drillCategory={drill?.category}
         nextDrillName={nextDrill?.name}
         players={presentPlayers}
         onSave={handleBreakSave}
