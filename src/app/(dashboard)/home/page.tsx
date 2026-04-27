@@ -36,6 +36,7 @@ import { DailyFocusCard } from '@/components/home/daily-focus-card';
 import { BirthdayCard } from '@/components/home/birthday-card';
 import { DrillOfDayCard } from '@/components/home/drill-of-day-card';
 import { AICoachingTipsCard } from '@/components/home/ai-coaching-tips-card';
+import { TeamSkillTrendsCard } from '@/components/home/team-skill-trends-card';
 
 // ─── Today's Session Card ────────────────────────────────────────────────────
 
@@ -709,6 +710,11 @@ export default function HomePage() {
           </>
         )}
       </div>
+
+      {/* Team skill trends — week-over-week per-category signals */}
+      {activeTeam && stats && stats.observations >= 5 && (
+        <TeamSkillTrendsCard teamId={activeTeam.id} />
+      )}
 
       {/* Coaching streak tracker */}
       {activeTeam && stats && (
