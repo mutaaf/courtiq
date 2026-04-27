@@ -35,6 +35,7 @@ import { ParentReactionsCard } from '@/components/home/parent-reactions-card';
 import { DailyFocusCard } from '@/components/home/daily-focus-card';
 import { BirthdayCard } from '@/components/home/birthday-card';
 import { DrillOfDayCard } from '@/components/home/drill-of-day-card';
+import { AICoachingTipsCard } from '@/components/home/ai-coaching-tips-card';
 
 // ─── Today's Session Card ────────────────────────────────────────────────────
 
@@ -712,6 +713,11 @@ export default function HomePage() {
       {/* Coaching streak tracker */}
       {activeTeam && stats && (
         <StreakCard teamId={activeTeam.id} observationCount={stats.observations} />
+      )}
+
+      {/* AI Coach Insights — personalized proactive tips, cached 4 hours */}
+      {activeTeam && stats && (
+        <AICoachingTipsCard teamId={activeTeam.id} observationCount={stats.observations} />
       )}
 
       {/* Team Wins Feed — recent badges + achieved goals */}
