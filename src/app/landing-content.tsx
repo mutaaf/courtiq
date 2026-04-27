@@ -195,6 +195,182 @@ export default function LandingContent() {
         </div>
       </section>
 
+      {/* ── App Preview ── */}
+      <section className="overflow-hidden bg-zinc-950 py-16 sm:py-24">
+        <div className="mx-auto max-w-6xl px-4">
+          <div className="text-center mb-12">
+            <Badge className="mb-4 bg-orange-500/20 text-orange-400 border-orange-500/30 hover:bg-orange-500/20">See the app</Badge>
+            <h2 className="text-2xl font-bold sm:text-3xl text-zinc-100">From whistle to parent update in minutes</h2>
+            <p className="mt-3 text-zinc-400 max-w-xl mx-auto">No forms. No spreadsheets. Talk during practice — SportsIQ turns your words into organized notes, skill tracking, and parent-ready reports.</p>
+          </div>
+
+          <div className="flex gap-6 overflow-x-auto pb-6 sm:grid sm:grid-cols-3 sm:overflow-x-visible sm:pb-0 snap-x snap-mandatory sm:snap-none">
+
+            {/* Phone 1: Voice Capture */}
+            <div className="flex-shrink-0 snap-center flex flex-col items-center" style={{ minWidth: 220 }}>
+              <div className="w-56 rounded-[2.5rem] border-2 border-zinc-700 bg-zinc-900 p-2 shadow-2xl shadow-black/60">
+                <div className="rounded-[2rem] overflow-hidden bg-zinc-950">
+                  <div className="flex items-center justify-between px-5 pt-3 pb-1">
+                    <span className="text-[10px] text-zinc-500 font-medium">9:41</span>
+                    <div className="flex gap-1">
+                      <div className="w-4 h-1.5 rounded-sm bg-zinc-600" />
+                      <div className="w-1.5 h-1.5 rounded-sm bg-zinc-600" />
+                    </div>
+                  </div>
+                  <div className="px-4 pb-6 pt-2">
+                    <div className="text-center mb-5">
+                      <p className="text-[10px] text-zinc-500 mb-0.5">YMCA Rockets · Practice</p>
+                      <p className="text-xs font-semibold text-zinc-100">Capture Observation</p>
+                    </div>
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="relative flex items-center justify-center">
+                        <div className="absolute h-20 w-20 rounded-full bg-orange-500/20 animate-ping" style={{ animationDuration: '2s' }} />
+                        <div className="absolute h-24 w-24 rounded-full bg-orange-500/10" />
+                        <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-orange-500 shadow-lg shadow-orange-500/40">
+                          <Mic className="h-7 w-7 text-white" />
+                        </div>
+                      </div>
+                      <div className="w-full rounded-xl bg-zinc-800 p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                          <span className="text-[10px] font-semibold text-zinc-400 tracking-wider">RECORDING</span>
+                        </div>
+                        <p className="text-[10px] text-zinc-300 leading-relaxed italic">
+                          &ldquo;Marcus needs work on his left-hand crossover… Tyler had great defensive positioning today…&rdquo;
+                        </p>
+                      </div>
+                      <p className="text-[10px] text-zinc-600 text-center">Tap to stop recording</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p className="mt-4 text-sm font-semibold text-zinc-300">1. Talk during practice</p>
+              <p className="text-xs text-zinc-500 text-center max-w-[14rem] mt-1">Hands-free. Just coach like normal.</p>
+            </div>
+
+            {/* Phone 2: AI Observations */}
+            <div className="flex-shrink-0 snap-center flex flex-col items-center" style={{ minWidth: 220 }}>
+              <div className="w-56 rounded-[2.5rem] border-2 border-zinc-700 bg-zinc-900 p-2 shadow-2xl shadow-black/60">
+                <div className="rounded-[2rem] overflow-hidden bg-zinc-950">
+                  <div className="flex items-center justify-between px-5 pt-3 pb-1">
+                    <span className="text-[10px] text-zinc-500 font-medium">9:41</span>
+                    <div className="flex gap-1">
+                      <div className="w-4 h-1.5 rounded-sm bg-zinc-600" />
+                      <div className="w-1.5 h-1.5 rounded-sm bg-zinc-600" />
+                    </div>
+                  </div>
+                  <div className="px-4 pb-6 pt-2">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="h-5 w-5 rounded-full bg-blue-500/20 flex items-center justify-center">
+                        <Sparkles className="h-3 w-3 text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-zinc-100">AI found 3 observations</p>
+                        <p className="text-[9px] text-zinc-500">Review and save</p>
+                      </div>
+                    </div>
+                    {[
+                      { name: 'Marcus', initial: 'M', text: 'Needs work on left-hand crossover', positive: false, category: 'Dribbling' },
+                      { name: 'Tyler', initial: 'T', text: 'Strong defensive positioning', positive: true, category: 'Defense' },
+                      { name: 'Team', initial: '★', text: 'Great energy all practice', positive: true, category: 'Hustle' },
+                    ].map((obs) => (
+                      <div key={obs.name} className="mb-2 rounded-xl border border-zinc-800 bg-zinc-900/80 p-2.5">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-bold ${obs.positive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                              {obs.initial}
+                            </div>
+                            <span className="text-[10px] font-medium text-zinc-200">{obs.name}</span>
+                          </div>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${obs.positive ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
+                            {obs.category}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-zinc-400 leading-relaxed">{obs.text}</p>
+                      </div>
+                    ))}
+                    <button className="mt-1 w-full rounded-xl bg-orange-500 py-2 text-[10px] font-semibold text-white">
+                      Save 3 Observations
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p className="mt-4 text-sm font-semibold text-zinc-300">2. AI organizes everything</p>
+              <p className="text-xs text-zinc-500 text-center max-w-[14rem] mt-1">Named, categorized, ready to review.</p>
+            </div>
+
+            {/* Phone 3: Parent Portal */}
+            <div className="flex-shrink-0 snap-center flex flex-col items-center" style={{ minWidth: 220 }}>
+              <div className="w-56 rounded-[2.5rem] border-2 border-zinc-700 bg-zinc-900 p-2 shadow-2xl shadow-black/60">
+                <div className="rounded-[2rem] overflow-hidden bg-gray-50">
+                  <div className="flex items-center justify-between px-5 pt-3 pb-1 bg-gray-50">
+                    <span className="text-[10px] text-gray-400 font-medium">9:41</span>
+                    <div className="flex gap-1">
+                      <div className="w-4 h-1.5 rounded-sm bg-gray-300" />
+                      <div className="w-1.5 h-1.5 rounded-sm bg-gray-300" />
+                    </div>
+                  </div>
+                  <div className="px-4 pb-6 pt-2 bg-gray-50">
+                    <div className="text-center mb-3">
+                      <div className="mx-auto mb-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-orange-100">
+                        <span className="text-sm font-bold text-orange-600">M</span>
+                      </div>
+                      <p className="text-xs font-bold text-gray-900">Marcus Johnson</p>
+                      <p className="text-[9px] text-gray-500">YMCA Rockets · Spring 2025</p>
+                    </div>
+                    <div className="rounded-xl bg-white border border-gray-100 p-2.5 mb-2 shadow-sm">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <MessageCircle className="h-3 w-3 text-emerald-500" />
+                        <span className="text-[10px] font-semibold text-gray-700">Coach&apos;s Update</span>
+                      </div>
+                      <p className="text-[10px] text-gray-600 leading-relaxed italic">
+                        &ldquo;Marcus showed real improvement in his defensive footwork — the extra work is paying off!&rdquo;
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-white border border-gray-100 p-2.5 shadow-sm">
+                      <p className="text-[10px] font-semibold text-gray-700 mb-2">Skill Progress</p>
+                      {[
+                        { skill: 'Defense', pct: 85, color: 'bg-emerald-400' },
+                        { skill: 'Teamwork', pct: 72, color: 'bg-orange-400' },
+                        { skill: 'Dribbling', pct: 55, color: 'bg-amber-400' },
+                      ].map((s) => (
+                        <div key={s.skill} className="mb-2 last:mb-0">
+                          <div className="flex justify-between mb-0.5">
+                            <span className="text-[9px] text-gray-500">{s.skill}</span>
+                            <span className="text-[9px] font-semibold text-gray-700">{s.pct}%</span>
+                          </div>
+                          <div className="h-1.5 w-full rounded-full bg-gray-100">
+                            <div className={`h-1.5 rounded-full ${s.color}`} style={{ width: `${s.pct}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <div className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5">
+                        <Check className="h-2.5 w-2.5 text-emerald-600" />
+                        <span className="text-[9px] font-medium text-emerald-700">Defense on the rise</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p className="mt-4 text-sm font-semibold text-zinc-300">3. Parents are impressed</p>
+              <p className="text-xs text-zinc-500 text-center max-w-[14rem] mt-1">One tap to share. Parents screenshot it.</p>
+            </div>
+
+          </div>
+
+          <div className="mt-10 text-center">
+            <Button asChild size="lg" className="shadow-lg shadow-orange-500/30">
+              <Link href="/demo">
+                Try it yourself — free, no signup
+                <ArrowRight className="ml-1.5 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
       {/* ── For Coaches ── */}
       <section className="border-y border-zinc-200 bg-zinc-50/50 py-16 sm:py-24">
         <div className="mx-auto max-w-4xl px-4">
