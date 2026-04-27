@@ -152,19 +152,22 @@ export function getLastNWeekKeys(n: number, now: number = Date.now()): string[] 
   return keys;
 }
 
-/** Per-week observation count for the last `weeks` weeks (0 if no observations that week). */
+/** Per-week observation count for the last `weeks` 7-day rolling windows (oldest → newest). */
 export function getWeeklyObservationCounts(
   observations: ObsPoint[],
   weeks: number,
   now: number = Date.now(),
 ): number[] {
-  const weekKeys = getLastNWeekKeys(weeks, now);
-  const counts = new Map<string, number>(weekKeys.map((k) => [k, 0]));
+  const counts = new Array<number>(weeks).fill(0);
+  const windowMs = 7 * 24 * 60 * 60 * 1000;
   for (const obs of observations) {
-    const k = isoWeekKey(new Date(obs.created_at));
-    if (counts.has(k)) counts.set(k, (counts.get(k) ?? 0) + 1);
+    const ageMs = now - new Date(obs.created_at).getTime();
+    const bucket = Math.floor(ageMs / windowMs);
+    if (bucket >= 0 && bucket < weeks) {
+      counts[weeks - 1 - bucket]++;
+    }
   }
-  return weekKeys.map((k) => counts.get(k) ?? 0);
+  return counts;
 }
 
 /**
