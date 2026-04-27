@@ -33,6 +33,8 @@ import { StreakCard } from '@/components/home/streak-card';
 import { TeamWinsCard } from '@/components/home/team-wins-card';
 import { ParentReactionsCard } from '@/components/home/parent-reactions-card';
 import { DailyFocusCard } from '@/components/home/daily-focus-card';
+import { BirthdayCard } from '@/components/home/birthday-card';
+import { DrillOfDayCard } from '@/components/home/drill-of-day-card';
 
 // ─── Today's Session Card ────────────────────────────────────────────────────
 
@@ -499,6 +501,9 @@ export default function HomePage() {
         </p>
       </div>
 
+      {/* Birthday Card — upcoming player birthdays, dismissible per day */}
+      <BirthdayCard teamId={activeTeam.id} teamName={activeTeam.name} />
+
       {/* AI Keys Onboarding Banner */}
       {!hasAIKeys && (
         <Card className="border-orange-500/30 bg-gradient-to-r from-orange-500/10 to-orange-500/5 p-4">
@@ -634,6 +639,11 @@ export default function HomePage() {
       {/* Daily Focus — which player needs attention today (shown when enough data exists) */}
       {!practiceActive && !isLoadingStats && stats && stats.sessions > 0 && (
         <DailyFocusCard teamId={activeTeam.id} />
+      )}
+
+      {/* Drill of the Day — deterministic drill targeting the team's top skill gap */}
+      {!isLoadingStats && stats && stats.observations >= 5 && (
+        <DrillOfDayCard teamId={activeTeam.id} sportId={activeTeam.sport_id} />
       )}
 
       {/* Getting Started checklist — shown until first 3 actions are complete */}
