@@ -19,6 +19,7 @@ import {
   Play,
   Square,
   Timer,
+  History,
 } from 'lucide-react';
 import type { Session } from '@/types/database';
 import { useAppStore } from '@/lib/store';
@@ -201,6 +202,64 @@ function UpcomingSessionsCard({ sessions }: { sessions: Session[] }) {
   );
 }
 
+// ─── Last Session Card ─────────────────────────────────────────────────────────
+
+const SESSION_EMOJI: Record<string, string> = {
+  practice: '🏃',
+  game: '🏀',
+  scrimmage: '⚡',
+  tournament: '🏆',
+  training: '💪',
+};
+
+const SESSION_LABEL: Record<string, string> = {
+  practice: 'Practice',
+  game: 'Game',
+  scrimmage: 'Scrimmage',
+  tournament: 'Tournament',
+  training: 'Training',
+};
+
+function LastSessionCard({ session }: {
+  session: { id: string; type: string; date: string; observations?: [{ count: number }] };
+}) {
+  const obsCount = session.observations?.[0]?.count ?? 0;
+  const emoji = SESSION_EMOJI[session.type] ?? '📋';
+  const label = SESSION_LABEL[session.type] ?? session.type;
+
+  const daysDiff = Math.round(
+    (Date.now() - new Date(session.date + 'T12:00:00').getTime()) / 86_400_000
+  );
+  const dateLabel = daysDiff === 1 ? 'Yesterday' : `${daysDiff} days ago`;
+
+  return (
+    <Card className="border-zinc-800">
+      <CardContent className="flex items-center gap-3 p-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-lg">
+          {emoji}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+            Last session · {dateLabel}
+          </p>
+          <p className="text-sm font-semibold text-zinc-200">{label}</p>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            {obsCount > 0
+              ? `${obsCount} observation${obsCount !== 1 ? 's' : ''} captured`
+              : 'No observations — tap to add'}
+          </p>
+        </div>
+        <Link href={`/sessions/${session.id}`} className="shrink-0">
+          <Button size="sm" variant="outline" className="gap-1.5">
+            <History className="h-3.5 w-3.5" />
+            View
+          </Button>
+        </Link>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
@@ -356,6 +415,31 @@ export default function HomePage() {
       })
       .map((p) => ({ name: p.name, status: playerAvailability[p.id].status }));
   }, [rosterPlayers, playerAvailability]);
+
+  // Most recent past session (for "Last Session" card — shown when no active practice or today session)
+  const { data: lastSession } = useQuery({
+    queryKey: ['last-session', activeTeam?.id],
+    queryFn: async () => {
+      if (!activeTeam) return null;
+      const today = new Date().toISOString().split('T')[0];
+      const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000).toISOString().split('T')[0];
+      const sessions = await query<any[]>({
+        table: 'sessions',
+        select: 'id, type, date, observations:observations(count)',
+        filters: {
+          team_id: activeTeam.id,
+          date: { op: 'lt', value: today },
+        },
+        order: { column: 'date', ascending: false },
+        limit: 1,
+      });
+      const session = sessions?.[0] ?? null;
+      if (!session || session.date < sevenDaysAgo) return null;
+      return session;
+    },
+    enabled: !!activeTeam && !practiceActive,
+    staleTime: 5 * 60 * 1000,
+  });
 
   // Live observation count for the active practice session
   const { data: sessionObsStats } = useQuery({
@@ -536,6 +620,11 @@ export default function HomePage() {
           </Card>
         </Link>
       </div>
+
+      {/* Last session summary — shown when no today session and practice not active */}
+      {!practiceActive && todaySessions.length === 0 && lastSession && (
+        <LastSessionCard session={lastSession} />
+      )}
 
       {/* Getting Started checklist — shown until first 3 actions are complete */}
       {!isLoadingStats && stats && coach && (
