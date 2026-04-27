@@ -424,6 +424,10 @@ export default function PlansPage() {
   const [teamPersonalityStats, setTeamPersonalityStats] = useState<{ observationsAnalyzed: number; sessionsIncluded: number; playersObserved: number; healthScore: number } | null>(null);
   const [personalityCopied, setPersonalityCopied] = useState(false);
 
+  // Weekly Star state
+  const [generatingWeeklyStar, setGeneratingWeeklyStar] = useState(false);
+  const [weeklyStarCopied, setWeeklyStarCopied] = useState(false);
+
   // Run Practice modal state
   const [showRunModal, setShowRunModal] = useState(false);
   const [creatingSession, setCreatingSession] = useState(false);
@@ -662,6 +666,30 @@ export default function PlansPage() {
       setError(err instanceof Error ? err.message : 'Team personality generation failed');
     } finally {
       setGeneratingTeamPersonality(false);
+    }
+  };
+
+  const generateWeeklyStar = async () => {
+    if (!activeTeam) return;
+    setGeneratingWeeklyStar(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/ai/weekly-star', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate weekly star');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Weekly star generation failed');
+    } finally {
+      setGeneratingWeeklyStar(false);
     }
   };
 
@@ -1727,6 +1755,41 @@ export default function PlansPage() {
               <p className="text-sm text-zinc-200 leading-relaxed italic">&ldquo;{structured.coach_shoutout}&rdquo;</p>
             </div>
           )}
+
+          {/* Share / Copy */}
+          <button
+            onClick={async () => {
+              const text = [
+                `⭐ Weekly Star — Week of ${structured.week_label}`,
+                '',
+                `${structured.player_name}: ${structured.headline}`,
+                '',
+                structured.achievement,
+                structured.growth_moment ? `\n💪 Growth: ${structured.growth_moment}` : '',
+                '',
+                `"${structured.coach_shoutout}"`,
+                '',
+                'Powered by SportsIQ',
+              ].filter(Boolean).join('\n');
+              try {
+                if (navigator.share) {
+                  await navigator.share({ title: `Weekly Star — ${structured.player_name}`, text });
+                } else {
+                  await navigator.clipboard.writeText(text);
+                  setWeeklyStarCopied(true);
+                  setTimeout(() => setWeeklyStarCopied(false), 2000);
+                }
+              } catch { /* user cancelled */ }
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 py-3 text-sm font-semibold text-amber-300 transition-all hover:bg-amber-500/15 active:scale-[0.98] touch-manipulation"
+            aria-label="Share weekly star spotlight"
+          >
+            {weeklyStarCopied ? (
+              <><Check className="h-4 w-4" /> Copied to clipboard!</>
+            ) : (
+              <><Share2 className="h-4 w-4" /> Share with Parent Group Chat</>
+            )}
+          </button>
         </div>
       );
     }
@@ -2630,6 +2693,27 @@ export default function PlansPage() {
                 <p className="text-xs text-zinc-500">AI-written summary of this week&apos;s sessions with player spotlights</p>
               </div>
               <Users className="h-4 w-4 text-violet-500/50 shrink-0" />
+            </button>
+
+            {/* Weekly Star — player spotlight for parent group chat */}
+            <button
+              onClick={generateWeeklyStar}
+              disabled={generatingWeeklyStar || generating || !activeTeam}
+              className="flex w-full items-center gap-2.5 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/15 to-amber-500/5 px-3 py-2.5 text-left transition-all hover:border-amber-500/60 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
+              aria-label="Generate weekly player spotlight"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/25">
+                {generatingWeeklyStar ? (
+                  <Loader2 className="h-4 w-4 text-amber-400 animate-spin" />
+                ) : (
+                  <Star className="h-4 w-4 text-amber-400" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-amber-300">Weekly Star</p>
+                <p className="text-xs text-zinc-500">Celebrate this week&apos;s standout player — shareable with parent group chat</p>
+              </div>
+              <Sparkles className="h-4 w-4 text-amber-500/50 shrink-0" />
             </button>
 
             {/* Season Summary — whole team */}
