@@ -3025,7 +3025,7 @@ export default function PlansPage() {
               onClick={() => setShowMoreGenerators(!showMoreGenerators)}
               className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-700/50 py-2 text-xs font-medium text-zinc-500 hover:text-zinc-300 hover:border-zinc-600 transition-colors touch-manipulation"
             >
-              {showMoreGenerators ? 'Show less' : 'More generators (Newsletter, Awards, Storyline...)'}
+              {showMoreGenerators ? 'Show less' : 'More generators (Weekly Star, Newsletter, Awards, Storyline...)'}
               <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showMoreGenerators ? 'rotate-180' : ''}`} />
             </button>
 
