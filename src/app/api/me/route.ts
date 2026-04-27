@@ -34,7 +34,14 @@ export async function GET() {
 
   if (!result) return NextResponse.json({ error: 'Coach not found' }, { status: 404 });
 
-  const response = NextResponse.json(result);
+  // Check if AI is available via env vars (not cached — env vars are static per process)
+  const aiPlatformAvailable = !!(
+    process.env.ANTHROPIC_API_KEY ||
+    process.env.OPENAI_API_KEY ||
+    process.env.GEMINI_API_KEY
+  );
+
+  const response = NextResponse.json({ ...result, aiPlatformAvailable });
   response.headers.set('Cache-Control', 'private, max-age=120, stale-while-revalidate=300');
   return response;
 }

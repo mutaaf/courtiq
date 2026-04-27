@@ -28,5 +28,6 @@ export function useActiveTeam() {
     teams,
     setActiveTeamId,
     coach: meData?.coach || null,
+    aiPlatformAvailable: meData?.aiPlatformAvailable ?? false,
   };
 }

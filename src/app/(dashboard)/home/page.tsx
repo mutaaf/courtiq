@@ -263,13 +263,13 @@ function LastSessionCard({ session }: {
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, aiPlatformAvailable } = useActiveTeam();
   const [showDebrief, setShowDebrief] = useState(false);
 
   const hasAIKeys = (() => {
+    if (aiPlatformAvailable) return true;
     const settings = (coach as any)?.organizations?.settings;
-    if (!settings) return false;
-    const keys = settings.ai_keys || {};
+    const keys = settings?.ai_keys || {};
     return !!(keys.anthropic || keys.openai || keys.gemini);
   })();
 
