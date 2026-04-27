@@ -28,6 +28,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GettingStartedCard } from '@/components/home/getting-started-card';
+import { StreakCard } from '@/components/home/streak-card';
+import { TeamWinsCard } from '@/components/home/team-wins-card';
+import { ParentReactionsCard } from '@/components/home/parent-reactions-card';
 
 // ─── Today's Session Card ────────────────────────────────────────────────────
 
@@ -678,6 +681,17 @@ export default function HomePage() {
           </>
         )}
       </div>
+
+      {/* Coaching streak tracker */}
+      {activeTeam && stats && (
+        <StreakCard teamId={activeTeam.id} observationCount={stats.observations} />
+      )}
+
+      {/* Team Wins Feed — recent badges + achieved goals */}
+      {activeTeam && <TeamWinsCard teamId={activeTeam.id} />}
+
+      {/* Parent Reactions — love notes from parents */}
+      {activeTeam && <ParentReactionsCard teamId={activeTeam.id} />}
 
       {/* Upcoming sessions this week */}
       {upcomingSessions.length > 0 && <UpcomingSessionsCard sessions={upcomingSessions} />}
