@@ -28,6 +28,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GettingStartedCard } from '@/components/home/getting-started-card';
+import { FirstPracticeLauncher } from '@/components/home/first-practice-launcher';
 import { StreakCard } from '@/components/home/streak-card';
 import { TeamWinsCard } from '@/components/home/team-wins-card';
 import { ParentReactionsCard } from '@/components/home/parent-reactions-card';
@@ -636,6 +637,16 @@ export default function HomePage() {
           sessions={stats.sessions}
           observations={stats.observations}
           teamId={activeTeam.id}
+        />
+      )}
+
+      {/* First Practice Launcher — shown once to new coaches with 0 sessions */}
+      {!practiceActive && !isLoadingStats && stats?.sessions === 0 && coach && (
+        <FirstPracticeLauncher
+          teamId={activeTeam.id}
+          coachId={coach.id}
+          sportId={activeTeam.sport_id}
+          ageGroup={activeTeam.age_group}
         />
       )}
 
