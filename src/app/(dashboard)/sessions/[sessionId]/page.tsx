@@ -198,9 +198,37 @@ function SessionCoverageTracker({
         </div>
 
         {allCovered ? (
-          <div className="flex items-center gap-1.5 text-emerald-400 text-xs">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            <span>Every player observed this session</span>
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-1.5 text-emerald-400 text-xs">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              <span>Every player observed this session</span>
+            </div>
+            {observations.length >= 3 && (
+              <div className="flex flex-wrap gap-2 pt-0.5">
+                <button
+                  onClick={() =>
+                    document
+                      .getElementById('ai-debrief-section')
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-orange-500/15 text-orange-300 border border-orange-500/30 hover:bg-orange-500/25 active:scale-95 transition-all touch-manipulation"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  AI Debrief
+                </button>
+                <button
+                  onClick={() =>
+                    document
+                      .getElementById('player-messages-section')
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-teal-500/15 text-teal-300 border border-teal-500/30 hover:bg-teal-500/25 active:scale-95 transition-all touch-manipulation"
+                >
+                  <Send className="h-3 w-3" />
+                  Send Parent Updates
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-2">
