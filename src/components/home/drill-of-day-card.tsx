@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { query } from '@/lib/api';
-import { Dumbbell, ChevronRight, X } from 'lucide-react';
+import { Dumbbell, ChevronRight, X, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -16,6 +16,7 @@ import {
   buildDrillDismissKey,
   buildDrillViewUrl,
 } from '@/lib/drill-of-day-utils';
+import { getWeeklyFocus } from '@/lib/weekly-focus-utils';
 import type { Drill } from '@/types/database';
 
 interface DrillOfDayCardProps {
@@ -50,11 +51,16 @@ function computeTopNeedsWorkCategory(obs: ObsRow[]): string | null {
 export function DrillOfDayCard({ teamId, sportId }: DrillOfDayCardProps) {
   const today = useMemo(() => new Date(), []);
   const [dismissed, setDismissed] = useState(false);
+  const [weeklyFocusCategory, setWeeklyFocusCategory] = useState<string | null>(null);
 
   useEffect(() => {
     try {
       const key = buildDrillDismissKey(teamId, today.toISOString().split('T')[0]);
       if (localStorage.getItem(key) === '1') setDismissed(true);
+    } catch {}
+    try {
+      const focus = getWeeklyFocus(teamId);
+      setWeeklyFocusCategory(focus?.category ?? null);
     } catch {}
   }, [teamId, today]);
 
@@ -102,6 +108,8 @@ export function DrillOfDayCard({ teamId, sportId }: DrillOfDayCardProps) {
     };
   }, [drills, recentObs, teamId, today]);
 
+  const matchesFocus = !!(topCategory && weeklyFocusCategory && topCategory === weeklyFocusCategory);
+
   function handleDismiss() {
     try {
       localStorage.setItem(
@@ -146,7 +154,15 @@ export function DrillOfDayCard({ teamId, sportId }: DrillOfDayCardProps) {
       </div>
 
       <div>
-        <p className="text-base font-bold text-zinc-100 leading-snug">{drill.name}</p>
+        <div className="flex items-start gap-2 flex-wrap">
+          <p className="text-base font-bold text-zinc-100 leading-snug">{drill.name}</p>
+          {matchesFocus && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-semibold text-indigo-300 border border-indigo-500/20 shrink-0 mt-0.5">
+              <Target className="h-2.5 w-2.5" />
+              Matches your focus
+            </span>
+          )}
+        </div>
         {drill.description && (
           <p className="text-xs text-zinc-400 mt-1 line-clamp-2">{drill.description}</p>
         )}
