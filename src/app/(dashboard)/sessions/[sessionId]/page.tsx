@@ -90,6 +90,15 @@ import {
 import type { HuddleScript } from '@/lib/huddle-script-utils';
 import { matchMessageToPlayer, countPlayersWithPhone, type ParentEmailPlayer } from '@/lib/parent-email-utils';
 import { buildWhatsAppUrl } from '@/lib/birthday-utils';
+import {
+  buildSessionSnapshot,
+  hasEnoughDataForSnapshot,
+  formatSnapshotCategory,
+  getHealthLabel,
+  getHealthColor,
+  getHealthBarColor,
+  type SnapshotObs,
+} from '@/lib/session-snapshot-utils';
 
 const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   practice: 'Practice',
@@ -153,6 +162,138 @@ const PRIORITY_CONFIG: Record<
   medium: { label: 'Medium', color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20' },
   low:    { label: 'Low',    color: 'text-zinc-400',   bg: 'bg-zinc-700/30 border-zinc-700/50' },
 };
+
+// ─── Session Snapshot Card ────────────────────────────────────────────────────
+
+function SessionSnapshotCard({ observations }: { observations: any[] }) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  const snap = buildSessionSnapshot(observations as SnapshotObs[]);
+
+  if (!hasEnoughDataForSnapshot(observations as SnapshotObs[])) return null;
+
+  const pct = Math.round(snap.positiveRatio * 100);
+  const healthLabel = getHealthLabel(snap.positiveRatio);
+  const healthColor = getHealthColor(snap.positiveRatio);
+  const barColor = getHealthBarColor(snap.positiveRatio);
+
+  return (
+    <Card className="border-zinc-800 overflow-hidden">
+      <button
+        onClick={() => setCollapsed((c) => !c)}
+        className="flex w-full items-center justify-between px-4 py-3 hover:bg-zinc-800/40 transition-colors"
+        aria-expanded={!collapsed}
+        aria-label="Toggle session snapshot"
+      >
+        <div className="flex items-center gap-2">
+          <Activity className="h-4 w-4 text-orange-400" aria-hidden="true" />
+          <span className="text-sm font-semibold text-zinc-200">Session Snapshot</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`text-sm font-bold ${healthColor}`}>{healthLabel}</span>
+          {collapsed ? (
+            <ChevronDown className="h-4 w-4 text-zinc-500" aria-hidden="true" />
+          ) : (
+            <ChevronUp className="h-4 w-4 text-zinc-500" aria-hidden="true" />
+          )}
+        </div>
+      </button>
+
+      {!collapsed && (
+        <CardContent className="px-4 pb-4 pt-0 space-y-4">
+          {/* Sentiment ratio bar */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-zinc-400">
+              <span>
+                <span className="font-semibold text-emerald-400">{snap.positiveCount} positive</span>
+                {snap.needsWorkCount > 0 && (
+                  <> &middot; <span className="font-semibold text-amber-400">{snap.needsWorkCount} needs work</span></>
+                )}
+                {snap.neutralCount > 0 && (
+                  <> &middot; <span className="text-zinc-500">{snap.neutralCount} general</span></>
+                )}
+              </span>
+              <span className={`font-bold ${healthColor}`}>{pct}% positive</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-zinc-800 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${barColor}`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Top strengths + gaps */}
+          <div className="grid grid-cols-2 gap-3">
+            {snap.topStrengths.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-500">
+                  Strengths
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {snap.topStrengths.map(({ category, count }) => (
+                    <span
+                      key={category}
+                      className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-medium text-emerald-300"
+                    >
+                      {formatSnapshotCategory(category)}
+                      <span className="text-emerald-500/60 text-[10px]">×{count}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {snap.topGaps.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-500">
+                  Needs Work
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {snap.topGaps.map(({ category, count }) => (
+                    <span
+                      key={category}
+                      className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 text-xs font-medium text-amber-300"
+                    >
+                      {formatSnapshotCategory(category)}
+                      <span className="text-amber-500/60 text-[10px]">×{count}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Standout player */}
+          {snap.standout && (
+            <div className="flex items-center gap-2.5 rounded-xl bg-amber-500/8 border border-amber-500/15 px-3 py-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
+                <Star className="h-3.5 w-3.5 text-amber-400" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-500">
+                  Session standout
+                </p>
+                <p className="text-sm font-medium text-zinc-100 truncate">
+                  {snap.standout.name}
+                  <span className="ml-1.5 text-xs text-zinc-400 font-normal">
+                    {snap.standout.positiveCount} positive obs
+                  </span>
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Coverage line */}
+          <p className="text-xs text-zinc-500 text-center">
+            {snap.uniquePlayersObserved === 0
+              ? 'No player-tagged observations yet'
+              : `${snap.uniquePlayersObserved} player${snap.uniquePlayersObserved !== 1 ? 's' : ''} observed · ${snap.totalObs} total observation${snap.totalObs !== 1 ? 's' : ''}`}
+          </p>
+        </CardContent>
+      )}
+    </Card>
+  );
+}
 
 // ─── Session Coverage Tracker ─────────────────────────────────────────────────
 
@@ -2984,6 +3125,11 @@ export default function SessionDetailPage() {
             <Badge variant="secondary">{observations?.length || 0}</Badge>
           </h2>
         </div>
+
+        {/* Session Snapshot — at-a-glance summary of practice quality */}
+        {!obsLoading && observations && observations.length >= 3 && (
+          <SessionSnapshotCard observations={observations} />
+        )}
 
         {/* Coverage Tracker — who have I observed this session? */}
         {rosterPlayers.length > 0 && !obsLoading && (
