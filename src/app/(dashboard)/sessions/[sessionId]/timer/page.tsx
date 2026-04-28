@@ -43,6 +43,8 @@ import {
   Star,
   Repeat2,
   Shuffle,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Drill, Player, Session, Plan } from '@/types/database';
@@ -68,6 +70,12 @@ import {
   type LastObsInfo,
 } from '@/lib/timer-focus-utils';
 import { useVoiceInput } from '@/hooks/use-voice-input';
+import { useAnnouncer } from '@/hooks/use-announcer';
+import {
+  buildDrillAnnouncement,
+  buildBreakAnnouncement,
+  buildPracticeCompleteAnnouncement,
+} from '@/lib/announcer-utils';
 import type { PlayerAvailability } from '@/types/database';
 import { getRatingLabel, getRatingColor } from '@/lib/session-quality-utils';
 
@@ -729,8 +737,20 @@ export default function PracticeTimerPage({
   const [loadedTemplateName, setLoadedTemplateName] = useState<string | null>(null);
   const [lastPracticeQueue, setLastPracticeQueue] = useState<QueueItem[] | null>(null);
 
+  const [audioEnabled, setAudioEnabled] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    try {
+      const raw = localStorage.getItem('coach-audio-enabled');
+      return raw === null ? true : raw === 'true';
+    } catch { return true; }
+  });
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cueIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Stable refs so the announcement effect can read latest values without
+  // being re-triggered by note/queue mutations during a drill.
+  const queueRef = useRef(queue);
+  const notesRef = useRef(notes);
 
   // ── Queries ──────────────────────────────────────────────────────────────
   const { data: session } = useQuery({
@@ -996,8 +1016,43 @@ export default function PracticeTimerPage({
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => clearIntervals();
+    return () => {
+      clearIntervals();
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
   }, [clearIntervals]);
+
+  // ── Audio announcements ──────────────────────────────────────────────────
+  const { speak } = useAnnouncer(audioEnabled);
+  const speakRef = useRef(speak);
+  useEffect(() => { speakRef.current = speak; }, [speak]);
+  // Keep refs in sync so the mode-change effect reads latest data without
+  // triggering on every note/queue mutation.
+  useEffect(() => { queueRef.current = queue; }, [queue]);
+  useEffect(() => { notesRef.current = notes; }, [notes]);
+
+  // Persist audio toggle preference
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try { localStorage.setItem('coach-audio-enabled', String(audioEnabled)); } catch { /* ignore */ }
+  }, [audioEnabled]);
+
+  // Announce each drill start, break prompt, and practice-complete moment.
+  // Uses refs so this effect only fires on mode/drill transitions, not on
+  // every note saved or queue reorder.
+  useEffect(() => {
+    const drill = queueRef.current[currentIdx];
+    if (mode === 'running' && drill) {
+      speakRef.current(buildDrillAnnouncement(drill.name, drill.durationSecs, drill.cues[0]));
+    } else if (mode === 'break') {
+      speakRef.current(buildBreakAnnouncement());
+    } else if (mode === 'done') {
+      speakRef.current(buildPracticeCompleteAnnouncement(notesRef.current.length));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, currentIdx]);
 
   // Auto-persist captured notes so they survive accidental app closes
   useEffect(() => {
@@ -1328,13 +1383,25 @@ export default function PracticeTimerPage({
           <span className="text-xs text-zinc-600">
             Drill {currentIdx + 1} / {queue.length}
           </span>
-          <button
-            onClick={handleSkipDrill}
-            className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition-colors text-sm"
-          >
-            Skip
-            <SkipForward className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setAudioEnabled((prev) => !prev)}
+              className={`flex items-center gap-1 transition-colors ${
+                audioEnabled ? 'text-amber-400 hover:text-amber-300' : 'text-zinc-600 hover:text-zinc-400'
+              }`}
+              aria-label={audioEnabled ? 'Disable audio announcements' : 'Enable audio announcements'}
+              aria-pressed={audioEnabled}
+            >
+              {audioEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+            </button>
+            <button
+              onClick={handleSkipDrill}
+              className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition-colors text-sm"
+            >
+              Skip
+              <SkipForward className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Progress bar */}
