@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useRef, useEffect, type ReactNode } from 'react';
+import { useState, useRef, useEffect, useMemo, type ReactNode } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
+import { useQuery } from '@tanstack/react-query';
+import { query } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
   Sparkles,
   Send,
   Loader2,
-  ClipboardList,
   Dumbbell,
   BarChart3,
   FileText,
@@ -21,6 +22,9 @@ import {
   Copy,
   Mic,
   MicOff,
+  CalendarDays,
+  Users,
+  Zap,
 } from 'lucide-react';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 import { UpgradeGate } from '@/components/ui/upgrade-gate';
@@ -189,7 +193,17 @@ function MarkdownContent({ content }: { content: string }) {
 
 // ---------------------------------------------------------------------------
 
-const QUICK_ACTIONS = [
+interface QuickAction {
+  icon: React.ElementType;
+  label: string;
+  color: string;
+  bg: string;
+  border: string;
+  iconBg: string;
+  hoverBg: string;
+}
+
+const QUICK_ACTIONS: QuickAction[] = [
   {
     icon: Sparkles,
     label: 'Generate a practice plan for tomorrow\'s session',
@@ -228,6 +242,117 @@ const QUICK_ACTIONS = [
   },
 ];
 
+// Compute up to 4 personalized suggestions from live team data.
+// Returns null when there's not enough data (new team / no observations).
+function buildDynamicSuggestions(
+  sessions: Array<{ id: string; type: string; date: string; opponent: string | null }> | null,
+  obs: Array<{ player_id: string | null; category: string | null; sentiment: string; created_at: string }> | null,
+  players: Array<{ id: string; name: string }> | null,
+  today: string,
+): QuickAction[] | null {
+  if (!obs || obs.length < 5) return null;
+
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const twoWeeksAgo = new Date(Date.now() - 14 * 86400000).toISOString();
+  const fiveDaysAgo = new Date(Date.now() - 5 * 86400000).toISOString().slice(0, 10);
+  const suggestions: QuickAction[] = [];
+
+  // 1. Upcoming session today or tomorrow
+  const upcoming = sessions?.find(s => s.date === today || s.date === tomorrow);
+  if (upcoming) {
+    const dayLabel = upcoming.date === today ? "today's" : "tomorrow's";
+    suggestions.push({
+      icon: CalendarDays,
+      label: `Help me run ${dayLabel} ${upcoming.type}${upcoming.opponent ? ` vs ${upcoming.opponent}` : ''}`,
+      color: 'text-emerald-400',
+      bg: 'bg-emerald-500/10',
+      border: 'border-emerald-500/30',
+      iconBg: 'bg-emerald-500/20',
+      hoverBg: 'hover:bg-emerald-500/15',
+    });
+  }
+
+  // 2. Top skill gap (last 14 days needs-work observations)
+  const recentNeedsWork = obs.filter(o => o.sentiment === 'needs_work' && o.created_at >= twoWeeksAgo);
+  if (recentNeedsWork.length >= 2) {
+    const catCounts: Record<string, number> = {};
+    recentNeedsWork.forEach(o => {
+      if (o.category) catCounts[o.category] = (catCounts[o.category] || 0) + 1;
+    });
+    const top = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0];
+    if (top) {
+      const label = top[0].charAt(0).toUpperCase() + top[0].slice(1);
+      suggestions.push({
+        icon: Dumbbell,
+        label: `Create a drill to improve ${label} — our biggest team gap this week`,
+        color: 'text-orange-400',
+        bg: 'bg-orange-500/10',
+        border: 'border-orange-500/30',
+        iconBg: 'bg-orange-500/20',
+        hoverBg: 'hover:bg-orange-500/15',
+      });
+    }
+  }
+
+  // 3. Player needing attention — never observed or overdue
+  if (players && players.length > 0) {
+    const lastObsMap: Record<string, string> = {};
+    obs.forEach(o => {
+      if (o.player_id && !lastObsMap[o.player_id]) lastObsMap[o.player_id] = o.created_at;
+    });
+    const neverObserved = players.find(p => !lastObsMap[p.id]);
+    if (neverObserved) {
+      const firstName = neverObserved.name.split(' ')[0];
+      suggestions.push({
+        icon: Users,
+        label: `${firstName} has never been observed — how do I engage them in practice?`,
+        color: 'text-amber-400',
+        bg: 'bg-amber-500/10',
+        border: 'border-amber-500/30',
+        iconBg: 'bg-amber-500/20',
+        hoverBg: 'hover:bg-amber-500/15',
+      });
+    } else {
+      const oldest = players
+        .filter(p => lastObsMap[p.id])
+        .sort((a, b) => (lastObsMap[a.id] < lastObsMap[b.id] ? -1 : 1))[0];
+      if (oldest) {
+        const daysAgo = Math.floor((Date.now() - new Date(lastObsMap[oldest.id]).getTime()) / 86400000);
+        if (daysAgo >= 5) {
+          const firstName = oldest.name.split(' ')[0];
+          suggestions.push({
+            icon: Users,
+            label: `${firstName} hasn't been observed in ${daysAgo} days — suggest a coaching focus`,
+            color: 'text-amber-400',
+            bg: 'bg-amber-500/10',
+            border: 'border-amber-500/30',
+            iconBg: 'bg-amber-500/20',
+            hoverBg: 'hover:bg-amber-500/15',
+          });
+        }
+      }
+    }
+  }
+
+  // 4. Parent update from a recent past session
+  const recentPast = sessions?.find(s => s.date <= today && s.date >= fiveDaysAgo);
+  if (recentPast) {
+    const daysAgo = Math.floor((Date.now() - new Date(recentPast.date).getTime()) / 86400000);
+    const dayLabel = daysAgo === 0 ? "today's" : daysAgo === 1 ? "yesterday's" : `${daysAgo} days ago`;
+    suggestions.push({
+      icon: FileText,
+      label: `Write a parent update from ${dayLabel} ${recentPast.type}`,
+      color: 'text-purple-400',
+      bg: 'bg-purple-500/10',
+      border: 'border-purple-500/30',
+      iconBg: 'bg-purple-500/20',
+      hoverBg: 'hover:bg-purple-500/15',
+    });
+  }
+
+  return suggestions.length >= 2 ? suggestions.slice(0, 4) : null;
+}
+
 export default function AssistantPage() {
   const { activeTeam } = useActiveTeam();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -241,6 +366,58 @@ export default function AssistantPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voice = useVoiceInput();
+
+  // ── Context data for personalised quick-start suggestions ──────────────────
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const sevenDaysAgo = useMemo(
+    () => new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10),
+    [],
+  );
+
+  const { data: suggCtx } = useQuery({
+    queryKey: ['assistant-context', activeTeam?.id],
+    queryFn: async () => {
+      if (!activeTeam) return null;
+      const [sessions, obs, players] = await Promise.all([
+        query<Array<{ id: string; type: string; date: string; opponent: string | null }>>({
+          table: 'sessions',
+          select: 'id,type,date,opponent',
+          filters: { team_id: activeTeam.id, date: { op: 'gte', value: sevenDaysAgo } },
+          order: { column: 'date', ascending: true },
+          limit: 20,
+        }),
+        query<Array<{ player_id: string | null; category: string | null; sentiment: string; created_at: string }>>({
+          table: 'observations',
+          select: 'player_id,category,sentiment,created_at',
+          filters: { team_id: activeTeam.id },
+          order: { column: 'created_at', ascending: false },
+          limit: 60,
+        }),
+        query<Array<{ id: string; name: string }>>({
+          table: 'players',
+          select: 'id,name',
+          filters: { team_id: activeTeam.id, is_active: true },
+        }),
+      ]);
+      return { sessions, obs, players };
+    },
+    enabled: !!activeTeam,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const dynamicActions = useMemo(
+    () => buildDynamicSuggestions(
+      suggCtx?.sessions ?? null,
+      suggCtx?.obs ?? null,
+      suggCtx?.players ?? null,
+      today,
+    ),
+    [suggCtx, today],
+  );
+
+  const actionsToShow = dynamicActions ?? QUICK_ACTIONS;
+  const isPersonalised = dynamicActions !== null;
+  // ── End context suggestions ─────────────────────────────────────────────────
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -639,12 +816,21 @@ export default function AssistantPage() {
               <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-orange-400" />
             </div>
             <h2 className="text-lg sm:text-xl font-bold text-zinc-100 mb-0.5">What can I help with?</h2>
-            <p className="text-xs sm:text-sm text-zinc-500 mb-4 sm:mb-8 text-center max-w-sm">
+            <p className="text-xs sm:text-sm text-zinc-500 mb-1 text-center max-w-sm">
               Practice plans, drills, player analysis, and more.
             </p>
 
+            {/* Personalised badge — shown when suggestions are data-driven */}
+            {isPersonalised && (
+              <div className="mb-4 sm:mb-6 flex items-center gap-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 px-2.5 py-1">
+                <Zap className="h-3 w-3 text-orange-400" />
+                <span className="text-[10px] font-medium text-orange-400">Personalised for {activeTeam?.name}</span>
+              </div>
+            )}
+            {!isPersonalised && <div className="mb-4 sm:mb-6" />}
+
             <div className="w-full max-w-lg space-y-2 sm:space-y-3">
-              {QUICK_ACTIONS.map((action, i) => {
+              {actionsToShow.map((action, i) => {
                 const Icon = action.icon;
                 return (
                   <button
