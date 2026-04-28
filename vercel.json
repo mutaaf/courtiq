@@ -5,6 +5,10 @@
     {
       "path": "/api/cron/drip-emails",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/practice-reminder",
+      "schedule": "0 12 * * *"
     }
   ]
 }
