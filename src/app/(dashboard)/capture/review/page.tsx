@@ -365,40 +365,110 @@ export default function ReviewPage() {
 
   // Online success state
   if (savedCount !== null) {
+    const savedObs = observations.filter((o) => o.status !== 'discarded');
+    const positiveObs = savedObs.filter((o) => o.sentiment === 'positive');
+    const needsWorkObs = savedObs.filter((o) => o.sentiment === 'needs-work');
+    const uniquePlayers = new Set(savedObs.map((o) => o.player_name)).size;
+    const topHighlights = positiveObs.slice(0, 2);
+
     return (
       <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center p-4">
-        <Card className="max-w-md">
-          <CardContent className="flex flex-col items-center p-8 text-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20">
-              <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+        <Card className="w-full max-w-md border-emerald-500/20">
+          <CardContent className="p-6 space-y-5">
+            {/* Celebration header */}
+            <div className="text-center">
+              <div className="mb-3 mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20">
+                <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+              </div>
+              <h2 className="text-xl font-bold text-zinc-100">Nice work, Coach! 🎉</h2>
+              <p className="mt-1.5 text-zinc-400">
+                {savedCount} observation{savedCount !== 1 ? 's' : ''} saved
+                {uniquePlayers > 1 ? ` across ${uniquePlayers} players` : uniquePlayers === 1 ? ` for ${savedObs[0]?.player_name}` : ''}
+              </p>
             </div>
-            <h2 className="text-xl font-bold text-zinc-100">Observations Saved</h2>
-            <p className="mt-2 text-zinc-400">
-              {savedCount} observation{savedCount !== 1 ? 's' : ''} saved successfully.
-              {sessionId && ' Head to the session for AI debrief and parent messages.'}
-            </p>
-            <div className="mt-6 flex flex-col gap-3 w-full sm:flex-row sm:justify-center">
+
+            {/* Sentiment summary pills */}
+            {savedCount > 0 && (
+              <div className="flex justify-center gap-3">
+                {positiveObs.length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/25 px-3 py-1 text-xs font-medium text-emerald-300">
+                    <CheckCircle2 className="h-3 w-3" />
+                    {positiveObs.length} positive
+                  </span>
+                )}
+                {needsWorkObs.length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/25 px-3 py-1 text-xs font-medium text-amber-300">
+                    <AlertCircle className="h-3 w-3" />
+                    {needsWorkObs.length} to work on
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Top highlights */}
+            {topHighlights.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                  Session Highlights
+                </p>
+                {topHighlights.map((obs, i) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-2.5 rounded-lg border border-emerald-500/15 bg-emerald-500/10 px-3 py-2.5"
+                  >
+                    <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                    <p className="text-sm text-zinc-300 leading-snug">
+                      <span className="font-semibold text-zinc-100">{obs.player_name}</span>
+                      {' — '}
+                      <span className="text-zinc-400">{obs.text}</span>
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* CTAs */}
+            <div className="flex flex-col gap-2.5 pt-1">
               {sessionId ? (
                 <>
-                  <Button onClick={() => router.push(`/sessions/${sessionId}`)}>
-                    <Calendar className="h-4 w-4" />
-                    View Session
+                  <Button
+                    className="w-full"
+                    onClick={() => router.push(`/sessions/${sessionId}`)}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    AI Debrief &amp; Parent Updates
                   </Button>
-                  <Button variant="outline" onClick={() => router.push('/capture')}>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => router.push('/capture')}
+                  >
                     <Mic className="h-4 w-4" />
                     Capture More
                   </Button>
                 </>
               ) : (
                 <>
-                  <Button variant="outline" onClick={() => router.push('/capture')}>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => router.push('/capture')}
+                  >
                     <Mic className="h-4 w-4" />
                     Capture More
                   </Button>
-                  <Button onClick={() => router.push('/roster')}>View Roster</Button>
+                  <Button className="w-full" onClick={() => router.push('/roster')}>
+                    View Roster
+                  </Button>
                 </>
               )}
             </div>
+
+            {!sessionId && savedCount > 0 && (
+              <p className="text-center text-xs text-zinc-600">
+                Tip: Start a session before practice to unlock AI debrief and parent messages.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
