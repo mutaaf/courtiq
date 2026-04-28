@@ -12,6 +12,7 @@ export interface ParentEmailPlayer {
   name_variants: string[] | null;
   parent_email: string | null;
   parent_name: string | null;
+  parent_phone?: string | null;
 }
 
 export interface MessageEntry {
@@ -42,6 +43,18 @@ export function countPlayersWithEmail(players: ParentEmailPlayer[]): number {
 
 export function hasAnyParentEmail(players: ParentEmailPlayer[]): boolean {
   return countPlayersWithEmail(players) > 0;
+}
+
+export function filterPlayersWithPhone(players: ParentEmailPlayer[]): ParentEmailPlayer[] {
+  return players.filter((p) => typeof p.parent_phone === 'string' && p.parent_phone.trim().length > 0);
+}
+
+export function countPlayersWithPhone(players: ParentEmailPlayer[]): number {
+  return filterPlayersWithPhone(players).length;
+}
+
+export function hasAnyParentPhone(players: ParentEmailPlayer[]): boolean {
+  return countPlayersWithPhone(players) > 0;
 }
 
 // ─── Name matching ────────────────────────────────────────────────────────────

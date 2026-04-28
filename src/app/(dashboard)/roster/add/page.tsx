@@ -24,12 +24,14 @@ export default function AddPlayerPage() {
   const [form, setForm] = useState({
     name: '',
     nickname: '',
+    name_variants: '',
     position: SYSTEM_DEFAULTS.sport.positions[0],
     jersey_number: '',
     age_group: SYSTEM_DEFAULTS.sport.age_groups[0],
     date_of_birth: '',
     parent_name: '',
     parent_email: '',
+    parent_phone: '',
   });
 
   const updateField = (field: string, value: string) => {
@@ -48,6 +50,11 @@ export default function AddPlayerPage() {
     setError(null);
 
     try {
+      const nameVariants = form.name_variants
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean);
+
       await mutate({
         table: 'players',
         operation: 'insert',
@@ -55,12 +62,14 @@ export default function AddPlayerPage() {
           team_id: activeTeam.id,
           name: form.name.trim(),
           nickname: form.nickname.trim() || null,
+          name_variants: nameVariants.length > 0 ? nameVariants : null,
           position: form.position,
           jersey_number: form.jersey_number ? parseInt(form.jersey_number, 10) : null,
           age_group: form.age_group,
           date_of_birth: form.date_of_birth || null,
           parent_name: form.parent_name.trim() || null,
           parent_email: form.parent_email.trim() || null,
+          parent_phone: form.parent_phone.trim() || null,
           is_active: true,
         },
       });
@@ -127,10 +136,23 @@ export default function AddPlayerPage() {
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-zinc-300">Nickname</label>
             <Input
-              placeholder="Optional nickname"
+              placeholder="e.g. AJ, Mikey"
               value={form.nickname}
               onChange={(e) => updateField('nickname', e.target.value)}
             />
+          </div>
+
+          {/* Voice recognition variants */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-zinc-300">
+              Voice Recognition Variants <span className="text-zinc-500 font-normal">(optional)</span>
+            </label>
+            <Input
+              placeholder="Comma separated: duh-shawn, da-shon"
+              value={form.name_variants}
+              onChange={(e) => updateField('name_variants', e.target.value)}
+            />
+            <p className="text-[11px] text-zinc-500">Add phonetic spellings so voice capture recognizes this player by name.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -217,8 +239,19 @@ export default function AddPlayerPage() {
               onChange={(e) => updateField('parent_email', e.target.value)}
             />
             <p className="text-[11px] text-zinc-500">
-              Parent/guardian email is used for sharing progress reports. By providing this, you confirm you have parental consent to share this child&apos;s progress data.
+              Used for sharing progress reports. By providing this, you confirm parental consent to share this child&apos;s progress data.
             </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-zinc-300">Parent Phone <span className="text-zinc-500 font-normal">(optional)</span></label>
+            <Input
+              type="tel"
+              placeholder="+1 (555) 000-0000"
+              value={form.parent_phone}
+              onChange={(e) => updateField('parent_phone', e.target.value)}
+            />
+            <p className="text-[11px] text-zinc-500">Used to send player updates directly via WhatsApp after practice.</p>
           </div>
         </CardContent>
       </Card>

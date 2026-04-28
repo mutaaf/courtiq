@@ -88,6 +88,8 @@ import {
   hasNextSessionHint,
 } from '@/lib/huddle-script-utils';
 import type { HuddleScript } from '@/lib/huddle-script-utils';
+import { matchMessageToPlayer, countPlayersWithPhone, type ParentEmailPlayer } from '@/lib/parent-email-utils';
+import { buildWhatsAppUrl } from '@/lib/birthday-utils';
 
 const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   practice: 'Practice',
@@ -985,22 +987,25 @@ function PlayerSessionMessagesCard({
   const [emailSending, setEmailSending] = useState(false);
   const [emailResult, setEmailResult] = useState<{ sent: number; skipped: number } | null>(null);
 
-  // Fetch how many roster players have parent_email — only once messages exist
-  const { data: rosterEmailCount = 0 } = useQuery({
-    queryKey: ['roster-email-count', teamId],
+  // Fetch roster contacts (email + phone) — only once messages are generated
+  const { data: rosterContacts = [] } = useQuery<ParentEmailPlayer[]>({
+    queryKey: ['roster-contacts', teamId],
     queryFn: async () => {
-      const players = await query<{ parent_email: string | null }[]>({
+      const players = await query<ParentEmailPlayer[]>({
         table: 'players',
-        select: 'parent_email',
+        select: 'id, name, nickname, name_variants, parent_email, parent_name, parent_phone',
         filters: { team_id: teamId, is_active: true },
       });
-      return (players ?? []).filter(
-        (p) => p.parent_email && p.parent_email.trim().length > 0,
-      ).length;
+      return players ?? [];
     },
     enabled: !!messages,
     staleTime: 5 * 60 * 1000,
   });
+
+  const rosterEmailCount = rosterContacts.filter(
+    (p) => p.parent_email && p.parent_email.trim().length > 0,
+  ).length;
+  const rosterPhoneCount = countPlayersWithPhone(rosterContacts);
 
   async function handleGenerate() {
     setIsGenerating(true);
@@ -1052,8 +1057,16 @@ function PlayerSessionMessagesCard({
 
   async function handleShare(msg: PlayerMessageEntry, idx: number) {
     const text = `Hi! A quick note on ${msg.player_name} from today:\n\n${msg.message}\n\n⭐ Highlight: ${msg.highlight}\n🎯 Next focus: ${msg.next_focus}`;
+
+    // Try to match the AI-generated player name to a roster contact with a phone number
+    const matched = matchMessageToPlayer(msg.player_name, rosterContacts);
+    const phone = matched?.parent_phone;
+
     try {
-      if (typeof navigator !== 'undefined' && navigator.share) {
+      if (phone) {
+        // Direct WhatsApp to the parent's phone — works on both mobile and desktop
+        window.open(buildWhatsAppUrl(phone, text), '_blank', 'noopener');
+      } else if (typeof navigator !== 'undefined' && navigator.share) {
         await navigator.share({ title: `Message for ${msg.player_name}`, text });
       } else {
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
@@ -1090,6 +1103,18 @@ function PlayerSessionMessagesCard({
       setEmailSending(false);
     }
   }
+
+  // Precompute which AI-generated player names have a matched parent phone.
+  // Avoids repeated matchMessageToPlayer calls in render.
+  const directPhoneMap = useMemo(() => {
+    const map = new Map<string, string>(); // player_name → parent_phone
+    if (!messages || rosterContacts.length === 0) return map;
+    for (const msg of messages.messages) {
+      const matched = matchMessageToPlayer(msg.player_name, rosterContacts);
+      if (matched?.parent_phone) map.set(msg.player_name, matched.parent_phone);
+    }
+    return map;
+  }, [messages, rosterContacts]);
 
   const canGenerate = observationCount > 0;
 
@@ -1195,14 +1220,25 @@ function PlayerSessionMessagesCard({
                 className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-4 space-y-3"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-teal-300">{msg.player_name}</p>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p className="text-sm font-semibold text-teal-300 truncate">{msg.player_name}</p>
+                    {directPhoneMap.has(msg.player_name) && (
+                      <span className="shrink-0 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
+                        Direct
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1">
                     <Button
                       variant="ghost"
                       size="sm"
                       className="h-7 gap-1 px-2 text-xs text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 shrink-0"
                       onClick={() => handleShare(msg, idx)}
-                      aria-label={`Share message for ${msg.player_name} via WhatsApp or SMS`}
+                      aria-label={
+                        directPhoneMap.has(msg.player_name)
+                          ? `Send message directly to ${msg.player_name}'s parent via WhatsApp`
+                          : `Share message for ${msg.player_name} via WhatsApp or SMS`
+                      }
                     >
                       {sharedIdx === idx ? (
                         <Check className="h-3.5 w-3.5 text-emerald-400" />
@@ -1258,14 +1294,26 @@ function PlayerSessionMessagesCard({
               </div>
             )}
 
-            {/* Prompt to add parent emails when none are set up */}
-            {rosterEmailCount === 0 && (
+            {/* Prompt to add parent contacts when none are set up */}
+            {rosterEmailCount === 0 && rosterPhoneCount === 0 && (
               <p className="text-xs text-zinc-600 text-center pt-1">
-                Add parent emails in{' '}
+                Add parent phone or email in{' '}
                 <Link href="/roster" className="text-zinc-500 underline underline-offset-2 hover:text-zinc-400">
                   Roster
                 </Link>{' '}
                 to send these updates in one tap.
+              </p>
+            )}
+            {/* Hint when some but not all players have direct WhatsApp */}
+            {rosterPhoneCount > 0 && directPhoneMap.size < (messages?.messages.length ?? 0) && (
+              <p className="text-xs text-zinc-600 text-center pt-1">
+                {directPhoneMap.size > 0
+                  ? `${directPhoneMap.size} of ${messages?.messages.length} will go directly to a parent's WhatsApp. `
+                  : ''}
+                <Link href="/roster" className="text-zinc-500 underline underline-offset-2 hover:text-zinc-400">
+                  Add parent phones
+                </Link>{' '}
+                for one-tap direct sends.
               </p>
             )}
           </div>
