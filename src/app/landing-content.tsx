@@ -19,6 +19,7 @@ import {
   WifiOff,
   Lock,
   Calendar,
+  Star,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -473,6 +474,65 @@ export default function LandingContent() {
               </div>
             </div>
           </Card>
+        </div>
+      </section>
+
+      {/* ── Testimonials ── */}
+      <section className="mx-auto max-w-5xl px-4 py-16 sm:py-24">
+        <div className="text-center mb-12">
+          <p className="text-sm font-semibold uppercase tracking-wider text-orange-500 mb-2">Coach Stories</p>
+          <h2 className="text-2xl font-bold sm:text-3xl">Coaches love it. Parents share it.</h2>
+          <p className="mt-3 text-zinc-500 max-w-lg mx-auto">
+            What volunteer coaches say after their first season with SportsIQ.
+          </p>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-3">
+          {[
+            {
+              quote: "I sent the first parent report and two families messaged me before I even left the parking lot. One mom said it was the most detailed update she'd ever gotten from any coach. I didn't write a single word — the AI pulled it from my voice notes.",
+              name: 'Marcus T.',
+              role: 'YMCA Basketball Coach · Chicago, IL',
+              initials: 'MT',
+              color: '#F97316',
+            },
+            {
+              quote: "My 13-year-old had to show me how to press record. Now I use it every practice. The kids love the 'Player of the Week' moment — they all want to know who the AI picks. It's become our Friday ritual.",
+              name: 'Sandra L.',
+              role: 'Youth Soccer Coach · Austin, TX',
+              initials: 'SL',
+              color: '#3B82F6',
+            },
+            {
+              quote: "Sunday-night planning used to take me an hour — trying to remember what went wrong Tuesday. Now I pull up my observations and hit Generate Plan. Done in 90 seconds and it's actually better than what I was writing.",
+              name: 'Kevin M.',
+              role: 'Flag Football Volunteer · Dallas, TX',
+              initials: 'KM',
+              color: '#10B981',
+            },
+          ].map((t) => (
+            <Card key={t.name} className="p-6 bg-white border-zinc-200 text-zinc-900 flex flex-col hover:border-zinc-300 hover:shadow-md transition-all">
+              <div className="flex gap-0.5 mb-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Star key={i} className="h-4 w-4 fill-orange-400 text-orange-400" />
+                ))}
+              </div>
+              <blockquote className="text-sm text-zinc-700 leading-relaxed flex-1">
+                &ldquo;{t.quote}&rdquo;
+              </blockquote>
+              <div className="mt-5 flex items-center gap-3 pt-5 border-t border-zinc-100">
+                <div
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+                  style={{ backgroundColor: t.color }}
+                >
+                  {t.initials}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">{t.name}</p>
+                  <p className="text-xs text-zinc-500">{t.role}</p>
+                </div>
+              </div>
+            </Card>
+          ))}
         </div>
       </section>
 

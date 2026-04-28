@@ -39,6 +39,7 @@ import { AICoachingTipsCard } from '@/components/home/ai-coaching-tips-card';
 import { TeamSkillTrendsCard } from '@/components/home/team-skill-trends-card';
 import { WeeklyFocusCard } from '@/components/home/weekly-focus-card';
 import { FreemiumNudge } from '@/components/ui/freemium-nudge';
+import { SeasonalPromo } from '@/components/onboarding/seasonal-promo';
 
 // ─── Today's Session Card ────────────────────────────────────────────────────
 
@@ -668,6 +669,11 @@ export default function HomePage() {
           sportId={activeTeam.sport_id}
           ageGroup={activeTeam.age_group}
         />
+      )}
+
+      {/* Seasonal promo — new season kickoff (first 21 days of Sept/Jan/Apr) */}
+      {!isLoadingStats && stats && (
+        <SeasonalPromo playerCount={stats.players} />
       )}
 
       {/* Stats */}
