@@ -10,6 +10,7 @@ import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { mutate, query } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query/keys';
+import { useAppStore } from '@/lib/store';
 import {
   OBSERVATION_TEMPLATES,
   getTemplatesBySentiment,
@@ -24,6 +25,8 @@ export function QuickCaptureWidget() {
   const pathname = usePathname();
   const { activeTeam, coach } = useActiveTeam();
   const queryClient = useQueryClient();
+  const practiceActive = useAppStore((s) => s.practiceActive);
+  const practiceSessionId = useAppStore((s) => s.practiceSessionId);
 
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<WidgetTab>('voice');
@@ -243,10 +246,12 @@ export function QuickCaptureWidget() {
         const findPlayerId = (name: string): string | null =>
           findPlayerByName(name, players ?? []);
 
+        const sessionId = practiceActive && practiceSessionId ? practiceSessionId : null;
         const rows = observations.map((obs) => ({
           team_id: activeTeam.id,
           coach_id: coach.id,
           player_id: findPlayerId(obs.player_name),
+          session_id: sessionId,
           recording_id: null,
           category: obs.category || 'General',
           sentiment: obs.sentiment || 'neutral',
@@ -268,6 +273,9 @@ export function QuickCaptureWidget() {
         await queryClient.invalidateQueries({
           queryKey: queryKeys.observations.all(activeTeam.id),
         });
+        if (sessionId) {
+          queryClient.invalidateQueries({ queryKey: ['session-obs-count', sessionId] });
+        }
 
         setSavedCount(rows.length);
         setWidgetState('success');
@@ -297,6 +305,7 @@ export function QuickCaptureWidget() {
   async function saveTemplateObservation(playerId: string) {
     if (!selectedTemplate || !activeTeam || !coach) return;
     setSavingTemplate(true);
+    const sessionId = practiceActive && practiceSessionId ? practiceSessionId : null;
     try {
       await mutate({
         table: 'observations',
@@ -305,6 +314,7 @@ export function QuickCaptureWidget() {
           team_id: activeTeam.id,
           coach_id: coach.id,
           player_id: playerId,
+          session_id: sessionId,
           text: selectedTemplate.text,
           sentiment: selectedTemplate.sentiment,
           category: selectedTemplate.category,
@@ -320,6 +330,9 @@ export function QuickCaptureWidget() {
       queryClient.invalidateQueries({ queryKey: queryKeys.observations.all(activeTeam.id) });
       queryClient.invalidateQueries({ queryKey: ['home-stats', activeTeam.id] });
       queryClient.invalidateQueries({ queryKey: ['home-pulse', activeTeam.id] });
+      if (sessionId) {
+        queryClient.invalidateQueries({ queryKey: ['session-obs-count', sessionId] });
+      }
 
       setTemplateStep('saved');
       // Auto-reset so coach can log another immediately
