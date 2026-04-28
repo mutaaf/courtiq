@@ -85,6 +85,7 @@ const PLAN_TYPE_CONFIG: Record<
   season_awards: { label: 'Season Awards', icon: Trophy, color: 'text-amber-400' },
   huddle_script: { label: 'Huddle Script', icon: Megaphone, color: 'text-lime-400' },
   team_personality: { label: 'Team Personality', icon: Fingerprint, color: 'text-violet-400' },
+  practice_arc: { label: 'Practice Series', icon: Zap, color: 'text-sky-400' },
 };
 
 const SUGGESTION_CHIPS = [
@@ -428,6 +429,14 @@ export default function PlansPage() {
   const [generatingWeeklyStar, setGeneratingWeeklyStar] = useState(false);
   const [weeklyStarCopied, setWeeklyStarCopied] = useState(false);
 
+  // Practice Arc state
+  const [showArcForm, setShowArcForm] = useState(false);
+  const [generatingArc, setGeneratingArc] = useState(false);
+  const [arcNumSessions, setArcNumSessions] = useState<2 | 3>(2);
+  const [arcDuration, setArcDuration] = useState(60);
+  const [arcEvent, setArcEvent] = useState('');
+  const [arcFocus, setArcFocus] = useState('');
+
   // Run Practice modal state
   const [showRunModal, setShowRunModal] = useState(false);
   const [creatingSession, setCreatingSession] = useState(false);
@@ -693,6 +702,37 @@ export default function PlansPage() {
     }
   };
 
+  const generatePracticeArc = async () => {
+    if (!activeTeam) return;
+    setGeneratingArc(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/ai/practice-arc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId: activeTeam.id,
+          numSessions: arcNumSessions,
+          sessionDuration: arcDuration,
+          upcomingEvent: arcEvent.trim() || undefined,
+          focusArea: arcFocus.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate practice arc');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      setShowArcForm(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Practice arc generation failed');
+    } finally {
+      setGeneratingArc(false);
+    }
+  };
+
   const generateGamedayPrep = async () => {
     if (!activeTeam || !gamedayOpponent.trim()) return;
     setGeneratingGameday(true);
@@ -890,6 +930,135 @@ export default function PlansPage() {
     }
 
     if (!structured) return <p className="text-sm text-zinc-500">No content available</p>;
+
+    // Practice Arc renderer
+    if (
+      Array.isArray(structured.sessions) &&
+      structured.sessions.length >= 2 &&
+      typeof structured.arc_title === 'string' &&
+      typeof structured.progression_note === 'string'
+    ) {
+      const arc = structured as any;
+      const sessionAccent = (n: number) => {
+        const accents: Record<number, string> = { 1: 'sky', 2: 'violet', 3: 'emerald' };
+        return accents[n] ?? 'orange';
+      };
+      return (
+        <div className="space-y-5">
+          {/* Arc header */}
+          <div className="rounded-2xl border border-sky-500/30 bg-gradient-to-br from-sky-500/10 to-sky-500/5 p-5 space-y-2">
+            <div className="flex items-center gap-2 mb-1">
+              <Zap className="h-5 w-5 text-sky-400" />
+              <h2 className="text-lg font-bold text-sky-200">{arc.arc_title}</h2>
+            </div>
+            <p className="text-sm text-zinc-300 leading-relaxed">{arc.arc_goal}</p>
+            {Array.isArray(arc.primary_focus) && arc.primary_focus.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {arc.primary_focus.map((f: string, i: number) => (
+                  <span key={i} className="inline-flex items-center rounded-full bg-sky-500/15 border border-sky-500/25 px-2.5 py-0.5 text-xs font-medium text-sky-300">{f}</span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Sessions */}
+          <div className="space-y-4">
+            {(arc.sessions as any[]).map((session: any, idx: number) => {
+              const n = session.session_number ?? (idx + 1);
+              const accent = sessionAccent(n);
+              return (
+                <div key={idx} className={`rounded-xl border border-${accent}-500/25 bg-${accent}-500/5 p-4 space-y-3`}>
+                  {/* Session header */}
+                  <div className="flex items-center gap-2">
+                    <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-${accent}-500/25 text-xs font-bold text-${accent}-300`}>
+                      {n}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-semibold text-${accent}-300`}>{session.title}</p>
+                      <p className="text-xs text-zinc-500">{session.theme} · {session.duration_minutes} min</p>
+                    </div>
+                  </div>
+
+                  {/* Session goal */}
+                  <p className="text-xs text-zinc-400 leading-relaxed pl-8">{session.session_goal}</p>
+
+                  {/* Warmup */}
+                  {session.warmup && (
+                    <div className="pl-8 flex items-start gap-2">
+                      <div className="mt-0.5 h-1.5 w-1.5 rounded-full bg-zinc-500 shrink-0" />
+                      <div>
+                        <span className="text-xs font-medium text-zinc-300">Warmup ({session.warmup.duration_minutes}m): </span>
+                        <span className="text-xs text-zinc-400">{session.warmup.name} — {session.warmup.description}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Drills */}
+                  {Array.isArray(session.drills) && session.drills.length > 0 && (
+                    <div className="pl-8 space-y-2">
+                      {session.drills.map((drill: any, di: number) => (
+                        <div key={di} className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-zinc-200">{drill.name}</span>
+                            <span className="ml-auto text-xs text-zinc-500 shrink-0">{drill.duration_minutes}m</span>
+                          </div>
+                          <p className="text-xs text-zinc-400 leading-relaxed">{drill.description}</p>
+                          {Array.isArray(drill.coaching_cues) && drill.coaching_cues.length > 0 && (
+                            <div className="flex flex-wrap gap-1 pt-0.5">
+                              {drill.coaching_cues.slice(0, 3).map((cue: string, ci: number) => (
+                                <span key={ci} className="inline-block rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400">&ldquo;{cue}&rdquo;</span>
+                              ))}
+                            </div>
+                          )}
+                          {drill.progression_note && (
+                            <p className={`text-[11px] text-${accent}-400/70 italic`}>↑ {drill.progression_note}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Key coaching point */}
+                  {session.key_coaching_point && (
+                    <div className={`pl-8 flex items-start gap-2 rounded-lg border border-${accent}-500/20 bg-${accent}-500/8 px-3 py-2`}>
+                      <Megaphone className={`h-3.5 w-3.5 text-${accent}-400 mt-0.5 shrink-0`} />
+                      <p className={`text-xs font-medium text-${accent}-300`}>&ldquo;{session.key_coaching_point}&rdquo;</p>
+                    </div>
+                  )}
+
+                  {/* Carries forward */}
+                  {session.carries_forward && (
+                    <div className="pl-8 flex items-center gap-2">
+                      <ChevronRight className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                      <p className="text-xs text-zinc-500 italic">Next: {session.carries_forward}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Progression note */}
+          {arc.progression_note && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/50 p-4 space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">How These Practices Connect</p>
+              <p className="text-sm text-zinc-300 leading-relaxed">{arc.progression_note}</p>
+            </div>
+          )}
+
+          {/* Game day tip */}
+          {arc.game_day_tip && (
+            <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 p-4 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-amber-400" />
+                <p className="text-xs font-semibold text-amber-300">Game Day Tip</p>
+              </div>
+              <p className="text-sm text-zinc-300 leading-relaxed">{arc.game_day_tip}</p>
+            </div>
+          )}
+        </div>
+      );
+    }
 
     // Newsletter renderer
     if (structured.player_spotlights || structured.week_summary) {
@@ -2672,6 +2841,91 @@ export default function PlansPage() {
                 <p className="text-xs text-zinc-500">From your observation data</p>
               </div>
             </button>
+
+            {/* Practice Arc — multi-session progression planner */}
+            <div className="rounded-xl border border-sky-500/40 bg-gradient-to-r from-sky-500/15 to-sky-500/5 p-3 space-y-3">
+              <button
+                type="button"
+                onClick={() => setShowArcForm(!showArcForm)}
+                disabled={generatingArc || generating || !activeTeam}
+                className="flex w-full items-center gap-2.5 text-left disabled:opacity-50 touch-manipulation"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/25">
+                  {generatingArc ? (
+                    <Loader2 className="h-4 w-4 text-sky-400 animate-spin" />
+                  ) : (
+                    <Zap className="h-4 w-4 text-sky-400" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-sky-300">Practice Series</p>
+                  <p className="text-xs text-zinc-500">2–3 linked practices that build on each other</p>
+                </div>
+                <ChevronDown className={`h-4 w-4 text-sky-500/60 shrink-0 transition-transform ${showArcForm ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showArcForm && (
+                <div className="space-y-2.5 pt-1 border-t border-sky-500/20">
+                  {/* Sessions + Duration row */}
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <p className="text-xs text-zinc-400 mb-1">Sessions</p>
+                      <div className="flex rounded-lg border border-zinc-700 overflow-hidden text-xs">
+                        {([2, 3] as const).map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setArcNumSessions(n)}
+                            className={`flex-1 py-1.5 font-medium transition-colors ${arcNumSessions === n ? 'bg-sky-500/30 text-sky-300' : 'bg-zinc-800/60 text-zinc-400 hover:text-zinc-200'}`}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs text-zinc-400 mb-1">Duration each</p>
+                      <select
+                        value={arcDuration}
+                        onChange={(e) => setArcDuration(Number(e.target.value))}
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-sky-500/50"
+                      >
+                        {[30, 45, 60, 75, 90].map((m) => (
+                          <option key={m} value={m}>{m} min</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {/* Optional fields */}
+                  <input
+                    type="text"
+                    value={arcEvent}
+                    onChange={(e) => setArcEvent(e.target.value)}
+                    placeholder="Upcoming event (e.g. tournament Saturday)"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-sky-500/50"
+                  />
+                  <input
+                    type="text"
+                    value={arcFocus}
+                    onChange={(e) => setArcFocus(e.target.value)}
+                    placeholder="Focus area (optional — AI uses your data)"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-sky-500/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={generatePracticeArc}
+                    disabled={generatingArc || !activeTeam}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-sky-500/20 border border-sky-500/40 py-2 text-sm font-semibold text-sky-300 hover:bg-sky-500/30 transition-colors disabled:opacity-50 touch-manipulation active:scale-[0.98]"
+                  >
+                    {generatingArc ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> Generating {arcNumSessions}-Practice Arc…</>
+                    ) : (
+                      <><Zap className="h-4 w-4" /> Generate {arcNumSessions}-Practice Series</>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* More generators — collapsible on mobile */}
             {showMoreGenerators && (

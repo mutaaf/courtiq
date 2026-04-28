@@ -406,3 +406,44 @@ export const teamPersonalitySchema = z.object({
 });
 
 export type TeamPersonality = z.infer<typeof teamPersonalitySchema>;
+
+// ── Practice Arc (multi-session progression plan) ───────────────────────────
+
+const practiceArcSessionSchema = z.object({
+  session_number: z.number().int().min(1).max(3),
+  title: z.string().min(3),
+  theme: z.string().min(3),                        // e.g. "Defense Foundations"
+  duration_minutes: z.number().positive(),
+  session_goal: z.string().min(10),
+  warmup: z.object({
+    name: z.string().min(3),
+    duration_minutes: z.number().positive(),
+    description: z.string().min(10),
+  }),
+  drills: z.array(z.object({
+    name: z.string().min(3),
+    duration_minutes: z.number().positive(),
+    description: z.string().min(10),
+    coaching_cues: z.array(z.string().min(5)),
+    progression_note: z.string().optional(),       // "Builds on Session 1's zone principles"
+  })).min(2),
+  cooldown: z.object({
+    duration_minutes: z.number().positive(),
+    notes: z.string().min(5),
+  }),
+  key_coaching_point: z.string().min(10),         // The ONE thing to say to players today
+  carries_forward: z.string().optional(),          // What carries into the next practice
+});
+
+export const practiceArcSchema = z.object({
+  arc_title: z.string().min(5),                   // e.g. "Tournament Prep — 3-Practice Arc"
+  arc_goal: z.string().min(10),
+  primary_focus: z.array(z.string().min(2)).min(1).max(3),
+  total_sessions: z.number().int().min(2).max(3),
+  sessions: z.array(practiceArcSessionSchema).min(2).max(3),
+  progression_note: z.string().min(20),           // Narrative connecting the sessions together
+  game_day_tip: z.string().optional(),            // Final advice for game / event day
+});
+
+export type PracticeArc = z.infer<typeof practiceArcSchema>;
+export type PracticeArcSession = z.infer<typeof practiceArcSessionSchema>;

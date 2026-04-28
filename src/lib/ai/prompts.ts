@@ -947,4 +947,51 @@ export const PROMPT_REGISTRY = {
       '{ "team_type": "The [Name]", "type_emoji": "emoji", "tagline": "punchy one-liner", "description": "2-3 sentences", "traits": [{ "name": "Trait Name", "score": 0-100, "description": "1 sentence from data" }], "strengths": ["string"], "growth_areas": ["string"], "coaching_tips": ["actionable tip"], "team_motto": "short motto" }',
     ].filter(Boolean).join('\n'),
   }),
+
+  practiceArc: (params: PromptParams & {
+    numSessions: number;
+    sessionDurationMinutes: number;
+    upcomingEvent?: string;
+    focusArea?: string;
+    topNeedsWork: string[];
+    topStrengths: string[];
+    totalObs: number;
+    recentSessions: number;
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You create multi-session practice arcs for volunteer coaches — coherent 2–3 session progressions where each practice builds on the last.',
+      '',
+      'Rules:',
+      '- arc_title: short and descriptive (e.g. "Defense & Passing — 3-Practice Arc").',
+      '- arc_goal: one sentence explaining what the team will achieve across the full arc.',
+      '- primary_focus: 1–3 skill categories that are the central theme across all sessions.',
+      '- sessions: generate exactly ' + params.numSessions + ' sessions, each with increasing complexity.',
+      '- session themes must show clear progression: Session 1 = fundamentals/introduce, Session 2 = combine/develop' + (params.numSessions === 3 ? ', Session 3 = apply/game-speed' : '') + '.',
+      '- Each drill: name, duration_minutes, description (2 sentences max), 2–3 coaching_cues (short actionable phrases), optional progression_note linking to prior session.',
+      '- carries_forward: one sentence on what skill/concept carries into the next session (omit on last session).',
+      '- key_coaching_point: the ONE coaching phrase the coach says to the team during that practice.',
+      '- progression_note (arc level): 2–3 sentences explaining how sessions connect and build.',
+      `- game_day_tip: ${params.upcomingEvent ? 'one practical tip for ' + params.upcomingEvent : 'omit this field (no upcoming event)'}`,
+      '- Each session total drill time (warmup + drills + cooldown) must equal session_duration_minutes.',
+      '- Tone: clear, actionable, volunteer-coach-friendly. No jargon. Each drill must be runnable by one coach with a full team.',
+    ].join('\n'),
+    user: [
+      `Team: ${params.teamName || 'Team'} · ${params.ageGroup || 'youth'} ${params.sportName || 'basketball'}`,
+      `Players: ${params.playerCount || 'unknown'}`,
+      `Arc length: ${params.numSessions} practices`,
+      `Each practice: ${params.sessionDurationMinutes} minutes`,
+      params.upcomingEvent ? `Upcoming event: ${params.upcomingEvent}` : '',
+      params.focusArea ? `Requested focus: ${params.focusArea}` : '',
+      '',
+      `Team skill data (${params.totalObs} total observations, ${params.recentSessions} recent sessions):`,
+      `- Top needs-work areas: ${params.topNeedsWork.join(', ') || 'general fundamentals'}`,
+      `- Current strengths: ${params.topStrengths.join(', ') || 'effort and teamwork'}`,
+      '',
+      `Skill categories available: ${params.categories?.join(', ') || 'shooting, defense, passing, dribbling, footwork, teamwork'}`,
+      '',
+      `Generate a ${params.numSessions}-session practice arc JSON:`,
+      `{ "arc_title": "string", "arc_goal": "string", "primary_focus": ["skill1"], "total_sessions": ${params.numSessions}, "sessions": [{ "session_number": 1, "title": "string", "theme": "string", "duration_minutes": ${params.sessionDurationMinutes}, "session_goal": "string", "warmup": { "name": "string", "duration_minutes": 5, "description": "string" }, "drills": [{ "name": "string", "duration_minutes": 10, "description": "string", "coaching_cues": ["string"], "progression_note": "string" }], "cooldown": { "duration_minutes": 5, "notes": "string" }, "key_coaching_point": "string", "carries_forward": "string" }], "progression_note": "string", "game_day_tip": "string" }`,
+    ].filter(Boolean).join('\n'),
+  }),
 } as const;
