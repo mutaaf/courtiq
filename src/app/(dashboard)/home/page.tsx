@@ -38,6 +38,7 @@ import { DrillOfDayCard } from '@/components/home/drill-of-day-card';
 import { AICoachingTipsCard } from '@/components/home/ai-coaching-tips-card';
 import { TeamSkillTrendsCard } from '@/components/home/team-skill-trends-card';
 import { WeeklyFocusCard } from '@/components/home/weekly-focus-card';
+import { FreemiumNudge } from '@/components/ui/freemium-nudge';
 
 // ─── Today's Session Card ────────────────────────────────────────────────────
 
@@ -711,6 +712,11 @@ export default function HomePage() {
           </>
         )}
       </div>
+
+      {/* Freemium nudge — contextual upgrade prompt for free-tier coaches */}
+      {stats && (
+        <FreemiumNudge playerCount={stats.players} observationCount={stats.observations} />
+      )}
 
       {/* Weekly Team Focus — coach declares a skill theme for the week */}
       {activeTeam && stats && stats.sessions >= 1 && (

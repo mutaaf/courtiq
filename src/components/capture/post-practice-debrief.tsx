@@ -360,7 +360,10 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <Link href={`/sessions/${sessionId}`} onClick={onClose}>
+                <Link
+                  href={`/sessions/${sessionId}?fromPractice=1&obsCount=${savedSummary.obsCount}&playerCount=${savedSummary.playerCount}`}
+                  onClick={onClose}
+                >
                   <button className="w-full flex flex-col items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 p-4 text-center hover:border-orange-500/40 hover:bg-zinc-800 transition-colors touch-manipulation active:scale-[0.97]">
                     <Eye className="h-6 w-6 text-orange-400" />
                     <span className="text-sm font-medium text-zinc-200">View Session</span>
