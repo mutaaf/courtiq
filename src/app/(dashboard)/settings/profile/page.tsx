@@ -10,7 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Save, Loader2, LogOut, User } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, LogOut, User, Mail } from 'lucide-react';
+import { isParentDigestEnabled, enableParentDigest, disableParentDigest } from '@/lib/parent-digest-utils';
 import Link from 'next/link';
 
 export default function ProfileSettingsPage() {
@@ -21,6 +22,9 @@ export default function ProfileSettingsPage() {
   const [email, setEmail] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [initialized, setInitialized] = useState(false);
+  const [autoParentDigest, setAutoParentDigest] = useState(false);
+  const [digestSaving, setDigestSaving] = useState(false);
+  const [digestSaved, setDigestSaved] = useState(false);
 
   const { data: meData, isLoading } = useQuery({
     queryKey: queryKeys.coach.current(),
@@ -38,9 +42,33 @@ export default function ProfileSettingsPage() {
       setFullName(coach.full_name || '');
       setEmail(coach.email || '');
       setAvatarUrl(coach.avatar_url || '');
+      setAutoParentDigest(isParentDigestEnabled(coach.preferences));
       setInitialized(true);
     }
   }, [coach, initialized]);
+
+  async function toggleAutoParentDigest(enabled: boolean) {
+    if (!coach) return;
+    setDigestSaving(true);
+    setDigestSaved(false);
+    const newPrefs = enabled
+      ? enableParentDigest(coach.preferences)
+      : disableParentDigest(coach.preferences);
+    try {
+      await mutate({
+        table: 'coaches',
+        operation: 'update',
+        data: { preferences: newPrefs },
+        filters: { id: coach.id },
+      });
+      setAutoParentDigest(enabled);
+      queryClient.invalidateQueries({ queryKey: queryKeys.coach.current() });
+      setDigestSaved(true);
+      setTimeout(() => setDigestSaved(false), 2500);
+    } finally {
+      setDigestSaving(false);
+    }
+  }
 
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -163,6 +191,54 @@ export default function ProfileSettingsPage() {
               {updateMutation.isError && (
                 <p className="text-xs text-red-400">Failed to update profile. Please try again.</p>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Communication preferences */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Mail className="h-4 w-4 text-orange-400" />
+                Communication
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-zinc-200">
+                    Auto parent progress emails
+                  </p>
+                  <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">
+                    Every Sunday, parents with an email on file automatically receive
+                    their child's latest progress report link — no manual sharing needed.
+                  </p>
+                  {digestSaved && (
+                    <p className="text-xs text-emerald-400 mt-1">Saved!</p>
+                  )}
+                </div>
+                <button
+                  role="switch"
+                  aria-checked={autoParentDigest}
+                  aria-label="Auto parent progress emails"
+                  disabled={digestSaving}
+                  onClick={() => toggleAutoParentDigest(!autoParentDigest)}
+                  className={[
+                    'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 disabled:opacity-50',
+                    autoParentDigest ? 'bg-orange-500' : 'bg-zinc-700',
+                  ].join(' ')}
+                >
+                  <span
+                    className={[
+                      'pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform',
+                      autoParentDigest ? 'translate-x-5' : 'translate-x-0',
+                    ].join(' ')}
+                  />
+                </button>
+              </div>
+              <p className="text-xs text-zinc-600 leading-relaxed border-t border-zinc-800 pt-3">
+                Add parent emails in Roster → player cards to start sending.
+                Requires a Coach plan or higher (parent sharing feature).
+              </p>
             </CardContent>
           </Card>
 
