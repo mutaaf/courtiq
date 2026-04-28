@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Target, X, ChevronDown } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Target, X, ChevronDown, Dumbbell, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   FOCUS_CATEGORIES,
@@ -20,9 +21,12 @@ interface WeeklyFocusCardProps {
 }
 
 export function WeeklyFocusCard({ teamId }: WeeklyFocusCardProps) {
+  const router = useRouter();
   const [focus, setFocus] = useState<WeeklyFocus | null>(null);
   const [picking, setPicking] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
 
   // Read from localStorage only on the client
   useEffect(() => {
@@ -36,12 +40,42 @@ export function WeeklyFocusCard({ teamId }: WeeklyFocusCardProps) {
     const newFocus = setWeeklyFocus(teamId, category);
     setFocus(newFocus);
     setPicking(false);
+    setGenError(null);
   }
 
   function handleClear() {
     clearWeeklyFocus(teamId);
     setFocus(null);
     setPicking(false);
+    setGenError(null);
+  }
+
+  async function handleGeneratePlan() {
+    if (!focus || generating) return;
+    const config = getFocusCategoryConfig(focus.category);
+    const skillLabel = config?.label ?? focus.category;
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const res = await fetch('/api/ai/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId,
+          type: 'practice',
+          focusSkills: [skillLabel],
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to generate plan');
+      }
+      router.push('/plans');
+    } catch (err) {
+      setGenError(err instanceof Error ? err.message : 'Generation failed');
+    } finally {
+      setGenerating(false);
+    }
   }
 
   const config = focus ? getFocusCategoryConfig(focus.category) : null;
@@ -108,7 +142,7 @@ export function WeeklyFocusCard({ teamId }: WeeklyFocusCardProps) {
 
   // ── Focus set mode ─────────────────────────────────────────────────────────
   return (
-    <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-4">
+    <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-4 space-y-3">
       <div className="flex items-center gap-3">
         {/* Category icon */}
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 text-2xl">
@@ -138,6 +172,32 @@ export function WeeklyFocusCard({ teamId }: WeeklyFocusCardProps) {
           <ChevronDown className="h-3 w-3" />
         </Button>
       </div>
+
+      {/* Generate practice plan CTA */}
+      <button
+        onClick={handleGeneratePlan}
+        disabled={generating}
+        className="w-full flex items-center justify-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-2.5 text-sm font-semibold text-indigo-300 hover:bg-indigo-500/20 hover:border-indigo-500/50 active:scale-[0.98] transition-all touch-manipulation disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        {generating ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Building {config?.label ?? ''} plan…
+          </>
+        ) : (
+          <>
+            <Dumbbell className="h-4 w-4" />
+            Build {config?.label ?? ''} Practice Plan
+          </>
+        )}
+      </button>
+
+      {genError && (
+        <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0 text-red-400" />
+          <p className="text-xs text-red-400">{genError}</p>
+        </div>
+      )}
     </div>
   );
 }
