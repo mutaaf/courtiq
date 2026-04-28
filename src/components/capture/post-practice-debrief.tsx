@@ -32,6 +32,10 @@ interface Template {
   category: string;
 }
 
+interface SessionObs {
+  player_id: string | null;
+}
+
 const POSITIVE_TEMPLATES: Template[] = [
   { text: 'Great energy',      category: 'hustle'      },
   { text: 'Strong passing',    category: 'passing'     },
@@ -74,15 +78,29 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
   const [players, setPlayers] = useState<{ id: string; name: string; jersey_number: number | null }[]>([]);
   const [saving, setSaving] = useState(false);
   const [savedSummary, setSavedSummary] = useState<SavedSummary | null>(null);
+  const [sessionObservedIds, setSessionObservedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!activeTeam?.id) return;
-    query<{ id: string; name: string; jersey_number: number | null }[]>({
-      table: 'players',
-      select: 'id, name, jersey_number',
-      filters: { team_id: activeTeam.id, is_active: true },
-    }).then((data) => setPlayers(data || []));
-  }, [activeTeam?.id]);
+    Promise.all([
+      query<{ id: string; name: string; jersey_number: number | null }[]>({
+        table: 'players',
+        select: 'id, name, jersey_number',
+        filters: { team_id: activeTeam.id, is_active: true },
+      }),
+      query<SessionObs[]>({
+        table: 'observations',
+        select: 'player_id',
+        filters: { session_id: sessionId },
+      }),
+    ]).then(([playerData, obsData]) => {
+      setPlayers(playerData || []);
+      const ids = new Set(
+        (obsData || []).filter((o) => o.player_id).map((o) => o.player_id as string)
+      );
+      setSessionObservedIds(ids);
+    });
+  }, [activeTeam?.id, sessionId]);
 
   const steps: Step[] = ['standouts', 'positives', 'work', 'notes'];
   const stepIndex = steps.indexOf(step as Exclude<Step, 'done'>);
@@ -242,26 +260,91 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                   <h3 className="text-base font-semibold text-zinc-100">Who stood out today?</h3>
                   <p className="text-xs text-zinc-500 mt-1">Tap players who caught your eye</p>
                 </div>
+
+                {/* Coverage summary */}
+                {players.length > 0 && (
+                  <div className={`rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-3 ${
+                    sessionObservedIds.size === players.length
+                      ? 'bg-emerald-500/10 border border-emerald-500/20'
+                      : sessionObservedIds.size > 0
+                        ? 'bg-amber-500/10 border border-amber-500/20'
+                        : 'bg-zinc-800/60 border border-zinc-700/60'
+                  }`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`h-2 w-2 shrink-0 rounded-full ${
+                        sessionObservedIds.size === players.length
+                          ? 'bg-emerald-400'
+                          : sessionObservedIds.size > 0
+                            ? 'bg-amber-400'
+                            : 'bg-zinc-500'
+                      }`} />
+                      <span className={`text-xs font-medium ${
+                        sessionObservedIds.size === players.length
+                          ? 'text-emerald-300'
+                          : sessionObservedIds.size > 0
+                            ? 'text-amber-300'
+                            : 'text-zinc-400'
+                      }`}>
+                        {sessionObservedIds.size === players.length
+                          ? `All ${players.length} players observed ✓`
+                          : sessionObservedIds.size === 0
+                            ? `No players observed yet`
+                            : `${sessionObservedIds.size} of ${players.length} players observed`
+                        }
+                      </span>
+                    </div>
+                    {sessionObservedIds.size > 0 && sessionObservedIds.size < players.length && (
+                      <span className="shrink-0 text-[11px] text-amber-400 font-medium">
+                        {players.length - sessionObservedIds.size} missed
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-2 justify-center">
-                  {players.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => togglePlayer(p.id)}
-                      className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-all active:scale-95 touch-manipulation ${
-                        selectedPlayers.includes(p.id)
-                          ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
-                          : 'bg-zinc-800 border border-zinc-700 text-zinc-300 hover:border-zinc-600'
-                      }`}
-                    >
-                      {selectedPlayers.includes(p.id) && <Check className="h-3.5 w-3.5" />}
-                      {p.jersey_number != null && <span className="text-zinc-500 text-xs">#{p.jersey_number}</span>}
-                      {p.name.split(' ')[0]}
-                    </button>
-                  ))}
+                  {players.map((p) => {
+                    const alreadyObserved = sessionObservedIds.has(p.id);
+                    const isSelected = selectedPlayers.includes(p.id);
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => togglePlayer(p.id)}
+                        className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-all active:scale-95 touch-manipulation ${
+                          isSelected
+                            ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
+                            : alreadyObserved
+                              ? 'bg-zinc-800/80 border border-zinc-600 text-zinc-300'
+                              : 'bg-amber-500/10 border border-amber-500/25 text-amber-300 hover:border-amber-500/40'
+                        }`}
+                        title={alreadyObserved ? 'Observed this session' : 'Not yet observed'}
+                      >
+                        {isSelected
+                          ? <Check className="h-3.5 w-3.5" />
+                          : alreadyObserved
+                            ? <Check className="h-3.5 w-3.5 text-zinc-500" />
+                            : null
+                        }
+                        {p.jersey_number != null && (
+                          <span className={`text-xs ${alreadyObserved ? 'text-zinc-500' : 'text-amber-500/70'}`}>
+                            #{p.jersey_number}
+                          </span>
+                        )}
+                        {p.name.split(' ')[0]}
+                      </button>
+                    );
+                  })}
                   {players.length === 0 && (
                     <p className="text-sm text-zinc-500">No players found</p>
                   )}
                 </div>
+
+                {/* Not-yet-observed callout */}
+                {players.length > 0 && sessionObservedIds.size < players.length && sessionObservedIds.size >= 0 && (
+                  <p className="text-center text-[11px] text-zinc-600">
+                    <span className="inline-block w-2 h-2 rounded-full bg-amber-500/60 mr-1.5 align-middle" />
+                    Amber = not yet observed this session
+                  </p>
+                )}
               </CardContent>
             </Card>
           )}
