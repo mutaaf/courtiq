@@ -6,3 +6,4 @@ ALTER TABLE organizations ADD COLUMN IF NOT EXISTS current_period_end timestampt
 ALTER TABLE organizations ADD COLUMN IF NOT EXISTS cancel_at_period_end boolean DEFAULT false;
 
 CREATE INDEX IF NOT EXISTS idx_organizations_stripe_customer ON organizations(stripe_customer_id);
+CREATE INDEX IF NOT EXISTS idx_organizations_stripe_sub ON organizations(stripe_subscription_id);

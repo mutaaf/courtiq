@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS team_announcements (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Fast lookup: active (non-expired) announcements for a team
-CREATE INDEX IF NOT EXISTS idx_team_announcements_team_active
-  ON team_announcements (team_id, created_at DESC)
-  WHERE expires_at IS NULL OR expires_at > NOW();
+-- Fast lookup by team + recency. The "non-expired" filter happens at query
+-- time (a partial-index predicate using NOW() is rejected because NOW() is
+-- not IMMUTABLE).
+CREATE INDEX IF NOT EXISTS idx_team_announcements_team_recent
+  ON team_announcements (team_id, created_at DESC);
