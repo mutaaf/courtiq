@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2 } from 'lucide-react';
+import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2, Star } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { RecurringSessionsPanel } from '@/components/sessions/recurring-sessions-panel';
@@ -79,7 +79,7 @@ export default function SessionsPage() {
       }
       const data = await query<any[]>({
         table: 'sessions',
-        select: '*, observations:observations(count)',
+        select: 'id, type, date, start_time, location, opponent, result, curriculum_week, quality_rating, observations:observations(count)',
         filters,
         order: { column: 'date', ascending: false },
       });
@@ -293,9 +293,21 @@ export default function SessionsPage() {
                           </div>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 text-sm text-zinc-500 shrink-0 ml-3">
-                        <Eye className="h-3.5 w-3.5" />
-                        {obsCount}
+                      <div className="flex flex-col items-end gap-1.5 shrink-0 ml-3">
+                        <div className="flex items-center gap-1 text-sm text-zinc-500">
+                          <Eye className="h-3.5 w-3.5" />
+                          {obsCount}
+                        </div>
+                        {session.quality_rating != null && session.quality_rating >= 1 && session.quality_rating <= 5 && (
+                          <div className="flex items-center gap-0.5" title={`Session rated ${session.quality_rating}/5`}>
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`h-3 w-3 ${i < session.quality_rating ? 'text-amber-400 fill-amber-400' : 'text-zinc-700'}`}
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </CardContent>
