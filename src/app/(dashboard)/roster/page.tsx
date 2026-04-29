@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlayerCard } from '@/components/roster/player-card';
 import { BulkActionsBar } from '@/components/roster/bulk-actions-bar';
-import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareArrows, CheckSquare, ShieldAlert } from 'lucide-react';
+import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareArrows, CheckSquare, ShieldAlert, Radio } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { ParentEngagementPanel } from '@/components/roster/parent-engagement-panel';
@@ -19,6 +19,7 @@ import { TeamAttendancePanel } from '@/components/roster/team-attendance-panel';
 import { AvailabilityBadge } from '@/components/roster/availability-badge';
 import type { Player, PlayerAvailability } from '@/types/database';
 import type { PlayerMomentum } from '@/lib/momentum-utils';
+import { useAppStore } from '@/lib/store';
 
 type SortMode = 'alpha' | 'attention' | 'momentum';
 
@@ -29,6 +30,9 @@ export default function RosterPage() {
   const [sortMode, setSortMode] = useState<SortMode>('alpha');
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const practiceActive = useAppStore((s) => s.practiceActive);
+  const practiceSessionId = useAppStore((s) => s.practiceSessionId);
 
   function toggleSelect(playerId: string) {
     setSelectedIds((prev) => {
@@ -116,6 +120,23 @@ export default function RosterPage() {
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
+  // Live observation tracking for the active practice session
+  const { data: sessionObsIds = new Set<string>() } = useQuery({
+    queryKey: ['session-obs-count', practiceSessionId],
+    queryFn: async () => {
+      if (!practiceSessionId) return new Set<string>();
+      const obs = await query<{ player_id: string | null }[]>({
+        table: 'observations',
+        select: 'player_id',
+        filters: { session_id: practiceSessionId },
+      });
+      return new Set((obs ?? []).filter((o) => o.player_id).map((o) => o.player_id as string));
+    },
+    enabled: !!practiceSessionId && practiceActive,
+    refetchInterval: 30_000,
+    staleTime: 20_000,
+  });
+
   const positions = useMemo(() => {
     const set = new Set(players.map((p) => p.position));
     return Array.from(set).sort();
@@ -156,9 +177,17 @@ export default function RosterPage() {
         if (aScore === bScore) return a.name.localeCompare(b.name);
         return aScore - bScore; // lowest momentum first
       });
+    } else if (practiceActive && sortMode === 'alpha') {
+      // During active practice, surface unobserved players first within alpha order
+      result.sort((a, b) => {
+        const aObs = sessionObsIds.has(a.id);
+        const bObs = sessionObsIds.has(b.id);
+        if (aObs === bObs) return a.name.localeCompare(b.name);
+        return aObs ? 1 : -1; // not yet observed → top
+      });
     }
     return result;
-  }, [filtered, sortMode, lastObsMap, momentumMap]);
+  }, [filtered, sortMode, lastObsMap, momentumMap, practiceActive, sessionObsIds]);
 
   // Summary: players with a non-available status
   const unavailableCount = useMemo(
@@ -338,6 +367,30 @@ export default function RosterPage() {
         </div>
       )}
 
+      {/* Practice-active banner — live coverage tracker with quick-observe CTA */}
+      {practiceActive && practiceSessionId && players.length > 0 && (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Radio className="h-4 w-4 text-emerald-400 animate-pulse" />
+              <span className="text-sm font-semibold text-emerald-300">Practice Active</span>
+              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-400">
+                {sessionObsIds.size}/{players.filter((p) => availabilityMap[p.id]?.status !== 'injured' && availabilityMap[p.id]?.status !== 'sick' && availabilityMap[p.id]?.status !== 'unavailable').length || players.length} observed
+              </span>
+            </div>
+            <Link
+              href="/home"
+              className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              ← Back to practice
+            </Link>
+          </div>
+          <p className="text-xs text-zinc-500">
+            Tap a player&apos;s mic button to capture an observation. Observed players move to the bottom.
+          </p>
+        </div>
+      )}
+
       {/* Player Grid */}
       {isLoading ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -402,6 +455,8 @@ export default function RosterPage() {
               availability={availabilityMap[player.id] ?? null}
               teamId={activeTeam.id}
               momentum={momentumMap[player.id] ?? null}
+              practiceSessionId={practiceActive ? practiceSessionId : null}
+              observedInSession={practiceActive ? sessionObsIds.has(player.id) : false}
             />
           ))}
         </div>

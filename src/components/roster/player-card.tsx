@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Check, Clock } from 'lucide-react';
+import { Check, Clock, Mic, CheckCircle2 } from 'lucide-react';
 import type { Player, PlayerAvailability } from '@/types/database';
 import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { AvailabilityBadge } from '@/components/roster/availability-badge';
 import { PlayerAvailabilityModal } from '@/components/roster/player-availability-modal';
 import type { PlayerMomentum } from '@/lib/momentum-utils';
 import { getMomentumBadgeClasses, getMomentumLabel } from '@/lib/momentum-utils';
+import Link from 'next/link';
 
 function formatLastObserved(iso: string | null): { label: string; className: string } | null {
   if (!iso) return { label: 'Never observed', className: 'text-zinc-600' };
@@ -34,6 +35,10 @@ interface PlayerCardProps {
   availability?: PlayerAvailability | null;
   teamId?: string;
   momentum?: PlayerMomentum | null;
+  /** ID of the active practice session — when set, shows practice-mode UX */
+  practiceSessionId?: string | null;
+  /** True when this player has already been observed in the active session */
+  observedInSession?: boolean;
 }
 
 const positionColors: Record<string, string> = {
@@ -56,6 +61,8 @@ export function PlayerCard({
   availability,
   teamId,
   momentum = null,
+  practiceSessionId = null,
+  observedInSession = false,
 }: PlayerCardProps) {
   const router = useRouter();
   const [showAvailability, setShowAvailability] = useState(false);
@@ -82,6 +89,8 @@ export function PlayerCard({
         className={cn(
           'cursor-pointer transition-all hover:border-orange-500/50 hover:bg-zinc-900/80',
           selected && 'border-orange-500 bg-orange-500/5',
+          practiceSessionId && observedInSession && 'opacity-60 border-emerald-500/20',
+          practiceSessionId && !observedInSession && 'border-orange-500/30',
         )}
         onClick={handleClick}
       >
@@ -180,24 +189,51 @@ export function PlayerCard({
             )}
           </div>
 
-          {/* Right side: obs count (desktop only) + availability toggle when available */}
+          {/* Right side: practice mode OR obs count + availability toggle */}
           <div className="flex flex-col items-end gap-2">
-            {observationCount > 0 && (
-              <div className="hidden sm:flex flex-col items-center">
-                <span className="text-lg font-bold text-orange-500">{observationCount}</span>
-                <span className="text-[10px] text-zinc-500">obs</span>
-              </div>
-            )}
-            {/* Tap when "available" to set a restriction */}
-            {!showBadge && teamId && !selectMode && (
-              <button
-                onClick={handleAvailabilityClick}
-                className="touch-manipulation rounded-full p-1 text-zinc-600 hover:bg-zinc-800 hover:text-zinc-400"
-                aria-label={`Set availability for ${player.name}`}
-                title="Set availability"
-              >
-                <AvailabilityBadge status="available" size="dot" />
-              </button>
+            {practiceSessionId && !selectMode ? (
+              // Practice mode: checkmark (observed) or mic button (not yet observed)
+              observedInSession ? (
+                <div
+                  className="flex flex-col items-center gap-0.5"
+                  title="Observed this session"
+                >
+                  <CheckCircle2 className="h-6 w-6 text-emerald-400" />
+                  <span className="text-[9px] font-medium text-emerald-500">Observed</span>
+                </div>
+              ) : (
+                <Link
+                  href={`/capture?sessionId=${practiceSessionId}&player=${encodeURIComponent(player.name)}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex flex-col items-center gap-0.5 touch-manipulation"
+                  aria-label={`Observe ${player.name}`}
+                >
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-500/20 hover:bg-orange-500/30 active:scale-95 transition-all">
+                    <Mic className="h-4 w-4 text-orange-400" />
+                  </div>
+                  <span className="text-[9px] font-medium text-orange-400">Observe</span>
+                </Link>
+              )
+            ) : (
+              <>
+                {observationCount > 0 && (
+                  <div className="hidden sm:flex flex-col items-center">
+                    <span className="text-lg font-bold text-orange-500">{observationCount}</span>
+                    <span className="text-[10px] text-zinc-500">obs</span>
+                  </div>
+                )}
+                {/* Tap when "available" to set a restriction */}
+                {!showBadge && teamId && !selectMode && (
+                  <button
+                    onClick={handleAvailabilityClick}
+                    className="touch-manipulation rounded-full p-1 text-zinc-600 hover:bg-zinc-800 hover:text-zinc-400"
+                    aria-label={`Set availability for ${player.name}`}
+                    title="Set availability"
+                  >
+                    <AvailabilityBadge status="available" size="dot" />
+                  </button>
+                )}
+              </>
             )}
           </div>
         </CardContent>
