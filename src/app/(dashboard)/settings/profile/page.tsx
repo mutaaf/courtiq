@@ -12,6 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, Save, Loader2, LogOut, User, Mail } from 'lucide-react';
 import { isParentDigestEnabled, enableParentDigest, disableParentDigest } from '@/lib/parent-digest-utils';
+import { isDigestDisabled } from '@/lib/weekly-digest-utils';
+import { isReminderDisabled } from '@/lib/practice-reminder-utils';
 import Link from 'next/link';
 
 export default function ProfileSettingsPage() {
@@ -25,6 +27,10 @@ export default function ProfileSettingsPage() {
   const [autoParentDigest, setAutoParentDigest] = useState(false);
   const [digestSaving, setDigestSaving] = useState(false);
   const [digestSaved, setDigestSaved] = useState(false);
+  const [weeklyDigestEnabled, setWeeklyDigestEnabled] = useState(true);
+  const [practiceReminderEnabled, setPracticeReminderEnabled] = useState(true);
+  const [emailPrefSaving, setEmailPrefSaving] = useState(false);
+  const [emailPrefSaved, setEmailPrefSaved] = useState(false);
 
   const { data: meData, isLoading } = useQuery({
     queryKey: queryKeys.coach.current(),
@@ -43,9 +49,40 @@ export default function ProfileSettingsPage() {
       setEmail(coach.email || '');
       setAvatarUrl(coach.avatar_url || '');
       setAutoParentDigest(isParentDigestEnabled(coach.preferences));
+      setWeeklyDigestEnabled(!isDigestDisabled(coach.preferences));
+      setPracticeReminderEnabled(!isReminderDisabled(coach.preferences));
       setInitialized(true);
     }
   }, [coach, initialized]);
+
+  async function toggleEmailPref(key: 'disable_weekly_digest' | 'disable_practice_reminders', enabled: boolean) {
+    if (!coach) return;
+    setEmailPrefSaving(true);
+    setEmailPrefSaved(false);
+    const prefs = typeof coach.preferences === 'object' && coach.preferences !== null
+      ? { ...(coach.preferences as Record<string, unknown>) }
+      : {};
+    if (!enabled) {
+      prefs[key] = true;
+    } else {
+      delete prefs[key];
+    }
+    try {
+      await mutate({
+        table: 'coaches',
+        operation: 'update',
+        data: { preferences: prefs },
+        filters: { id: coach.id },
+      });
+      if (key === 'disable_weekly_digest') setWeeklyDigestEnabled(enabled);
+      else setPracticeReminderEnabled(enabled);
+      queryClient.invalidateQueries({ queryKey: queryKeys.coach.current() });
+      setEmailPrefSaved(true);
+      setTimeout(() => setEmailPrefSaved(false), 2500);
+    } finally {
+      setEmailPrefSaving(false);
+    }
+  }
 
   async function toggleAutoParentDigest(enabled: boolean) {
     if (!coach) return;
@@ -235,9 +272,77 @@ export default function ProfileSettingsPage() {
                   />
                 </button>
               </div>
+              <div className="border-t border-zinc-800 pt-4 space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-zinc-200">
+                      Weekly coaching digest
+                    </p>
+                    <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">
+                      Every Monday morning, receive a recap of last week's observations,
+                      player spotlight, and a link to build next week's plan.
+                    </p>
+                    {emailPrefSaved && (
+                      <p className="text-xs text-emerald-400 mt-1">Saved!</p>
+                    )}
+                  </div>
+                  <button
+                    role="switch"
+                    aria-checked={weeklyDigestEnabled}
+                    aria-label="Weekly coaching digest"
+                    disabled={emailPrefSaving}
+                    onClick={() => toggleEmailPref('disable_weekly_digest', !weeklyDigestEnabled)}
+                    className={[
+                      'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 disabled:opacity-50',
+                      weeklyDigestEnabled ? 'bg-orange-500' : 'bg-zinc-700',
+                    ].join(' ')}
+                  >
+                    <span
+                      className={[
+                        'pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform',
+                        weeklyDigestEnabled ? 'translate-x-5' : 'translate-x-0',
+                      ].join(' ')}
+                    />
+                  </button>
+                </div>
+
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-zinc-200">
+                      Practice day reminders
+                    </p>
+                    <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">
+                      On days you have a session scheduled, receive a reminder at noon
+                      with a list of players who need attention and last session stats.
+                    </p>
+                    {emailPrefSaved && (
+                      <p className="text-xs text-emerald-400 mt-1">Saved!</p>
+                    )}
+                  </div>
+                  <button
+                    role="switch"
+                    aria-checked={practiceReminderEnabled}
+                    aria-label="Practice day reminders"
+                    disabled={emailPrefSaving}
+                    onClick={() => toggleEmailPref('disable_practice_reminders', !practiceReminderEnabled)}
+                    className={[
+                      'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 disabled:opacity-50',
+                      practiceReminderEnabled ? 'bg-orange-500' : 'bg-zinc-700',
+                    ].join(' ')}
+                  >
+                    <span
+                      className={[
+                        'pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform',
+                        practiceReminderEnabled ? 'translate-x-5' : 'translate-x-0',
+                      ].join(' ')}
+                    />
+                  </button>
+                </div>
+              </div>
+
               <p className="text-xs text-zinc-600 leading-relaxed border-t border-zinc-800 pt-3">
-                Add parent emails in Roster → player cards to start sending.
-                Requires a Coach plan or higher (parent sharing feature).
+                Add parent emails in Roster → player cards to start sending parent updates.
+                Auto parent progress emails require a Coach plan or higher.
               </p>
             </CardContent>
           </Card>
