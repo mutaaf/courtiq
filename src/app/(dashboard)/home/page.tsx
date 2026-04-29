@@ -22,6 +22,7 @@ import {
   History,
   Star,
   Eye,
+  TrendingDown,
 } from 'lucide-react';
 import type { Session } from '@/types/database';
 import { useAppStore } from '@/lib/store';
@@ -232,6 +233,33 @@ const SESSION_LABEL: Record<string, string> = {
   scrimmage: 'Scrimmage',
   tournament: 'Tournament',
   training: 'Training',
+};
+
+// Maps observation category (lowercase) → drill library category name stored in DB
+const SKILL_TO_DRILL_CATEGORY: Record<string, string> = {
+  dribbling: 'Ball Handling',
+  defense: 'Defense',
+  passing: 'Passing',
+  shooting: 'Shooting',
+  rebounding: 'Rebounding',
+  teamwork: 'Team Play',
+  hustle: 'Conditioning',
+  footwork: 'Conditioning',
+  awareness: 'Defense',
+};
+
+// Human-readable label for each observation category
+const SKILL_DISPLAY_LABEL: Record<string, string> = {
+  dribbling: 'Ball Handling',
+  defense: 'Defense',
+  passing: 'Passing',
+  shooting: 'Shooting',
+  rebounding: 'Rebounding',
+  teamwork: 'Team Play',
+  hustle: 'Hustle',
+  footwork: 'Footwork',
+  awareness: 'Court Vision',
+  leadership: 'Leadership',
 };
 
 function LastSessionCard({ session }: {
@@ -469,19 +497,37 @@ export default function HomePage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Live observation count + observed player IDs for the active practice session
+  // Live observation count + observed player IDs + real-time skill gap for the active practice session
   const { data: sessionObsStats } = useQuery({
     queryKey: ['session-obs-count', practiceSessionId],
     queryFn: async () => {
       if (!practiceSessionId) return null;
-      const obs = await query<{ player_id: string | null }[]>({
+      const obs = await query<{ player_id: string | null; category: string | null; sentiment: string | null }[]>({
         table: 'observations',
-        select: 'player_id',
+        select: 'player_id, category, sentiment',
         filters: { session_id: practiceSessionId },
       });
       if (!obs) return null;
       const observedIds = new Set(obs.filter((o) => o.player_id).map((o) => o.player_id as string));
-      return { count: obs.length, players: observedIds.size, observedIds };
+
+      // Tally needs-work counts per category for the Live Skill Pulse
+      const gapMap: Record<string, number> = {};
+      for (const o of obs) {
+        if (o.sentiment === 'needs-work' && o.category && o.category !== 'general') {
+          gapMap[o.category] = (gapMap[o.category] ?? 0) + 1;
+        }
+      }
+      // Only surface a gap when at least 2 observations flag the same category
+      const topGapEntry = Object.entries(gapMap)
+        .filter(([, n]) => n >= 2)
+        .sort((a, b) => b[1] - a[1])[0] ?? null;
+
+      return {
+        count: obs.length,
+        players: observedIds.size,
+        observedIds,
+        topGapCategory: topGapEntry ? { category: topGapEntry[0], count: topGapEntry[1] } : null,
+      };
     },
     enabled: !!practiceSessionId && practiceActive,
     refetchInterval: 30_000,
@@ -493,6 +539,16 @@ export default function HomePage() {
     if (!practiceActive || !sessionObsStats?.observedIds || !rosterPlayers.length) return [];
     return rosterPlayers.filter((p) => !sessionObsStats.observedIds!.has(p.id));
   }, [practiceActive, sessionObsStats, rosterPlayers]);
+
+  // Resolved drill link + label for the Live Skill Pulse strip
+  const sessionSkillGap = useMemo(() => {
+    if (!sessionObsStats?.topGapCategory) return null;
+    const { category, count } = sessionObsStats.topGapCategory;
+    const drillCat = SKILL_TO_DRILL_CATEGORY[category];
+    const label = SKILL_DISPLAY_LABEL[category] ?? category;
+    const href = drillCat ? `/drills?category=${encodeURIComponent(drillCat)}` : '/drills';
+    return { label, count, href };
+  }, [sessionObsStats]);
 
   // ── No team state ─────────────────────────────────────────────────────────
   if (!activeTeam) {
@@ -643,6 +699,24 @@ export default function HomePage() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Live Skill Pulse — top emerging skill gap in this session (shown when ≥2 needs-work in same category) */}
+          {sessionSkillGap && (
+            <Link
+              href={sessionSkillGap.href}
+              className="flex items-center justify-between rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 hover:bg-red-500/15 active:scale-[0.97] transition-all touch-manipulation"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <TrendingDown className="h-3.5 w-3.5 shrink-0 text-red-400" />
+                <span className="text-xs font-medium text-red-300 leading-tight">
+                  {sessionSkillGap.count}× needs-work:{' '}
+                  <span className="font-semibold">{sessionSkillGap.label}</span>
+                  {' '}— find a drill
+                </span>
+              </div>
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-zinc-500 ml-2" />
+            </Link>
           )}
         </div>
       ) : todaySessions.length > 0 ? (
