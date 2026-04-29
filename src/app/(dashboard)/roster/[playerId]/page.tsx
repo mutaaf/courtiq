@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { query, mutate } from '@/lib/api';
@@ -48,7 +48,7 @@ import { AchievementBadgesPanel } from '@/components/player/achievement-badges';
 import { PlayerGoalsPanel } from '@/components/player/player-goals-panel';
 import { PlayerNotesPanel } from '@/components/player/player-notes-panel';
 import { countHighlighted } from '@/lib/observation-highlights';
-import type { Player, Observation, PlayerSkillProficiency, Plan, Sentiment } from '@/types/database';
+import type { Player, Observation, PlayerSkillProficiency, Plan, Sentiment, ParentShare } from '@/types/database';
 import type { PlayerAttendanceStat } from '@/app/api/attendance-stats/route';
 import {
   getMomentumBadgeClasses,
@@ -197,6 +197,7 @@ export default function PlayerDetailPage({
   const [shareLinkError, setShareLinkError] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const [shareSent, setShareSent] = useState(false);
 
   // Skill challenge state
   const [challengeLoading, setChallengeLoading] = useState(false);
@@ -281,6 +282,31 @@ export default function PlayerDetailPage({
     enabled: activeTab === 'self-assessment',
     ...CACHE_PROFILES.roster,
   });
+
+  // Existing share token — auto-loads so the coach never loses their share link
+  const { data: existingShare } = useQuery<ParentShare | null>({
+    queryKey: ['player-share-existing', playerId],
+    queryFn: async () => {
+      const shares = await query<ParentShare[]>({
+        table: 'parent_shares',
+        select: 'id, share_token, view_count, last_viewed_at, expires_at, created_at',
+        filters: { player_id: playerId, is_active: true },
+        order: { column: 'created_at', ascending: false },
+        limit: 1,
+      });
+      const share = shares?.[0] ?? null;
+      if (share?.expires_at && new Date(share.expires_at) < new Date()) return null;
+      return share;
+    },
+    enabled: !!playerId && activeTab === 'share',
+    staleTime: 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (existingShare && !shareUrl) {
+      setShareUrl(`${window.location.origin}/share/${existingShare.share_token}`);
+    }
+  }, [existingShare, shareUrl]);
 
   // Attendance stats for this player
   const { data: attendanceStat } = useQuery<PlayerAttendanceStat>({
@@ -499,10 +525,30 @@ export default function PlayerDetailPage({
       const data = await res.json();
       const fullUrl = `${window.location.origin}${data.shareUrl}`;
       setShareUrl(fullUrl);
+      qc.invalidateQueries({ queryKey: ['player-share-existing', playerId] });
     } catch (err) {
       setShareLinkError(err instanceof Error ? err.message : 'Failed to create share link');
     } finally {
       setShareLinkLoading(false);
+    }
+  }
+
+  async function handleWebShare() {
+    if (!shareUrl || !player) return;
+    const text = `Here's ${player.name}'s progress report from ${activeTeam?.name ?? 'the team'}:`;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: `${player.name}'s Progress Report`, text, url: shareUrl });
+      } else {
+        window.open(
+          `https://api.whatsapp.com/send?text=${encodeURIComponent(`${text}\n${shareUrl}`)}`,
+          '_blank',
+        );
+      }
+      setShareSent(true);
+      setTimeout(() => setShareSent(false), 2000);
+    } catch {
+      // User cancelled — no action needed
     }
   }
 
@@ -1820,25 +1866,38 @@ export default function PlayerDetailPage({
               <CardContent className="p-6 space-y-4">
                 <div className="flex items-center gap-3">
                   <CheckCircle2 className="h-6 w-6 text-emerald-500" />
-                  <div>
-                    <h3 className="font-semibold text-zinc-200">Share Link Created</h3>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-zinc-200">Ready to share with parents</h3>
                     <p className="text-sm text-zinc-500">
-                      Share this link with {player.name}&apos;s parents. Expires in 30 days.
+                      {existingShare?.view_count
+                        ? `Viewed ${existingShare.view_count} time${existingShare.view_count !== 1 ? 's' : ''}${existingShare.last_viewed_at ? ` · last opened ${new Date(existingShare.last_viewed_at).toLocaleDateString()}` : ''}`
+                        : `${player.name}’s progress report · expires in 30 days`}
                     </p>
                   </div>
                 </div>
 
+                {/* Primary CTA — native share on mobile, WhatsApp on desktop */}
+                <Button
+                  className="w-full gap-2"
+                  onClick={handleWebShare}
+                >
+                  <Share2 className="h-4 w-4" />
+                  {shareSent ? 'Sent!' : 'Send to Parent'}
+                </Button>
+
+                {/* Link row with copy + preview */}
                 <div className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 p-3">
                   <input
                     type="text"
                     readOnly
                     value={shareUrl}
-                    className="flex-1 bg-transparent text-sm text-zinc-300 outline-none"
+                    className="flex-1 min-w-0 bg-transparent text-xs text-zinc-400 outline-none truncate"
                   />
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={copyShareLink}
+                    aria-label="Copy link"
                   >
                     {shareCopied ? (
                       <CheckCircle2 className="h-4 w-4 text-emerald-500" />
@@ -1847,7 +1906,7 @@ export default function PlayerDetailPage({
                     )}
                   </Button>
                   <a href={shareUrl} target="_blank" rel="noopener noreferrer">
-                    <Button size="sm" variant="ghost">
+                    <Button size="sm" variant="ghost" aria-label="Preview report">
                       <ExternalLink className="h-4 w-4" />
                     </Button>
                   </a>
