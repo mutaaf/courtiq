@@ -5,7 +5,8 @@ import { createHash } from 'crypto';
 import { redis } from '@/lib/cache/redis';
 import { cacheKeys } from '@/lib/cache/keys';
 import { checkAIRateLimit, RateLimitError, TierLimitError } from '@/lib/rate-limit';
-import { TIER_LIMITS, type Tier } from '@/lib/tier';
+import { type Tier } from '@/lib/tier';
+import { enforceAIQuota } from '@/lib/ai/quota';
 import type { AIInteractionType } from '@/types/database';
 
 // ---------------------------------------------------------------------------
@@ -496,35 +497,14 @@ export async function callAI(options: AICallOptions, supabase: any): Promise<AIC
   const orgId = options.orgId || await getOrgId(supabase, coachId);
   const { provider, apiKey } = await getConfiguredProvider(supabase, orgId);
 
-  // Enforce monthly AI call quota for free-tier orgs
-  if (orgId) {
-    try {
-      const { data: org } = await supabase
-        .from('organizations')
-        .select('tier')
-        .eq('id', orgId)
-        .single();
-      const orgTier = ((org as any)?.tier || 'free') as Tier;
-      const monthlyLimit = TIER_LIMITS[orgTier].maxAICallsPerMonth;
-      if (monthlyLimit < 999999) {
-        // Count successful AI calls this calendar month for this coach
-        const monthStart = new Date();
-        monthStart.setDate(1);
-        monthStart.setHours(0, 0, 0, 0);
-        const { count } = await supabase
-          .from('ai_interactions')
-          .select('id', { count: 'exact', head: true })
-          .eq('coach_id', coachId)
-          .eq('status', 'success')
-          .gte('created_at', monthStart.toISOString());
-        if ((count ?? 0) >= monthlyLimit) {
-          throw new TierLimitError(orgTier, monthlyLimit);
-        }
-      }
-    } catch (err) {
-      // Re-throw TierLimitError; swallow unexpected errors to avoid blocking coaches
-      if (err instanceof TierLimitError) throw err;
-    }
+  // Enforce monthly AI call quota — shared helper used here AND in
+  // /api/ai/import-roster (which doesn't go through callAI). If you find
+  // yourself reimplementing the quota check, use enforceAIQuota instead.
+  try {
+    await enforceAIQuota(supabase, coachId);
+  } catch (err) {
+    if (err instanceof TierLimitError) throw err;
+    // Anything else (e.g. transient DB error) shouldn't hard-block the call.
   }
 
   // Use cheaper models for cost-effective interaction types (unless explicitly overridden)

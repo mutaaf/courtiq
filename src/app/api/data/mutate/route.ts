@@ -27,6 +27,36 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Block writes against archived teams (gracefully-downgraded over-quota
+    // teams). Read-paths still resolve them so the coach can see their data
+    // and is prompted to upgrade.
+    const writeOps = ['insert', 'update'];
+    if (writeOps.includes(operation)) {
+      const teamIdFromPayload = Array.isArray(payload)
+        ? payload[0]?.team_id
+        : payload?.team_id;
+      const teamIdFromFilters = filters?.team_id;
+      const teamIdToCheck = teamIdFromPayload || teamIdFromFilters;
+      if (table !== 'teams' && typeof teamIdToCheck === 'string') {
+        const { data: t } = await admin
+          .from('teams')
+          .select('archived_at')
+          .eq('id', teamIdToCheck)
+          .single();
+        if (t?.archived_at) {
+          return NextResponse.json(
+            {
+              error:
+                'This team is archived (read-only). Upgrade your plan to reactivate writes.',
+              upgrade: true,
+              archived: true,
+            },
+            { status: 402 },
+          );
+        }
+      }
+    }
+
     // Tier check for player inserts
     if (operation === 'insert' && table === 'players') {
       const teamId = Array.isArray(payload) ? payload[0]?.team_id : payload?.team_id;

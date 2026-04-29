@@ -175,6 +175,13 @@ export interface Team {
   season_weeks: number | null;
   current_week: number;
   is_active: boolean;
+  is_demo?: boolean;
+  /**
+   * Set on graceful downgrade when the team exceeds the new tier's quota.
+   * UI treats archived teams as read-only and shows a "reactivate by
+   * upgrading" CTA. NULL = active.
+   */
+  archived_at: string | null;
   settings: Json;
   created_at: string;
   updated_at: string;

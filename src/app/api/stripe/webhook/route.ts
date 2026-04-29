@@ -3,6 +3,7 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { getStripe, tierFromPriceId } from '@/lib/stripe';
 import { createServiceSupabase } from '@/lib/supabase/server';
+import { TIER_LIMITS } from '@/lib/tier';
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -12,15 +13,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
   }
 
+  // Try the primary secret first; fall back to the secondary during rotation
+  // windows (see docs/OPS.md). Either constructEvent succeeds or both fail.
+  const secrets = [
+    process.env.STRIPE_WEBHOOK_SECRET,
+    process.env.STRIPE_WEBHOOK_SECRET_SECONDARY,
+  ].filter((s): s is string => !!s);
+
   let event;
-  try {
-    event = getStripe().webhooks.constructEvent(
-      body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
-  } catch (err) {
-    console.error('[stripe/webhook] Signature verification failed:', err);
+  let lastErr: unknown = null;
+  for (const secret of secrets) {
+    try {
+      event = getStripe().webhooks.constructEvent(body, sig, secret);
+      lastErr = null;
+      break;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  if (!event) {
+    console.error('[stripe/webhook] Signature verification failed:', lastErr);
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
@@ -97,15 +109,45 @@ export async function POST(request: Request) {
 
       case 'customer.subscription.deleted': {
         const sub = event.data.object;
-        await admin
+        // Resolve the org first so we can apply the over-quota archive policy
+        // before flipping the tier.
+        const { data: org } = await admin
           .from('organizations')
-          .update({
-            tier: 'free',
-            subscription_status: 'canceled',
-            stripe_subscription_id: null,
-            cancel_at_period_end: false,
-          })
-          .eq('stripe_subscription_id', sub.id);
+          .select('id')
+          .eq('stripe_subscription_id', sub.id)
+          .single();
+
+        if (org) {
+          // If the coach had more teams than free-tier allows, archive the
+          // excess (most recently created first stays live — assume that's
+          // their current focus). Archived teams stay readable in the UI but
+          // can't accept new writes; coach reactivates by upgrading.
+          const freeMax = TIER_LIMITS.free.maxTeams;
+          const { data: liveTeams } = await admin
+            .from('teams')
+            .select('id, created_at')
+            .eq('org_id', org.id)
+            .is('archived_at', null)
+            .order('created_at', { ascending: false });
+
+          if (liveTeams && liveTeams.length > freeMax) {
+            const toArchive = liveTeams.slice(freeMax).map((t) => t.id);
+            await admin
+              .from('teams')
+              .update({ archived_at: new Date().toISOString() })
+              .in('id', toArchive);
+          }
+
+          await admin
+            .from('organizations')
+            .update({
+              tier: 'free',
+              subscription_status: 'canceled',
+              stripe_subscription_id: null,
+              cancel_at_period_end: false,
+            })
+            .eq('id', org.id);
+        }
         break;
       }
 

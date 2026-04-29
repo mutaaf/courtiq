@@ -43,6 +43,7 @@ export const teamFactory = buildFactory<Omit<Team, 'created_at' | 'updated_at'>>
   season_weeks: 10,
   current_week: 1,
   is_active: true,
+  archived_at: null,
   settings: {},
 });
 

@@ -3,6 +3,8 @@ import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/serv
 import { rosterImportSchema, type RosterImport } from '@/lib/ai/schemas';
 import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { getConfiguredProvider } from '@/lib/ai/client';
+import { enforceAIQuota } from '@/lib/ai/quota';
+import { TierLimitError } from '@/lib/rate-limit';
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -29,6 +31,21 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Quota enforcement — vision API call counts against the monthly cap, same
+    // as any other AI interaction. callAI doesn't run for this path because we
+    // call providers directly with image bytes.
+    try {
+      await enforceAIQuota(admin, user.id);
+    } catch (e) {
+      if (e instanceof TierLimitError) {
+        return NextResponse.json(
+          { error: e.message, upgrade: true, tier: e.tier, limit: e.limit },
+          { status: 402 },
+        );
+      }
+      throw e;
+    }
+
     const { data: coach } = await admin
       .from('coaches')
       .select('org_id')
