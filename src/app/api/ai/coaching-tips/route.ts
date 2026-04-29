@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { callAIWithJSON } from '@/lib/ai/client';
 import { handleAIError } from '@/lib/ai/error';
+import { requireAIAccess } from '@/lib/ai/guard';
 
 export interface CoachingTip {
   type: 'alert' | 'suggestion' | 'praise';
@@ -11,6 +12,8 @@ export interface CoachingTip {
 }
 
 export async function POST(request: Request) {
+  const _guard = await requireAIAccess('plans');
+  if ('response' in _guard) return _guard.response;
   const supabase = await createServerSupabase();
   const {
     data: { user },

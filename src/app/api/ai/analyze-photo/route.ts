@@ -4,8 +4,11 @@ import { callAI } from '@/lib/ai/client';
 import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { buildAIContext } from '@/lib/ai/context-builder';
 import { handleAIError } from '@/lib/ai/error';
+import { requireAIAccess } from '@/lib/ai/guard';
 
 export async function POST(request: Request) {
+  const _guard = await requireAIAccess('media_upload');
+  if ('response' in _guard) return _guard.response;
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

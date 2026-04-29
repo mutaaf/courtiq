@@ -1,5 +1,6 @@
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { canAccess, type Tier } from '@/lib/tier';
 
 function escapeCsvField(val: unknown): string {
   if (val === null || val === undefined) return '';
@@ -32,6 +33,21 @@ export async function GET(request: Request) {
   }
 
   const admin = await createServiceSupabase();
+
+  // CSV export gated to paid tiers — every paid plan includes report_cards,
+  // and exports are conceptually equivalent (full data download).
+  const { data: gateCoach } = await admin
+    .from('coaches')
+    .select('organizations(tier)')
+    .eq('id', user.id)
+    .single();
+  const gateTier = (((gateCoach as any)?.organizations?.tier) || 'free') as Tier;
+  if (!canAccess(gateTier, 'report_cards')) {
+    return NextResponse.json(
+      { error: 'CSV export requires a paid plan. Upgrade to download your data.', upgrade: true, currentTier: gateTier },
+      { status: 402 },
+    );
+  }
 
   let csv = '';
   let filename = '';

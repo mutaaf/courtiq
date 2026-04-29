@@ -3,6 +3,7 @@ import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/serv
 import { callAIWithJSON } from '@/lib/ai/client';
 import { handleAIError } from '@/lib/ai/error';
 import type { SessionDebriefResult } from '@/app/api/ai/session-debrief/route';
+import { requireAIAccess } from '@/lib/ai/guard';
 
 export interface SessionBriefingResult {
   session_goal: string;
@@ -22,6 +23,8 @@ export interface SessionBriefingResult {
 }
 
 export async function POST(request: Request) {
+  const _guard = await requireAIAccess('sessions');
+  if ('response' in _guard) return _guard.response;
   const supabase = await createServerSupabase();
   const {
     data: { user },

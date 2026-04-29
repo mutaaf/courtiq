@@ -11,6 +11,7 @@ import {
   filterPositiveObs,
   getWeekLabel,
 } from '@/lib/player-spotlight-utils';
+import { requireAIAccess } from '@/lib/ai/guard';
 
 // ─── POST /api/ai/weekly-star ─────────────────────────────────────────────────
 // Analyzes the last 7 days of observations for the team, picks the standout
@@ -18,6 +19,8 @@ import {
 // calls AI to write a celebratory spotlight.  Saves as plan type `weekly_star`.
 
 export async function POST(request: Request) {
+  const _guard = await requireAIAccess('parent_sharing');
+  if ('response' in _guard) return _guard.response;
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

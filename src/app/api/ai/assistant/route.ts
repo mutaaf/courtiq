@@ -4,6 +4,7 @@ import { callAIWithJSON } from '@/lib/ai/client';
 import { buildAIContext } from '@/lib/ai/context-builder';
 import type { ConversationMessage } from '@/lib/ai/client';
 import { handleAIError } from '@/lib/ai/error';
+import { requireAIAccess } from '@/lib/ai/guard';
 
 type AssistantResponseType = 'plan' | 'drill' | 'report' | 'analysis' | 'general';
 
@@ -15,6 +16,8 @@ interface AssistantResponse {
 }
 
 export async function POST(request: Request) {
+  const _guard = await requireAIAccess('assistant');
+  if ('response' in _guard) return _guard.response;
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

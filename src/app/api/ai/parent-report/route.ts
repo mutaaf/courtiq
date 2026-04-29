@@ -5,8 +5,11 @@ import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { buildAIContext } from '@/lib/ai/context-builder';
 import { parentReportSchema, type ParentReport } from '@/lib/ai/schemas';
 import { handleAIError } from '@/lib/ai/error';
+import { requireAIAccess } from '@/lib/ai/guard';
 
 export async function POST(request: Request) {
+  const _guard = await requireAIAccess('parent_sharing');
+  if ('response' in _guard) return _guard.response;
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

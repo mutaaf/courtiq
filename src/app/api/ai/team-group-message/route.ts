@@ -12,8 +12,11 @@ import {
   getNeedsWorkObsCount,
   hasEnoughDataForGroupMessage,
 } from '@/lib/team-group-message-utils';
+import { requireAIAccess } from '@/lib/ai/guard';
 
 export async function POST(request: Request) {
+  const _guard = await requireAIAccess('parent_sharing');
+  if ('response' in _guard) return _guard.response;
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

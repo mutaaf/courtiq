@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { callAIWithJSON } from '@/lib/ai/client';
 import { handleAIError } from '@/lib/ai/error';
+import { requireAIAccess } from '@/lib/ai/guard';
 
 export interface SessionDebriefResult {
   session_summary: string;
@@ -27,6 +28,8 @@ export interface SessionDebriefResult {
 }
 
 export async function POST(request: Request) {
+  const _guard = await requireAIAccess('sessions');
+  if ('response' in _guard) return _guard.response;
   const supabase = await createServerSupabase();
   const {
     data: { user },

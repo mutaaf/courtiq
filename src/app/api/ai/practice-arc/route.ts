@@ -10,6 +10,7 @@ import {
   isValidSessionDuration,
   buildArcTitle,
 } from '@/lib/practice-arc-utils';
+import { requireAIAccess } from '@/lib/ai/guard';
 
 /** Fetch top needs-work and strength categories from recent observations */
 async function fetchObsSummary(
@@ -61,6 +62,8 @@ async function fetchObsSummary(
 }
 
 export async function POST(request: Request) {
+  const _guard = await requireAIAccess('plans');
+  if ('response' in _guard) return _guard.response;
   const supabase = await createServerSupabase();
   const {
     data: { user },

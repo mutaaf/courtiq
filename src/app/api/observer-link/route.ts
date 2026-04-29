@@ -1,12 +1,28 @@
 import { NextResponse } from 'next/server';
 import { createServiceSupabase } from '@/lib/supabase/server';
 import { generateObserverToken, buildObserverUrl } from '@/lib/observer-utils';
+import { canAccess, type Tier } from '@/lib/tier';
 
 export async function POST(request: Request) {
   const supabase = await createServiceSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Observer links share session capture access with non-coaches (parent
+  // volunteers); same gate as parent_sharing — every paid plan includes it.
+  const { data: gateCoach } = await supabase
+    .from('coaches')
+    .select('organizations(tier)')
+    .eq('id', user.id)
+    .single();
+  const gateTier = (((gateCoach as any)?.organizations?.tier) || 'free') as Tier;
+  if (!canAccess(gateTier, 'parent_sharing')) {
+    return NextResponse.json(
+      { error: 'Observer links require a paid plan. Upgrade to share session capture with assistants and parents.', upgrade: true, currentTier: gateTier },
+      { status: 402 },
+    );
   }
 
   const body = await request.json().catch(() => ({}));

@@ -14,8 +14,11 @@ import {
   type AwardObservation,
   type AwardPlayer,
 } from '@/lib/season-awards-utils';
+import { requireAIAccess } from '@/lib/ai/guard';
 
 export async function POST(request: Request) {
+  const _guard = await requireAIAccess('plans');
+  if ('response' in _guard) return _guard.response;
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
