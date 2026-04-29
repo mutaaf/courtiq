@@ -57,18 +57,25 @@ export async function buildAIContext(
     // Players query failed — continue with empty roster
   }
 
-  // Fetch curriculum skills — only if team has a curriculum
+  // Fetch curriculum skills (base + team-custom). Custom skills work even when
+  // the team has no base curriculum, so this query runs unconditionally.
   let skills: any[] = [];
-  if (team?.curriculum_id) {
-    try {
-      const { data: currSkills } = await supabase
-        .from('curriculum_skills')
+  try {
+    const [baseRes, customRes] = await Promise.all([
+      team?.curriculum_id
+        ? supabase
+            .from('curriculum_skills')
+            .select('skill_id, name, category')
+            .eq('curriculum_id', team.curriculum_id)
+        : Promise.resolve({ data: [] as any[] }),
+      supabase
+        .from('team_custom_skills')
         .select('skill_id, name, category')
-        .eq('curriculum_id', team.curriculum_id);
-      skills = currSkills || [];
-    } catch {
-      // Curriculum query failed — continue without skills
-    }
+        .eq('team_id', teamId),
+    ]);
+    skills = [...(baseRes.data || []), ...(customRes.data || [])];
+  } catch {
+    // Curriculum query failed — continue without skills
   }
 
   // Get resolved config for categories — handle missing gracefully

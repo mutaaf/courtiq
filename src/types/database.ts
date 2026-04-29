@@ -135,6 +135,35 @@ export interface CurriculumSkill {
   created_at: string;
 }
 
+/**
+ * Team-scoped custom skill. Lives alongside CurriculumSkill via getMergedCurriculum.
+ * skill_id is always prefixed with `custom:` (DB constraint) so it can never
+ * collide with a built-in curriculum_skills.skill_id.
+ */
+export interface TeamCustomSkill {
+  id: string;
+  team_id: string;
+  skill_id: string;            // always starts with 'custom:'
+  name: string;
+  category: string;
+  age_groups: string[];
+  intro_week: number | null;
+  teaching_script: string | null;
+  progression_levels: Json;
+  sort_order: number;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Discriminated union of base and custom skills returned by getMergedCurriculum.
+ * Consumers that need to tell them apart can check `is_custom`.
+ */
+export type MergedSkill =
+  | (CurriculumSkill & { is_custom: false })
+  | (TeamCustomSkill & { is_custom: true });
+
 export interface Team {
   id: string;
   org_id: string;

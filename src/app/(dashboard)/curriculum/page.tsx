@@ -1,15 +1,23 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { useQuery } from '@tanstack/react-query';
-import { query } from '@/lib/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { query, mutate } from '@/lib/api';
 import { CACHE_PROFILES } from '@/lib/query/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BookOpen, TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react';
-import type { CurriculumSkill, ProficiencyLevel, Trend } from '@/types/database';
+import { Button } from '@/components/ui/button';
+import { BookOpen, TrendingUp, TrendingDown, Minus, Sparkles, Plus, Pencil, Trash2 } from 'lucide-react';
+import type { CurriculumSkill, ProficiencyLevel, Trend, TeamCustomSkill } from '@/types/database';
 import { getProficiencyLabel } from '@/lib/curriculum/proficiency';
+import { CustomSkillSheet } from '@/components/curriculum/custom-skill-sheet';
+import { trackEvent } from '@/lib/analytics';
+
+type MergedSkillRow =
+  | (CurriculumSkill & { is_custom: false })
+  | (TeamCustomSkill & { is_custom: true });
 
 const PROFICIENCY_COLORS: Record<ProficiencyLevel, string> = {
   insufficient_data: 'bg-zinc-700 text-zinc-400',
@@ -75,9 +83,16 @@ function ProficiencyRing({ level, size = 40 }: { level: ProficiencyLevel; size?:
 }
 
 export default function CurriculumPage() {
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, coach } = useActiveTeam();
+  const queryClient = useQueryClient();
 
-  const { data: skills, isLoading: skillsLoading } = useQuery({
+  const [sheetOpen, setSheetOpen] = useState<
+    | { mode: 'add'; category?: string }
+    | { mode: 'edit'; skill: TeamCustomSkill }
+    | null
+  >(null);
+
+  const { data: baseSkills, isLoading: skillsLoading } = useQuery({
     queryKey: ['curriculum-skills', activeTeam?.curriculum_id],
     queryFn: async () => {
       if (!activeTeam?.curriculum_id) return [];
@@ -92,6 +107,60 @@ export default function CurriculumPage() {
     enabled: !!activeTeam?.curriculum_id,
     ...CACHE_PROFILES.config,
   });
+
+  // Custom skills query — fails gracefully if migration 026 isn't applied yet.
+  const { data: customSkills } = useQuery({
+    queryKey: ['team-custom-skills', activeTeam?.id],
+    queryFn: async () => {
+      if (!activeTeam?.id) return [];
+      try {
+        const data = await query<TeamCustomSkill[]>({
+          table: 'team_custom_skills',
+          select: '*',
+          filters: { team_id: activeTeam.id },
+          order: { column: 'sort_order', ascending: true },
+        });
+        return data || [];
+      } catch {
+        return [];
+      }
+    },
+    enabled: !!activeTeam?.id,
+    ...CACHE_PROFILES.config,
+  });
+
+  const skills = useMemo<MergedSkillRow[]>(() => {
+    const base: MergedSkillRow[] = (baseSkills || []).map((s) => ({ ...s, is_custom: false as const }));
+    const custom: MergedSkillRow[] = (customSkills || []).map((s) => ({ ...s, is_custom: true as const }));
+    return [...base, ...custom].sort((a, b) => {
+      if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+      return a.name.localeCompare(b.name);
+    });
+  }, [baseSkills, customSkills]);
+
+  const knownCategories = useMemo(() => {
+    return Array.from(new Set(skills.map((s) => s.category))).sort();
+  }, [skills]);
+
+  function refreshCustom() {
+    if (!activeTeam) return;
+    queryClient.invalidateQueries({ queryKey: ['team-custom-skills', activeTeam.id] });
+  }
+
+  async function handleDelete(skill: TeamCustomSkill) {
+    if (!confirm(`Remove "${skill.name}"? Past observations on this skill will keep the ID but show "Removed skill".`)) return;
+    try {
+      await mutate({
+        table: 'team_custom_skills',
+        operation: 'delete',
+        filters: { id: skill.id },
+      });
+      trackEvent('curriculum_custom_skill_deleted', { skill_id: skill.skill_id });
+      refreshCustom();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Delete failed');
+    }
+  }
 
   const { data: teamProficiency, isLoading: profLoading } = useQuery({
     queryKey: ['team-proficiency', activeTeam?.id],
@@ -117,14 +186,14 @@ export default function CurriculumPage() {
     ...CACHE_PROFILES.proficiency,
   });
 
-  // Group skills by category
-  const skillsByCategory = (skills || []).reduce(
-    (acc: Record<string, CurriculumSkill[]>, skill: CurriculumSkill) => {
+  // Group merged (base + custom) skills by category
+  const skillsByCategory = skills.reduce(
+    (acc: Record<string, MergedSkillRow[]>, skill) => {
       if (!acc[skill.category]) acc[skill.category] = [];
       acc[skill.category].push(skill);
       return acc;
     },
-    {}
+    {} as Record<string, MergedSkillRow[]>,
   );
 
   // Compute team-wide dominant proficiency per skill
@@ -183,28 +252,62 @@ export default function CurriculumPage() {
   const isLoading = skillsLoading || profLoading;
   const currentWeek = activeTeam?.current_week || 1;
 
-  if (!activeTeam?.curriculum_id) {
+  // Even with no base curriculum, the coach can still add custom skills.
+  // Show the empty state only when both are absent.
+  if (!activeTeam?.curriculum_id && (customSkills || []).length === 0) {
     return (
       <div className="p-4 lg:p-8">
         <div className="flex flex-col items-center justify-center py-16">
           <BookOpen className="h-16 w-16 text-zinc-600 mb-4" />
           <h1 className="text-2xl font-bold mb-2">Curriculum</h1>
-          <p className="text-zinc-400 text-center max-w-md">
-            No curriculum is assigned to this team. Assign a curriculum in team settings to track
-            skill development.
+          <p className="text-zinc-400 text-center max-w-md mb-6">
+            No curriculum is assigned to this team yet. Assign one in team settings, or
+            add your own skills to start tracking what your team is working on.
           </p>
+          {coach?.id && activeTeam?.id && (
+            <Button onClick={() => setSheetOpen({ mode: 'add' })}>
+              <Plus className="h-4 w-4" />
+              Add a custom skill
+            </Button>
+          )}
         </div>
+        {sheetOpen && coach?.id && activeTeam?.id && (
+          <CustomSkillSheet
+            teamId={activeTeam.id}
+            coachId={coach.id}
+            defaultAgeGroup={activeTeam.age_group}
+            knownCategories={knownCategories}
+            existing={sheetOpen.mode === 'edit' ? sheetOpen.skill : null}
+            defaultCategory={sheetOpen.mode === 'add' ? sheetOpen.category : undefined}
+            onClose={() => setSheetOpen(null)}
+            onSaved={refreshCustom}
+          />
+        )}
       </div>
     );
   }
 
   return (
     <div className="p-4 lg:p-8 space-y-6 pb-8">
-      <div>
-        <h1 className="text-2xl font-bold">Curriculum</h1>
-        <p className="text-zinc-400 text-sm">
-          Skill roadmap for {activeTeam.age_group} &middot; Week {currentWeek}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Curriculum</h1>
+          <p className="text-zinc-400 text-sm">
+            Skill roadmap for {activeTeam?.age_group} &middot; Week {currentWeek}
+          </p>
+        </div>
+        {coach?.id && activeTeam?.id && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setSheetOpen({ mode: 'add' })}
+            className="shrink-0"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Add custom skill</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
+        )}
       </div>
 
       {/* Proficiency legend */}
@@ -229,11 +332,22 @@ export default function CurriculumPage() {
         <div className="space-y-8">
           {Object.entries(skillsByCategory).map(([category, catSkills]) => (
             <div key={category} className="space-y-3">
-              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">
-                {category}
-              </h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">
+                  {category}
+                </h2>
+                {coach?.id && activeTeam?.id && (
+                  <button
+                    onClick={() => setSheetOpen({ mode: 'add', category })}
+                    className="flex items-center gap-1 text-xs text-zinc-500 hover:text-orange-400 transition-colors"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add to {category}
+                  </button>
+                )}
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {(catSkills as CurriculumSkill[]).map((skill: CurriculumSkill) => {
+                {catSkills.map((skill) => {
                   const teamLevel = getTeamSkillLevel(skill.skill_id);
                   const trendConfig = TREND_CONFIG[teamLevel.trend];
                   const TrendIcon = trendConfig.icon;
@@ -247,18 +361,23 @@ export default function CurriculumPage() {
                       key={skill.id}
                       className={`transition-colors ${
                         isCurrentWeekSkill ? 'border-orange-500/50 ring-1 ring-orange-500/20' : ''
-                      }`}
+                      } ${skill.is_custom ? 'border-zinc-700 bg-zinc-900/40' : ''}`}
                     >
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
                           <ProficiencyRing level={teamLevel.level} size={40} />
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <p className="text-sm font-medium text-zinc-100 truncate">
                                 {skill.name}
                               </p>
                               {isCurrentWeekSkill && (
                                 <Badge className="shrink-0 text-[10px]">This Week</Badge>
+                              )}
+                              {skill.is_custom && (
+                                <span className="shrink-0 rounded-full bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
+                                  Custom
+                                </span>
                               )}
                             </div>
                             <div className="flex items-center gap-2 mt-1">
@@ -283,6 +402,24 @@ export default function CurriculumPage() {
                               </p>
                             )}
                           </div>
+                          {skill.is_custom && (
+                            <div className="flex flex-col gap-1 shrink-0">
+                              <button
+                                onClick={() => setSheetOpen({ mode: 'edit', skill })}
+                                aria-label="Edit"
+                                className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(skill)}
+                                aria-label="Delete"
+                                className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-colors"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
@@ -292,6 +429,19 @@ export default function CurriculumPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {sheetOpen && coach?.id && activeTeam?.id && (
+        <CustomSkillSheet
+          teamId={activeTeam.id}
+          coachId={coach.id}
+          defaultAgeGroup={activeTeam.age_group}
+          knownCategories={knownCategories}
+          existing={sheetOpen.mode === 'edit' ? sheetOpen.skill : null}
+          defaultCategory={sheetOpen.mode === 'add' ? sheetOpen.category : undefined}
+          onClose={() => setSheetOpen(null)}
+          onSaved={refreshCustom}
+        />
       )}
     </div>
   );
