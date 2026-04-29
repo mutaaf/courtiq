@@ -816,7 +816,7 @@ export default function HomePage() {
 
       {/* Quick actions */}
       <div className="grid grid-cols-3 gap-3">
-        <Link href="/capture">
+        <Link href={practiceActive && practiceSessionId ? `/capture?sessionId=${practiceSessionId}` : '/capture'}>
           <Card className="cursor-pointer transition-colors hover:border-orange-500/50 active:scale-[0.97] touch-manipulation">
             <CardContent className="flex flex-col items-center gap-3 p-3 sm:p-4 sm:gap-2">
               <div className="flex h-14 w-14 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-orange-500/20">

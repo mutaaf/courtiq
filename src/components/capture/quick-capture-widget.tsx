@@ -51,6 +51,9 @@ export function QuickCaptureWidget() {
   const [roster, setRoster] = useState<{ id: string; name: string }[]>([]);
   const [rosterLoading, setRosterLoading] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
+  // Tracks which players have already been observed in the current practice session.
+  // Used to sort observed players to the bottom and show ✓ coverage indicators.
+  const [observedPlayerIds, setObservedPlayerIds] = useState<Set<string>>(new Set());
 
   const trapRef = useFocusTrap<HTMLDivElement>({
     enabled: isOpen,
@@ -60,19 +63,36 @@ export function QuickCaptureWidget() {
     },
   });
 
-  // Load roster when templates tab is opened
+  // Load roster (and session observations when in practice) when templates tab is opened
   useEffect(() => {
     if (!isOpen || activeTab !== 'templates' || !activeTeam?.id || roster.length > 0) return;
     setRosterLoading(true);
-    query<{ id: string; name: string }[]>({
+
+    const rosterFetch = query<{ id: string; name: string }[]>({
       table: 'players',
       select: 'id, name',
       filters: { team_id: activeTeam.id, is_active: true },
-    }).then((data) => {
-      setRoster(data || []);
+    });
+
+    // When a practice session is active, also fetch which players have been observed
+    const sessionId = practiceActive && practiceSessionId ? practiceSessionId : null;
+    const sessionFetch = sessionId
+      ? query<{ player_id: string | null }[]>({
+          table: 'observations',
+          select: 'player_id',
+          filters: { session_id: sessionId, team_id: activeTeam.id },
+        })
+      : Promise.resolve(null);
+
+    Promise.all([rosterFetch, sessionFetch]).then(([players, obs]) => {
+      setRoster(players || []);
+      if (obs) {
+        const ids = new Set(obs.flatMap((o) => (o.player_id ? [o.player_id] : [])));
+        setObservedPlayerIds(ids);
+      }
       setRosterLoading(false);
     });
-  }, [isOpen, activeTab, activeTeam?.id, roster.length]);
+  }, [isOpen, activeTab, activeTeam?.id, roster.length, practiceActive, practiceSessionId]);
 
   const cleanupMedia = useCallback(() => {
     if (recognitionRef.current) {
@@ -101,6 +121,8 @@ export function QuickCaptureWidget() {
     setTemplateStep('pick');
     setSelectedTemplate(null);
     setTemplateSentiment('positive');
+    setRoster([]);
+    setObservedPlayerIds(new Set());
   }, []);
 
   const close = useCallback(() => {
@@ -332,6 +354,8 @@ export function QuickCaptureWidget() {
       queryClient.invalidateQueries({ queryKey: ['home-pulse', activeTeam.id] });
       if (sessionId) {
         queryClient.invalidateQueries({ queryKey: ['session-obs-count', sessionId] });
+        // Optimistically mark this player as observed so the next pick instantly shows ✓
+        setObservedPlayerIds((prev) => new Set([...prev, playerId]));
       }
 
       setTemplateStep('saved');
@@ -631,6 +655,21 @@ export function QuickCaptureWidget() {
                       </div>
                     )}
 
+                    {/* Coverage count — shown during active practice */}
+                    {practiceActive && roster.length > 0 && !rosterLoading && (
+                      <div className="flex items-center gap-1.5">
+                        {observedPlayerIds.size >= roster.length ? (
+                          <span className="text-xs font-medium text-emerald-400">
+                            ✓ All {roster.length} players observed this session
+                          </span>
+                        ) : (
+                          <span className="text-xs font-medium text-amber-400">
+                            {observedPlayerIds.size}/{roster.length} observed this session
+                          </span>
+                        )}
+                      </div>
+                    )}
+
                     <p className="text-xs font-medium text-zinc-400">Who was this for?</p>
 
                     {rosterLoading ? (
@@ -641,28 +680,48 @@ export function QuickCaptureWidget() {
                       <p className="py-3 text-center text-xs text-zinc-500">
                         No active players on roster yet
                       </p>
-                    ) : (
-                      <div className="grid max-h-52 grid-cols-2 gap-1.5 overflow-y-auto pb-1">
-                        {roster.map((player) => (
-                          <button
-                            key={player.id}
-                            type="button"
-                            disabled={savingTemplate}
-                            onClick={() => saveTemplateObservation(player.id)}
-                            className={cn(
-                              'flex items-center gap-2 rounded-xl bg-zinc-800 px-3 py-2.5 text-left text-sm font-medium text-zinc-200',
-                              'hover:bg-zinc-700 active:scale-[0.97] touch-manipulation transition-colors',
-                              savingTemplate && 'pointer-events-none opacity-50'
-                            )}
-                          >
-                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500/20 text-xs font-bold text-orange-400">
-                              {player.name.charAt(0).toUpperCase()}
-                            </span>
-                            <span className="truncate">{player.name.split(' ')[0]}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    ) : (() => {
+                      // Sort: unobserved players first (alphabetical), then observed (alphabetical)
+                      const sorted = [...roster].sort((a, b) => {
+                        const aObs = observedPlayerIds.has(a.id);
+                        const bObs = observedPlayerIds.has(b.id);
+                        if (aObs !== bObs) return aObs ? 1 : -1;
+                        return a.name.split(' ')[0].localeCompare(b.name.split(' ')[0]);
+                      });
+                      return (
+                        <div className="grid max-h-52 grid-cols-2 gap-1.5 overflow-y-auto pb-1">
+                          {sorted.map((player) => {
+                            const isObserved = observedPlayerIds.has(player.id);
+                            return (
+                              <button
+                                key={player.id}
+                                type="button"
+                                disabled={savingTemplate}
+                                onClick={() => saveTemplateObservation(player.id)}
+                                className={cn(
+                                  'flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
+                                  'hover:bg-zinc-700 active:scale-[0.97] touch-manipulation',
+                                  isObserved
+                                    ? 'bg-zinc-800/50 text-zinc-500 ring-1 ring-emerald-500/25'
+                                    : 'bg-zinc-800 text-zinc-200',
+                                  savingTemplate && 'pointer-events-none opacity-50'
+                                )}
+                              >
+                                <span className={cn(
+                                  'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
+                                  isObserved
+                                    ? 'bg-emerald-500/20 text-emerald-400'
+                                    : 'bg-orange-500/20 text-orange-400'
+                                )}>
+                                  {isObserved ? '✓' : player.name.charAt(0).toUpperCase()}
+                                </span>
+                                <span className="truncate">{player.name.split(' ')[0]}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
 
                     <button
                       type="button"
