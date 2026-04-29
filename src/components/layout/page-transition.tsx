@@ -8,7 +8,7 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
   // Keying on pathname causes React to unmount/remount this node on navigation,
   // which re-triggers the CSS animation for a smooth page-enter effect.
   return (
-    <div key={pathname} className="animate-page-enter h-full">
+    <div key={pathname} className="animate-page-enter min-h-full">
       {children}
     </div>
   );

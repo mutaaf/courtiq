@@ -62,8 +62,14 @@ interface Props {
   children: React.ReactNode;
 }
 
+// Pages that manage their own bottom spacing (chat-style input pinned to viewport bottom).
+// Skipping the shell's bottom padding lets the input bar sit directly above the mobile nav,
+// while the page itself adds enough internal padding to clear the FAB.
+const FULL_BLEED_PATHS = ['/assistant'];
+
 export function DashboardShell({ coach, children }: Props) {
   const pathname = usePathname();
+  const isFullBleed = FULL_BLEED_PATHS.some((p) => pathname.startsWith(p));
   const { theme, toggleTheme } = useTheme();
   const prefetchOnIntent = usePrefetchOnIntent();
   const { navRef: mobileNavRef, onKeyDown: mobileNavKeyDown } = useArrowKeyNav();
@@ -87,6 +93,21 @@ export function DashboardShell({ coach, children }: Props) {
   const [selectedTemplate, setSelectedTemplate] = useState<ObservationTemplate | null>(null);
   const [practiceRoster, setPracticeRoster] = useState<{ id: string; name: string }[]>([]);
   const [savingQuick, setSavingQuick] = useState(false);
+
+  // Identify the signed-in coach to PostHog so events tie to a person
+  useEffect(() => {
+    if (!coach?.id) return;
+    let cancelled = false;
+    import('@/lib/analytics').then(({ identifyUser }) => {
+      if (!cancelled) {
+        identifyUser(coach.id, {
+          org_id: (coach.organizations as any)?.id ?? null,
+          tier: (coach.organizations as any)?.tier ?? null,
+        });
+      }
+    });
+    return () => { cancelled = true; };
+  }, [coach?.id, coach?.organizations]);
 
   // Practice timer
   useEffect(() => {
@@ -342,6 +363,8 @@ export function DashboardShell({ coach, children }: Props) {
                 const { createClient } = await import('@/lib/supabase/client');
                 const supabase = createClient();
                 await supabase.auth.signOut();
+                const { resetAnalytics } = await import('@/lib/analytics');
+                resetAnalytics();
                 window.location.href = '/login';
               }}
               className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-400 hover:text-red-400 transition-colors"
@@ -477,7 +500,10 @@ export function DashboardShell({ coach, children }: Props) {
         )}
 
         <div
-          className="flex-1 overflow-y-auto overflow-x-hidden pb-48 lg:pb-24"
+          className={cn(
+            'flex-1 overflow-y-auto overflow-x-hidden lg:pb-24 lg:scroll-pb-0',
+            isFullBleed && 'lg:pb-24'
+          )}
         >
           {/* Periodic nudge during practice */}
           {showNudge && practiceActive && (
@@ -492,6 +518,19 @@ export function DashboardShell({ coach, children }: Props) {
           <PageTransition>
             {children}
           </PageTransition>
+          {/*
+            Bottom spacer — using padding-bottom on the scroll container is buggy in
+            Chromium/WebKit (padding is not counted in scrollHeight for overflow:auto
+            flex items), so a real DOM element guarantees scroll room above the
+            mobile tab bar + FAB. Hidden on desktop and on full-bleed routes.
+          */}
+          {!isFullBleed && (
+            <div
+              aria-hidden="true"
+              className="lg:hidden"
+              style={{ height: 'calc(10rem + env(safe-area-inset-bottom))' }}
+            />
+          )}
         </div>
 
         {/* Quick Capture floating widget — accessible from any page */}
@@ -537,6 +576,8 @@ export function DashboardShell({ coach, children }: Props) {
                     const { createClient } = await import('@/lib/supabase/client');
                     const supabase = createClient();
                     await supabase.auth.signOut();
+                const { resetAnalytics } = await import('@/lib/analytics');
+                resetAnalytics();
                     window.location.href = '/login';
                   }}
                   className="flex flex-col items-center gap-1.5 rounded-xl p-3 text-red-400 hover:bg-zinc-800 active:scale-95 transition-all"
@@ -562,6 +603,7 @@ export function DashboardShell({ coach, children }: Props) {
             const itemHref = item.primary && practiceSessionId
               ? `/capture?sessionId=${practiceSessionId}`
               : item.href;
+            const tourTag = item.label.toLowerCase();  // 'home' | 'sessions' | 'capture' | 'plans'
             return (
               <Link
                 key={item.href}
@@ -569,6 +611,7 @@ export function DashboardShell({ coach, children }: Props) {
                 onMouseEnter={prefetchOnIntent(item.href)}
                 onFocus={prefetchOnIntent(item.href)}
                 onTouchStart={prefetchOnIntent(item.href)}
+                data-tour={tourTag}
                 aria-current={isActive ? 'page' : undefined}
                 className={cn(
                   'flex flex-1 flex-col items-center justify-center gap-1 min-h-[44px] min-w-[44px] py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-[11px] font-medium touch-manipulation',

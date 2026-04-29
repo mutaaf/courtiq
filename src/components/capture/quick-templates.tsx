@@ -249,7 +249,7 @@ function SuccessToast({ message, onDismiss }: { message: string; onDismiss: () =
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-28 inset-x-0 z-40 flex justify-center px-4 pointer-events-none"
+      className="fixed bottom-[calc(7rem+env(safe-area-inset-bottom))] inset-x-0 z-40 flex justify-center px-4 pointer-events-none"
     >
       <div className="flex items-center gap-2.5 rounded-full border border-emerald-500/30 bg-zinc-900 px-5 py-3 shadow-lg shadow-black/40 pointer-events-auto">
         <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />

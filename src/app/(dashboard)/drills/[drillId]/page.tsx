@@ -379,7 +379,7 @@ export default function DrillDetailPage({
       })()}
 
       {/* CTA — generate a practice plan using this drill */}
-      <div className="fixed bottom-0 left-0 right-0 lg:static lg:pt-2 p-4 lg:p-0 bg-zinc-950/95 lg:bg-transparent backdrop-blur-sm lg:backdrop-blur-none border-t border-zinc-800 lg:border-0">
+      <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-0 right-0 lg:static lg:bottom-auto lg:pt-2 p-4 lg:p-0 bg-zinc-950/95 lg:bg-transparent backdrop-blur-sm lg:backdrop-blur-none border-t border-zinc-800 lg:border-0">
         <Link href={`/plans?drill=${encodeURIComponent(drill.name)}`} className="block">
           <Button className="w-full h-12 lg:h-10 text-base lg:text-sm gap-2">
             <Dumbbell className="h-5 w-5 lg:h-4 lg:w-4" />

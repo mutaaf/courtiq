@@ -65,7 +65,7 @@ export function PwaInstallPrompt() {
     <div
       role="banner"
       aria-label="Install SportsIQ app"
-      className="fixed bottom-20 left-3 right-3 z-40 lg:hidden animate-in slide-in-from-bottom-2 duration-300"
+      className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-3 right-3 z-40 lg:hidden animate-in slide-in-from-bottom-2 duration-300"
     >
       <div className="flex items-center gap-3 rounded-xl border border-orange-500/30 bg-zinc-900/95 px-4 py-3 shadow-xl shadow-black/40 backdrop-blur-sm">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500">

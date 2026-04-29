@@ -2841,52 +2841,62 @@ export default function SessionDetailPage() {
 
   return (
     <div className="p-4 lg:p-8 space-y-6 pb-8 max-w-3xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link href="/sessions">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        </Link>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold">
-              {SESSION_TYPE_LABELS[session.type]}
-            </h1>
-            {session.opponent && (
-              <span className="text-lg text-zinc-400">vs {session.opponent}</span>
-            )}
+      {/* Header — title row, then actions row that wraps on mobile */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <Link href="/sessions" className="shrink-0">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <h1 className="text-xl sm:text-2xl font-bold truncate">
+                {SESSION_TYPE_LABELS[session.type]}
+              </h1>
+              {session.opponent && (
+                <span className="text-base sm:text-lg text-zinc-400 truncate">
+                  vs {session.opponent}
+                </span>
+              )}
+            </div>
           </div>
+          <Link href={`/capture?sessionId=${sessionId}`} className="shrink-0">
+            <Button size="sm" className="h-10 sm:h-9 px-3">
+              <Mic className="h-4 w-4" />
+              Capture
+            </Button>
+          </Link>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap gap-2 sm:flex-nowrap">
           {(session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
             <>
-              <Link href={`/sessions/${sessionId}/subs`}>
-                <Button variant="outline" size="sm" className="border-zinc-700 text-zinc-400 hover:bg-zinc-800">
+              <Link href={`/sessions/${sessionId}/subs`} className="shrink-0">
+                <Button variant="outline" size="sm" className="h-9 border-zinc-700 text-zinc-400 hover:bg-zinc-800">
                   <Shuffle className="h-4 w-4" />
-                  <span className="hidden sm:inline">Subs</span>
+                  Subs
                 </Button>
               </Link>
-              <Link href={`/sessions/${sessionId}/game-tracker`}>
-                <Button variant="outline" size="sm" className="border-orange-500/40 text-orange-400 hover:bg-orange-500/10">
+              <Link href={`/sessions/${sessionId}/game-tracker`} className="shrink-0">
+                <Button variant="outline" size="sm" className="h-9 border-orange-500/40 text-orange-400 hover:bg-orange-500/10">
                   <BarChart2 className="h-4 w-4" />
-                  <span className="hidden sm:inline">Game Stats</span>
+                  Game Stats
                 </Button>
               </Link>
             </>
           )}
           {(session.type === 'practice' || session.type === 'training' || session.type === 'scrimmage') && (
-            <Link href={`/sessions/${sessionId}/timer`}>
-              <Button variant="outline" size="sm" className="hidden sm:flex">
+            <Link href={`/sessions/${sessionId}/timer`} className="shrink-0">
+              <Button variant="outline" size="sm" className="h-9">
                 <Dumbbell className="h-4 w-4" />
                 Timer
               </Button>
             </Link>
           )}
-          <Link href={`/sessions/${sessionId}/attendance`}>
-            <Button variant="outline" size="sm" className="border-zinc-700 text-zinc-400 hover:bg-zinc-800">
+          <Link href={`/sessions/${sessionId}/attendance`} className="shrink-0">
+            <Button variant="outline" size="sm" className="h-9 border-zinc-700 text-zinc-400 hover:bg-zinc-800">
               <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Attendance</span>
+              Attendance
             </Button>
           </Link>
           <Button
@@ -2895,7 +2905,7 @@ export default function SessionDetailPage() {
             onClick={handleObserverLink}
             disabled={observerLinkGenerating}
             title="Share observer link — let a parent volunteer capture observations"
-            className="border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-emerald-400 hover:border-emerald-700"
+            className="h-9 shrink-0 border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-emerald-400 hover:border-emerald-700"
           >
             {observerLinkGenerating ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -2904,20 +2914,12 @@ export default function SessionDetailPage() {
             ) : (
               <Eye className="h-4 w-4" />
             )}
-            <span className="hidden sm:inline">
-              {observerLinkCopied ? 'Copied!' : 'Observer'}
-            </span>
+            {observerLinkCopied ? 'Copied!' : 'Observer'}
           </Button>
-          <Link href={`/sessions/${sessionId}/replay`}>
-            <Button variant="outline" size="sm" className="border-zinc-700 text-zinc-400 hover:bg-zinc-800">
+          <Link href={`/sessions/${sessionId}/replay`} className="shrink-0">
+            <Button variant="outline" size="sm" className="h-9 border-zinc-700 text-zinc-400 hover:bg-zinc-800">
               <Play className="h-4 w-4" />
-              <span className="hidden sm:inline">Replay</span>
-            </Button>
-          </Link>
-          <Link href={`/capture?sessionId=${sessionId}`}>
-            <Button>
-              <Mic className="h-4 w-4" />
-              Capture
+              Replay
             </Button>
           </Link>
         </div>

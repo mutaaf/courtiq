@@ -270,7 +270,7 @@ export default function DrillsPage() {
               ))}
             </p>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x">
+          <div className="flex gap-3 overflow-x-auto pb-1 snap-x">
             {recommendedDrills.map((drill) => (
               <Link
                 key={drill.id}

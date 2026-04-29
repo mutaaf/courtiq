@@ -369,7 +369,7 @@ export function QuickCaptureWidget() {
             setIsOpen(true);
           }}
           className={cn(
-            'fixed bottom-[5.5rem] right-4 z-40 lg:bottom-6',
+            'fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-40 lg:bottom-6',
             'flex h-11 w-11 lg:h-12 lg:w-12 items-center justify-center rounded-full',
             'bg-orange-500 shadow-lg shadow-orange-500/25',
             'hover:bg-orange-600 active:scale-95 touch-manipulation transition-transform duration-150',
