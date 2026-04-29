@@ -42,6 +42,21 @@ interface AICallOptions {
   orgId?: string;
   /** Previous conversation turns to pass as context for multi-turn interactions. */
   conversationHistory?: ConversationMessage[];
+  /**
+   * Stable, per-team context (roster, curriculum, etc.) appended to the system
+   * prompt. On Anthropic this block is marked with cache_control: ephemeral so
+   * consecutive calls with the same context skip re-encoding (~90% input-cost
+   * reduction within the 5-minute TTL). Other providers receive it concatenated
+   * to the system prompt.
+   */
+  cacheableContext?: string;
+  /**
+   * Request a strict JSON object from the provider. Used by callAIWithJSON to
+   * enable native JSON mode on OpenAI (response_format) and Gemini
+   * (responseMimeType) — much more reliable than prompt-only "respond with
+   * JSON" instructions on those providers.
+   */
+  jsonMode?: boolean;
 }
 
 interface AICallResult {
@@ -65,8 +80,11 @@ interface ProviderCallResult {
 // Constants
 // ---------------------------------------------------------------------------
 
+// Latest stable models for structured extraction + reasoning (Apr 2026).
+// Sonnet 4.6 ≫ Sonnet 4 for JSON-shaped outputs; Haiku 4.5 is a generational
+// jump over Haiku 3 in both speed and quality.
 const DEFAULT_MODELS: Record<AIProvider, string> = {
-  anthropic: 'claude-sonnet-4-20250514',
+  anthropic: 'claude-sonnet-4-6',
   openai: 'gpt-4o',
   gemini: 'gemini-2.5-flash',
 };
@@ -100,11 +118,12 @@ const COST_EFFECTIVE_TYPES: AIInteractionType[] = [
   'transcription',
 ];
 
-// Cost-effective model overrides per provider
+// Cost-effective model overrides per provider — 8–20× cheaper than the
+// defaults with minimal quality loss for transcription/segmentation.
 const COST_EFFECTIVE_MODELS: Record<AIProvider, string> = {
   gemini: 'gemini-2.5-flash',
   openai: 'gpt-4o-mini',
-  anthropic: 'claude-haiku-3-20240307',
+  anthropic: 'claude-haiku-4-5-20251001',
 };
 
 // ---------------------------------------------------------------------------
@@ -173,7 +192,8 @@ async function callAnthropic(
   model: string,
   maxTokens: number,
   temperature: number,
-  conversationHistory?: ConversationMessage[]
+  conversationHistory?: ConversationMessage[],
+  cacheableContext?: string,
 ): Promise<ProviderCallResult> {
   const client = new Anthropic({ apiKey });
 
@@ -185,11 +205,26 @@ async function callAnthropic(
     { role: 'user', content: userPrompt },
   ];
 
+  // Build the system as a multi-block array when we have a cacheable context,
+  // so Anthropic can hash + cache the stable prefix. The instruction block is
+  // shorter and varies more (custom instructions per org), so we cache only
+  // the larger, stable team-context block — that's where the savings are.
+  const systemBlocks: Anthropic.TextBlockParam[] = cacheableContext
+    ? [
+        { type: 'text', text: systemPrompt },
+        {
+          type: 'text',
+          text: cacheableContext,
+          cache_control: { type: 'ephemeral' },
+        },
+      ]
+    : [{ type: 'text', text: systemPrompt }];
+
   const response = await client.messages.create({
     model,
     max_tokens: maxTokens,
     temperature,
-    system: systemPrompt,
+    system: systemBlocks,
     messages,
   });
 
@@ -198,9 +233,20 @@ async function callAnthropic(
     .map((block) => block.text)
     .join('');
 
+  // Anthropic counts cached tokens separately; surface a combined input total
+  // for cost logging while the cost helper down below knows about the cached
+  // discount.
+  const usage = response.usage as Anthropic.Usage & {
+    cache_creation_input_tokens?: number;
+    cache_read_input_tokens?: number;
+  };
+  const cacheRead = usage.cache_read_input_tokens ?? 0;
+  const cacheCreate = usage.cache_creation_input_tokens ?? 0;
+  const tokensIn = usage.input_tokens + cacheCreate + cacheRead;
+
   return {
     text,
-    tokensIn: response.usage.input_tokens,
+    tokensIn,
     tokensOut: response.usage.output_tokens,
     model,
   };
@@ -213,12 +259,19 @@ async function callOpenAI(
   model: string,
   maxTokens: number,
   temperature: number,
-  conversationHistory?: ConversationMessage[]
+  conversationHistory?: ConversationMessage[],
+  cacheableContext?: string,
+  jsonMode?: boolean,
 ): Promise<ProviderCallResult> {
   const client = new OpenAI({ apiKey });
 
+  // OpenAI doesn't have a Stripe-style explicit cache API, but its automatic
+  // prompt caching (gpt-4o family) hashes the prefix of the system message,
+  // so concatenating cacheableContext to the system maximizes cache reuse.
+  const fullSystem = cacheableContext ? `${systemPrompt}\n\n${cacheableContext}` : systemPrompt;
+
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-    { role: 'system', content: systemPrompt },
+    { role: 'system', content: fullSystem },
     ...(conversationHistory ?? []).map((m) => ({
       role: m.role as 'user' | 'assistant',
       content: m.content,
@@ -231,6 +284,7 @@ async function callOpenAI(
     max_tokens: maxTokens,
     temperature,
     messages,
+    ...(jsonMode ? { response_format: { type: 'json_object' as const } } : {}),
   });
 
   const text = response.choices[0]?.message?.content || '';
@@ -250,15 +304,19 @@ async function callGemini(
   model: string,
   maxTokens: number,
   temperature: number,
-  conversationHistory?: ConversationMessage[]
+  conversationHistory?: ConversationMessage[],
+  cacheableContext?: string,
+  jsonMode?: boolean,
 ): Promise<ProviderCallResult> {
   const genAI = new GoogleGenerativeAI(apiKey);
+  const fullSystem = cacheableContext ? `${systemPrompt}\n\n${cacheableContext}` : systemPrompt;
   const geminiModel = genAI.getGenerativeModel({
     model,
-    systemInstruction: systemPrompt,
+    systemInstruction: fullSystem,
     generationConfig: {
       maxOutputTokens: maxTokens,
       temperature,
+      ...(jsonMode ? { responseMimeType: 'application/json' } : {}),
     },
   });
 
@@ -301,17 +359,28 @@ async function callProvider(
   modelOverride: string | undefined,
   maxTokens: number,
   temperature: number,
-  conversationHistory?: ConversationMessage[]
+  conversationHistory?: ConversationMessage[],
+  cacheableContext?: string,
+  jsonMode?: boolean,
 ): Promise<ProviderCallResult> {
   const model = modelOverride || DEFAULT_MODELS[provider];
 
   switch (provider) {
     case 'anthropic':
-      return callAnthropic(apiKey, systemPrompt, userPrompt, model, maxTokens, temperature, conversationHistory);
+      return callAnthropic(
+        apiKey, systemPrompt, userPrompt, model, maxTokens, temperature,
+        conversationHistory, cacheableContext,
+      );
     case 'openai':
-      return callOpenAI(apiKey, systemPrompt, userPrompt, model, maxTokens, temperature, conversationHistory);
+      return callOpenAI(
+        apiKey, systemPrompt, userPrompt, model, maxTokens, temperature,
+        conversationHistory, cacheableContext, jsonMode,
+      );
     case 'gemini':
-      return callGemini(apiKey, systemPrompt, userPrompt, model, maxTokens, temperature, conversationHistory);
+      return callGemini(
+        apiKey, systemPrompt, userPrompt, model, maxTokens, temperature,
+        conversationHistory, cacheableContext, jsonMode,
+      );
     default:
       throw new Error(`Unknown AI provider: ${provider}`);
   }
@@ -362,8 +431,10 @@ export function estimateCostTier(systemPrompt: string, userPrompt: string): 'low
 
 // Approximate cost per 1M tokens (USD) — input / output
 const MODEL_COSTS: Record<string, { input: number; output: number }> = {
-  'claude-sonnet-4-20250514': { input: 3, output: 15 },
-  'claude-haiku-3-20240307': { input: 0.25, output: 1.25 },
+  'claude-sonnet-4-6': { input: 3, output: 15 },
+  'claude-sonnet-4-20250514': { input: 3, output: 15 },           // legacy
+  'claude-haiku-4-5-20251001': { input: 0.8, output: 4 },
+  'claude-haiku-3-20240307': { input: 0.25, output: 1.25 },       // legacy
   'gpt-4o': { input: 2.5, output: 10 },
   'gpt-4o-mini': { input: 0.15, output: 0.6 },
   'gemini-2.5-flash': { input: 0.15, output: 0.6 },
@@ -471,7 +542,9 @@ export async function callAI(options: AICallOptions, supabase: any): Promise<AIC
       model, // Use the fully resolved model (cost-effective or default), not the raw override
       maxTokens,
       temperature,
-      conversationHistory
+      conversationHistory,
+      options.cacheableContext,
+      options.jsonMode,
     );
 
     const latencyMs = Date.now() - startTime;
@@ -542,7 +615,11 @@ export async function callAIWithJSON<T>(
   const result = await callAI(
     {
       ...options,
+      // Belt-and-suspenders — even with native JSON mode (OpenAI/Gemini) and
+      // the schema reminder in the user prompt, telling the model in plain
+      // English produces cleaner output for Anthropic too.
       systemPrompt: options.systemPrompt + '\n\nYou MUST respond with valid JSON only. No markdown, no explanation.',
+      jsonMode: true,
     },
     supabase
   );

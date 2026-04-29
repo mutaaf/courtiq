@@ -38,7 +38,11 @@ export async function POST(request: Request) {
 
   try {
     const context = await buildAIContext(teamId, admin);
-    const prompt = PROMPT_REGISTRY.segmentTranscript({ ...context, transcript });
+    const prompt = PROMPT_REGISTRY.segmentTranscript({ ...context, transcript }) as {
+      system: string;
+      user: string;
+      cacheableContext?: string;
+    };
 
     const result = await callAIWithJSON<SegmentedObservations>(
       {
@@ -47,6 +51,7 @@ export async function POST(request: Request) {
         interactionType: 'segment_transcript',
         systemPrompt: prompt.system,
         userPrompt: prompt.user,
+        cacheableContext: prompt.cacheableContext,
         orgId: coach?.org_id,
       },
       admin

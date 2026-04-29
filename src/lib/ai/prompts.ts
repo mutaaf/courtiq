@@ -77,7 +77,19 @@ export const PROMPT_REGISTRY = {
       '- For very long transcripts, it is better to produce many detailed observations than to merge or skip sections.',
       '- Maintain chronological order of observations as they appear in the transcript.',
     ].join('\n'),
+    // Fresh per call — just the transcript + schema reminder. Roster + skills
+    // live in cacheableContext below so consecutive captures hit the prompt
+    // cache.
     user: [
+      'Transcript:',
+      params.transcript,
+      '\nSegment into individual observations. Respond with JSON matching this schema:',
+      '{ "observations": [{ "player_name", "category", "sentiment", "text", "skill_id", "result", "stats", "tendency" }], "unmatched_names": [], "team_observations": [{ "category", "sentiment", "text" }] }',
+    ].join('\n'),
+    // Stable per-team context. callAnthropic appends this to the system
+    // prompt with cache_control: { type: 'ephemeral' } — ~90% cost reduction
+    // on cache hits within the 5-min TTL.
+    cacheableContext: [
       'Roster (match transcript words phonetically to these names):',
       (params.roster || []).map((p) => {
         let line = `- ${p.name}`;
@@ -86,12 +98,10 @@ export const PROMPT_REGISTRY = {
         line += ` #${p.jersey_number || '?'} ${p.position}`;
         return line;
       }).join('\n'),
-      params.skills ? '\nCurriculum Skills:\n' + params.skills.map((s) => `- ${s.skill_id}: ${s.name} (${s.category})`).join('\n') : '',
-      '\nTranscript:',
-      params.transcript,
-      '\nSegment into individual observations. Respond with JSON matching this schema:',
-      '{ "observations": [{ "player_name", "category", "sentiment", "text", "skill_id", "result", "stats", "tendency" }], "unmatched_names": [], "team_observations": [{ "category", "sentiment", "text" }] }',
-    ].join('\n'),
+      params.skills && params.skills.length > 0
+        ? '\nCurriculum Skills:\n' + params.skills.map((s) => `- ${s.skill_id}: ${s.name} (${s.category})`).join('\n')
+        : '',
+    ].filter(Boolean).join('\n'),
   }),
 
   practicePlan: (params: PromptParams & {

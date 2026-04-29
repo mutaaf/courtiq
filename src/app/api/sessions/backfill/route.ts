@@ -176,7 +176,11 @@ export async function POST(request: Request) {
 
     let observationsCreated = 0;
     try {
-      const prompt = PROMPT_REGISTRY.segmentTranscript({ ...aiContext, transcript: sourceNote });
+      const prompt = PROMPT_REGISTRY.segmentTranscript({ ...aiContext, transcript: sourceNote }) as {
+        system: string;
+        user: string;
+        cacheableContext?: string;
+      };
       const aiResult = await callAIWithJSON<{
         observations?: Array<{
           player_name?: string;
@@ -193,6 +197,7 @@ export async function POST(request: Request) {
           interactionType: 'segment_transcript',
           systemPrompt: prompt.system,
           userPrompt: prompt.user,
+          cacheableContext: prompt.cacheableContext,
         },
         admin,
       );
