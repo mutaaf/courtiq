@@ -229,9 +229,9 @@ export default function DrillsPage() {
   }
 
   return (
-    <div className="p-4 lg:p-8 space-y-6 pb-8">
-      <div className="flex items-center justify-between gap-3">
-        <div>
+    <div className="p-4 lg:p-8 space-y-6 pb-8 overflow-x-hidden">
+      <div className="flex items-center justify-between gap-3 min-w-0">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold">Drills Library</h1>
           <p className="text-zinc-400 text-sm">
             {filtered.length} drill{filtered.length !== 1 ? 's' : ''} available
@@ -250,15 +250,15 @@ export default function DrillsPage() {
 
       {/* Skill Gap Recommendations */}
       {!isLoading && topGaps.length > 0 && recommendedDrills.length > 0 && (
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
-          <div>
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-3 min-w-0">
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/15">
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/15 shrink-0">
                 <Target className="h-3.5 w-3.5 text-amber-400" />
               </div>
               <p className="text-sm font-semibold text-zinc-100">Recommended for Your Team</p>
             </div>
-            <p className="text-[11px] text-zinc-500 mt-1 ml-8">
+            <p className="text-[11px] text-zinc-500 mt-1 ml-8 break-words">
               Based on {gapObs.length} needs-work observation{gapObs.length !== 1 ? 's' : ''} in the last 30 days &middot; Top gaps:{' '}
               {topGaps.map((g, i) => (
                 <span key={g.category}>
@@ -270,7 +270,7 @@ export default function DrillsPage() {
               ))}
             </p>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-1 snap-x">
+          <div className="flex gap-3 overflow-x-auto pb-1 snap-x min-w-0">
             {recommendedDrills.map((drill) => (
               <Link
                 key={drill.id}
@@ -333,7 +333,7 @@ export default function DrillsPage() {
       {/* Filters */}
       <div className="space-y-3">
         {/* Category filter */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 min-w-0">
           <Filter className="h-4 w-4 text-zinc-500 shrink-0" />
           <span className="text-xs text-zinc-500 shrink-0">Category:</span>
           <button
@@ -364,7 +364,7 @@ export default function DrillsPage() {
         </div>
 
         {/* Age group filter */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 min-w-0">
           <Users className="h-4 w-4 text-zinc-500 shrink-0" />
           <span className="text-xs text-zinc-500 shrink-0">Ages:</span>
           <button

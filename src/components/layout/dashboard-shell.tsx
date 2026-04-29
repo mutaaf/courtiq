@@ -289,7 +289,7 @@ export function DashboardShell({ coach, children }: Props) {
       </div>
 
       {/* Main content */}
-      <main id="main-content" tabIndex={-1} className="flex flex-1 flex-col min-h-0 lg:pt-12">
+      <main id="main-content" tabIndex={-1} className="flex flex-1 flex-col min-h-0 min-w-0 lg:pt-12">
         {/* Subscription ended — downgrade notice */}
         {subscriptionStatus === 'canceled' && !cancelAtPeriodEnd && (
           <div className="bg-zinc-800/80 border-b border-zinc-700 px-4 py-2 flex items-center gap-2 text-sm text-zinc-300">
