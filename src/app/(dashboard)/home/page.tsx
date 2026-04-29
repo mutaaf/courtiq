@@ -517,7 +517,14 @@ export default function HomePage() {
       <div>
         <h1 className="text-2xl font-bold">{activeTeam.name}</h1>
         <p className="text-zinc-400">
-          Season {activeTeam.season || 'Not set'} &middot; Week {activeTeam.current_week}
+          Season {activeTeam.season || 'Not set'} &middot;{' '}
+          <Link
+            href="/curriculum"
+            className="underline-offset-2 hover:underline hover:text-zinc-200 transition-colors"
+            aria-label={`Currently on week ${activeTeam.current_week} — tap to change`}
+          >
+            Week {activeTeam.current_week}
+          </Link>
         </p>
       </div>
 

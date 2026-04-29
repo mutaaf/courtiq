@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { BookOpen, TrendingUp, TrendingDown, Minus, Sparkles, Plus, Pencil, Trash2 } from 'lucide-react';
+import { BookOpen, TrendingUp, TrendingDown, Minus, Sparkles, Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Check, Loader2 } from 'lucide-react';
+import { queryKeys } from '@/lib/query/keys';
 import type { CurriculumSkill, ProficiencyLevel, Trend, TeamCustomSkill } from '@/types/database';
 import { getProficiencyLabel } from '@/lib/curriculum/proficiency';
 import { CustomSkillSheet } from '@/components/curriculum/custom-skill-sheet';
@@ -162,6 +163,39 @@ export default function CurriculumPage() {
     }
   }
 
+  // ── Week stepper ───────────────────────────────────────────────────────
+  const [savingWeek, setSavingWeek] = useState(false);
+  const [weekJustSaved, setWeekJustSaved] = useState(false);
+  const seasonWeeks = activeTeam?.season_weeks ?? 52;
+
+  async function setCurrentWeek(nextWeek: number) {
+    if (!activeTeam) return;
+    const clamped = Math.max(1, Math.min(seasonWeeks, nextWeek));
+    if (clamped === activeTeam.current_week) return;
+    setSavingWeek(true);
+    try {
+      await mutate({
+        table: 'teams',
+        operation: 'update',
+        filters: { id: activeTeam.id },
+        data: { current_week: clamped },
+      });
+      trackEvent('team_week_updated', {
+        from: activeTeam.current_week,
+        to: clamped,
+        delta: clamped - activeTeam.current_week,
+      });
+      // Invalidate the active-team query so every page picks up the new week
+      queryClient.invalidateQueries({ queryKey: queryKeys.teams.all() });
+      setWeekJustSaved(true);
+      setTimeout(() => setWeekJustSaved(false), 1500);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to update week');
+    } finally {
+      setSavingWeek(false);
+    }
+  }
+
   const { data: teamProficiency, isLoading: profLoading } = useQuery({
     queryKey: ['team-proficiency', activeTeam?.id],
     queryFn: async () => {
@@ -289,11 +323,11 @@ export default function CurriculumPage() {
 
   return (
     <div className="p-4 lg:p-8 space-y-6 pb-8">
-      <div className="flex items-start justify-between gap-3">
-        <div>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold">Curriculum</h1>
           <p className="text-zinc-400 text-sm">
-            Skill roadmap for {activeTeam?.age_group} &middot; Week {currentWeek}
+            Skill roadmap for {activeTeam?.age_group}
           </p>
         </div>
         {coach?.id && activeTeam?.id && (
@@ -309,6 +343,59 @@ export default function CurriculumPage() {
           </Button>
         )}
       </div>
+
+      {/* Week stepper — coaches advance the team's current_week as the season
+          progresses; everything else (curriculum highlights, AI prompts, etc.)
+          keys off this value. */}
+      {activeTeam?.id && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Current Week</p>
+            <p className="text-lg font-bold text-zinc-100">
+              Week {currentWeek}
+              {seasonWeeks ? <span className="text-sm font-normal text-zinc-500"> of {seasonWeeks}</span> : null}
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={() => setCurrentWeek(currentWeek - 1)}
+              disabled={savingWeek || currentWeek <= 1}
+              aria-label="Previous week"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 hover:border-orange-500/50 hover:text-orange-400 active:scale-95 transition-colors disabled:opacity-40 disabled:cursor-not-allowed touch-manipulation"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <input
+              type="number"
+              min={1}
+              max={seasonWeeks}
+              value={currentWeek}
+              disabled={savingWeek}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                if (!Number.isNaN(v)) setCurrentWeek(v);
+              }}
+              aria-label="Set current week"
+              className="h-9 w-14 rounded-lg border border-zinc-700 bg-zinc-800 px-2 text-center text-sm font-semibold text-zinc-100 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500/30"
+            />
+            <button
+              onClick={() => setCurrentWeek(currentWeek + 1)}
+              disabled={savingWeek || currentWeek >= seasonWeeks}
+              aria-label="Next week"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 hover:border-orange-500/50 hover:text-orange-400 active:scale-95 transition-colors disabled:opacity-40 disabled:cursor-not-allowed touch-manipulation"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <div className="ml-1 w-5 flex items-center justify-center">
+              {savingWeek ? (
+                <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
+              ) : weekJustSaved ? (
+                <Check className="h-4 w-4 text-emerald-400" />
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Proficiency legend */}
       <div className="flex flex-wrap gap-3">
