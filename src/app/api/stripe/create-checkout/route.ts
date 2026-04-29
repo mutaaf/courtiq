@@ -42,7 +42,7 @@ export async function POST(request: Request) {
 
     const { data: org } = await admin
       .from('organizations')
-      .select('id, stripe_customer_id, name')
+      .select('id, stripe_customer_id, stripe_subscription_id, name')
       .eq('id', coach.org_id)
       .single();
 
@@ -66,6 +66,14 @@ export async function POST(request: Request) {
         .eq('id', org.id);
     }
 
+    // Trial: only on first paid subscription per org. If the org already has
+    // a subscription_status set (active, past_due, canceled), they've already
+    // had their trial — skip it on re-subscribe to avoid trial-stacking abuse.
+    const isFirstSubscription = !(org as any).stripe_subscription_id;
+    const trialDays = isFirstSubscription
+      ? Number(process.env.STRIPE_TRIAL_DAYS ?? 14)
+      : 0;
+
     // Create checkout session
     const session = await getStripe().checkout.sessions.create({
       mode: 'subscription',
@@ -74,6 +82,24 @@ export async function POST(request: Request) {
       success_url: `${APP_URL}/settings/upgrade?success=true`,
       cancel_url: `${APP_URL}/settings/upgrade?canceled=true`,
       allow_promotion_codes: true,
+      // Auto-collect sales tax / VAT when Stripe Tax is configured for the
+      // account. No-op (and harmless) for accounts without Stripe Tax enabled.
+      automatic_tax: { enabled: true },
+      // Stripe Tax requires an address; let the checkout collect it.
+      customer_update: { address: 'auto', name: 'auto' },
+      tax_id_collection: { enabled: true },
+      ...(trialDays > 0
+        ? {
+            subscription_data: {
+              trial_period_days: trialDays,
+              // Cancel the subscription instead of charging if the customer
+              // never adds a payment method during the trial.
+              trial_settings: {
+                end_behavior: { missing_payment_method: 'cancel' },
+              },
+            },
+          }
+        : {}),
       metadata: { org_id: org.id, tier },
     });
 

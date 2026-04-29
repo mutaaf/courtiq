@@ -26,6 +26,26 @@ export async function POST(request: Request) {
 
   const admin = await createServiceSupabase();
 
+  // Idempotency — Stripe retries failed deliveries and can replay the same
+  // event_id. Insert-with-conflict ensures we only process each event once.
+  const { error: dedupErr } = await admin.from('stripe_webhook_events').insert({
+    event_id: event.id,
+    event_type: event.type,
+    livemode: event.livemode ?? false,
+    status: 'received',
+  });
+
+  if (dedupErr) {
+    // Unique-violation means we've already received this event — short-circuit
+    // 200 OK so Stripe stops retrying. Any other error: log and continue (the
+    // table may not exist yet on first deploy — degrade gracefully rather than
+    // block real billing events).
+    if ((dedupErr as any).code === '23505') {
+      return NextResponse.json({ received: true, deduped: true });
+    }
+    console.warn('[stripe/webhook] dedup insert failed (continuing):', dedupErr.message);
+  }
+
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -104,8 +124,20 @@ export async function POST(request: Request) {
         // Unhandled event type — acknowledge receipt
         break;
     }
+
+    await admin
+      .from('stripe_webhook_events')
+      .update({ status: 'processed', processed_at: new Date().toISOString() })
+      .eq('event_id', event.id);
   } catch (err) {
     console.error(`[stripe/webhook] Error handling ${event.type}:`, err);
+    await admin
+      .from('stripe_webhook_events')
+      .update({
+        status: 'failed',
+        error_message: err instanceof Error ? err.message : String(err),
+      })
+      .eq('event_id', event.id);
     return NextResponse.json(
       { error: 'Webhook handler failed' },
       { status: 500 }
