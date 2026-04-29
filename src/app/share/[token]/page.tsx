@@ -324,6 +324,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     achievements,
     latestSessionMessage,
     skillChallenge,
+    activeGoals,
   } = data;
 
   const playerName = player?.nickname || player?.name || 'your player';
@@ -629,6 +630,54 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
                   {s.skill_name || formatCategoryLabel(s.category)}
                 </span>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* ─── Coach's Development Goals ─── */}
+        {Array.isArray(activeGoals) && activeGoals.length > 0 && (
+          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm border border-violet-100">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-lg" aria-hidden="true">🎯</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-violet-700">
+                Coach&apos;s Goals for {firstName}
+              </h3>
+            </div>
+            <p className="mb-4 text-sm text-gray-600 leading-relaxed">
+              Here&apos;s what {firstName}&apos;s coach is working toward this season:
+            </p>
+            <div className="space-y-3">
+              {activeGoals.map((goal: { id: string; skill: string; goal_text: string; target_level: string | null; target_date: string | null }) => {
+                const LEVEL_LABEL: Record<string, string> = {
+                  exploring: '🌱 Exploring',
+                  practicing: '🔄 Practicing',
+                  got_it: '⭐ Got It!',
+                  game_ready: '🏆 Game Ready',
+                };
+                const targetDate = goal.target_date
+                  ? new Date(goal.target_date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                  : null;
+                return (
+                  <div key={goal.id} className="rounded-xl bg-violet-50 p-4">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <p className="text-sm font-semibold text-violet-900 capitalize leading-snug">
+                        {goal.skill}
+                      </p>
+                      {goal.target_level && LEVEL_LABEL[goal.target_level] && (
+                        <span className="shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
+                          {LEVEL_LABEL[goal.target_level]}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-700 leading-relaxed">{goal.goal_text}</p>
+                    {targetDate && (
+                      <p className="mt-1.5 text-[11px] text-violet-500">
+                        Target: {targetDate}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

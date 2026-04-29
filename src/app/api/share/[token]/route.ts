@@ -234,6 +234,19 @@ export async function GET(
       .limit(1);
     reportData.skillChallenge = skillChallengePlans?.[0]?.content_structured || null;
 
+    // Active player development goals — shown on parent portal so parents
+    // understand what the coach is specifically working toward with their child.
+    // We only expose goal_text, skill, target_level, and target_date (not
+    // private coach notes) and limit to 3 active goals to keep the portal focused.
+    const { data: activeGoals } = await supabase
+      .from('player_goals')
+      .select('id, skill, goal_text, target_level, target_date')
+      .eq('player_id', share.player_id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(3);
+    reportData.activeGoals = activeGoals ?? [];
+
     // Active team announcements (visible to parents)
     const now = new Date().toISOString();
     const { data: announcements } = await supabase
