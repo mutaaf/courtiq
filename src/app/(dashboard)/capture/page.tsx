@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { mutate } from '@/lib/api';
+import { mutate, query } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RecordingButton } from '@/components/capture/recording-button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Send, Keyboard, Mic, AlertCircle, Sparkles, Upload, FileAudio, Camera, Lock } from 'lucide-react';
+import { Loader2, Send, Keyboard, Mic, AlertCircle, Sparkles, Upload, FileAudio, Camera, Lock, CheckCircle2 } from 'lucide-react';
 import { generateId } from '@/lib/utils';
 import { localDB } from '@/lib/storage/local-db';
 import Link from 'next/link';
@@ -18,6 +18,7 @@ import { useAppStore } from '@/lib/store';
 import { Check } from 'lucide-react';
 import { useTier } from '@/hooks/use-tier';
 import { trackEvent } from '@/lib/analytics';
+import { cn } from '@/lib/utils';
 
 type CaptureState = 'idle' | 'recording' | 'processing' | 'error';
 
@@ -70,6 +71,55 @@ export default function CapturePage() {
 
   const setIsRecording = useAppStore((s) => s.setIsRecording);
   const setGlobalRecordingDuration = useAppStore((s) => s.setRecordingDuration);
+
+  // Session coverage — who's been observed so far in this session
+  const [coverageRoster, setCoverageRoster] = useState<{ id: string; name: string }[]>([]);
+  const [coverageObservedIds, setCoverageObservedIds] = useState<Set<string>>(new Set());
+
+  const refreshCoverageObs = useCallback(async () => {
+    if (!urlSessionId || !activeTeam?.id) return;
+    try {
+      const obs = await query<{ player_id: string | null }[]>({
+        table: 'observations',
+        select: 'player_id',
+        filters: { session_id: urlSessionId, team_id: activeTeam.id },
+      });
+      setCoverageObservedIds(
+        new Set((obs ?? []).filter((o) => o.player_id).map((o) => o.player_id as string))
+      );
+    } catch {
+      // silent — coverage is a nice-to-have
+    }
+  }, [urlSessionId, activeTeam?.id]);
+
+  useEffect(() => {
+    if (!urlSessionId || !activeTeam?.id) return;
+    Promise.all([
+      query<{ id: string; name: string }[]>({
+        table: 'players',
+        select: 'id, name',
+        filters: { team_id: activeTeam.id, is_active: true },
+        order: { column: 'name', ascending: true },
+      }),
+      query<{ player_id: string | null }[]>({
+        table: 'observations',
+        select: 'player_id',
+        filters: { session_id: urlSessionId, team_id: activeTeam.id },
+      }),
+    ])
+      .then(([roster, obs]) => {
+        setCoverageRoster(roster ?? []);
+        setCoverageObservedIds(
+          new Set((obs ?? []).filter((o) => o.player_id).map((o) => o.player_id as string))
+        );
+      })
+      .catch(() => {});
+  }, [urlSessionId, activeTeam?.id]);
+
+  const unobservedPlayers = useMemo(
+    () => coverageRoster.filter((p) => !coverageObservedIds.has(p.id)),
+    [coverageRoster, coverageObservedIds]
+  );
 
   // Cleanup on unmount
   useEffect(() => {
@@ -722,13 +772,63 @@ export default function CapturePage() {
           <p className="mt-1 text-sm text-zinc-400">{activeTeam.name}</p>
         </div>
 
-        {/* Session context banner — shown when navigated from a session/player-specific link */}
+        {/* Session context banner with live coverage tracker */}
         {urlSessionId && (
-          <div className="flex items-center gap-2.5 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3">
-            <span className="text-blue-400 text-sm">📍</span>
-            <p className="text-sm text-blue-300">
-              Observations will be linked to your session
-            </p>
+          <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 space-y-2.5">
+            <div className="flex items-center gap-2.5">
+              <span className="text-blue-400 text-sm">📍</span>
+              <p className="text-sm text-blue-300 flex-1">Linked to your session</p>
+              {coverageRoster.length > 0 && (
+                <span
+                  className={cn(
+                    'text-xs font-medium px-2 py-0.5 rounded-full',
+                    unobservedPlayers.length === 0
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : 'bg-blue-500/20 text-blue-300'
+                  )}
+                >
+                  {coverageObservedIds.size}/{coverageRoster.length} covered
+                </span>
+              )}
+            </div>
+
+            {coverageRoster.length > 0 && unobservedPlayers.length === 0 && (
+              <div className="flex items-center gap-1.5 text-emerald-400 text-xs">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                <span>All players observed this session</span>
+              </div>
+            )}
+
+            {unobservedPlayers.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-xs text-blue-400/70">Tap to focus on a player:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {unobservedPlayers.slice(0, 8).map((player) => {
+                    const isSelected = urlPlayerId === player.id;
+                    return (
+                      <button
+                        key={player.id}
+                        onClick={() => setUrlPlayerId(isSelected ? null : player.id)}
+                        className={cn(
+                          'inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium border transition-all touch-manipulation active:scale-95',
+                          isSelected
+                            ? 'border-orange-500/60 bg-orange-500/20 text-orange-200'
+                            : 'border-blue-500/30 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20'
+                        )}
+                      >
+                        {isSelected && <Check className="h-3 w-3" />}
+                        {player.name.split(' ')[0]}
+                      </button>
+                    );
+                  })}
+                  {unobservedPlayers.length > 8 && (
+                    <span className="inline-flex items-center px-2.5 py-1.5 text-xs text-blue-400/60">
+                      +{unobservedPlayers.length - 8} more
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1091,6 +1191,7 @@ export default function CapturePage() {
               coachId={coach.id}
               sessionId={urlSessionId}
               preselectPlayerId={urlPlayerId}
+              onSaved={refreshCoverageObs}
             />
           </>
         )}
