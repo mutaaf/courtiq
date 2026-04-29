@@ -13,6 +13,8 @@
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { TIER_LIMITS, type Tier } from '@/lib/tier';
+import { sendEmail } from '@/lib/email';
+import { welcomeEmail } from '@/lib/email/templates';
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabase();
@@ -125,6 +127,38 @@ export async function POST(request: Request) {
     coach_id: user.id,
     role: 'head_coach',
   });
+
+  // Welcome email — fire-and-forget, never blocks the response. Idempotent
+  // via coach.preferences.welcome_sent so a retry doesn't double-send.
+  (async () => {
+    try {
+      const { data: coachRow } = await admin
+        .from('coaches')
+        .select('full_name, email, preferences')
+        .eq('id', user.id)
+        .single();
+      const prefs = (coachRow?.preferences as Record<string, unknown>) || {};
+      if (!coachRow || !coachRow.email || prefs.welcome_sent) return;
+
+      const built = welcomeEmail({
+        coachName: coachRow.full_name || 'Coach',
+        teamName: teamName.trim(),
+      });
+      await sendEmail({
+        to: coachRow.email,
+        subject: built.subject,
+        html: built.html,
+        tag: 'welcome',
+        unsubscribeUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://youthsportsiq.com'}/settings/profile`,
+      });
+      await admin
+        .from('coaches')
+        .update({ preferences: { ...prefs, welcome_sent: new Date().toISOString() } })
+        .eq('id', user.id);
+    } catch (err) {
+      console.warn('[welcome-email] failed:', err instanceof Error ? err.message : err);
+    }
+  })();
 
   return NextResponse.json({ success: true, teamId: team.id });
 }

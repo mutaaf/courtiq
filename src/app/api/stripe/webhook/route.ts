@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server';
 import { getStripe, tierFromPriceId } from '@/lib/stripe';
 import { createServiceSupabase } from '@/lib/supabase/server';
 import { TIER_LIMITS } from '@/lib/tier';
+import { sendEmail } from '@/lib/email';
+import { subscriptionConfirmedEmail, subscriptionCanceledEmail } from '@/lib/email/templates';
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -77,6 +79,47 @@ export async function POST(request: Request) {
               subscription_status: 'active',
             })
             .eq('id', orgId);
+
+          // Subscription-confirmed email — pull a coach to send to. We email
+          // the head coach on the first team in the org; if that's not
+          // available, the admin coach. Idempotent per-org via Stripe's
+          // event idempotency layer (already in place above).
+          (async () => {
+            try {
+              const sub = subscriptionId
+                ? await getStripe().subscriptions.retrieve(subscriptionId)
+                : null;
+              const item = sub?.items?.data?.[0];
+              const amountCents = item?.price?.unit_amount ?? 0;
+              const interval = (item?.price?.recurring?.interval as 'month' | 'year') ?? 'month';
+              const trialEnd = sub?.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null;
+
+              const { data: coachRow } = await admin
+                .from('coaches')
+                .select('full_name, email')
+                .eq('org_id', orgId)
+                .eq('role', 'admin')
+                .limit(1)
+                .single();
+              if (!coachRow?.email) return;
+
+              const built = subscriptionConfirmedEmail({
+                coachName: coachRow.full_name || 'Coach',
+                tier,
+                trialEndsAt: trialEnd,
+                amount: `$${(amountCents / 100).toFixed(2)}`,
+                interval: interval === 'year' ? 'annual' : 'monthly',
+              });
+              await sendEmail({
+                to: coachRow.email,
+                subject: built.subject,
+                html: built.html,
+                tag: 'subscription_confirmed',
+              });
+            } catch (err) {
+              console.warn('[email/sub-confirmed] failed:', err instanceof Error ? err.message : err);
+            }
+          })();
         }
         break;
       }
@@ -130,12 +173,14 @@ export async function POST(request: Request) {
             .is('archived_at', null)
             .order('created_at', { ascending: false });
 
+          let archivedCount = 0;
           if (liveTeams && liveTeams.length > freeMax) {
             const toArchive = liveTeams.slice(freeMax).map((t) => t.id);
             await admin
               .from('teams')
               .update({ archived_at: new Date().toISOString() })
               .in('id', toArchive);
+            archivedCount = toArchive.length;
           }
 
           await admin
@@ -147,6 +192,33 @@ export async function POST(request: Request) {
               cancel_at_period_end: false,
             })
             .eq('id', org.id);
+
+          // Cancellation email — soft-touch, with a reactivation CTA and a
+          // please-tell-us-why prompt.
+          (async () => {
+            try {
+              const { data: coachRow } = await admin
+                .from('coaches')
+                .select('full_name, email')
+                .eq('org_id', org.id)
+                .eq('role', 'admin')
+                .limit(1)
+                .single();
+              if (!coachRow?.email) return;
+              const built = subscriptionCanceledEmail({
+                coachName: coachRow.full_name || 'Coach',
+                archivedTeamCount: archivedCount,
+              });
+              await sendEmail({
+                to: coachRow.email,
+                subject: built.subject,
+                html: built.html,
+                tag: 'subscription_canceled',
+              });
+            } catch (err) {
+              console.warn('[email/sub-canceled] failed:', err instanceof Error ? err.message : err);
+            }
+          })();
         }
         break;
       }

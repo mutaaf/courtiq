@@ -74,6 +74,12 @@ export async function POST(request: Request) {
       ? Number(process.env.STRIPE_TRIAL_DAYS ?? 14)
       : 0;
 
+    // Stripe Tax is opt-in via env. When the live account doesn't have Tax
+    // registrations yet, passing automatic_tax / customer_update / tax_id
+    // makes Stripe reject the call. Flip STRIPE_TAX_ENABLED=true once the
+    // account is registered (see docs/OPS.md).
+    const taxEnabled = process.env.STRIPE_TAX_ENABLED === 'true';
+
     // Create checkout session
     const session = await getStripe().checkout.sessions.create({
       mode: 'subscription',
@@ -82,12 +88,14 @@ export async function POST(request: Request) {
       success_url: `${APP_URL}/settings/upgrade?success=true`,
       cancel_url: `${APP_URL}/settings/upgrade?canceled=true`,
       allow_promotion_codes: true,
-      // Auto-collect sales tax / VAT when Stripe Tax is configured for the
-      // account. No-op (and harmless) for accounts without Stripe Tax enabled.
-      automatic_tax: { enabled: true },
-      // Stripe Tax requires an address; let the checkout collect it.
-      customer_update: { address: 'auto', name: 'auto' },
-      tax_id_collection: { enabled: true },
+      ...(taxEnabled
+        ? {
+            automatic_tax: { enabled: true },
+            // Stripe Tax requires an address; let the checkout collect it.
+            customer_update: { address: 'auto', name: 'auto' },
+            tax_id_collection: { enabled: true },
+          }
+        : {}),
       ...(trialDays > 0
         ? {
             subscription_data: {
@@ -105,9 +113,16 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    console.error('[stripe/create-checkout] Error:', error);
+    // Bubble up the real Stripe error message so failures aren't a silent
+    // "Failed to create checkout session" — this is the difference between
+    // 30 minutes of grepping logs and a one-glance fix.
+    const stripeMsg =
+      (error as any)?.raw?.message ||
+      (error as Error)?.message ||
+      'Failed to create checkout session';
+    console.error('[stripe/create-checkout] Error:', stripeMsg, error);
     return NextResponse.json(
-      { error: 'Failed to create checkout session' },
+      { error: stripeMsg },
       { status: 500 }
     );
   }
