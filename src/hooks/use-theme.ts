@@ -2,8 +2,8 @@
 import { useSyncExternalStore, useCallback } from 'react';
 
 function getTheme(): 'dark' | 'light' {
-  if (typeof window === 'undefined') return 'dark';
-  return (localStorage.getItem('courtiq-theme') as 'dark' | 'light') || 'dark';
+  if (typeof window === 'undefined') return 'light';
+  return (localStorage.getItem('courtiq-theme') as 'dark' | 'light') || 'light';
 }
 
 function subscribe(callback: () => void) {
@@ -12,7 +12,7 @@ function subscribe(callback: () => void) {
 }
 
 export function useTheme() {
-  const theme = useSyncExternalStore(subscribe, getTheme, () => 'dark' as const);
+  const theme = useSyncExternalStore(subscribe, getTheme, () => 'light' as const);
 
   const toggleTheme = useCallback(() => {
     const next = theme === 'dark' ? 'light' : 'dark';
