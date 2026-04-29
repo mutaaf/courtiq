@@ -31,10 +31,53 @@ export async function POST(request: Request) {
     admin.from('sports').select('id').eq('slug', sportSlug).single(),
   ]);
 
-  const coach = coachRes.data;
+  let coach = coachRes.data;
   const sport = sportRes.data;
-  if (!coach) return NextResponse.json({ error: 'Coach not found' }, { status: 404 });
   if (!sport) return NextResponse.json({ error: 'Sport not found' }, { status: 404 });
+
+  // Lazy-provision coach + org if the user reached us without going through
+  // /api/auth/callback (e.g. Supabase's default email-confirm link drops the
+  // user on `/#access_token=...` which never hits our callback). Without
+  // this, a verified-by-email signup would dead-end here with "Coach not
+  // found".
+  if (!coach) {
+    const name =
+      (user.user_metadata as any)?.full_name ||
+      user.email?.split('@')[0] ||
+      'Coach';
+    const slug =
+      name.toLowerCase().replace(/[^\w-]/g, '-').replace(/-+/g, '-') +
+      '-' +
+      Date.now().toString(36);
+
+    const { data: org, error: orgErr } = await admin
+      .from('organizations')
+      .insert({ name: `${name}'s Organization`, slug })
+      .select('id')
+      .single();
+    if (orgErr || !org) {
+      return NextResponse.json(
+        { error: orgErr?.message || 'Failed to provision organization' },
+        { status: 500 },
+      );
+    }
+
+    const { error: coachInsertErr } = await admin.from('coaches').insert({
+      id: user.id,
+      org_id: org.id,
+      full_name: name,
+      email: user.email!,
+      role: 'admin',
+      avatar_url: (user.user_metadata as any)?.avatar_url ?? null,
+    });
+    if (coachInsertErr) {
+      return NextResponse.json(
+        { error: `Failed to provision coach: ${coachInsertErr.message}` },
+        { status: 500 },
+      );
+    }
+    coach = { org_id: org.id };
+  }
 
   // Tier check + default curriculum lookup in parallel
   const [orgRes, teamCountRes, curriculumRes] = await Promise.all([

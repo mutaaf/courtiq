@@ -50,11 +50,14 @@ export default function LandingContent() {
             <span className="font-bold text-lg text-zinc-900">SportsIQ</span>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/login" className="hidden sm:inline-flex text-sm font-medium text-zinc-400 hover:text-zinc-700 transition-colors px-3 py-2">
+            <Link
+              href="/login"
+              className="text-sm font-medium text-zinc-500 hover:text-zinc-800 transition-colors px-3 py-2"
+            >
               Sign in
             </Link>
             <Button asChild size="sm">
-              <Link href="/demo">Try Free</Link>
+              <Link href="/signup">Sign up</Link>
             </Button>
           </div>
         </div>
@@ -77,8 +80,8 @@ export default function LandingContent() {
 
           <div className="mt-8 flex flex-col gap-3 w-full sm:flex-row sm:justify-center sm:w-auto">
             <Button asChild size="xl" className="shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all">
-              <Link href="/demo">
-                Try it now — free
+              <Link href="/signup">
+                Get started — free
                 <ArrowRight className="ml-1.5 h-5 w-5" />
               </Link>
             </Button>
