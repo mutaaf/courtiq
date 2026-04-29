@@ -107,11 +107,19 @@ export function categoryMatchesFocus(
 /**
  * Human-readable label for how recently the focus was set.
  * "Today", "Yesterday", "N days ago"
+ *
+ * Uses UTC day math to avoid the local-vs-UTC midnight straddle that produces
+ * off-by-one results when the user's local time and UTC are on different
+ * calendar days.
  */
 export function formatFocusAge(focus: WeeklyFocus): string {
-  const setAt = new Date(focus.setAt + 'T12:00:00');
-  const diffDays = Math.round((Date.now() - setAt.getTime()) / 86_400_000);
-  if (diffDays === 0) return 'Today';
+  const [y, m, d] = focus.setAt.split('-').map(Number);
+  if (!y || !m || !d) return focus.setAt;
+  const setAtUtcMs = Date.UTC(y, m - 1, d);
+  const now = new Date();
+  const todayUtcMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const diffDays = Math.round((todayUtcMs - setAtUtcMs) / 86_400_000);
+  if (diffDays <= 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
   return `${diffDays} days ago`;
 }
