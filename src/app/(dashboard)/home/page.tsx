@@ -668,7 +668,7 @@ export default function HomePage() {
       <BirthdayCard teamId={activeTeam.id} teamName={activeTeam.name} />
 
       {/* AI Keys Onboarding Banner */}
-      {!hasAIKeys && (
+      {!practiceActive && !hasAIKeys && (
         <Card className="border-orange-500/30 bg-gradient-to-r from-orange-500/10 to-orange-500/5 p-4">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-500/20">
@@ -859,12 +859,12 @@ export default function HomePage() {
       )}
 
       {/* Drill of the Day — deterministic drill targeting the team's top skill gap */}
-      {!isLoadingStats && stats && stats.observations >= 5 && (
+      {!practiceActive && !isLoadingStats && stats && stats.observations >= 5 && (
         <DrillOfDayCard teamId={activeTeam.id} sportId={activeTeam.sport_id} />
       )}
 
       {/* Getting Started checklist — shown until first 3 actions are complete */}
-      {!isLoadingStats && stats && coach && (
+      {!practiceActive && !isLoadingStats && stats && coach && (
         <GettingStartedCard
           players={stats.players}
           sessions={stats.sessions}
@@ -884,7 +884,7 @@ export default function HomePage() {
       )}
 
       {/* Seasonal promo — new season kickoff (first 21 days of Sept/Jan/Apr) */}
-      {!isLoadingStats && stats && (
+      {!practiceActive && !isLoadingStats && stats && (
         <SeasonalPromo playerCount={stats.players} />
       )}
 
@@ -933,38 +933,38 @@ export default function HomePage() {
       </div>
 
       {/* Freemium nudge — contextual upgrade prompt for free-tier coaches */}
-      {stats && (
+      {!practiceActive && stats && (
         <FreemiumNudge playerCount={stats.players} observationCount={stats.observations} />
       )}
 
       {/* Weekly Team Focus — coach declares a skill theme for the week */}
-      {activeTeam && stats && stats.sessions >= 1 && (
+      {!practiceActive && activeTeam && stats && stats.sessions >= 1 && (
         <WeeklyFocusCard teamId={activeTeam.id} />
       )}
 
       {/* Team skill trends — week-over-week per-category signals */}
-      {activeTeam && stats && stats.observations >= 5 && (
+      {!practiceActive && activeTeam && stats && stats.observations >= 5 && (
         <TeamSkillTrendsCard teamId={activeTeam.id} />
       )}
 
       {/* Coaching streak tracker */}
-      {activeTeam && stats && (
+      {!practiceActive && activeTeam && stats && (
         <StreakCard teamId={activeTeam.id} observationCount={stats.observations} />
       )}
 
       {/* AI Coach Insights — personalized proactive tips, cached 4 hours */}
-      {activeTeam && stats && (
+      {!practiceActive && activeTeam && stats && (
         <AICoachingTipsCard teamId={activeTeam.id} observationCount={stats.observations} />
       )}
 
       {/* Team Wins Feed — recent badges + achieved goals */}
-      {activeTeam && <TeamWinsCard teamId={activeTeam.id} />}
+      {!practiceActive && activeTeam && <TeamWinsCard teamId={activeTeam.id} />}
 
       {/* Parent Reactions — love notes from parents */}
-      {activeTeam && <ParentReactionsCard teamId={activeTeam.id} />}
+      {!practiceActive && activeTeam && <ParentReactionsCard teamId={activeTeam.id} />}
 
       {/* Upcoming sessions this week */}
-      {upcomingSessions.length > 0 && <UpcomingSessionsCard sessions={upcomingSessions} />}
+      {!practiceActive && upcomingSessions.length > 0 && <UpcomingSessionsCard sessions={upcomingSessions} />}
 
     </div>
 
