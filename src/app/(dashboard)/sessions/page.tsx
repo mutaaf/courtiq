@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2, Star } from 'lucide-react';
+import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2, Star, ArrowLeftRight } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { RecurringSessionsPanel } from '@/components/sessions/recurring-sessions-panel';
@@ -139,19 +139,32 @@ export default function SessionsPage() {
   return (
     <PullToRefresh onRefresh={async () => { await refetch(); }}>
     <div className="p-4 lg:p-8 space-y-6 pb-8">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold">Sessions</h1>
           <p className="text-zinc-400 text-sm">
             {sessions?.length || 0} session{sessions?.length !== 1 ? 's' : ''} recorded
           </p>
         </div>
-        <Link href="/sessions/new">
-          <Button className="h-12 px-5 sm:h-10 sm:px-4 text-base sm:text-sm">
-            <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
-            New Session
-          </Button>
-        </Link>
+        <div className="flex gap-2 shrink-0">
+          <Link href="/sessions/backfill">
+            <Button
+              variant="outline"
+              className="h-12 px-3 sm:h-10 sm:px-3 text-base sm:text-xs"
+              title="Add past sessions in bulk"
+            >
+              <ArrowLeftRight className="h-5 w-5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Catch up</span>
+            </Button>
+          </Link>
+          <Link href="/sessions/new">
+            <Button className="h-12 px-5 sm:h-10 sm:px-4 text-base sm:text-sm">
+              <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">New Session</span>
+              <span className="sm:hidden">New</span>
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Type filter */}
