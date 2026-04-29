@@ -36,6 +36,8 @@ describe('buildNotificationId', () => {
     expect(buildNotificationId('goal_deadline', 'goal-1')).toBe('goal_deadline:goal-1');
     expect(buildNotificationId('session_today', 'session-9')).toBe('session_today:session-9');
     expect(buildNotificationId('achievement_earned', 'ach-7')).toBe('achievement_earned:ach-7');
+    expect(buildNotificationId('birthday_today', 'player-5')).toBe('birthday_today:player-5');
+    expect(buildNotificationId('parent_reaction_message', 'rxn-42')).toBe('parent_reaction_message:rxn-42');
   });
 
   it('preserves UUIDs unchanged', () => {
@@ -152,5 +154,73 @@ describe('sortNotifications', () => {
     expect(sorted[3].priority).toBe('low');
     expect(sorted[4].priority).toBe('low');
     expect(new Date(sorted[3].timestamp) >= new Date(sorted[4].timestamp)).toBe(true);
+  });
+});
+
+// ─── parent_reaction_message notification shape ───────────────────────────────
+
+describe('parent_reaction_message notifications', () => {
+  it('uses medium priority', () => {
+    const n = makeNotification({ type: 'parent_reaction_message', priority: 'medium' });
+    expect(n.priority).toBe('medium');
+  });
+
+  it('sorts after high-priority items', () => {
+    const rxnMsg = makeNotification({
+      id: 'rxn-1',
+      type: 'parent_reaction_message',
+      priority: 'medium',
+      timestamp: '2026-04-29T10:00:00.000Z',
+    });
+    const goalAlert = makeNotification({
+      id: 'goal-1',
+      type: 'goal_deadline',
+      priority: 'high',
+      timestamp: '2026-04-28T10:00:00.000Z',
+    });
+    const sorted = sortNotifications([rxnMsg, goalAlert]);
+    expect(sorted[0].id).toBe('goal-1');
+    expect(sorted[1].id).toBe('rxn-1');
+  });
+
+  it('sorts newer parent messages before older ones at same priority', () => {
+    const older = makeNotification({
+      id: 'rxn-old',
+      type: 'parent_reaction_message',
+      priority: 'medium',
+      timestamp: '2026-04-20T08:00:00.000Z',
+    });
+    const newer = makeNotification({
+      id: 'rxn-new',
+      type: 'parent_reaction_message',
+      priority: 'medium',
+      timestamp: '2026-04-29T09:00:00.000Z',
+    });
+    const sorted = sortNotifications([older, newer]);
+    expect(sorted[0].id).toBe('rxn-new');
+    expect(sorted[1].id).toBe('rxn-old');
+  });
+
+  it('generates a stable notification id', () => {
+    expect(buildNotificationId('parent_reaction_message', 'reaction-uuid-123'))
+      .toBe('parent_reaction_message:reaction-uuid-123');
+  });
+
+  it('can coexist with all other notification types without breaking sort', () => {
+    const mixed = [
+      makeNotification({ id: 'a', type: 'unobserved_player', priority: 'medium' }),
+      makeNotification({ id: 'b', type: 'parent_reaction_message', priority: 'medium' }),
+      makeNotification({ id: 'c', type: 'achievement_earned', priority: 'low' }),
+      makeNotification({ id: 'd', type: 'session_today', priority: 'high' }),
+      makeNotification({ id: 'e', type: 'birthday_today', priority: 'high' }),
+    ];
+    const sorted = sortNotifications(mixed);
+    expect(sorted).toHaveLength(5);
+    // High-priority items first
+    const highIds = sorted.filter((n) => n.priority === 'high').map((n) => n.id);
+    expect(highIds).toContain('d');
+    expect(highIds).toContain('e');
+    // Low priority last
+    expect(sorted[sorted.length - 1].priority).toBe('low');
   });
 });

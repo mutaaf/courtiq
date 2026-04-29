@@ -3,11 +3,12 @@ import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/serv
 import { isBirthdayToday, getAgeThisBirthday } from '@/lib/birthday-utils';
 
 export type NotificationType =
-  | 'unobserved_player'   // player not observed in 14+ days
-  | 'goal_deadline'       // active goal due within 7 days (or overdue)
-  | 'session_today'       // session scheduled today with no observations
-  | 'achievement_earned'  // badge awarded in last 48 hours
-  | 'birthday_today';     // player birthday is today
+  | 'unobserved_player'        // player not observed in 14+ days
+  | 'goal_deadline'            // active goal due within 7 days (or overdue)
+  | 'session_today'            // session scheduled today with no observations
+  | 'achievement_earned'       // badge awarded in last 48 hours
+  | 'birthday_today'           // player birthday is today
+  | 'parent_reaction_message'; // parent sent a message via share portal
 
 export type NotificationPriority = 'high' | 'medium' | 'low';
 
@@ -77,8 +78,10 @@ export async function GET(request: Request) {
   const sevenDaysFromNow = new Date(now + 7 * day).toISOString().split('T')[0];
   const fortyEightHoursAgo = new Date(now - 48 * 60 * 60 * 1000).toISOString();
 
+  const sevenDaysAgo = new Date(now - 7 * day).toISOString();
+
   // Fetch all data in parallel for minimal latency
-  const [playersRes, obsRes, goalsRes, sessionsRes, achievementsRes] = await Promise.all([
+  const [playersRes, obsRes, goalsRes, sessionsRes, achievementsRes, reactionsRes] = await Promise.all([
     admin
       .from('players')
       .select('id, name, date_of_birth')
@@ -108,6 +111,15 @@ export async function GET(request: Request) {
       .gte('earned_at', fortyEightHoursAgo)
       .order('earned_at', { ascending: false })
       .limit(10),
+    admin
+      .from('parent_reactions')
+      .select('id, player_id, reaction, message, parent_name, created_at')
+      .eq('team_id', teamId)
+      .eq('is_read', false)
+      .not('message', 'is', null)
+      .gte('created_at', sevenDaysAgo)
+      .order('created_at', { ascending: false })
+      .limit(5),
   ]);
 
   const players = playersRes.data ?? [];
@@ -115,6 +127,7 @@ export async function GET(request: Request) {
   const goals = goalsRes.data ?? [];
   const sessions = sessionsRes.data ?? [];
   const achievements = achievementsRes.data ?? [];
+  const parentReactions = reactionsRes.data ?? [];
 
   // Build a player name lookup
   const playerMap: Record<string, string> = {};
@@ -193,7 +206,26 @@ export async function GET(request: Request) {
     });
   }
 
-  // ── 5. Player birthdays today ────────────────────────────────────────────────
+  // ── 5. Unread parent messages from share portal (last 7 days) ────────────────
+  for (const rxn of parentReactions) {
+    const playerName = playerMap[(rxn as any).player_id] ?? null;
+    const senderName = (rxn as any).parent_name as string | null;
+    const displayName = senderName ?? (playerName ? `${playerName}'s parent` : 'A parent');
+    const emoji = (rxn as any).reaction as string;
+    const msg = ((rxn as any).message as string).trim();
+    const preview = msg.length > 80 ? msg.slice(0, 77) + '…' : msg;
+    notifications.push({
+      id: buildNotificationId('parent_reaction_message', (rxn as any).id),
+      type: 'parent_reaction_message',
+      title: `${emoji} Message from ${displayName}`,
+      body: preview,
+      href: '/home',
+      priority: 'medium',
+      timestamp: (rxn as any).created_at as string,
+    });
+  }
+
+  // ── 6. Player birthdays today ────────────────────────────────────────────────
   const todayDate = new Date();
   for (const player of players) {
     const dob = (player as any).date_of_birth as string | null;
