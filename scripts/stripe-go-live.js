@@ -233,7 +233,12 @@ async function cutover() {
         execSync(`vercel env rm ${name} production -y 2>/dev/null`, { stdio: 'ignore' });
       } catch {}
       try {
-        execSync(`echo "${value}" | vercel env add ${name} production`, { stdio: 'inherit' });
+        // Write to a temp file first so no trailing newline can sneak into
+        // the value — Node's HTTP layer rejects \n in headers (ERR_INVALID_CHAR).
+        const tmp = `/tmp/.vercel-env-${process.pid}-${Date.now()}`;
+        fs.writeFileSync(tmp, value, 'utf8');  // no newline
+        execSync(`vercel env add ${name} production < ${tmp}`, { stdio: 'inherit' });
+        fs.unlinkSync(tmp);
       } catch (e) {
         console.warn(`   ⚠ ${name} push failed: ${e.message}`);
       }

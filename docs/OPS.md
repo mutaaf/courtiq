@@ -39,6 +39,23 @@ To monitor: tail the `stripe_webhook_events` table for rows with
 
 ---
 
+## ⚠️ Vercel env vars — never use `echo "..." | vercel env add`
+
+`echo` appends `\n`. Node's HTTP layer rejects `\n` in header values
+(ERR_INVALID_CHAR), and Stripe surfaces that as `StripeConnectionError:
+"Request was retried 2 times."` — which spent us an hour debugging.
+
+Always write to a tempfile with `printf %s` first, then redirect stdin:
+
+```bash
+printf %s "$VALUE" > /tmp/v.txt
+vercel env add MY_KEY production < /tmp/v.txt
+rm /tmp/v.txt
+```
+
+Or use the dashboard / `scripts/stripe-go-live.js --push-vercel`, which
+already handles this correctly.
+
 ## Going live (test mode → live mode)
 
 1. **Stripe**: switch dashboard to **Live mode**. Re-create:
