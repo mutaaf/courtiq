@@ -499,7 +499,7 @@ export default function HomePage() {
           Your AI-powered coaching assistant. Create your first team to start tracking players,
           capturing observations, and generating practice plans.
         </p>
-        <Link href="/onboarding/team">
+        <Link href="/onboarding/setup">
           <Button className="mt-6" size="lg">
             <Plus className="h-5 w-5" />
             Create Team

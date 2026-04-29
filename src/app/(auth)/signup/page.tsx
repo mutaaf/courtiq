@@ -85,7 +85,7 @@ function SignupForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fullName, referredByCode: refCode || undefined }),
       });
-      router.push('/onboarding/sport');
+      router.push('/onboarding/setup');
       router.refresh();
     }
   }
@@ -213,6 +213,13 @@ function SignupForm() {
             <Link href="/login" className="text-orange-500 hover:underline">
               Sign in
             </Link>
+          </p>
+          <p className="mt-3 text-center text-xs text-zinc-500">
+            Just exploring?{' '}
+            <Link href="/onboarding/demo" className="text-orange-500 hover:underline">
+              Try a demo team
+            </Link>{' '}
+            (no sign-up required to look around once you have an account).
           </p>
         </CardContent>
       </Card>

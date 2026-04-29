@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { X, ChevronRight, Mic, Users, Sparkles } from 'lucide-react';
+import { X, ChevronRight, Mic, Calendar, ClipboardList } from 'lucide-react';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
+import { trackEvent } from '@/lib/analytics';
 
 const TOUR_STORAGE_KEY = 'sportsiq-tour-complete';
 
@@ -14,63 +15,64 @@ interface TourStep {
   position: 'center' | 'bottom-left' | 'bottom-right' | 'top-right';
 }
 
+// 3 tooltips total. Roster + Settings tooltips were dropped — they're discoverable.
+// Tour now triggers AFTER the coach has logged at least one observation, which is a
+// signal of intent and prevents wasting a teaching moment on someone who hasn't
+// committed yet.
 const TOUR_STEPS: TourStep[] = [
   {
-    title: 'Welcome to SportsIQ!',
+    title: 'Capture is your superpower',
     description:
-      'Your AI-powered coaching assistant. Let us show you around in a few quick steps.',
-    icon: Sparkles,
-    targetSelector: null,
-    position: 'center',
-  },
-  {
-    title: 'Record observations',
-    description:
-      'Tap Capture to record voice notes during practice. Our AI segments them into individual player observations automatically.',
+      "You've already done it once — keep tapping here during practice and we'll segment voice into per-player observations automatically.",
     icon: Mic,
     targetSelector: '[data-tour="capture"]',
     position: 'top-right',
   },
   {
-    title: 'Your roster',
+    title: 'Sessions hold it all together',
     description:
-      'Add your players, track their skill progression, and generate report cards to share with parents.',
-    icon: Users,
-    targetSelector: '[data-tour="roster"]',
-    position: 'bottom-left',
+      'Every observation lives inside a session. Open one to see grouped notes, AI debrief, and a recap you can share with parents.',
+    icon: Calendar,
+    targetSelector: '[data-tour="sessions"]',
+    position: 'top-right',
   },
   {
-    title: 'AI Assistant',
+    title: 'Plans write themselves',
     description:
-      'Ask the AI for practice plans, game prep sheets, player analysis, or any coaching questions.',
-    icon: Sparkles,
-    targetSelector: '[data-tour="assistant"]',
-    position: 'bottom-left',
-  },
-  {
-    title: 'Start your first practice',
-    description:
-      "You're all set! Tap the orange Start Practice button on your home screen whenever you're ready. A ready-made drill plan will be waiting for you.",
-    icon: Sparkles,
-    targetSelector: null,
-    position: 'center',
+      'Generate practice plans, game-day prep sheets, and parent reports from your real data — usually in under 30 seconds.',
+    icon: ClipboardList,
+    targetSelector: '[data-tour="plans"]',
+    position: 'top-right',
   },
 ];
 
-export function WelcomeTour() {
+interface Props {
+  /**
+   * When false, the tour stays dormant. The dashboard layout passes true only
+   * after the coach has at least one real observation — by then they've crossed
+   * the activation threshold and the tour is reinforcing, not interrupting.
+   */
+  enabled?: boolean;
+}
+
+export function WelcomeTour({ enabled = true }: Props) {
   const [currentStep, setCurrentStep] = useState(0);
   const [visible, setVisible] = useState(false);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!enabled) return;
     const done = localStorage.getItem(TOUR_STORAGE_KEY);
     if (!done) {
       // Small delay to let the dashboard render first
-      const timer = setTimeout(() => setVisible(true), 600);
+      const timer = setTimeout(() => {
+        setVisible(true);
+        trackEvent('welcome_tour_shown', { step_count: TOUR_STEPS.length });
+      }, 600);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [enabled]);
 
   const updateTarget = useCallback((stepIndex: number) => {
     const step = TOUR_STEPS[stepIndex];
@@ -107,7 +109,11 @@ export function WelcomeTour() {
   const completeTour = useCallback(() => {
     localStorage.setItem(TOUR_STORAGE_KEY, 'true');
     setVisible(false);
-  }, []);
+    trackEvent('welcome_tour_completed', {
+      reached_step: currentStep,
+      total_steps: TOUR_STEPS.length,
+    });
+  }, [currentStep]);
 
   const trapRef = useFocusTrap<HTMLDivElement>({
     enabled: visible,

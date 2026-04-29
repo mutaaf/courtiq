@@ -18,13 +18,22 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .eq('id', user.id)
     .single();
 
-  if (!coach) redirect('/onboarding/sport');
-  if (!coach.onboarding_complete) redirect('/onboarding/sport');
+  if (!coach) redirect('/onboarding/setup');
+  if (!coach.onboarding_complete) redirect('/onboarding/setup');
+
+  // Tour fires only after the coach has logged at least one real (non-sample) observation.
+  // Cheap query — uses the existing observations(coach_id) index.
+  const { count: obsCount } = await admin
+    .from('observations')
+    .select('id', { count: 'exact', head: true })
+    .eq('coach_id', user.id)
+    .limit(1);
+  const hasFirstObservation = (obsCount ?? 0) > 0;
 
   return (
     <DashboardShell coach={coach}>
       {children}
-      <WelcomeTour />
+      <WelcomeTour enabled={hasFirstObservation} />
     </DashboardShell>
   );
 }

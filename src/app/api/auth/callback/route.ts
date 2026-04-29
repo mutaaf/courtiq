@@ -61,7 +61,7 @@ export async function GET(request: Request) {
           });
         }
 
-        return NextResponse.redirect(`${origin}/onboarding/sport`);
+        return NextResponse.redirect(`${origin}/onboarding/setup`);
       }
 
       return NextResponse.redirect(`${origin}${redirect}`);

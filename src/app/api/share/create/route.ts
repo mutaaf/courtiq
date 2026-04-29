@@ -51,13 +51,21 @@ export async function POST(request: Request) {
     // Verify player belongs to team
     const { data: player } = await supabase
       .from('players')
-      .select('id, name')
+      .select('id, name, is_sample')
       .eq('id', playerId)
       .eq('team_id', teamId)
       .single();
 
     if (!player) {
       return NextResponse.json({ error: 'Player not found in team' }, { status: 404 });
+    }
+
+    // Sample players are demo data — never share them publicly with parents.
+    if ((player as any).is_sample) {
+      return NextResponse.json(
+        { error: 'This is a sample player. Add a real player to share a report.' },
+        { status: 400 },
+      );
     }
 
     // Generate a unique share token
