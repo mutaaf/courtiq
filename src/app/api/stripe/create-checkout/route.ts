@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { getStripe, getPriceId, type PaidTier, type BillingInterval } from '@/lib/stripe';
 
+// Bump the function timeout — Stripe's default SDK timeout is 80s and some
+// cold-start round trips can take >10s.
+export const maxDuration = 30;
+
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 export async function POST(request: Request) {

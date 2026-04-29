@@ -122,8 +122,8 @@ export default function UpgradePage() {
       icon: Sparkles,
       color: 'blue',
       popular: true,
-      monthlyPrice: 24.99,
-      annualPrice: 19.99,
+      monthlyPrice: 39.99,
+      annualPrice: 31.99,
       features: ['Unlimited teams & sports', 'Everything in Coach', 'AI Coach Assistant', 'Player analytics & trends', 'Session media upload', 'Custom AI prompts'],
     },
     {
@@ -131,8 +131,8 @@ export default function UpgradePage() {
       name: 'Organization',
       icon: Users,
       color: 'purple',
-      monthlyPrice: 49.99,
-      annualPrice: 39.99,
+      monthlyPrice: 99.99,
+      annualPrice: 79.99,
       features: ['Everything in Pro Coach', 'Multi-coach collaboration', 'Program-wide analytics', 'Custom branding', 'Priority support'],
     },
   ];

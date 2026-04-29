@@ -8,8 +8,13 @@ export function getStripe(): Stripe {
     if (!key) {
       throw new Error('STRIPE_SECRET_KEY is not set');
     }
+    // No explicit apiVersion — let the SDK use its built-in default which
+    // matches the account-pinned version in the Stripe dashboard. Pinning to
+    // an arbitrary date string was tripping connection retries in some
+    // serverless cold starts.
     _stripe = new Stripe(key, {
-      apiVersion: '2026-04-22.dahlia',
+      maxNetworkRetries: 2,
+      timeout: 20_000,
     });
   }
   return _stripe;
