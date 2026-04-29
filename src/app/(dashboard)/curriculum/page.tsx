@@ -3,13 +3,14 @@
 import { useState, useMemo } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { query, mutate } from '@/lib/api';
 import { CACHE_PROFILES } from '@/lib/query/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { BookOpen, TrendingUp, TrendingDown, Minus, Sparkles, Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Check, Loader2 } from 'lucide-react';
+import { BookOpen, TrendingUp, TrendingDown, Minus, Sparkles, Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Check, Loader2, AlertCircle, Dumbbell } from 'lucide-react';
 import { queryKeys } from '@/lib/query/keys';
 import type { CurriculumSkill, ProficiencyLevel, Trend, TeamCustomSkill } from '@/types/database';
 import { getProficiencyLabel } from '@/lib/curriculum/proficiency';
@@ -86,6 +87,7 @@ function ProficiencyRing({ level, size = 40 }: { level: ProficiencyLevel; size?:
 export default function CurriculumPage() {
   const { activeTeam, coach } = useActiveTeam();
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const [sheetOpen, setSheetOpen] = useState<
     | { mode: 'add'; category?: string }
@@ -196,6 +198,40 @@ export default function CurriculumPage() {
     }
   }
 
+  // ── This-week practice plan generation ────────────────────────────────────
+  const [generatingWeekPlan, setGeneratingWeekPlan] = useState(false);
+  const [weekPlanError, setWeekPlanError] = useState<string | null>(null);
+
+  async function handleGenerateWeekPlan(weekSkillNames: string[]) {
+    if (!activeTeam || generatingWeekPlan) return;
+    setGeneratingWeekPlan(true);
+    setWeekPlanError(null);
+    try {
+      const res = await fetch('/api/ai/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId: activeTeam.id,
+          type: 'practice',
+          focusSkills: weekSkillNames,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to generate plan');
+      }
+      trackEvent('curriculum_week_plan_generated', {
+        week: activeTeam.current_week,
+        skill_count: weekSkillNames.length,
+      });
+      router.push('/plans');
+    } catch (err) {
+      setWeekPlanError(err instanceof Error ? err.message : 'Generation failed');
+    } finally {
+      setGeneratingWeekPlan(false);
+    }
+  }
+
   const { data: teamProficiency, isLoading: profLoading } = useQuery({
     queryKey: ['team-proficiency', activeTeam?.id],
     queryFn: async () => {
@@ -285,6 +321,12 @@ export default function CurriculumPage() {
 
   const isLoading = skillsLoading || profLoading;
   const currentWeek = activeTeam?.current_week || 1;
+
+  // Skills introduced this week — drives the "Build Week N Plan" CTA
+  const currentWeekSkills = useMemo(
+    () => skills.filter((s) => s.intro_week !== null && s.intro_week === currentWeek),
+    [skills, currentWeek],
+  );
 
   // Even with no base curriculum, the coach can still add custom skills.
   // Show the empty state only when both are absent.
@@ -394,6 +436,51 @@ export default function CurriculumPage() {
               ) : null}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* This-week practice plan CTA — only shown when skills have intro_week === currentWeek */}
+      {currentWeekSkills.length > 0 && (
+        <div className="rounded-2xl border border-orange-500/25 bg-orange-500/5 p-4 space-y-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-500/15">
+              <Dumbbell className="h-4 w-4 text-orange-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-zinc-100">
+                Week {currentWeek} introduces{' '}
+                {currentWeekSkills.length === 1
+                  ? currentWeekSkills[0].name
+                  : `${currentWeekSkills.length} new skills`}
+              </p>
+              <p className="text-xs text-zinc-500 truncate">
+                {currentWeekSkills.map((s) => s.name).join(' · ')}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => handleGenerateWeekPlan(currentWeekSkills.map((s) => s.name))}
+            disabled={generatingWeekPlan}
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-400 active:scale-[0.98] transition-all touch-manipulation disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {generatingWeekPlan ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Building Week {currentWeek} plan…
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" />
+                Build Week {currentWeek} Practice Plan
+              </>
+            )}
+          </button>
+          {weekPlanError && (
+            <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0 text-red-400" />
+              <p className="text-xs text-red-400">{weekPlanError}</p>
+            </div>
+          )}
         </div>
       )}
 
