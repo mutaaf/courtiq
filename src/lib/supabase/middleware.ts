@@ -39,6 +39,7 @@ export async function updateSession(request: NextRequest) {
     '/api/observe/',
     '/api/health',
     '/api/debug',
+    '/api/_debug/',
     '/api/auth/',
     '/api/stripe/webhook',
     '/api/parent-reactions',
