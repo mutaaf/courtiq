@@ -21,6 +21,7 @@ import {
   Timer,
   History,
   Star,
+  Eye,
 } from 'lucide-react';
 import type { Session } from '@/types/database';
 import { useAppStore } from '@/lib/store';
@@ -418,7 +419,7 @@ export default function HomePage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Roster for availability warnings
+  // Roster for availability warnings + active practice coverage
   const { data: rosterPlayers = [] } = useQuery({
     queryKey: ['home-roster', activeTeam?.id],
     queryFn: async () => {
@@ -429,7 +430,7 @@ export default function HomePage() {
         filters: { team_id: activeTeam.id, is_active: true },
       });
     },
-    enabled: !!activeTeam && todaySessions.length > 0,
+    enabled: !!activeTeam && (todaySessions.length > 0 || practiceActive),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -468,7 +469,7 @@ export default function HomePage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Live observation count for the active practice session
+  // Live observation count + observed player IDs for the active practice session
   const { data: sessionObsStats } = useQuery({
     queryKey: ['session-obs-count', practiceSessionId],
     queryFn: async () => {
@@ -479,13 +480,19 @@ export default function HomePage() {
         filters: { session_id: practiceSessionId },
       });
       if (!obs) return null;
-      const players = new Set(obs.filter((o) => o.player_id).map((o) => o.player_id)).size;
-      return { count: obs.length, players };
+      const observedIds = new Set(obs.filter((o) => o.player_id).map((o) => o.player_id as string));
+      return { count: obs.length, players: observedIds.size, observedIds };
     },
     enabled: !!practiceSessionId && practiceActive,
     refetchInterval: 30_000,
     staleTime: 20_000,
   });
+
+  // Players not yet observed in the active session — shown as chips on home page
+  const unobservedPlayers = useMemo(() => {
+    if (!practiceActive || !sessionObsStats?.observedIds || !rosterPlayers.length) return [];
+    return rosterPlayers.filter((p) => !sessionObsStats.observedIds!.has(p.id));
+  }, [practiceActive, sessionObsStats, rosterPlayers]);
 
   // ── No team state ─────────────────────────────────────────────────────────
   if (!activeTeam) {
@@ -601,6 +608,42 @@ export default function HomePage() {
               </Link>
             )}
           </div>
+
+          {/* Live coverage strip — who hasn't been observed yet */}
+          {rosterPlayers.length > 0 && (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <Eye className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                {unobservedPlayers.length === 0 ? (
+                  <span className="text-xs font-medium text-emerald-400">
+                    ✓ All {rosterPlayers.length} players observed
+                  </span>
+                ) : (
+                  <span className="text-xs font-medium text-amber-400">
+                    {unobservedPlayers.length} player{unobservedPlayers.length !== 1 ? 's' : ''} not yet observed
+                  </span>
+                )}
+              </div>
+              {unobservedPlayers.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {unobservedPlayers.slice(0, 8).map((p) => (
+                    <Link
+                      key={p.id}
+                      href={`/capture?sessionId=${practiceSessionId ?? ''}&player=${encodeURIComponent(p.name)}`}
+                      className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-300 hover:bg-amber-500/20 active:scale-95 transition-all touch-manipulation"
+                    >
+                      {p.name.split(' ')[0]}
+                    </Link>
+                  ))}
+                  {unobservedPlayers.length > 8 && (
+                    <span className="rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-500">
+                      +{unobservedPlayers.length - 8} more
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ) : todaySessions.length > 0 ? (
         <TodaySessionCard
