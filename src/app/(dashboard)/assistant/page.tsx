@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 import { UpgradeGate } from '@/components/ui/upgrade-gate';
+import { trackEvent } from '@/lib/analytics';
 
 interface ChatMessage {
   id: string;
@@ -451,6 +452,12 @@ export default function AssistantPage() {
     setIsLoading(true);
     setError(null);
 
+    trackEvent('assistant_query_sent', {
+      message_chars: text.trim().length,
+      turn_index: messages.length,
+      via_voice: voice.isRecording,
+    });
+
     try {
       const res = await fetch('/api/ai/assistant', {
         method: 'POST',
@@ -480,7 +487,14 @@ export default function AssistantPage() {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+      trackEvent('assistant_response_received', {
+        response_type: data.type ?? null,
+        has_structured: !!data.structured_data,
+      });
     } catch (err) {
+      trackEvent('assistant_response_failed', {
+        reason: err instanceof Error ? err.message : 'unknown',
+      });
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setIsLoading(false);
@@ -877,8 +891,8 @@ export default function AssistantPage() {
         )}
       </div>
 
-      {/* Input area — pinned to bottom, minimal spacing */}
-      <div className="border-t border-zinc-800 bg-zinc-900/80 px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 lg:px-8">
+      {/* Input area — pinned to bottom; on mobile, lift above the tab bar */}
+      <div className="border-t border-zinc-800 bg-zinc-900/80 px-4 pb-2 pt-2 mb-[calc(4rem+env(safe-area-inset-bottom))] lg:mb-0 lg:px-8 lg:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <div className="mx-auto flex max-w-3xl items-end gap-2">
           {/* Voice input wrapper */}
           <div className={`relative flex-1 rounded-xl border bg-zinc-800 transition-all focus-within:ring-1 ${

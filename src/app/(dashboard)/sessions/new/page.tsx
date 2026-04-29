@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { ArrowLeft, Loader2, Calendar, Clock, MapPin, Users, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import type { SessionType } from '@/types/database';
+import { trackEvent } from '@/lib/analytics';
 
 const SESSION_TYPES: { value: SessionType; label: string; description: string; icon: string }[] = [
   { value: 'practice', label: 'Practice', description: 'Regular team practice', icon: '🏋️' },
@@ -67,6 +68,13 @@ export default function NewSessionPage() {
 
       queryClient.invalidateQueries({
         queryKey: queryKeys.sessions.all(activeTeam.id),
+      });
+
+      trackEvent('session_created', {
+        type,
+        has_opponent: !!opponent,
+        has_location: !!location,
+        has_curriculum_week: !!curriculumWeek,
       });
 
       router.push(`/sessions/${data[0].id}`);

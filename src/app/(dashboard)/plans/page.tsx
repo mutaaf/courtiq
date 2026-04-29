@@ -60,6 +60,7 @@ import { useTier } from '@/hooks/use-tier';
 import type { Plan, Player, PlanType, Session } from '@/types/database';
 import type { ObservationInsights } from '@/app/api/ai/plan/route';
 import { getCategoryLabel, getCategoryColor } from '@/lib/coach-reflection-utils';
+import { trackEvent } from '@/lib/analytics';
 
 const PLAN_TYPE_CONFIG: Record<
   string,
@@ -520,6 +521,12 @@ export default function PlansPage() {
     const skillKeywords = ['ball handling', 'passing', 'shooting', 'defense', 'rebounding', 'footwork', 'teamwork', 'conditioning', 'dribbling'];
     const focusSkills = smartMode ? [] : skillKeywords.filter(skill => lowerText.includes(skill));
 
+    trackEvent('plan_generation_started', {
+      type,
+      smart_mode: smartMode,
+      focus_skill_count: focusSkills.length,
+    });
+
     try {
       const res = await fetch('/api/ai/plan', {
         method: 'POST',
@@ -532,6 +539,7 @@ export default function PlansPage() {
       });
       if (!res.ok) {
         const err = await res.json();
+        trackEvent('plan_generation_failed', { type, reason: err.error || 'unknown' });
         throw new Error(err.error || 'Failed to generate plan');
       }
       const data = await res.json();
@@ -541,6 +549,11 @@ export default function PlansPage() {
         setLastInsights(data.observationInsights as ObservationInsights);
       }
       setPrompt('');
+      trackEvent('plan_generated', {
+        type,
+        smart_mode: smartMode,
+        with_insights: !!(data.observationInsights && data.observationInsights.totalObs > 0),
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Generation failed');
     } finally {

@@ -17,6 +17,7 @@ import { QuickTemplates } from '@/components/capture/quick-templates';
 import { useAppStore } from '@/lib/store';
 import { Check } from 'lucide-react';
 import { useTier } from '@/hooks/use-tier';
+import { trackEvent } from '@/lib/analytics';
 
 type CaptureState = 'idle' | 'recording' | 'processing' | 'error';
 
@@ -167,6 +168,11 @@ export default function CapturePage() {
       segmentCountRef.current = 0;
       accumulatedObsRef.current = [];
 
+      trackEvent('capture_record_started', {
+        team_id: activeTeam.id,
+        from_session: !!urlSessionId,
+      });
+
       // Save recording state to localStorage for recovery
       localStorage.setItem('sportsiq-recording', JSON.stringify({
         recordingId: recId,
@@ -309,6 +315,12 @@ export default function CapturePage() {
       }
       recorder.stop();
       setCaptureState('processing');
+      const elapsed = startTimeRef.current ? Math.round((Date.now() - startTimeRef.current) / 1000) : 0;
+      trackEvent('capture_record_stopped', {
+        duration_s: elapsed,
+        segments: segmentCountRef.current,
+        transcript_chars: transcriptRef.current.length,
+      });
     }
 
     // Stop duration timer

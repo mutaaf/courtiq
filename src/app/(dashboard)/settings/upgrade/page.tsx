@@ -12,6 +12,7 @@ import { Check, Loader2, CreditCard, ExternalLink, AlertCircle, Crown, Sparkles,
 import Link from 'next/link';
 import type { Tier } from '@/lib/tier';
 import { TIER_LIMITS } from '@/lib/tier';
+import { trackEvent } from '@/lib/analytics';
 
 const INTENT_CONFIG: Record<string, { label: string; tagline: string }> = {
   coach: { label: 'Coach Plan', tagline: 'Unlock unlimited players, AI observations, report cards, and parent sharing.' },
@@ -65,6 +66,10 @@ export default function UpgradePage() {
 
   const handleUpgrade = async (tier: string) => {
     setLoading(tier);
+    trackEvent('upgrade_checkout_started', {
+      target_tier: tier,
+      interval: annual ? 'annual' : 'monthly',
+    });
     try {
       const res = await fetch('/api/stripe/create-checkout', {
         method: 'POST',
@@ -75,9 +80,11 @@ export default function UpgradePage() {
       if (data.url) {
         window.location.href = data.url;
       } else {
+        trackEvent('upgrade_checkout_failed', { target_tier: tier, reason: data.error || 'unknown' });
         alert(data.error || 'Failed to create checkout');
       }
     } catch {
+      trackEvent('upgrade_checkout_failed', { target_tier: tier, reason: 'network' });
       alert('Failed to start checkout');
     } finally {
       setLoading(null);

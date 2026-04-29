@@ -5,6 +5,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Providers } from '@/components/providers';
 import { SwRegister } from '@/components/ui/sw-register';
 import { ErrorTrackingInit } from '@/components/ui/error-tracking-init';
+import { AnalyticsInit } from '@/components/ui/analytics-init';
 import './globals.css';
 
 const geistSans = Geist({
@@ -54,6 +55,7 @@ export default function RootLayout({
         </a>
         <SwRegister />
         <ErrorTrackingInit />
+        <AnalyticsInit />
         <Providers>{children}</Providers>
         <Analytics />
         <SpeedInsights />

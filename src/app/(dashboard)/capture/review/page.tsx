@@ -30,6 +30,7 @@ import {
 import Link from 'next/link';
 import { findPlayerByName } from '@/lib/player-match';
 import { localDB } from '@/lib/storage/local-db';
+import { trackEvent } from '@/lib/analytics';
 import type { Sentiment, ObservationSource } from '@/types/database';
 import { AIUpgradePrompt } from '@/components/ui/ai-upgrade-prompt';
 
@@ -253,6 +254,15 @@ export default function ReviewPage() {
 
       // Clean up sessionStorage
       sessionStorage.removeItem('pending_observations');
+
+      const matchedPlayers = rows.filter((r) => r.player_id !== null).length;
+      trackEvent('capture_observations_saved', {
+        count: toSave.length,
+        matched_to_player: matchedPlayers,
+        unmatched: toSave.length - matchedPlayers,
+        source,
+        from_session: !!sessionId,
+      });
 
       setSavedCount(toSave.length);
     } catch (err: any) {
@@ -706,7 +716,7 @@ export default function ReviewPage() {
 
       {/* Save All */}
       {activeObs.length > 0 && (
-        <div className="sticky bottom-4 flex justify-end">
+        <div className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] lg:bottom-4 flex justify-end">
           <Button size="lg" onClick={handleSaveAll} disabled={saving} className="shadow-xl">
             {saving ? (
               <>

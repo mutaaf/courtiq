@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { ArrowLeft, Save, Loader2, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { SYSTEM_DEFAULTS } from '@/lib/config/defaults';
+import { trackEvent } from '@/lib/analytics';
 
 export default function AddPlayerPage() {
   const router = useRouter();
@@ -76,6 +77,11 @@ export default function AddPlayerPage() {
 
       await queryClient.invalidateQueries({
         queryKey: queryKeys.players.all(activeTeam.id),
+      });
+
+      trackEvent('player_added', {
+        has_jersey: !!form.jersey_number,
+        has_parent_contact: !!(form.parent_email || form.parent_name),
       });
 
       router.push('/roster');
