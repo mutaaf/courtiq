@@ -386,6 +386,30 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
       : { name: drill.name || drill.title || String(drill), description: drill.description };
   }
 
+  // Detect if practice happened in the last 24 hours — drives "Fresh from practice" banner.
+  // We need at least 2 observations to distinguish a real session from a lone test capture.
+  const NOW_MS = Date.now();
+  const HOURS_24_MS = 24 * 60 * 60 * 1000;
+  const recentObs24h = safeObs.filter(o => NOW_MS - new Date(o.created_at).getTime() < HOURS_24_MS);
+  const hasFreshPractice = recentObs24h.length >= 2;
+  // Most recent positive highlight with text from the last 24 hours
+  const freshHighlight = Array.isArray(highlights)
+    ? (highlights as ShareObservation[]).find(h => NOW_MS - new Date(h.created_at).getTime() < HOURS_24_MS)
+    : null;
+  // Human-readable label: "Just now" / "X hours ago" / "Earlier today"
+  const freshPracticeAgoLabel = (() => {
+    if (!hasFreshPractice || recentObs24h.length === 0) return 'Today';
+    const newest = recentObs24h.reduce((a, b) =>
+      new Date(a.created_at).getTime() > new Date(b.created_at).getTime() ? a : b
+    );
+    const ageMs = NOW_MS - new Date(newest.created_at).getTime();
+    const ageHours = Math.floor(ageMs / (60 * 60 * 1000));
+    const ageMinutes = Math.floor(ageMs / (60 * 1000));
+    if (ageMinutes < 60) return ageMinutes <= 5 ? 'Just now' : `${ageMinutes}m ago`;
+    if (ageHours < 4) return `${ageHours}h ago`;
+    return 'Earlier today';
+  })();
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-lg pb-10">
@@ -445,6 +469,40 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             </p>
           </div>
         </div>
+
+        {/* ─── Fresh from practice banner ─── */}
+        {hasFreshPractice && (
+          <div className="mx-4 mt-4 overflow-hidden rounded-2xl shadow-md"
+               style={{ background: `linear-gradient(135deg, ${brandColor}ee, ${brandColor}cc)` }}>
+            <div className="px-5 py-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xl" aria-hidden="true">🔥</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white leading-tight">
+                    Fresh from practice!
+                  </p>
+                  <p className="mt-0.5 text-[12px] text-white/80">
+                    {coachName ? `Coach ${coachName}` : 'Your coach'} just updated {firstName}&apos;s progress
+                    {recentObs24h.length > 0 && (
+                      <> &mdash; {recentObs24h.length} new observation{recentObs24h.length !== 1 ? 's' : ''} today</>
+                    )}
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-semibold text-white uppercase tracking-wide">
+                  {freshPracticeAgoLabel}
+                </span>
+              </div>
+              {freshHighlight?.text && (
+                <div className="mt-3 rounded-xl bg-white/20 px-3 py-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-white/70 mb-1">
+                    ⭐ Highlight from today
+                  </p>
+                  <p className="text-sm text-white leading-snug">{freshHighlight.text}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ─── Coach's Latest Session Update ─── */}
         {latestSessionMessage && (
