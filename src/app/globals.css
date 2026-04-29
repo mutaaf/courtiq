@@ -62,14 +62,25 @@ html {
 
 /* Backgrounds */
 .light .bg-zinc-950 { background-color: #ffffff; }
+.light .bg-zinc-950\/20 { background-color: rgba(255, 255, 255, 0.2); }
+.light .bg-zinc-950\/80 { background-color: rgba(255, 255, 255, 0.8); }
+.light .bg-zinc-950\/95 { background-color: rgba(255, 255, 255, 0.95); }
 .light .bg-zinc-900 { background-color: #f9fafb; }
-.light .bg-zinc-900\/50 { background-color: rgba(249, 250, 251, 0.5); }
-.light .bg-zinc-900\/95 { background-color: rgba(249, 250, 251, 0.95); }
+.light .bg-zinc-900\/10 { background-color: rgba(249, 250, 251, 0.1); }
 .light .bg-zinc-900\/30 { background-color: rgba(249, 250, 251, 0.3); }
+.light .bg-zinc-900\/40 { background-color: rgba(249, 250, 251, 0.4); }
+.light .bg-zinc-900\/50 { background-color: rgba(249, 250, 251, 0.5); }
 .light .bg-zinc-900\/60 { background-color: rgba(249, 250, 251, 0.6); }
+.light .bg-zinc-900\/80 { background-color: rgba(249, 250, 251, 0.8); }
+.light .bg-zinc-900\/90 { background-color: rgba(249, 250, 251, 0.9); }
+.light .bg-zinc-900\/95 { background-color: rgba(249, 250, 251, 0.95); }
 .light .bg-zinc-800 { background-color: #f1f5f9; }
-.light .bg-zinc-800\/50 { background-color: rgba(241, 245, 249, 0.5); }
 .light .bg-zinc-800\/30 { background-color: rgba(241, 245, 249, 0.3); }
+.light .bg-zinc-800\/40 { background-color: rgba(241, 245, 249, 0.4); }
+.light .bg-zinc-800\/50 { background-color: rgba(241, 245, 249, 0.5); }
+.light .bg-zinc-800\/60 { background-color: rgba(241, 245, 249, 0.6); }
+.light .bg-zinc-800\/70 { background-color: rgba(241, 245, 249, 0.7); }
+.light .bg-zinc-800\/80 { background-color: rgba(241, 245, 249, 0.8); }
 .light .bg-zinc-700 { background-color: #e2e8f0; }
 .light .bg-zinc-700\/50 { background-color: rgba(226, 232, 240, 0.5); }
 
@@ -78,7 +89,14 @@ html {
 .light .border-zinc-800\/60 { border-color: rgba(226, 232, 240, 0.6); }
 .light .border-zinc-700 { border-color: #cbd5e1; }
 .light .border-zinc-700\/50 { border-color: rgba(203, 213, 225, 0.5); }
+.light .border-zinc-700\/60 { border-color: rgba(203, 213, 225, 0.6); }
 .light .border-zinc-600 { border-color: #94a3b8; }
+.light .border-zinc-600\/30 { border-color: rgba(148, 163, 184, 0.3); }
+.light .border-zinc-600\/40 { border-color: rgba(148, 163, 184, 0.4); }
+.light .border-zinc-600\/50 { border-color: rgba(148, 163, 184, 0.5); }
+.light .border-zinc-500\/20 { border-color: rgba(100, 116, 139, 0.2); }
+.light .border-zinc-500\/30 { border-color: rgba(100, 116, 139, 0.3); }
+.light .border-zinc-500\/40 { border-color: rgba(100, 116, 139, 0.4); }
 
 /* Text — good contrast on white backgrounds */
 .light .text-zinc-100 { color: #0f172a; }
@@ -128,10 +146,6 @@ html {
 .light input:focus, .light select:focus, .light textarea:focus {
   border-color: #f97316;
 }
-
-/* Card backgrounds */
-.light .bg-zinc-900\/80 { background-color: rgba(249, 250, 251, 0.8); }
-.light .bg-zinc-900\/40 { background-color: rgba(249, 250, 251, 0.4); }
 
 /* Accent overlays in light mode */
 .light .bg-orange-500\/5 { background-color: rgba(249, 115, 22, 0.05); }
