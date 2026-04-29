@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Key, Check, X, ExternalLink, Loader2, CreditCard, Sparkles, Zap, Shield, MessageSquare } from 'lucide-react';
+import { Key, Check, X, ExternalLink, Loader2, CreditCard, Sparkles, Zap, Shield, MessageSquare, ArrowRight, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
+import { useTier } from '@/hooks/use-tier';
 
 type AiMode = 'own-keys' | 'pro';
 
@@ -55,7 +56,14 @@ interface ProviderState {
 }
 
 export default function AISettingsPage() {
-  const [aiMode, setAiMode] = useState<AiMode>('own-keys');
+  const { tier } = useTier();
+  // SportsIQ Pro = "we run the AI on platform keys for you". The platform-keys
+  // path was always live (env-key fallback in getConfiguredProvider); the only
+  // gate is whether the org is on a paid tier with effectively unlimited
+  // monthly quota. Free tier users see an upgrade CTA instead.
+  const proIsActive = tier !== 'free';
+  // Default into Pro mode for paid users; otherwise show the BYO-keys path.
+  const [aiMode, setAiMode] = useState<AiMode>(proIsActive ? 'pro' : 'own-keys');
   const [providerStates, setProviderStates] = useState<Record<string, ProviderState>>({
     anthropic: { apiKey: '', maskedKey: '', status: 'not_configured' },
     openai: { apiKey: '', maskedKey: '', status: 'not_configured' },
@@ -298,7 +306,11 @@ export default function AISettingsPage() {
             </button>
           </div>
           <p className="mt-3 text-xs text-zinc-500">
-            Currently: {aiMode === 'own-keys' ? 'Using my own keys' : 'SportsIQ Pro (coming soon)'}
+            {aiMode === 'own-keys'
+              ? 'Currently: Using my own keys'
+              : proIsActive
+              ? `Currently: SportsIQ Pro · active on your ${tier.replace('_', ' ')} plan`
+              : 'Currently: SportsIQ Pro (upgrade required)'}
           </p>
         </CardContent>
       </Card>
@@ -343,22 +355,51 @@ export default function AISettingsPage() {
             ))}
           </div>
 
-          <Card className="border-dashed border-zinc-700">
-            <CardContent className="flex flex-col items-center p-8 text-center">
-              <Badge variant="warning" className="mb-3">Coming Soon</Badge>
-              <p className="text-sm text-zinc-400 max-w-sm">
-                SportsIQ Pro is currently in development. We will notify you when it launches. In the meantime, use your own API keys for free.
-              </p>
-              <div className="mt-4 flex gap-3">
-                <Button variant="outline" onClick={() => setAiMode('own-keys')}>
-                  Use My Own Keys
-                </Button>
-                <a href="mailto:support@sportsiq.app">
-                  <Button>Contact Us</Button>
-                </a>
-              </div>
-            </CardContent>
-          </Card>
+          {proIsActive ? (
+            <Card className="border-emerald-500/30 bg-emerald-500/5">
+              <CardContent className="flex flex-col items-center p-8 text-center">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15 border border-emerald-500/30">
+                  <CheckCircle2 className="h-6 w-6 text-emerald-400" />
+                </div>
+                <p className="text-base font-semibold text-zinc-100">Active on your {tier.replace('_', ' ')} plan</p>
+                <p className="mt-1 text-sm text-zinc-400 max-w-sm">
+                  We&apos;re routing every AI call through SportsIQ&apos;s managed
+                  infrastructure — no keys to configure, no usage caps. Cancel
+                  anytime from billing.
+                </p>
+                <div className="mt-4 flex gap-3">
+                  <Link href="/settings/upgrade">
+                    <Button variant="outline">Manage billing</Button>
+                  </Link>
+                  <Button variant="ghost" onClick={() => setAiMode('own-keys')}>
+                    Switch to my own keys
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-orange-500/30 bg-orange-500/5">
+              <CardContent className="flex flex-col items-center p-8 text-center">
+                <Badge variant="warning" className="mb-3">Upgrade to unlock</Badge>
+                <p className="text-sm text-zinc-400 max-w-sm">
+                  SportsIQ Pro comes with every paid plan — unlimited AI, no
+                  keys to manage. Upgrade to Coach ($9.99/mo) or higher to
+                  activate it.
+                </p>
+                <div className="mt-4 flex gap-3">
+                  <Link href="/settings/upgrade">
+                    <Button>
+                      View plans
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Button variant="outline" onClick={() => setAiMode('own-keys')}>
+                    Use my own keys (free)
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
