@@ -316,6 +316,40 @@ function LastSessionCard({ session }: {
   );
 }
 
+// ─── Team Health Score Card ───────────────────────────────────────────────────
+
+function HealthScoreCard({ score, delta }: { score: number | null; delta: number | null }) {
+  const scoreColor =
+    score === null
+      ? 'text-zinc-500'
+      : score >= 70
+      ? 'text-emerald-500'
+      : score >= 50
+      ? 'text-orange-500'
+      : 'text-red-500';
+
+  const deltaEl =
+    delta === null ? null : delta > 0 ? (
+      <span className="text-[10px] font-medium text-emerald-400">↑{delta}%</span>
+    ) : delta < 0 ? (
+      <span className="text-[10px] font-medium text-red-400">↓{Math.abs(delta)}%</span>
+    ) : (
+      <span className="text-[10px] font-medium text-zinc-500">→</span>
+    );
+
+  return (
+    <Card>
+      <CardContent className="p-3 sm:p-4 text-center">
+        <p className={`text-2xl sm:text-3xl font-bold ${scoreColor}`}>
+          {score !== null ? `${score}%` : '—'}
+        </p>
+        <p className="text-xs text-zinc-400 mt-1">Team Health</p>
+        {deltaEl && <div className="mt-0.5">{deltaEl}</div>}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
@@ -366,7 +400,11 @@ export default function HomePage() {
     queryKey: ['home-stats', activeTeam?.id],
     queryFn: async () => {
       if (!activeTeam) return null;
-      const [players, observations, sessions] = await Promise.all([
+      const now = Date.now();
+      const since28d = new Date(now - 28 * 86_400_000).toISOString();
+      const since14d = new Date(now - 14 * 86_400_000).toISOString();
+
+      const [players, observations, sessions, recentObs] = await Promise.all([
         query<{ id: string }[]>({
           table: 'players',
           select: 'id',
@@ -382,11 +420,46 @@ export default function HomePage() {
           select: 'id',
           filters: { team_id: activeTeam.id },
         }),
+        query<{ id: string; sentiment: string | null; created_at: string }[]>({
+          table: 'observations',
+          select: 'id, sentiment, created_at',
+          filters: {
+            team_id: activeTeam.id,
+            created_at: { op: 'gte', value: since28d },
+          },
+        }),
       ]);
+
+      // Compute team health score: positive / (positive + needs-work) per 14-day window
+      function healthForWindow(obs: { sentiment: string | null }[]) {
+        const scored = obs.filter(
+          (o) => o.sentiment === 'positive' || o.sentiment === 'needs-work'
+        );
+        if (scored.length < 5) return null;
+        const pos = scored.filter((o) => o.sentiment === 'positive').length;
+        return Math.round((pos / scored.length) * 100);
+      }
+
+      const thisWindowObs = (recentObs ?? []).filter(
+        (o) => new Date(o.created_at).getTime() >= new Date(since14d).getTime()
+      );
+      const priorWindowObs = (recentObs ?? []).filter(
+        (o) =>
+          new Date(o.created_at).getTime() < new Date(since14d).getTime()
+      );
+      const healthScore = healthForWindow(thisWindowObs);
+      const priorHealth = healthForWindow(priorWindowObs);
+      const healthDelta =
+        healthScore !== null && priorHealth !== null
+          ? healthScore - priorHealth
+          : null;
+
       return {
         players: players.length,
         observations: observations.length,
         sessions: sessions.length,
+        healthScore,
+        healthDelta,
       };
     },
     enabled: !!activeTeam,
@@ -816,10 +889,10 @@ export default function HomePage() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {isLoadingStats ? (
           <>
-            {(['Players', 'Observations', 'Sessions'] as const).map((label) => (
+            {(['Players', 'Observations', 'Sessions', 'Health'] as const).map((label) => (
               <Card key={label}>
                 <CardContent className="p-3 sm:p-4 flex flex-col items-center gap-2">
                   <Skeleton className="h-8 w-10 rounded" />
@@ -854,6 +927,7 @@ export default function HomePage() {
                 <p className="text-xs text-zinc-400 mt-1">Sessions</p>
               </CardContent>
             </Card>
+            <HealthScoreCard score={stats?.healthScore ?? null} delta={stats?.healthDelta ?? null} />
           </>
         )}
       </div>
