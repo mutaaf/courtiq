@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
@@ -53,6 +53,7 @@ import {
   Megaphone,
   Lock,
   Fingerprint,
+  Search,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { PrintButton } from '@/components/ui/print-button';
@@ -430,6 +431,10 @@ export default function PlansPage() {
   const [generatingWeeklyStar, setGeneratingWeeklyStar] = useState(false);
   const [weeklyStarCopied, setWeeklyStarCopied] = useState(false);
 
+  // Plans list search + filter
+  const [planSearch, setPlanSearch] = useState('');
+  const [planTypeFilter, setPlanTypeFilter] = useState<string | null>(null);
+
   // Practice Arc state
   const [showArcForm, setShowArcForm] = useState(false);
   const [generatingArc, setGeneratingArc] = useState(false);
@@ -457,6 +462,41 @@ export default function PlansPage() {
     enabled: !!activeTeam,
     ...CACHE_PROFILES.plans,
   });
+
+  const filteredPlans = useMemo(() => {
+    if (!plans) return [];
+    let result = plans;
+    if (planTypeFilter) {
+      result = result.filter((p) => p.type === planTypeFilter);
+    }
+    if (planSearch.trim()) {
+      const q = planSearch.toLowerCase().trim();
+      result = result.filter((p) => {
+        const title = (p.title || '').toLowerCase();
+        const typeLabel = (PLAN_TYPE_CONFIG[p.type]?.label || '').toLowerCase();
+        return title.includes(q) || typeLabel.includes(q);
+      });
+    }
+    return result;
+  }, [plans, planSearch, planTypeFilter]);
+
+  // Type filter options — only show types that actually have saved plans
+  const availablePlanTypes = useMemo(() => {
+    if (!plans) return [];
+    const seen = new Set<string>();
+    const types: Array<{ type: string; label: string; count: number }> = [];
+    for (const p of plans) {
+      if (!seen.has(p.type)) {
+        seen.add(p.type);
+        types.push({
+          type: p.type,
+          label: PLAN_TYPE_CONFIG[p.type]?.label ?? 'Custom',
+          count: plans.filter((x) => x.type === p.type).length,
+        });
+      }
+    }
+    return types.sort((a, b) => b.count - a.count).slice(0, 6);
+  }, [plans]);
 
   const { data: players } = useQuery({
     queryKey: queryKeys.players.all(activeTeam?.id || ''),
@@ -3533,9 +3573,73 @@ export default function PlansPage() {
 
       {/* Plans list */}
       <div className="space-y-3">
-        <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">
-          Previous Plans
-        </h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">
+            Previous Plans
+          </h2>
+          {plans && plans.length > 0 && (
+            <span className="text-xs text-zinc-500 tabular-nums">
+              {filteredPlans.length}{filteredPlans.length !== plans.length ? ` of ${plans.length}` : ''}
+            </span>
+          )}
+        </div>
+
+        {/* Search + type filter — shown once there are plans to search */}
+        {plans && plans.length >= 3 && (
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 pointer-events-none" />
+              <input
+                type="search"
+                placeholder="Search plans…"
+                value={planSearch}
+                onChange={(e) => setPlanSearch(e.target.value)}
+                aria-label="Search saved plans"
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-800/60 py-2 pl-9 pr-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-orange-500/60 focus:outline-none focus:ring-0"
+              />
+              {planSearch && (
+                <button
+                  onClick={() => setPlanSearch('')}
+                  aria-label="Clear search"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            {availablePlanTypes.length > 1 && (
+              <div className="flex flex-wrap gap-1.5">
+                {availablePlanTypes.map(({ type, label, count }) => {
+                  const active = planTypeFilter === type;
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => setPlanTypeFilter(active ? null : type)}
+                      aria-pressed={active}
+                      className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        active
+                          ? 'border-orange-500/60 bg-orange-500/15 text-orange-300'
+                          : 'border-zinc-700 bg-zinc-800/40 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300'
+                      }`}
+                    >
+                      {label}
+                      <span className={`tabular-nums ${active ? 'text-orange-400' : 'text-zinc-600'}`}>{count}</span>
+                    </button>
+                  );
+                })}
+                {planTypeFilter && (
+                  <button
+                    onClick={() => setPlanTypeFilter(null)}
+                    className="flex items-center gap-1 rounded-full border border-zinc-700 bg-zinc-800/40 px-2 py-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                    aria-label="Clear type filter"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {isLoading ? (
           <div className="space-y-3">
@@ -3555,9 +3659,20 @@ export default function PlansPage() {
               </p>
             </CardContent>
           </Card>
+        ) : filteredPlans.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <Search className="h-8 w-8 text-zinc-600 mb-3" />
+            <p className="text-sm font-medium text-zinc-400">No plans match your search</p>
+            <button
+              onClick={() => { setPlanSearch(''); setPlanTypeFilter(null); }}
+              className="mt-2 text-xs text-orange-500 hover:text-orange-400 font-medium"
+            >
+              Clear filters
+            </button>
+          </div>
         ) : (
           <div className="space-y-2">
-            {plans?.map((plan) => {
+            {filteredPlans.map((plan) => {
               const typeConfig = PLAN_TYPE_CONFIG[plan.type] || PLAN_TYPE_CONFIG.custom;
               const TypeIcon = typeConfig.icon;
               const isExpanded = expandedPlanId === plan.id;
