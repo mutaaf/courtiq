@@ -117,16 +117,19 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    // Bubble up the real Stripe error message so failures aren't a silent
-    // "Failed to create checkout session" — this is the difference between
-    // 30 minutes of grepping logs and a one-glance fix.
-    const stripeMsg =
-      (error as any)?.raw?.message ||
-      (error as Error)?.message ||
-      'Failed to create checkout session';
-    console.error('[stripe/create-checkout] Error:', stripeMsg, error);
+    const e = error as any;
+    const detail = {
+      message: e?.message ?? 'Unknown error',
+      type: e?.type ?? null,
+      code: e?.code ?? null,
+      statusCode: e?.statusCode ?? null,
+      requestId: e?.requestId ?? null,
+      cause: e?.cause?.message ?? null,
+      detail: e?.detail ?? null,
+    };
+    console.error('[stripe/create-checkout] Error detail:', JSON.stringify(detail));
     return NextResponse.json(
-      { error: stripeMsg },
+      { error: detail.message, debug: detail },
       { status: 500 }
     );
   }

@@ -44,7 +44,7 @@ export function TeamSwitcher({ compact }: { compact?: boolean }) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="relative">
       <div className="relative">
         <select
           aria-label="Active team"
@@ -73,7 +73,7 @@ export function TeamSwitcher({ compact }: { compact?: boolean }) {
         <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
       </div>
 
-      {/* Desktop inline create form */}
+      {/* Create-team panel */}
       {showCreate && (
         <>
           {/* Mobile: modal overlay */}
@@ -120,8 +120,10 @@ export function TeamSwitcher({ compact }: { compact?: boolean }) {
             </div>
           </div>
 
-          {/* Desktop/tablet: inline form */}
-          <div className="hidden sm:block rounded-lg border border-zinc-700 bg-zinc-800 p-3 space-y-2">
+          {/* Desktop/tablet: anchored popover. right-0 keeps the right edge
+              aligned to the trigger; mt-2 spaces it below; w-64 / max-w
+              keeps it from blowing past the viewport edge in narrow headers. */}
+          <div className="hidden sm:block absolute right-0 top-full mt-2 z-50 w-64 max-w-[calc(100vw-2rem)] rounded-lg border border-zinc-700 bg-zinc-800 p-3 space-y-2 shadow-xl">
             <input
               type="text"
               aria-label="New team name"

@@ -496,31 +496,31 @@ export default function AISettingsPage() {
                   />
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-2">
+                <div className="grid grid-cols-2 gap-2 min-w-0">
                   <Button
                     variant="outline"
-                    className="flex-1 h-12 sm:h-9 text-base sm:text-sm"
+                    className="h-12 sm:h-9 text-base sm:text-xs px-2 min-w-0"
                     onClick={() => testConnection(provider.id)}
                     disabled={state.status === 'testing'}
                   >
                     {state.status === 'testing' ? (
-                      <Loader2 className="h-4 w-4 sm:h-3 sm:w-3 animate-spin" />
+                      <Loader2 className="h-4 w-4 sm:h-3 sm:w-3 animate-spin shrink-0" />
                     ) : (
-                      <Key className="h-4 w-4 sm:h-3 sm:w-3" />
+                      <Key className="h-4 w-4 sm:h-3 sm:w-3 shrink-0" />
                     )}
-                    Test Connection
+                    <span className="truncate">Test</span>
                   </Button>
                   <Button
-                    className="flex-1 h-12 sm:h-9 text-base sm:text-sm"
+                    className="h-12 sm:h-9 text-base sm:text-xs px-2 min-w-0"
                     onClick={() => saveProvider(provider.id)}
                     disabled={isSaving || !state.apiKey}
                   >
                     {isSaving ? (
-                      <Loader2 className="h-4 w-4 sm:h-3 sm:w-3 animate-spin" />
+                      <Loader2 className="h-4 w-4 sm:h-3 sm:w-3 animate-spin shrink-0" />
                     ) : (
-                      <Check className="h-4 w-4 sm:h-3 sm:w-3" />
+                      <Check className="h-4 w-4 sm:h-3 sm:w-3 shrink-0" />
                     )}
-                    Save Key
+                    <span className="truncate">Save</span>
                   </Button>
                 </div>
 
