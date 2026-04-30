@@ -47,6 +47,7 @@ import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 import { PrintButton } from '@/components/ui/print-button';
 import { UpgradeGate } from '@/components/ui/upgrade-gate';
+import { PlayerFocusEntry } from '@/components/observations/PlayerFocusEntry';
 import { AchievementBadgesPanel } from '@/components/player/achievement-badges';
 import { PlayerGoalsPanel } from '@/components/player/player-goals-panel';
 import { PlayerNotesPanel } from '@/components/player/player-notes-panel';
@@ -189,6 +190,7 @@ export default function PlayerDetailPage({
   const { activeTeam, coach } = useActiveTeam();
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [showQuickEntry, setShowQuickEntry] = useState(false);
 
   // Report card state
   const [reportCardLoading, setReportCardLoading] = useState(false);
@@ -795,9 +797,20 @@ export default function PlayerDetailPage({
             )}
           </div>
           <div className="flex flex-col items-end gap-2">
-            <Link href={`/roster/${playerId}/edit`}>
-              <Button size="sm" variant="outline">Edit Player</Button>
-            </Link>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant={showQuickEntry ? 'secondary' : 'default'}
+                onClick={() => setShowQuickEntry((v) => !v)}
+                aria-pressed={showQuickEntry}
+              >
+                <Zap className="h-3.5 w-3.5" />
+                {showQuickEntry ? 'Done' : 'Quick observation'}
+              </Button>
+              <Link href={`/roster/${playerId}/edit`}>
+                <Button size="sm" variant="outline">Edit</Button>
+              </Link>
+            </div>
             <div className="hidden sm:block text-right">
               <p className="text-2xl font-bold text-orange-500">{observations.length}</p>
               <p className="text-xs text-zinc-500">observations</p>
@@ -805,6 +818,23 @@ export default function PlayerDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      {/* Inline rapid-entry panel */}
+      {showQuickEntry && activeTeam && coach && (
+        <PlayerFocusEntry
+          player={{
+            id: player.id,
+            name: player.name,
+            jersey_number: player.jersey_number ?? null,
+            photo_url: player.photo_url ?? null,
+          }}
+          teamId={activeTeam.id}
+          coachId={coach.id}
+          compact
+          autoFocusInput
+          onClose={() => setShowQuickEntry(false)}
+        />
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900/50 p-1 scrollbar-hide">

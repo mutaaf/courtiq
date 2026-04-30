@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
-import { callAIWithJSON } from '@/lib/ai/client';
-import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
-import { buildAIContext } from '@/lib/ai/context-builder';
-import { segmentedObservationSchema, type SegmentedObservations } from '@/lib/ai/schemas';
 import { handleAIError } from '@/lib/ai/error';
+import { runSegmentation } from '@/lib/ai/segment-runner';
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabase();
@@ -37,47 +34,15 @@ export async function POST(request: Request) {
   }
 
   try {
-    const context = await buildAIContext(teamId, admin);
-    const prompt = PROMPT_REGISTRY.segmentTranscript({ ...context, transcript }) as {
-      system: string;
-      user: string;
-      cacheableContext?: string;
-    };
+    const result = await runSegmentation({
+      transcript,
+      teamId,
+      coachId: user.id,
+      sessionId: sessionId ?? null,
+      orgId: coach?.org_id ?? null,
+    });
 
-    const result = await callAIWithJSON<SegmentedObservations>(
-      {
-        coachId: user.id,
-        teamId,
-        interactionType: 'segment_transcript',
-        systemPrompt: prompt.system,
-        userPrompt: prompt.user,
-        cacheableContext: prompt.cacheableContext,
-        orgId: coach?.org_id,
-      },
-      admin
-    );
-
-    // Validate with Zod — if validation fails, return raw AI output anyway
-    try {
-      const validated = segmentedObservationSchema.parse(result.parsed);
-
-      return NextResponse.json({
-        observations: validated.observations,
-        unmatched_names: validated.unmatched_names || [],
-        team_observations: validated.team_observations || [],
-        interactionId: result.interactionId,
-      });
-    } catch (zodError) {
-      console.error('Zod validation failed, returning raw AI output:', zodError);
-      const raw = result.parsed as any;
-      return NextResponse.json({
-        observations: raw?.observations || [],
-        unmatched_names: raw?.unmatched_names || [],
-        team_observations: raw?.team_observations || [],
-        interactionId: result.interactionId,
-        warning: 'AI output validation was relaxed',
-      });
-    }
+    return NextResponse.json(result);
   } catch (error: unknown) {
     return handleAIError(error, 'Segment');
   }

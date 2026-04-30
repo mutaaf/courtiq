@@ -19,6 +19,12 @@ import { Check } from 'lucide-react';
 import { useTier } from '@/hooks/use-tier';
 import { trackEvent } from '@/lib/analytics';
 import { cn } from '@/lib/utils';
+import { LongAudioDropzone } from '@/components/voice/LongAudioDropzone';
+import { PlayerFocusEntry } from '@/components/observations/PlayerFocusEntry';
+
+// Files larger than this OR longer than 10 min route to the long-session pipeline.
+const LONG_SESSION_SIZE_BYTES = 5 * 1024 * 1024;
+const LONG_SESSION_DURATION_SEC = 600;
 
 type CaptureState = 'idle' | 'recording' | 'processing' | 'error';
 
@@ -27,6 +33,7 @@ export default function CapturePage() {
   const { activeTeam, coach } = useActiveTeam();
   const { canAccess } = useTier();
   const canUsePhoto = canAccess('media_upload');
+  const canUseLongSession = canAccess('long_session_audio');
 
   // URL context params — read client-side to avoid Suspense requirement
   const [urlSessionId, setUrlSessionId] = useState<string | null>(null);
@@ -46,7 +53,7 @@ export default function CapturePage() {
   const [showQuickNote, setShowQuickNote] = useState(false);
   const [quickNote, setQuickNote] = useState('');
   const [quickNoteSending, setQuickNoteSending] = useState(false);
-  const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'transcribing' | 'editing'>('idle');
+  const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'transcribing' | 'editing' | 'long_session'>('idle');
   const [uploadTranscript, setUploadTranscript] = useState('');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
@@ -75,6 +82,40 @@ export default function CapturePage() {
   // Session coverage — who's been observed so far in this session
   const [coverageRoster, setCoverageRoster] = useState<{ id: string; name: string }[]>([]);
   const [coverageObservedIds, setCoverageObservedIds] = useState<Set<string>>(new Set());
+
+  // Focused player for rapid per-player entry (driven by ?playerId=).
+  const [focusedPlayer, setFocusedPlayer] = useState<{
+    id: string;
+    name: string;
+    jersey_number: number | null;
+    photo_url: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!urlPlayerId || !activeTeam?.id) {
+      setFocusedPlayer(null);
+      return;
+    }
+    // Cheap path — already in coverage roster.
+    const local = coverageRoster.find((p) => p.id === urlPlayerId);
+    if (local) {
+      setFocusedPlayer((cur) =>
+        cur?.id === urlPlayerId ? cur : { id: local.id, name: local.name, jersey_number: null, photo_url: null },
+      );
+    }
+    // Always fetch full record so we get jersey number + avatar for the header.
+    query<{ id: string; name: string; jersey_number: number | null; photo_url: string | null } | null>({
+      table: 'players',
+      select: 'id, name, jersey_number, photo_url',
+      filters: { id: urlPlayerId },
+      single: true,
+    }).then((p) => {
+      if (cancelled) return;
+      if (p) setFocusedPlayer(p);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [urlPlayerId, activeTeam?.id, coverageRoster]);
 
   const refreshCoverageObs = useCallback(async () => {
     if (!urlSessionId || !activeTeam?.id) return;
@@ -628,7 +669,6 @@ export default function CapturePage() {
   const handleFileUpload = async (file: File) => {
     if (!activeTeam) return;
     setUploadFile(file);
-    setUploadState('transcribing');
     setErrorMessage(null);
     setDurationWarning(null);
     setUploadDuration(null);
@@ -637,9 +677,25 @@ export default function CapturePage() {
     const duration = await detectAudioDuration(file);
     if (duration !== null) {
       setUploadDuration(duration);
-      if (duration > 300) {
-        setDurationWarning(`Audio is ${formatDuration(duration)} long. Transcription may take a while.`);
-      }
+    }
+
+    // Long-session pipeline: paid tiers + (large file OR long duration).
+    const isLongSession = canUseLongSession && (
+      file.size > LONG_SESSION_SIZE_BYTES ||
+      (duration !== null && duration > LONG_SESSION_DURATION_SEC)
+    );
+    if (isLongSession) {
+      setUploadState('long_session');
+      trackEvent('long_session_upload_routed', {
+        size_bytes: file.size,
+        duration_sec: duration,
+      });
+      return;
+    }
+
+    setUploadState('transcribing');
+    if (duration !== null && duration > 300) {
+      setDurationWarning(`Audio is ${formatDuration(duration)} long. Transcription may take a while.`);
     }
 
     try {
@@ -830,6 +886,27 @@ export default function CapturePage() {
               </div>
             )}
           </div>
+        )}
+
+        {/* Per-player focus mode — primary surface when ?playerId= is set */}
+        {focusedPlayer && coach && activeTeam && captureState === 'idle' && uploadState === 'idle' && (
+          <PlayerFocusEntry
+            player={focusedPlayer}
+            teamId={activeTeam.id}
+            coachId={coach.id}
+            sessionId={urlSessionId}
+            onClose={() => setUrlPlayerId(null)}
+            onSwitchPlayer={
+              coverageRoster.length > 1
+                ? () => {
+                    // Cycle to the next player in the roster (cheap UX, no extra picker).
+                    const idx = coverageRoster.findIndex((p) => p.id === focusedPlayer.id);
+                    const next = coverageRoster[(idx + 1) % coverageRoster.length];
+                    if (next) setUrlPlayerId(next.id);
+                  }
+                : undefined
+            }
+          />
         )}
 
         {/* Recovery Banner */}
@@ -1074,6 +1151,20 @@ export default function CapturePage() {
               </Link>
             </div>
           </>
+        )}
+
+        {/* Long-session pipeline (paid tiers, ≥ 5 MB or > 10 min) */}
+        {uploadState === 'long_session' && uploadFile && activeTeam && (
+          <LongAudioDropzone
+            teamId={activeTeam.id}
+            sessionId={urlSessionId}
+            initialFile={uploadFile}
+            onCancel={() => {
+              setUploadFile(null);
+              setUploadState('idle');
+              setUploadDuration(null);
+            }}
+          />
         )}
 
         {/* Upload transcribing state */}

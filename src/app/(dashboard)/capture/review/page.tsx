@@ -82,51 +82,159 @@ export default function ReviewPage() {
   };
 
   useEffect(() => {
-    // Load pending observations from sessionStorage
+    let cancelled = false;
+
+    const hydrateFromAI = (data: {
+      recording_id?: string | null;
+      session_id?: string | null;
+      transcript?: string;
+      source?: string;
+      upgrade?: boolean;
+      error?: string;
+      unmatched_names?: string[];
+      observations?: Array<{
+        player_name?: string;
+        category?: string;
+        sentiment?: Sentiment;
+        text?: string;
+        skill_id?: string | null;
+      }>;
+    }) => {
+      if (cancelled) return;
+      setRecordingId(data.recording_id || null);
+      setSessionId(data.session_id || null);
+      setTranscript(data.transcript || '');
+      setSource(data.source === 'typed' ? 'typed' : 'voice');
+
+      if (data.upgrade && data.error) {
+        setAiUpgrade({ message: data.error });
+        setLoading(false);
+        return;
+      }
+      if (data.error) setAiError(data.error);
+      if (data.unmatched_names?.length) setUnmatchedNames(data.unmatched_names);
+
+      const parsed: ParsedObservation[] = (data.observations || []).map(
+        (obs, i) => ({
+          id: `obs-${i}-${Date.now()}`,
+          player_name: obs.player_name || 'Unknown',
+          category: obs.category || 'General',
+          sentiment: obs.sentiment || 'neutral',
+          text: obs.text || '',
+          skill_id: obs.skill_id || null,
+          status: 'pending' as const,
+        }),
+      );
+      setObservations(parsed);
+    };
+
+    // Path 1: in-flight pending_observations from the live capture / short-form upload flow.
     const raw = sessionStorage.getItem('pending_observations');
     if (raw) {
       try {
-        const data = JSON.parse(raw);
-        setRecordingId(data.recording_id || null);
-        setSessionId(data.session_id || null);
-        setTranscript(data.transcript || '');
-        setSource(data.source === 'typed' ? 'typed' : 'voice');
-
-        // Monthly tier limit — show upgrade prompt instead of generic error
-        if (data.upgrade && data.error) {
-          setAiUpgrade({ message: data.error });
-          setLoading(false);
-          return;
-        }
-
-        // Read error field
-        if (data.error) {
-          setAiError(data.error);
-        }
-
-        // Read unmatched_names field
-        if (data.unmatched_names && Array.isArray(data.unmatched_names) && data.unmatched_names.length > 0) {
-          setUnmatchedNames(data.unmatched_names);
-        }
-
-        const parsed: ParsedObservation[] = (data.observations || []).map(
-          (obs: any, i: number) => ({
-            id: `obs-${i}-${Date.now()}`,
-            player_name: obs.player_name || 'Unknown',
-            category: obs.category || 'General',
-            sentiment: obs.sentiment || 'neutral',
-            text: obs.text || '',
-            skill_id: obs.skill_id || null,
-            status: 'pending' as const,
-          })
-        );
-        setObservations(parsed);
+        hydrateFromAI(JSON.parse(raw));
       } catch {
-        // Malformed data
+        // Malformed data — fall through.
       }
+      setLoading(false);
+      return;
     }
+
+    // Path 2: long-session pipeline — ?recordingId=<id> handed to us from LongAudioDropzone.
+    // The webhook caches segmentation_result on the row, so the common case is a
+    // single read with no AI roundtrip.
+    const params = new URLSearchParams(window.location.search);
+    const ridFromUrl = params.get('recordingId');
+    if (ridFromUrl && activeTeam) {
+      (async () => {
+        try {
+          const rec = await query<{
+            id: string;
+            session_id: string | null;
+            raw_transcript: string | null;
+            status: string;
+            segmentation_result: {
+              observations?: Array<{
+                player_name?: string;
+                category?: string;
+                sentiment?: Sentiment;
+                text?: string;
+                skill_id?: string | null;
+              }>;
+              unmatched_names?: string[];
+              warning?: string;
+            } | null;
+          } | null>({
+            table: 'recordings',
+            select: 'id, session_id, raw_transcript, status, segmentation_result',
+            filters: { id: ridFromUrl },
+            single: true,
+          });
+          if (cancelled) return;
+          if (!rec || !rec.raw_transcript) {
+            setError('Transcript not ready yet. Please wait a moment and refresh.');
+            setLoading(false);
+            return;
+          }
+
+          // Fast path — webhook already cached the segmentation.
+          if (rec.segmentation_result?.observations) {
+            hydrateFromAI({
+              recording_id: rec.id,
+              session_id: rec.session_id,
+              transcript: rec.raw_transcript,
+              observations: rec.segmentation_result.observations,
+              unmatched_names: rec.segmentation_result.unmatched_names,
+              source: 'voice',
+            });
+            setLoading(false);
+            return;
+          }
+
+          // Fallback — webhook hit a segmentation error; re-segment client-side.
+          const res = await fetch('/api/ai/segment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              transcript: rec.raw_transcript,
+              teamId: activeTeam.id,
+              sessionId: rec.session_id,
+            }),
+          });
+          const seg = await res.json().catch(() => ({}));
+          if (cancelled) return;
+          if (!res.ok) {
+            const msg = seg.error || 'AI processing failed';
+            if (seg.upgrade) setAiUpgrade({ message: msg });
+            else setAiError(msg);
+            setRecordingId(rec.id);
+            setSessionId(rec.session_id);
+            setTranscript(rec.raw_transcript);
+            setLoading(false);
+            return;
+          }
+          hydrateFromAI({
+            recording_id: rec.id,
+            session_id: rec.session_id,
+            transcript: rec.raw_transcript,
+            observations: seg.observations,
+            unmatched_names: seg.unmatched_names,
+            source: 'voice',
+          });
+          setLoading(false);
+        } catch (e) {
+          if (cancelled) return;
+          console.error('long-session review hydrate failed:', e);
+          setError('Failed to load transcript. Please try again.');
+          setLoading(false);
+        }
+      })();
+      return () => { cancelled = true; };
+    }
+
     setLoading(false);
-  }, []);
+    return () => { cancelled = true; };
+  }, [activeTeam]);
 
   const confirmObservation = (id: string) => {
     setObservations((prev) =>

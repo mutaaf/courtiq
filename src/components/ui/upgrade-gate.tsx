@@ -1,7 +1,7 @@
 'use client';
 import { useTier } from '@/hooks/use-tier';
 import { Button } from './button';
-import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye } from 'lucide-react';
+import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye, Mic } from 'lucide-react';
 import Link from 'next/link';
 import type { Tier } from '@/lib/tier';
 
@@ -153,6 +153,22 @@ const FEATURE_CONFIG: Record<string, FeatureConfig> = {
       'Player match-up recommendations',
     ],
     requiredTier: 'pro_coach',
+    accentColor: 'text-orange-400',
+    accentBg: 'bg-orange-500/15',
+    accentBorder: 'border-orange-500/30',
+  },
+  long_session_audio: {
+    icon: Mic,
+    headline: 'Unlock Long-Session Voice Memos',
+    tagline: 'Upload an entire practice or game and let SportsIQ pull the observations.',
+    benefits: [
+      'Drag in a 90-minute practice recording — done in minutes',
+      'Resumable upload survives spotty fields and stadium Wi-Fi',
+      'Background transcription so you can close the tab',
+      'AI extracts player observations from the full session',
+      'Works with iPhone Voice Memos, mp3, m4a, wav, webm',
+    ],
+    requiredTier: 'coach',
     accentColor: 'text-orange-400',
     accentBg: 'bg-orange-500/15',
     accentBorder: 'border-orange-500/30',

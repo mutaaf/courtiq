@@ -324,6 +324,17 @@ export interface Recording {
   retry_count: number;
   last_error: string | null;
   duration_seconds: number | null;
+  // Long-session pipeline (migration 030)
+  transcript_request_id: string | null;
+  transcript_callback_secret: string | null;
+  transcript_started_at: string | null;
+  transcript_completed_at: string | null;
+  transcript_cost_usd: number | null;
+  total_duration_seconds: number | null;
+  // Segmentation cache (migration 031) — webhook stores AI-extracted observations
+  // here so /capture/review opens instantly without re-running segmentation.
+  segmentation_result: Json | null;
+  segmentation_completed_at: string | null;
   created_at: string;
 }
 
