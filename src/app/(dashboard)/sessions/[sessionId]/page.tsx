@@ -2604,6 +2604,9 @@ export default function SessionDetailPage() {
   const [observerLinkGenerating, setObserverLinkGenerating] = useState(false);
   const [observerLinkCopied, setObserverLinkCopied] = useState(false);
 
+  // Observation grouping mode: by player (default) or by drill (when timer data exists)
+  const [obsGroupBy, setObsGroupBy] = useState<'player' | 'drill'>('player');
+
   // Quick result entry state
   const [resultEditing, setResultEditing] = useState(false);
   const [resultPendingOutcome, setResultPendingOutcome] = useState<ResultValue | null>(null);
@@ -2634,7 +2637,7 @@ export default function SessionDetailPage() {
     queryFn: async () => {
       const data = await query<any[]>({
         table: 'observations',
-        select: '*, players:player_id(name)',
+        select: '*, players:player_id(name), drills:drill_id(name)',
         filters: { session_id: sessionId },
         order: { column: 'created_at', ascending: false },
       });
@@ -2834,6 +2837,29 @@ export default function SessionDetailPage() {
       return b.obs.length - a.obs.length;
     });
   }, [observations, rosterPlayers]);
+
+  // Group observations by drill — shows coaches which drills generated which observations.
+  const drillGrouped = useMemo(() => {
+    if (!observations || observations.length === 0) return [];
+    const map = new Map<string, { name: string; obs: any[] }>();
+    for (const obs of observations) {
+      const key = obs.drill_id ?? '__no-drill__';
+      const name = obs.drills?.name ?? 'No drill context';
+      if (!map.has(key)) map.set(key, { name, obs: [] });
+      map.get(key)!.obs.push(obs);
+    }
+    return [...map.entries()].sort(([ka, a], [kb, b]) => {
+      if (ka === '__no-drill__' && kb !== '__no-drill__') return 1;
+      if (ka !== '__no-drill__' && kb === '__no-drill__') return -1;
+      return b.obs.length - a.obs.length;
+    });
+  }, [observations]);
+
+  // Only show "By Drill" toggle when timer drill data is present (≥2 drill-linked observations).
+  const drillLinkedCount = useMemo(
+    () => (observations ?? []).filter((o: any) => !!o.drill_id).length,
+    [observations]
+  );
 
   const isLoading = sessionLoading || obsLoading;
 
@@ -3168,12 +3194,41 @@ export default function SessionDetailPage() {
 
       {/* Observations */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-orange-500" />
             Observations
             <Badge variant="secondary">{observations?.length || 0}</Badge>
           </h2>
+          {/* Group-by toggle — only visible when ≥2 drill-linked observations exist */}
+          {drillLinkedCount >= 2 && (
+            <div className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900/50 p-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => setObsGroupBy('player')}
+                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  obsGroupBy === 'player'
+                    ? 'bg-orange-500/20 text-orange-400'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <Users className="h-3 w-3" />
+                Player
+              </button>
+              <button
+                type="button"
+                onClick={() => setObsGroupBy('drill')}
+                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  obsGroupBy === 'drill'
+                    ? 'bg-indigo-500/20 text-indigo-400'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <Dumbbell className="h-3 w-3" />
+                Drill
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Session Snapshot — at-a-glance summary of practice quality */}
@@ -3203,7 +3258,73 @@ export default function SessionDetailPage() {
               </Link>
             </CardContent>
           </Card>
+        ) : obsGroupBy === 'drill' ? (
+          /* ── By Drill view ─────────────────────────────────────────────── */
+          <div className="space-y-4">
+            {drillGrouped.map(([key, group]) => {
+              const positiveCount = group.obs.filter((o: any) => o.sentiment === 'positive').length;
+              const needsWorkCount = group.obs.filter((o: any) => o.sentiment === 'needs-work').length;
+              const isNoDrill = key === '__no-drill__';
+              return (
+                <div key={key} className="space-y-2">
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-1.5">
+                    <div className="flex items-center gap-2">
+                      <Dumbbell className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+                      <span className={`text-sm font-semibold ${isNoDrill ? 'text-zinc-500 italic' : 'text-zinc-200'}`}>
+                        {group.name}
+                      </span>
+                      <span className="text-xs text-zinc-600">{group.obs.length} obs</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {positiveCount > 0 && (
+                        <span className="flex items-center gap-0.5 text-xs text-emerald-400">
+                          <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                          {positiveCount}
+                        </span>
+                      )}
+                      {needsWorkCount > 0 && (
+                        <span className="flex items-center gap-0.5 text-xs text-amber-400">
+                          <AlertCircle className="h-3 w-3" aria-hidden="true" />
+                          {needsWorkCount}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {group.obs.map((obs: any) => {
+                    const sentimentConfig = SENTIMENT_CONFIG[obs.sentiment as Sentiment];
+                    const SentimentIcon = sentimentConfig?.icon || MinusCircle;
+                    const playerName = obs.players?.name;
+                    return (
+                      <Card key={obs.id}>
+                        <CardContent className="p-3">
+                          <div className="flex items-start gap-3">
+                            <SentimentIcon
+                              className={`h-4 w-4 mt-0.5 shrink-0 ${sentimentConfig?.color || 'text-zinc-400'}`}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                                {playerName && (
+                                  <Badge variant="secondary" className="text-[10px] bg-zinc-800 text-zinc-300">
+                                    {playerName}
+                                  </Badge>
+                                )}
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {obs.category}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-zinc-300">{obs.text}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
         ) : (
+          /* ── By Player view (default) ───────────────────────────────────── */
           <div className="space-y-4">
             {playerGrouped.map(([key, group]) => {
               const positiveCount = group.obs.filter((o: any) => o.sentiment === 'positive').length;
@@ -3243,6 +3364,7 @@ export default function SessionDetailPage() {
                   {group.obs.map((obs: any) => {
                     const sentimentConfig = SENTIMENT_CONFIG[obs.sentiment as Sentiment];
                     const SentimentIcon = sentimentConfig?.icon || MinusCircle;
+                    const drillName = obs.drills?.name;
                     return (
                       <Card key={obs.id}>
                         <CardContent className="p-3">
@@ -3251,13 +3373,16 @@ export default function SessionDetailPage() {
                               className={`h-4 w-4 mt-0.5 shrink-0 ${sentimentConfig?.color || 'text-zinc-400'}`}
                             />
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
+                              <div className="flex flex-wrap items-center gap-1.5 mb-1">
                                 <Badge variant="secondary" className="text-[10px]">
                                   {obs.category}
                                 </Badge>
-                                <Badge variant="outline" className="text-[10px]">
-                                  {obs.source}
-                                </Badge>
+                                {drillName && (
+                                  <span className="inline-flex items-center gap-0.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-medium text-indigo-400">
+                                    <Dumbbell className="h-2.5 w-2.5" aria-hidden="true" />
+                                    {drillName}
+                                  </span>
+                                )}
                               </div>
                               <p className="text-sm text-zinc-300">{obs.text}</p>
                             </div>
