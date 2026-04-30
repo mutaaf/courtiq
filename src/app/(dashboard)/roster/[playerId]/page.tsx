@@ -17,6 +17,7 @@ import {
   BarChart3,
   Eye,
   FileText,
+  Flag,
   Image as ImageIcon,
   Share2,
   MessageSquare,
@@ -350,6 +351,8 @@ export default function PlayerDetailPage({
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'overview', label: 'Overview', icon: <BarChart3 className="h-4 w-4" /> },
     { id: 'observations', label: 'Observations', icon: <Eye className="h-4 w-4" /> },
+    { id: 'goals', label: 'Goals', icon: <Flag className="h-4 w-4" /> },
+    { id: 'notes', label: 'Notes', icon: <StickyNote className="h-4 w-4" /> },
     { id: 'challenges', label: 'Challenges', icon: <Target className="h-4 w-4" /> },
     { id: 'storyline', label: 'Storyline', icon: <BookOpen className="h-4 w-4" /> },
     { id: 'self-assessment', label: 'Self-Rate', icon: <ClipboardCheck className="h-4 w-4" /> },
@@ -1005,17 +1008,6 @@ export default function PlayerDetailPage({
             </CardContent>
           </Card>
 
-          {/* Goals & Notes — inline in overview */}
-          {activeTeam && (
-            <>
-              <div className="lg:col-span-2">
-                <PlayerGoalsPanel playerId={playerId} teamId={activeTeam.id} />
-              </div>
-              <div className="lg:col-span-2">
-                <PlayerNotesPanel playerId={playerId} teamId={activeTeam.id} />
-              </div>
-            </>
-          )}
         </div>
       )}
 
@@ -1186,6 +1178,14 @@ export default function PlayerDetailPage({
           )}
         </div>
         </UpgradeGate>
+      )}
+
+      {activeTab === 'goals' && activeTeam && (
+        <PlayerGoalsPanel playerId={playerId} teamId={activeTeam.id} />
+      )}
+
+      {activeTab === 'notes' && activeTeam && (
+        <PlayerNotesPanel playerId={playerId} teamId={activeTeam.id} />
       )}
 
       {activeTab === 'challenges' && (
