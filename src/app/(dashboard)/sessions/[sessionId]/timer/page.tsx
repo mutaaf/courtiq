@@ -45,6 +45,7 @@ import {
   Shuffle,
   Volume2,
   VolumeX,
+  Wand2,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Drill, Player, Session, Plan } from '@/types/database';
@@ -744,6 +745,8 @@ export default function PracticeTimerPage({
   const [newTemplateName, setNewTemplateName] = useState('');
   const [templateSaved, setTemplateSaved] = useState(false);
 
+  const [autoBuildBanner, setAutoBuildBanner] = useState(false);
+
   const [audioEnabled, setAudioEnabled] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
     try {
@@ -1366,6 +1369,37 @@ export default function PracticeTimerPage({
     setShowTemplatePicker(false);
   };
 
+  // Build a drill queue targeting the team's top skill gaps (uses already-loaded drills)
+  const handleAutoBuildQueue = () => {
+    if (!teamFocusBrief || drills.length === 0 || queue.length > 0) return;
+
+    const items: QueueItem[] = [];
+    for (const { category } of teamFocusBrief.topGaps) {
+      const matching = drills.filter(
+        (d) => d.category?.toLowerCase() === category.toLowerCase()
+      );
+      if (matching.length === 0) continue;
+      // Pick from up to first 5 matching drills for variety
+      const pick = matching[Math.floor(Math.random() * Math.min(matching.length, 5))];
+      items.push({
+        id: `gap-${pick.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        drillId: pick.id,
+        name: pick.name,
+        durationSecs: Math.max(300, (pick.duration_minutes ?? 10) * 60),
+        cues: pick.teaching_cues ?? [],
+        description: pick.description ?? '',
+        category: pick.category,
+      });
+    }
+
+    if (items.length === 0) return;
+
+    setQueue(items);
+    setAutoBuildBanner(true);
+    setLoadedTemplateName(null);
+    setLoadedPlanTitle(null);
+  };
+
   const saveCustomTemplate = () => {
     if (!newTemplateName.trim() || !activeTeam) return;
     const tpl = {
@@ -1735,6 +1769,24 @@ export default function PracticeTimerPage({
               {teamFocusBrief.unobservedPlayers.length === 4 && ' +more'}
             </p>
           )}
+          {/* One-tap queue builder: pick drills from the library matching the top gaps */}
+          {queue.length === 0 && drills.length > 0 && (
+            <button
+              onClick={handleAutoBuildQueue}
+              className="flex items-center justify-center gap-2 w-full mt-1 rounded-lg border border-indigo-600/40 bg-indigo-600/15 px-4 py-2.5 text-sm font-medium text-indigo-300 hover:bg-indigo-600/25 transition-colors touch-manipulation"
+            >
+              <Wand2 className="h-4 w-4 shrink-0" />
+              Build practice queue from these gaps
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Auto-built from gaps banner */}
+      {autoBuildBanner && !loadedPlanTitle && !loadedTemplateName && (
+        <div className="flex items-center gap-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-4 py-3 text-sm text-indigo-300">
+          <Wand2 className="h-4 w-4 shrink-0" />
+          Queue built from your top focus areas — edit below or hit Start
         </div>
       )}
 
