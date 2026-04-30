@@ -2585,7 +2585,7 @@ export default function SessionDetailPage() {
   const params = useParams();
   const sessionId = params.sessionId as string;
   const searchParams = useSearchParams();
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, coach } = useActiveTeam();
   const queryClient = useQueryClient();
 
   // Practice Complete banner — shown when arriving from the practice timer
@@ -2609,6 +2609,7 @@ export default function SessionDetailPage() {
   const [resultPendingOutcome, setResultPendingOutcome] = useState<ResultValue | null>(null);
   const [resultScore, setResultScore] = useState('');
   const [resultSaved, setResultSaved] = useState(false);
+  const [resultShared, setResultShared] = useState(false);
 
   const { data: session, isLoading: sessionLoading } = useQuery({
     queryKey: ['session', sessionId],
@@ -2775,6 +2776,26 @@ export default function SessionDetailPage() {
   function handleSaveResult() {
     if (!resultPendingOutcome) return;
     resultMutation.mutate(buildResultString(resultPendingOutcome, resultScore));
+  }
+
+  function handleShareResult(outcome: ResultValue, scoreStr: string | null) {
+    const teamName = activeTeam?.name || 'the team';
+    const coachFirst = coach?.full_name?.split(' ')[0] || 'Coach';
+    const opponentPart = session?.opponent ? ` vs ${session.opponent}` : '';
+    const scorePart = scoreStr ? ` ${scoreStr}` : '';
+    const msgs: Record<ResultValue, string> = {
+      win:  `🏆 ${teamName} won today!${scorePart}${opponentPart} Great effort from the whole team! — ${coachFirst}`,
+      loss: `Tough game for ${teamName}${opponentPart}${scorePart}. The team gave great effort — we'll use this to improve! — ${coachFirst}`,
+      tie:  `Hard-fought draw for ${teamName}${opponentPart}${scorePart}. Great resilience from the team! — ${coachFirst}`,
+    };
+    const text = msgs[outcome];
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      navigator.share({ title: `${teamName} Game Result`, text }).catch(() => {});
+    } else {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+    }
+    setResultShared(true);
+    setTimeout(() => setResultShared(false), 2500);
   }
 
   function formatDate(dateStr: string) {
@@ -2971,7 +2992,7 @@ export default function SessionDetailPage() {
             if (!resultEditing && parsedResult) {
               const badge = RESULT_BADGE[parsedResult];
               return (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-sm font-bold ${badge.bg} ${badge.text}`}>
                     <Trophy className="h-3.5 w-3.5" />
                     {badge.label}
@@ -2980,6 +3001,23 @@ export default function SessionDetailPage() {
                   {resultSaved && (
                     <span className="text-xs text-emerald-400 flex items-center gap-1"><Check className="h-3 w-3" />Saved</span>
                   )}
+                  <button
+                    onClick={() => handleShareResult(parsedResult, existingScore || null)}
+                    className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors touch-manipulation ${
+                      resultShared
+                        ? 'text-emerald-400 bg-emerald-500/10'
+                        : parsedResult === 'win'
+                          ? 'text-amber-400 hover:text-amber-300 hover:bg-amber-500/10'
+                          : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+                    }`}
+                    aria-label="Share game result with parents"
+                  >
+                    {resultShared ? (
+                      <><Check className="h-3 w-3" />Shared!</>
+                    ) : (
+                      <><Share2 className="h-3 w-3" />{parsedResult === 'win' ? '🎉 Share' : 'Share'}</>
+                    )}
+                  </button>
                   <button
                     onClick={() => {
                       setResultPendingOutcome(parsedResult);

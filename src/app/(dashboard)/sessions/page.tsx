@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2, Star, ArrowLeftRight } from 'lucide-react';
+import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2, Star, ArrowLeftRight, Share2, Check } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { RecurringSessionsPanel } from '@/components/sessions/recurring-sessions-panel';
@@ -61,13 +61,15 @@ const RESULT_BUTTONS: { outcome: ResultValue; label: string; classes: string }[]
 ];
 
 export default function SessionsPage() {
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, coach } = useActiveTeam();
   const queryClient = useQueryClient();
   const [typeFilter, setTypeFilter] = useState<SessionType | 'all'>('all');
   // Optimistic result overrides keyed by session ID
   const [localResults, setLocalResults] = useState<Record<string, string>>({});
   // Tracks which session + outcome is currently being saved
   const [savingResult, setSavingResult] = useState<{ sessionId: string; outcome: ResultValue } | null>(null);
+  // Tracks "Shared!" confirmation state per session ID
+  const [sharedResults, setSharedResults] = useState<Record<string, boolean>>({});
 
   const { data: sessions, isLoading, refetch } = useQuery({
     queryKey: [...queryKeys.sessions.all(activeTeam?.id || ''), typeFilter],
@@ -116,6 +118,27 @@ export default function SessionsPage() {
     } finally {
       setSavingResult(null);
     }
+  }
+
+  function handleShareResult(e: React.MouseEvent, sessionId: string, outcome: ResultValue, opponent: string | null) {
+    e.preventDefault();
+    e.stopPropagation();
+    const teamName = activeTeam?.name || 'the team';
+    const coachFirst = coach?.full_name?.split(' ')[0] || 'Coach';
+    const opponentPart = opponent ? ` vs ${opponent}` : '';
+    const msgs: Record<ResultValue, string> = {
+      win:  `🏆 ${teamName} won today!${opponentPart} Great effort from the whole team! — ${coachFirst}`,
+      loss: `Tough game for ${teamName}${opponentPart}. The team gave great effort — we'll use this to improve! — ${coachFirst}`,
+      tie:  `Hard-fought draw for ${teamName}${opponentPart}! Great resilience from the team! — ${coachFirst}`,
+    };
+    const text = msgs[outcome];
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      navigator.share({ title: `${teamName} Game Result`, text }).catch(() => {});
+    } else {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+    }
+    setSharedResults((prev) => ({ ...prev, [sessionId]: true }));
+    setTimeout(() => setSharedResults((prev) => { const n = { ...prev }; delete n[sessionId]; return n; }), 2500);
   }
 
   function formatDate(dateStr: string) {
@@ -244,11 +267,27 @@ export default function SessionsPage() {
                             {typeConfig.label}
                           </span>
                           {parsedResult && (
-                            <span
-                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold ${getResultBadgeClasses(parsedResult)}`}
-                            >
-                              {getResultLabel(parsedResult)}
-                            </span>
+                            <>
+                              <span
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold ${getResultBadgeClasses(parsedResult)}`}
+                              >
+                                {getResultLabel(parsedResult)}
+                              </span>
+                              <button
+                                onClick={(e) => handleShareResult(e, session.id, parsedResult, session.opponent || null)}
+                                className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium transition-colors touch-manipulation ${
+                                  sharedResults[session.id]
+                                    ? 'text-emerald-400 bg-emerald-500/10'
+                                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'
+                                }`}
+                                aria-label="Share game result with parents"
+                              >
+                                {sharedResults[session.id]
+                                  ? <><Check className="h-3 w-3" />Shared!</>
+                                  : <><Share2 className="h-3 w-3" />{parsedResult === 'win' ? '🎉' : 'Share'}</>
+                                }
+                              </button>
+                            </>
                           )}
                           {session.opponent && (
                             <span className="text-sm text-zinc-300">
