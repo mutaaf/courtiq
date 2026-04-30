@@ -22,43 +22,31 @@ export interface DripEmail {
   buildHtml: (coachName: string) => string;
 }
 
-/** Shared wrapper keeps all emails on-brand without duplicating markup. */
-function wrap(title: string, body: string): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>${title}</title>
-  <style>
-    body { margin:0; padding:0; background:#09090b; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; color:#f4f4f5; }
-    .wrapper { max-width:600px; margin:0 auto; padding:40px 20px; }
-    .logo { font-size:22px; font-weight:700; color:#f97316; margin-bottom:32px; }
-    .card { background:#18181b; border-radius:12px; padding:32px; margin-bottom:24px; }
-    h1 { font-size:24px; font-weight:700; color:#f4f4f5; margin:0 0 12px; }
-    p { font-size:16px; line-height:1.6; color:#a1a1aa; margin:0 0 16px; }
-    .cta { display:inline-block; background:#f97316; color:#fff !important; font-weight:600;
-           padding:14px 28px; border-radius:8px; text-decoration:none; font-size:16px; margin-top:8px; }
-    .step { display:flex; gap:12px; align-items:flex-start; margin-bottom:16px; }
-    .step-num { background:#f97316; color:#fff; border-radius:50%; width:28px; height:28px;
-                display:flex; align-items:center; justify-content:center; font-weight:700;
-                font-size:14px; flex-shrink:0; }
-    .step-text { font-size:15px; color:#a1a1aa; line-height:1.5; padding-top:4px; }
-    .footer { font-size:13px; color:#52525b; text-align:center; padding-top:24px; }
-    a { color:#f97316; }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <div class="logo">SportsIQ</div>
-    ${body}
-    <div class="footer">
-      You're receiving this because you signed up for SportsIQ.<br />
-      <a href="{{unsubscribe_url}}">Unsubscribe</a>
-    </div>
-  </div>
-</body>
-</html>`;
+// Drip emails route through the unified branded layout (src/lib/email/layout.ts)
+// so the SportsIQ shell, footer, and List-Unsubscribe behavior stay consistent
+// across every email the app sends.
+import { renderEmail, heroSection, paragraph, ctaButton, steps as stepsList } from './email/layout';
+
+const APP_URL = 'https://youthsportsiq.com';
+
+interface DripCopy {
+  preview: string;
+  title: string;
+  intro: string;
+  steps: string[];
+  cta: { label: string; href: string };
+}
+
+function build(copy: DripCopy): string {
+  return renderEmail({
+    preview: copy.preview,
+    body: [
+      heroSection(copy.title),
+      paragraph(copy.intro),
+      stepsList(copy.steps),
+      ctaButton(copy.cta.label, copy.cta.href),
+    ].join(''),
+  });
 }
 
 // ─── The four drip emails ────────────────────────────────────────────────────
@@ -69,71 +57,72 @@ export const DRIP_SEQUENCE: DripEmail[] = [
     afterDays: 1,
     subject: 'Welcome to SportsIQ — your first capture awaits',
     buildHtml: (name) =>
-      wrap(
-        'Welcome to SportsIQ',
-        `<div class="card">
-          <h1>Welcome, ${name}!</h1>
-          <p>You're now part of a community of coaches who use data to develop better athletes. Here's how to get started in under 2 minutes:</p>
-          <div class="step"><div class="step-num">1</div><div class="step-text">Tap <strong>Capture</strong> in the bottom nav and hit the microphone button.</div></div>
-          <div class="step"><div class="step-num">2</div><div class="step-text">Say something like <em>"Marcus showed great footwork on the defensive rotations."</em></div></div>
-          <div class="step"><div class="step-num">3</div><div class="step-text">SportsIQ automatically tags the player, skill, and sentiment — then saves it.</div></div>
-          <a class="cta" href="https://app.sportsiq.app/capture">Make Your First Capture</a>
-        </div>`
-      ),
+      build({
+        preview: 'Three steps to your first observation in under 2 minutes.',
+        title: `Welcome, ${name.split(' ')[0]} 👋`,
+        intro:
+          "You're now part of a community of coaches using data to develop better athletes. Here's how to log your first observation — under 2 minutes:",
+        steps: [
+          'Tap Capture in the bottom nav and hit the microphone.',
+          'Say something like "Marcus showed great footwork on the defensive rotations."',
+          'SportsIQ tags the player, skill, and sentiment automatically — then saves it.',
+        ],
+        cta: { label: 'Make your first capture', href: `${APP_URL}/capture` },
+      }),
   },
   {
     key: 'day_3',
     afterDays: 3,
-    subject: 'Pro tip: capture observations in seconds with Quick Capture',
+    subject: 'Pro tip: Quick Capture saves you 20 minutes per session',
     buildHtml: (name) =>
-      wrap(
-        'Quick Capture Tips',
-        `<div class="card">
-          <h1>Hi ${name}, here's how coaches save 20 min per session</h1>
-          <p>The <strong>Quick Capture</strong> button (the ⚡ icon, bottom-right of every page) lets you record observations without leaving what you're doing.</p>
-          <p>Coaches who use Quick Capture record <strong>3× more observations</strong> per session — giving the AI more data to generate smarter practice plans.</p>
-          <div class="step"><div class="step-num">1</div><div class="step-text">Tap ⚡ from any page — a recording sheet pops up instantly.</div></div>
-          <div class="step"><div class="step-num">2</div><div class="step-text">Speak naturally. Name multiple players in one breath — AI segments them automatically.</div></div>
-          <div class="step"><div class="step-num">3</div><div class="step-text">Observations are saved without any review step. Back to coaching in seconds.</div></div>
-          <a class="cta" href="https://app.sportsiq.app/capture">Try Quick Capture Now</a>
-        </div>`
-      ),
+      build({
+        preview: 'The ⚡ icon. One tap. No exit from what you were doing.',
+        title: `Hi ${name.split(' ')[0]} — here's how coaches log 3× more`,
+        intro:
+          'The Quick Capture button (the ⚡ icon, bottom-right of every page) lets you log observations without leaving what you\'re doing. Coaches who use it log 3× more observations per session — and the AI gets that much smarter.',
+        steps: [
+          'Tap ⚡ from any page — a recording sheet pops up instantly.',
+          'Speak naturally. Multiple players in one breath — the AI segments them.',
+          'Saves automatically. Back to coaching in seconds.',
+        ],
+        cta: { label: 'Try Quick Capture', href: `${APP_URL}/capture` },
+      }),
   },
   {
     key: 'day_7',
     afterDays: 7,
     subject: 'Ready to generate your first AI practice plan?',
     buildHtml: (name) =>
-      wrap(
-        'Generate Your First Plan',
-        `<div class="card">
-          <h1>${name}, your data is ready to work for you</h1>
-          <p>After a week of observations, SportsIQ has enough data to generate a <strong>personalised practice plan</strong> targeting your team's actual growth areas.</p>
-          <p>The AI analyzes every observation you've recorded, identifies declining skills and persistent gaps, and builds a drill-by-drill session plan with time allocations and coaching cues.</p>
-          <div class="step"><div class="step-num">1</div><div class="step-text">Go to the <strong>Plans</strong> page.</div></div>
-          <div class="step"><div class="step-num">2</div><div class="step-text">Tap <strong>Generate Practice Plan</strong>.</div></div>
-          <div class="step"><div class="step-num">3</div><div class="step-text">In 10–15 seconds you have a full session plan, ready to run.</div></div>
-          <a class="cta" href="https://app.sportsiq.app/plans">Generate My First Plan</a>
-        </div>`
-      ),
+      build({
+        preview: 'A drill-by-drill plan from a week of your real observations.',
+        title: `${name.split(' ')[0]}, your data is ready to work for you`,
+        intro:
+          'A week of observations is enough for the AI to write a real practice plan — targeting your team\'s actual growth areas, not generic drills. It identifies declining skills, persistent gaps, and pulls drills with time allocations and coaching cues.',
+        steps: [
+          'Open the Plans tab.',
+          'Tap "AI-Tailored Plan."',
+          'In 10–15 seconds you have a full session plan, ready to run.',
+        ],
+        cta: { label: 'Generate my first plan', href: `${APP_URL}/plans` },
+      }),
   },
   {
     key: 'day_14',
     afterDays: 14,
     subject: "Your players' parents will love this",
     buildHtml: (name) =>
-      wrap(
-        'Share With Parents',
-        `<div class="card">
-          <h1>Keep parents in the loop, ${name}</h1>
-          <p>SportsIQ can generate a <strong>parent-friendly progress report</strong> for each player — no jargon, just clear highlights and at-home practice suggestions.</p>
-          <p>Coaches who share reports with parents see higher player attendance and better at-home skill reinforcement. It takes 30 seconds per player.</p>
-          <div class="step"><div class="step-num">1</div><div class="step-num">1</div><div class="step-text">Open a player's profile from the <strong>Roster</strong> page.</div></div>
-          <div class="step"><div class="step-num">2</div><div class="step-text">Tap <strong>Share Report</strong> to generate an AI-written summary.</div></div>
-          <div class="step"><div class="step-num">3</div><div class="step-text">Copy the link and send it via your preferred messaging app.</div></div>
-          <a class="cta" href="https://app.sportsiq.app/roster">View My Roster</a>
-        </div>`
-      ),
+      build({
+        preview: '30 seconds per player → parent-ready progress card.',
+        title: `Keep parents in the loop, ${name.split(' ')[0]}`,
+        intro:
+          'SportsIQ generates a parent-friendly progress card for each player — no jargon, clear highlights, at-home practice suggestions. Coaches who share these see higher attendance and better at-home reinforcement.',
+        steps: [
+          "Open a player's profile from the Roster page.",
+          'Tap Share Report to generate an AI-written summary.',
+          'Copy the link and send it via text, email, or whichever app the parent uses.',
+        ],
+        cta: { label: 'Open my roster', href: `${APP_URL}/roster` },
+      }),
   },
 ];
 
