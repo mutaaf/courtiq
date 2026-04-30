@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   try {
     const { data: coach } = await admin
       .from('coaches')
-      .select('org_id, name')
+      .select('org_id, full_name')
       .eq('id', user.id)
       .single();
 
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
       sessionLabel,
       sessionType: session.type,
       observationSummary,
-      coachName: coach?.name ?? undefined,
+      coachName: coach?.full_name ?? undefined,
       teamName: context.teamName,
     });
 

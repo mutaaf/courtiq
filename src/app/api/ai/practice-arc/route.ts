@@ -91,7 +91,7 @@ export async function POST(request: Request) {
   try {
     const { data: coach } = await admin
       .from('coaches')
-      .select('org_id, name')
+      .select('org_id, full_name')
       .eq('id', user.id)
       .single();
 

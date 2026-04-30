@@ -18,9 +18,14 @@ import {
   Sparkles,
   ClipboardList,
   Eye,
+  MessageCircle,
+  Send,
+  Copy,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import Link from 'next/link';
+import { buildWhatsAppUrl, formatGroupMessage } from '@/lib/team-group-message-utils';
+import type { TeamGroupMessage } from '@/lib/team-group-message-utils';
 
 interface Props {
   sessionId: string;
@@ -80,6 +85,11 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
   const [savedSummary, setSavedSummary] = useState<SavedSummary | null>(null);
   const [sessionObservedIds, setSessionObservedIds] = useState<Set<string>>(new Set());
 
+  // Share with Parents state
+  type ShareState = 'idle' | 'generating' | 'ready' | 'copied' | 'shared' | 'error' | 'upgrade';
+  const [shareState, setShareState] = useState<ShareState>('idle');
+  const [groupMessage, setGroupMessage] = useState<string | null>(null);
+
   useEffect(() => {
     if (!activeTeam?.id) return;
     Promise.all([
@@ -133,6 +143,58 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
     setNeedsWork((prev) =>
       prev.some((p) => p.text === t.text) ? prev.filter((p) => p.text !== t.text) : [...prev, t]
     );
+  }
+
+  async function handleShareWithParents() {
+    if (!activeTeam?.id) return;
+    setShareState('generating');
+    try {
+      const res = await fetch('/api/ai/team-group-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id, sessionId }),
+      });
+      if (res.status === 402 || res.status === 403) {
+        setShareState('upgrade');
+        return;
+      }
+      if (!res.ok) {
+        setShareState('error');
+        return;
+      }
+      const data = await res.json();
+      const msg = formatGroupMessage(
+        data.groupMessage as TeamGroupMessage,
+        coach?.full_name ?? undefined,
+        activeTeam.name ?? undefined,
+      );
+      setGroupMessage(msg);
+      setShareState('ready');
+    } catch {
+      setShareState('error');
+    }
+  }
+
+  async function handleDoShare() {
+    if (!groupMessage) return;
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ text: groupMessage });
+        setShareState('shared');
+        return;
+      } catch {
+        // user cancelled or not supported — fall through
+      }
+    }
+    window.open(buildWhatsAppUrl(groupMessage), '_blank');
+    setShareState('shared');
+  }
+
+  function handleCopyMessage() {
+    if (!groupMessage) return;
+    navigator.clipboard.writeText(groupMessage).catch(() => {});
+    setShareState('copied');
+    setTimeout(() => setShareState('ready'), 2000);
   }
 
   async function handleSave() {
@@ -460,6 +522,100 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                     <span className="text-xs text-zinc-500">AI-powered from today</span>
                   </button>
                 </Link>
+              </div>
+
+              {/* Share with Parents */}
+              <div className="rounded-xl border border-teal-500/30 bg-teal-500/10 p-4">
+                {shareState === 'idle' && (
+                  <button
+                    onClick={handleShareWithParents}
+                    className="w-full flex items-center gap-3 touch-manipulation active:scale-[0.97]"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-500/20">
+                      <MessageCircle className="h-5 w-5 text-teal-400" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-teal-300">Share with Parents</p>
+                      <p className="text-xs text-teal-400/70">AI writes your WhatsApp update</p>
+                    </div>
+                    <ChevronRight className="ml-auto h-4 w-4 text-teal-400/60 shrink-0" />
+                  </button>
+                )}
+
+                {shareState === 'generating' && (
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="h-5 w-5 text-teal-400 animate-spin shrink-0" />
+                    <p className="text-sm text-teal-300">Writing your parent message…</p>
+                  </div>
+                )}
+
+                {(shareState === 'ready' || shareState === 'copied') && groupMessage && (
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-teal-300 flex items-center gap-1.5">
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      Your parent message is ready
+                    </p>
+                    <div className="rounded-lg bg-zinc-900/70 border border-zinc-800 p-3 text-xs text-zinc-300 whitespace-pre-wrap max-h-28 overflow-y-auto leading-relaxed">
+                      {groupMessage}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleDoShare}
+                        className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white py-2.5 text-sm font-semibold touch-manipulation active:scale-[0.97] transition-colors"
+                      >
+                        <Send className="h-4 w-4" />
+                        Send via WhatsApp / SMS
+                      </button>
+                      <button
+                        onClick={handleCopyMessage}
+                        className="flex items-center justify-center gap-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 px-3 py-2.5 text-sm hover:border-zinc-600 touch-manipulation active:scale-[0.97] transition-colors"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        {shareState === 'copied' ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {shareState === 'shared' && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-500/20">
+                      <Check className="h-4 w-4 text-teal-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-teal-300">Shared with parents!</p>
+                      <p className="text-xs text-teal-400/60">Great work this practice 🏀</p>
+                    </div>
+                  </div>
+                )}
+
+                {shareState === 'upgrade' && (
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <MessageCircle className="h-4 w-4 text-zinc-500 shrink-0" />
+                      <p className="text-xs text-zinc-400">Parent sharing requires Coach plan or higher</p>
+                    </div>
+                    <Link
+                      href="/settings/upgrade"
+                      className="shrink-0 text-xs font-semibold text-orange-400 hover:text-orange-300"
+                      onClick={onClose}
+                    >
+                      Upgrade →
+                    </Link>
+                  </div>
+                )}
+
+                {shareState === 'error' && (
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs text-zinc-400">Couldn't generate message — try from session detail</p>
+                    <button
+                      onClick={() => setShareState('idle')}
+                      className="shrink-0 text-xs font-semibold text-teal-400 hover:text-teal-300"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
               </div>
 
               <Button
