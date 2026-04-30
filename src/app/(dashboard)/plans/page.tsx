@@ -88,6 +88,7 @@ const PLAN_TYPE_CONFIG: Record<
   huddle_script: { label: 'Huddle Script', icon: Megaphone, color: 'text-lime-400' },
   team_personality: { label: 'Team Personality', icon: Fingerprint, color: 'text-violet-400' },
   practice_arc: { label: 'Practice Series', icon: Zap, color: 'text-sky-400' },
+  skill_challenge: { label: 'Skill Challenges', icon: Zap, color: 'text-amber-400' },
 };
 
 const SUGGESTION_CHIPS = [
@@ -430,6 +431,9 @@ export default function PlansPage() {
   // Weekly Star state
   const [generatingWeeklyStar, setGeneratingWeeklyStar] = useState(false);
   const [weeklyStarCopied, setWeeklyStarCopied] = useState(false);
+
+  // Skill Challenge copy state
+  const [skillChallengeCopied, setSkillChallengeCopied] = useState(false);
 
   // Plans list search + filter
   const [planSearch, setPlanSearch] = useState('');
@@ -1109,6 +1113,162 @@ export default function PlansPage() {
               <p className="text-sm text-zinc-300 leading-relaxed">{arc.game_day_tip}</p>
             </div>
           )}
+        </div>
+      );
+    }
+
+    // Skill Challenge renderer
+    if (Array.isArray(structured.challenges) && typeof structured.player_name === 'string') {
+      const challenges = structured.challenges as Array<{
+        title: string; skill_area: string; difficulty: string;
+        minutes_per_day: number; description: string; steps: string[];
+        success_criteria: string; encouragement: string;
+      }>;
+      return (
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-amber-400" />
+            <div>
+              <h2 className="text-lg font-bold text-zinc-100">
+                {structured.week_label ?? 'Weekly Skill Challenges'}
+              </h2>
+              <p className="text-sm text-zinc-500">{structured.player_name}</p>
+            </div>
+          </div>
+
+          {/* Challenge Cards */}
+          <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-3">
+            {challenges.map((c, i) => {
+              const diffColor =
+                c.difficulty === 'advanced'
+                  ? 'text-red-400 bg-red-500/10 border-red-500/20'
+                  : c.difficulty === 'intermediate'
+                  ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                  : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+              const cardAccent =
+                i === 0
+                  ? 'border-orange-500/30 from-orange-500/5'
+                  : i === 1
+                  ? 'border-blue-500/30 from-blue-500/5'
+                  : 'border-purple-500/30 from-purple-500/5';
+              return (
+                <div
+                  key={i}
+                  className={`rounded-xl border bg-gradient-to-b ${cardAccent} to-zinc-900/50 p-4 space-y-3`}
+                >
+                  {/* Title row */}
+                  <div className="flex items-start gap-2">
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-xs font-bold text-zinc-300">
+                      {i + 1}
+                    </div>
+                    <p className="text-sm font-semibold text-zinc-100 leading-snug">{c.title}</p>
+                  </div>
+
+                  {/* Chips */}
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-xs font-medium text-zinc-300">
+                      {c.skill_area}
+                    </span>
+                    <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${diffColor}`}>
+                      {c.difficulty}
+                    </span>
+                    {c.minutes_per_day && (
+                      <span className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-xs text-zinc-400">
+                        {c.minutes_per_day} min/day
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Description */}
+                  {c.description && (
+                    <p className="text-xs text-zinc-400 leading-relaxed">{c.description}</p>
+                  )}
+
+                  {/* Steps */}
+                  {Array.isArray(c.steps) && c.steps.length > 0 && (
+                    <ol className="space-y-1.5">
+                      {c.steps.map((step, si) => (
+                        <li key={si} className="flex items-start gap-2 text-xs text-zinc-300">
+                          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-[10px] font-bold text-zinc-400">
+                            {si + 1}
+                          </span>
+                          {step}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+
+                  {/* Success criteria */}
+                  {c.success_criteria && (
+                    <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2.5">
+                      <Trophy className="h-3.5 w-3.5 shrink-0 text-emerald-400 mt-0.5" />
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400 mb-0.5">Success Goal</p>
+                        <p className="text-xs text-zinc-300">{c.success_criteria}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Encouragement */}
+                  {c.encouragement && (
+                    <p className="text-[11px] text-zinc-500 italic leading-relaxed">
+                      &ldquo;{c.encouragement}&rdquo;
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Parent note */}
+          {structured.parent_note && (
+            <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/30 p-4 flex items-start gap-3">
+              <MessageSquare className="h-4 w-4 shrink-0 text-zinc-500 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1">Note for Parents</p>
+                <p className="text-sm text-zinc-400 leading-relaxed">{structured.parent_note}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Copy for parents */}
+          <button
+            onClick={async () => {
+              const lines = [
+                `🏀 ${structured.week_label ?? 'Weekly'} Skill Challenges for ${structured.player_name}`,
+                '',
+                ...challenges.flatMap((c, i) => [
+                  `Challenge ${i + 1}: ${c.title} (${c.skill_area})`,
+                  `⏱ ${c.minutes_per_day} min/day  •  ${c.difficulty}`,
+                  c.description,
+                  ...(c.steps ?? []).map((s: string, si: number) => `  ${si + 1}. ${s}`),
+                  `✅ Success: ${c.success_criteria}`,
+                  `💬 ${c.encouragement}`,
+                  '',
+                ]),
+                structured.parent_note ? `Note for parents: ${structured.parent_note}` : '',
+              ].filter(Boolean);
+              const text = lines.join('\n');
+              try {
+                if (navigator.share) {
+                  await navigator.share({ title: `Skill Challenges — ${structured.player_name}`, text });
+                } else {
+                  await navigator.clipboard.writeText(text);
+                  setSkillChallengeCopied(true);
+                  setTimeout(() => setSkillChallengeCopied(false), 2000);
+                }
+              } catch { /* user cancelled */ }
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 py-3 text-sm font-semibold text-amber-300 transition-all hover:bg-amber-500/15 active:scale-[0.98] touch-manipulation"
+            aria-label="Copy skill challenges for parents"
+          >
+            {skillChallengeCopied ? (
+              <><Check className="h-4 w-4" /> Copied to clipboard!</>
+            ) : (
+              <><Copy className="h-4 w-4" /> Copy for Parents</>
+            )}
+          </button>
         </div>
       );
     }
