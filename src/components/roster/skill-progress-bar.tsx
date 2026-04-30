@@ -1,13 +1,21 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import type { ProficiencyLevel } from '@/types/database';
+import type { ProficiencyLevel, Trend } from '@/types/database';
 
 interface SkillProgressBarProps {
   skillName: string;
   level: ProficiencyLevel;
   successRate: number | null;
+  trend?: Trend | null;
 }
+
+const trendConfig: Record<string, { label: string; arrow: string; className: string }> = {
+  improving: { label: 'Improving', arrow: '↑', className: 'text-emerald-400' },
+  regressing: { label: 'Needs Work', arrow: '↓', className: 'text-red-400' },
+  plateau: { label: 'Steady', arrow: '→', className: 'text-zinc-500' },
+  new: { label: 'New', arrow: '✦', className: 'text-blue-400' },
+};
 
 const levelConfig: Record<
   ProficiencyLevel,
@@ -50,15 +58,23 @@ const levelConfig: Record<
   },
 };
 
-export function SkillProgressBar({ skillName, level, successRate }: SkillProgressBarProps) {
+export function SkillProgressBar({ skillName, level, successRate, trend }: SkillProgressBarProps) {
   const config = levelConfig[level];
   const percent = successRate !== null ? Math.round(successRate * 100) : config.minPercent;
+  const tc = trend ? trendConfig[trend] : null;
 
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-zinc-200">{skillName}</span>
-        <span className={cn('text-xs font-semibold', config.textColor)}>{config.label}</span>
+        <div className="flex items-center gap-2">
+          {tc && (
+            <span className={cn('text-xs font-semibold', tc.className)}>
+              {tc.arrow} {tc.label}
+            </span>
+          )}
+          <span className={cn('text-xs font-semibold', config.textColor)}>{config.label}</span>
+        </div>
       </div>
       <div className={cn('h-2 w-full overflow-hidden rounded-full', config.bgColor)}>
         <div

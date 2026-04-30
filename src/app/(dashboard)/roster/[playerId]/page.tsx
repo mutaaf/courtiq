@@ -867,14 +867,40 @@ export default function PlayerDetailPage({
                   Skill proficiencies will appear here once enough observations have been recorded.
                 </p>
               ) : (
-                proficiencies.slice(0, 8).map((prof) => (
-                  <SkillProgressBar
-                    key={prof.id}
-                    skillName={prof.curriculum_skills?.name || prof.skill_id}
-                    level={prof.proficiency_level}
-                    successRate={prof.success_rate}
-                  />
-                ))
+                <>
+                  {/* Skills at a Glance summary strip */}
+                  {(() => {
+                    const improving = proficiencies.filter((p) => p.trend === 'improving');
+                    const regressing = proficiencies.filter((p) => p.trend === 'regressing');
+                    if (improving.length === 0 && regressing.length === 0) return null;
+                    return (
+                      <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Skills at a Glance</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {improving.slice(0, 3).map((p) => (
+                            <span key={p.id} className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-400 border border-emerald-500/20">
+                              ↑ {p.curriculum_skills?.name || p.skill_id}
+                            </span>
+                          ))}
+                          {regressing.slice(0, 3).map((p) => (
+                            <span key={p.id} className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-medium text-red-400 border border-red-500/20">
+                              ↓ {p.curriculum_skills?.name || p.skill_id}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  {proficiencies.slice(0, 8).map((prof) => (
+                    <SkillProgressBar
+                      key={prof.id}
+                      skillName={prof.curriculum_skills?.name || prof.skill_id}
+                      level={prof.proficiency_level}
+                      successRate={prof.success_rate}
+                      trend={prof.trend}
+                    />
+                  ))}
+                </>
               )}
             </CardContent>
           </Card>
