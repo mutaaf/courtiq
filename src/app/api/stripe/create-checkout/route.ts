@@ -88,6 +88,12 @@ export async function POST(request: Request) {
     const session = await getStripe().checkout.sessions.create({
       mode: 'subscription',
       customer: stripeCustomerId,
+      // Card-only — Link saved cards from other merchants get declined as
+      // unsupported on subscription+trial SetupIntents at brand-new
+      // merchants. Forcing the regular card form bypasses that issuer
+      // rejection in most cases. We can re-add 'link' once the merchant
+      // account has transaction history.
+      payment_method_types: ['card'],
       line_items: [{ price: getPriceId(tier, interval), quantity: 1 }],
       success_url: `${APP_URL}/settings/upgrade?success=true`,
       cancel_url: `${APP_URL}/settings/upgrade?canceled=true`,
