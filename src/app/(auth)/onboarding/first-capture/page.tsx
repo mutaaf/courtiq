@@ -46,11 +46,24 @@ export default function FirstCapturePage() {
     try {
       await fetch('/api/auth/complete-onboarding', { method: 'POST' });
     } catch {}
+
+    // Honour plan intent stored by the signup page (e.g. from "Go Pro" CTA on landing).
+    // The legacy tutorial page used to do this; since it now redirects here we own it.
+    let destination = '/home';
+    try {
+      const intent = sessionStorage.getItem('sportsiq_plan_intent');
+      if (intent) {
+        sessionStorage.removeItem('sportsiq_plan_intent');
+        destination = `/settings/upgrade?intent=${encodeURIComponent(intent)}`;
+      }
+    } catch {}
+
     trackEvent('onboarding_completed', {
       via: 'first_capture',
       had_observation: observations.length > 0,
+      plan_intent: destination !== '/home' ? destination : undefined,
     });
-    router.push('/home');
+    router.push(destination);
     router.refresh();
   }
 
