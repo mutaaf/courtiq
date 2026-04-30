@@ -3117,6 +3117,35 @@ export default function SessionDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Session Quick Nav — jump to any section */}
+      <div
+        className="flex gap-2 overflow-x-auto pb-1 -mx-0.5 px-0.5"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        aria-label="Jump to section"
+      >
+        {([
+          { id: 'session-observations', label: 'Observations', icon: MessageSquare },
+          { id: 'ai-debrief-section',   label: 'AI Debrief',   icon: Sparkles },
+          { id: 'player-messages-section', label: 'Parents',   icon: Send },
+          { id: 'session-reflection',   label: 'Reflect',      icon: BookOpen },
+          { id: 'session-notes',        label: 'Notes',        icon: PenLine },
+        ] as const).map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs font-medium text-zinc-400 transition-colors hover:border-orange-500/50 hover:bg-zinc-800 hover:text-orange-400 active:scale-95 touch-manipulation"
+          >
+            <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+            {label}
+          </button>
+        ))}
+        <Link href="/plans" className="shrink-0 flex items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs font-medium text-zinc-400 transition-colors hover:border-emerald-500/50 hover:bg-zinc-800 hover:text-emerald-400 active:scale-95 touch-manipulation">
+          <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />
+          Plan Next
+        </Link>
+      </div>
+
       {/* Practice Complete Banner — shown when arriving from practice timer */}
       {showPracticeComplete && (
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 relative">
@@ -3193,7 +3222,7 @@ export default function SessionDetailPage() {
       )}
 
       {/* Observations */}
-      <div className="space-y-3">
+      <div id="session-observations" className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-orange-500" />
@@ -3431,12 +3460,14 @@ export default function SessionDetailPage() {
       )}
 
       {/* Coach Reflection Journal — all session types */}
-      {activeTeam && (
-        <CoachReflectionCard
-          sessionId={sessionId}
-          teamId={activeTeam.id}
-        />
-      )}
+      <div id="session-reflection">
+        {activeTeam && (
+          <CoachReflectionCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+          />
+        )}
+      </div>
 
       {/* Player Session Messages — quick send-ready notes for players/parents */}
       <div id="player-messages-section">
@@ -3632,7 +3663,7 @@ export default function SessionDetailPage() {
       </Card>
 
       {/* Coach Debrief */}
-      <Card>
+      <Card id="session-notes">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Coach Notes</CardTitle>
         </CardHeader>
