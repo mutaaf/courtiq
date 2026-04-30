@@ -738,6 +738,12 @@ export default function PracticeTimerPage({
   const [loadedTemplateName, setLoadedTemplateName] = useState<string | null>(null);
   const [lastPracticeQueue, setLastPracticeQueue] = useState<QueueItem[] | null>(null);
 
+  // Custom practice templates (persisted per-team in localStorage)
+  const [customTemplates, setCustomTemplates] = useState<{id: string; name: string; queue: QueueItem[]}[]>([]);
+  const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [templateSaved, setTemplateSaved] = useState(false);
+
   const [audioEnabled, setAudioEnabled] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
     try {
@@ -919,6 +925,17 @@ export default function PracticeTimerPage({
       if (!raw) return;
       const parsed = JSON.parse(raw) as QueueItem[];
       if (parsed.length > 0) setLastPracticeQueue(parsed);
+    } catch { /* ignore */ }
+  }, [activeTeam?.id]);
+
+  // ── Load custom saved templates from localStorage ────────────────────────
+  useEffect(() => {
+    if (!activeTeam) return;
+    try {
+      const raw = localStorage.getItem(`custom-templates-${activeTeam.id}`);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) setCustomTemplates(parsed);
     } catch { /* ignore */ }
   }, [activeTeam?.id]);
 
@@ -1349,6 +1366,44 @@ export default function PracticeTimerPage({
     setShowTemplatePicker(false);
   };
 
+  const saveCustomTemplate = () => {
+    if (!newTemplateName.trim() || !activeTeam) return;
+    const tpl = {
+      id: `custom-${Date.now()}`,
+      name: newTemplateName.trim(),
+      queue: queue.map((item) => ({ ...item })),
+    };
+    const updated = [...customTemplates, tpl];
+    setCustomTemplates(updated);
+    try {
+      localStorage.setItem(`custom-templates-${activeTeam.id}`, JSON.stringify(updated));
+    } catch { /* ignore */ }
+    setNewTemplateName('');
+    setShowSaveAsTemplate(false);
+    setTemplateSaved(true);
+    setTimeout(() => setTemplateSaved(false), 2000);
+  };
+
+  const loadCustomTemplate = (tpl: {name: string; queue: QueueItem[]}) => {
+    const items = tpl.queue.map((item, i) => ({
+      ...item,
+      id: `ctpl-${i}-${Date.now()}`,
+    }));
+    setQueue(items);
+    setLoadedTemplateName(tpl.name);
+    setLoadedPlanTitle(null);
+    setShowTemplatePicker(false);
+  };
+
+  const deleteCustomTemplate = (id: string) => {
+    if (!activeTeam) return;
+    const updated = customTemplates.filter((t) => t.id !== id);
+    setCustomTemplates(updated);
+    try {
+      localStorage.setItem(`custom-templates-${activeTeam.id}`, JSON.stringify(updated));
+    } catch { /* ignore */ }
+  };
+
   // ── Render ───────────────────────────────────────────────────────────────
 
   // Done
@@ -1716,11 +1771,54 @@ export default function PracticeTimerPage({
 
           {showTemplatePicker && (
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 overflow-hidden">
-              <div className="px-4 py-3 border-b border-zinc-800">
-                <p className="text-xs text-zinc-500">
-                  Pre-built drill queues — load one and hit Start. You can still edit drills after loading.
-                </p>
-              </div>
+              {/* My saved templates */}
+              {customTemplates.length > 0 && (
+                <>
+                  <div className="px-4 py-2 border-b border-zinc-800 bg-zinc-900/80">
+                    <p className="text-xs font-semibold text-violet-400 uppercase tracking-wide">My Templates</p>
+                  </div>
+                  <div className="divide-y divide-zinc-800">
+                    {customTemplates.map((tpl) => (
+                      <div
+                        key={tpl.id}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800/40 transition-colors"
+                      >
+                        <button
+                          onClick={() => loadCustomTemplate(tpl)}
+                          className="flex-1 flex items-center gap-3 text-left min-w-0"
+                        >
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/15">
+                            <Save className="h-3.5 w-3.5 text-violet-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-zinc-100 truncate">{tpl.name}</p>
+                            <p className="text-xs text-zinc-500">
+                              {tpl.queue.length} drill{tpl.queue.length !== 1 ? 's' : ''} · {fmt(tpl.queue.reduce((s, q) => s + q.durationSecs, 0))}
+                            </p>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => deleteCustomTemplate(tpl.id)}
+                          aria-label={`Delete ${tpl.name} template`}
+                          className="shrink-0 text-zinc-600 hover:text-red-400 transition-colors p-1"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="px-4 py-2 border-b border-zinc-800 bg-zinc-900/80">
+                    <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wide">Starter Templates</p>
+                  </div>
+                </>
+              )}
+              {customTemplates.length === 0 && (
+                <div className="px-4 py-3 border-b border-zinc-800">
+                  <p className="text-xs text-zinc-500">
+                    Pre-built drill queues — load one and hit Start. You can still edit drills after loading.
+                  </p>
+                </div>
+              )}
               <div className="divide-y divide-zinc-800">
                 {availableTemplates.map((tpl) => (
                   <button
@@ -1772,11 +1870,54 @@ export default function PracticeTimerPage({
             Drill Queue
           </h2>
           {queue.length > 0 && (
-            <span className="text-xs text-zinc-500">
-              Total: {fmt(totalDuration(queue))}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-zinc-500">
+                Total: {fmt(totalDuration(queue))}
+              </span>
+              <button
+                onClick={() => { setShowSaveAsTemplate((v) => !v); setNewTemplateName(''); }}
+                aria-label="Save queue as template"
+                className="flex items-center gap-1 text-xs font-medium text-violet-400 hover:text-violet-300 transition-colors"
+              >
+                <Save className="h-3.5 w-3.5" />
+                {templateSaved ? 'Saved!' : 'Save template'}
+              </button>
+            </div>
           )}
         </div>
+
+        {/* Inline save-as-template form */}
+        {showSaveAsTemplate && queue.length > 0 && (
+          <div className="flex items-center gap-2 border border-violet-700/50 bg-violet-500/5 rounded-xl px-3 py-2">
+            <Save className="h-4 w-4 text-violet-400 shrink-0" />
+            <input
+              type="text"
+              placeholder="Template name (e.g. Defense Practice)…"
+              value={newTemplateName}
+              onChange={(e) => setNewTemplateName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newTemplateName.trim()) saveCustomTemplate();
+                if (e.key === 'Escape') setShowSaveAsTemplate(false);
+              }}
+              autoFocus
+              className="flex-1 bg-transparent text-sm text-zinc-200 placeholder:text-zinc-500 outline-none min-w-0"
+            />
+            <button
+              onClick={saveCustomTemplate}
+              disabled={!newTemplateName.trim()}
+              className="text-xs px-2.5 py-1 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-default text-white rounded-md transition-colors shrink-0 font-medium"
+            >
+              Save
+            </button>
+            <button
+              onClick={() => setShowSaveAsTemplate(false)}
+              aria-label="Cancel"
+              className="text-zinc-600 hover:text-zinc-400 transition-colors shrink-0"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
 
         {queue.length === 0 ? (
           <div className="flex flex-col items-center justify-center border border-dashed border-zinc-800 rounded-xl py-10 gap-2 text-center">
