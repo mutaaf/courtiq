@@ -78,6 +78,7 @@ import {
 } from '@/lib/announcer-utils';
 import type { PlayerAvailability } from '@/types/database';
 import { getRatingLabel, getRatingColor } from '@/lib/session-quality-utils';
+import { formatSkillLabel } from '@/lib/skill-trend-utils';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -880,6 +881,35 @@ export default function PracticeTimerPage({
     [notes, recentObs]
   );
 
+  // ── Team Focus Brief — computed from already-fetched data (zero extra queries) ──
+  // Shows top skill gaps + recently-missed players in the setup screen to inform drill queue choices.
+  const teamFocusBrief = useMemo(() => {
+    if (needsWorkObs.length < 3) return null;
+    const categoryCounts: Record<string, number> = {};
+    for (const obs of needsWorkObs) {
+      const cat = obs.category?.toLowerCase();
+      if (cat) categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+    }
+    const topGaps = Object.entries(categoryCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3)
+      .map(([category, count]) => ({ category, count }));
+
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+    const recentlyObservedIds = new Set<string>();
+    for (const obs of recentObs) {
+      if (obs.created_at >= fourteenDaysAgo && obs.player_id) {
+        recentlyObservedIds.add(obs.player_id);
+      }
+    }
+    const unobservedPlayers = presentPlayers
+      .filter((p) => !recentlyObservedIds.has(p.id))
+      .slice(0, 4);
+
+    if (topGaps.length === 0) return null;
+    return { topGaps, unobservedPlayers };
+  }, [needsWorkObs, recentObs, presentPlayers]);
+
   // ── Load plan queue from planId search param ─────────────────────────────
   // ── Load last practice queue from localStorage ───────────────────────────
   useEffect(() => {
@@ -1622,6 +1652,34 @@ export default function PracticeTimerPage({
             </span>{' '}
             {absentPlayers.length === 1 ? 'is' : 'are'} marked unavailable and won&apos;t appear in your observation picker.
           </span>
+        </div>
+      )}
+
+      {/* Team Focus Brief — zero extra queries; uses already-fetched needsWorkObs + recentObs */}
+      {teamFocusBrief && (
+        <div className="rounded-xl border border-indigo-700/30 bg-indigo-500/5 px-4 py-3 space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400">
+            Focus areas · last 30 days
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {teamFocusBrief.topGaps.map(({ category, count }) => (
+              <span
+                key={category}
+                className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/25 px-2.5 py-1 text-xs text-amber-300"
+              >
+                <AlertCircle className="h-3 w-3" />
+                {formatSkillLabel(category)}
+                <span className="ml-0.5 font-semibold">{count}×</span>
+              </span>
+            ))}
+          </div>
+          {teamFocusBrief.unobservedPlayers.length > 0 && (
+            <p className="text-xs text-zinc-500">
+              <span className="text-zinc-400">Not seen in 14+ days: </span>
+              {teamFocusBrief.unobservedPlayers.map((p) => p.name.split(' ')[0]).join(', ')}
+              {teamFocusBrief.unobservedPlayers.length === 4 && ' +more'}
+            </p>
+          )}
         </div>
       )}
 
