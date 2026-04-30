@@ -203,7 +203,7 @@ export function PlayerCard({
                 </div>
               ) : (
                 <Link
-                  href={`/capture?sessionId=${practiceSessionId}&player=${encodeURIComponent(player.name)}`}
+                  href={`/capture?sessionId=${practiceSessionId}&playerId=${player.id}`}
                   onClick={(e) => e.stopPropagation()}
                   className="flex flex-col items-center gap-0.5 touch-manipulation"
                   aria-label={`Observe ${player.name}`}

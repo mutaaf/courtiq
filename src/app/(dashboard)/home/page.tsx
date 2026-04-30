@@ -763,7 +763,7 @@ export default function HomePage() {
                   {unobservedPlayers.slice(0, 8).map((p) => (
                     <Link
                       key={p.id}
-                      href={`/capture?sessionId=${practiceSessionId ?? ''}&player=${encodeURIComponent(p.name)}`}
+                      href={`/capture?sessionId=${practiceSessionId ?? ''}&playerId=${p.id}`}
                       className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-300 hover:bg-amber-500/20 active:scale-95 transition-all touch-manipulation"
                     >
                       {p.name.split(' ')[0]}
