@@ -151,8 +151,11 @@ export function PlayerFocusEntry({
   const invalidateAfterSave = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: queryKeys.observations.all(teamId) }).catch(() => {});
     queryClient.invalidateQueries({ queryKey: queryKeys.observations.player(player.id) }).catch(() => {});
+    queryClient.invalidateQueries({ queryKey: ['home-stats', teamId] }).catch(() => {});
+    queryClient.invalidateQueries({ queryKey: ['home-pulse', teamId] }).catch(() => {});
     if (sessionId) {
       queryClient.invalidateQueries({ queryKey: queryKeys.observations.session(sessionId) }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ['session-obs-count', sessionId] }).catch(() => {});
     }
   }, [queryClient, teamId, player.id, sessionId]);
 

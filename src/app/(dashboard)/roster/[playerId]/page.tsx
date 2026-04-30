@@ -48,6 +48,7 @@ import { formatDate } from '@/lib/utils';
 import { PrintButton } from '@/components/ui/print-button';
 import { UpgradeGate } from '@/components/ui/upgrade-gate';
 import { PlayerFocusEntry } from '@/components/observations/PlayerFocusEntry';
+import { useAppStore } from '@/lib/store';
 import { AchievementBadgesPanel } from '@/components/player/achievement-badges';
 import { PlayerGoalsPanel } from '@/components/player/player-goals-panel';
 import { PlayerNotesPanel } from '@/components/player/player-notes-panel';
@@ -188,6 +189,10 @@ export default function PlayerDetailPage({
 }) {
   const { playerId } = use(params);
   const { activeTeam, coach } = useActiveTeam();
+  const { practiceActive, practiceSessionId } = useAppStore((s) => ({
+    practiceActive: s.practiceActive,
+    practiceSessionId: s.practiceSessionId,
+  }));
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [showQuickEntry, setShowQuickEntry] = useState(false);
@@ -830,6 +835,7 @@ export default function PlayerDetailPage({
           }}
           teamId={activeTeam.id}
           coachId={coach.id}
+          sessionId={practiceActive && practiceSessionId ? practiceSessionId : undefined}
           compact
           autoFocusInput
           onClose={() => setShowQuickEntry(false)}
