@@ -299,11 +299,11 @@ describe('getBestSkillFocus', () => {
 
 describe('buildCaptureHref', () => {
   it('builds correct URL for a plain player id', () => {
-    expect(buildCaptureHref('abc-123')).toBe('/capture?player=abc-123');
+    expect(buildCaptureHref('abc-123')).toBe('/capture?playerId=abc-123');
   });
 
   it('encodes special characters in the player id', () => {
-    expect(buildCaptureHref('p 1')).toBe('/capture?player=p%201');
+    expect(buildCaptureHref('p 1')).toBe('/capture?playerId=p%201');
   });
 });
 
@@ -427,7 +427,7 @@ describe('buildDailyFocusSuggestion', () => {
 
   it('captureHref points to /capture with player query param', () => {
     const result = buildDailyFocusSuggestion(PLAYERS, baseObs, trends, NOW);
-    expect(result!.captureHref).toContain('/capture?player=');
+    expect(result!.captureHref).toContain('/capture?playerId=');
   });
 
   it('returns null when all eligible players were observed today', () => {

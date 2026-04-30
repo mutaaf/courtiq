@@ -162,7 +162,7 @@ export function getBestSkillFocus(
 
 /** Builds the /capture URL pre-selecting a specific player. */
 export function buildCaptureHref(playerId: string): string {
-  return `/capture?player=${encodeURIComponent(playerId)}`;
+  return `/capture?playerId=${encodeURIComponent(playerId)}`;
 }
 
 /** Human-readable "N days ago" / "yesterday" label. */
