@@ -51,21 +51,17 @@ export async function GET(request: Request) {
 
     const admin = await createServiceSupabase();
 
-    // Verify coach access: primary coach OR team_coaches member
-    const { data: teamOwner } = await admin
-      .from('teams')
-      .select('id')
-      .eq('id', teamId)
+    // Verify coach is a member of this team. team_coaches has a composite
+    // (team_id, coach_id) key — no `id` column — so we select team_id and
+    // .maybeSingle() instead of .single() to avoid throwing on no-row.
+    const { data: membership } = await admin
+      .from('team_coaches')
+      .select('team_id')
+      .eq('team_id', teamId)
       .eq('coach_id', user.id)
-      .single();
-    if (!teamOwner) {
-      const { data: membership } = await admin
-        .from('team_coaches')
-        .select('id')
-        .eq('team_id', teamId)
-        .eq('coach_id', user.id)
-        .single();
-      if (!membership) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      .maybeSingle();
+    if (!membership) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const { data: reactions, error } = await admin

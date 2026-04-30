@@ -362,6 +362,11 @@ export default function HomePage() {
     const keys = settings?.ai_keys || {};
     return !!(keys.anthropic || keys.openai || keys.gemini);
   })();
+  // Paid tiers get SportsIQ Pro (managed AI keys). The setup banner is for
+  // free-tier coaches who need to bring their own key — paid users should
+  // not see it even when the platform-keys env hasn't been provisioned yet.
+  const orgTier = ((coach as any)?.organizations?.tier || 'free') as string;
+  const isPaidTier = orgTier !== 'free';
 
   const practiceActive = useAppStore((s) => s.practiceActive);
   const setPracticeActive = useAppStore((s) => s.setPracticeActive);
@@ -667,8 +672,8 @@ export default function HomePage() {
       {/* Birthday Card — upcoming player birthdays, dismissible per day */}
       <BirthdayCard teamId={activeTeam.id} teamName={activeTeam.name} />
 
-      {/* AI Keys Onboarding Banner */}
-      {!practiceActive && !hasAIKeys && (
+      {/* AI Keys Onboarding Banner — only for free tier without keys */}
+      {!practiceActive && !hasAIKeys && !isPaidTier && (
         <Card className="border-orange-500/30 bg-gradient-to-r from-orange-500/10 to-orange-500/5 p-4">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-500/20">
