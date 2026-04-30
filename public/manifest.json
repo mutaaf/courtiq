@@ -1,22 +1,24 @@
 {
-  "name": "SportsIQ",
+  "name": "SportsIQ — Coaching Intelligence",
   "short_name": "SportsIQ",
-  "description": "Voice-first coaching intelligence platform",
+  "description": "Voice-first, AI-powered coaching intelligence for youth sports.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#09090b",
-  "theme_color": "#09090b",
+  "theme_color": "#F97316",
   "orientation": "portrait",
   "icons": [
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

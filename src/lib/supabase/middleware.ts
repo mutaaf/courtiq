@@ -50,7 +50,21 @@ export async function updateSession(request: NextRequest) {
     '/demo',
     '/offline',
   ];
-  if (pathname === '/' || publicPaths.some((p) => pathname.startsWith(p))) {
+  // Asset/metadata routes that must be reachable to social crawlers and browsers
+  const publicAssets = [
+    '/opengraph-image',
+    '/twitter-image',
+    '/icon',
+    '/apple-icon',
+    '/manifest',
+    '/robots',
+    '/sitemap',
+  ];
+  if (
+    pathname === '/' ||
+    publicPaths.some((p) => pathname.startsWith(p)) ||
+    publicAssets.some((p) => pathname === p || pathname.startsWith(`${p}.`) || pathname.startsWith(`${p}/`))
+  ) {
     return supabaseResponse;
   }
 

@@ -1,8 +1,10 @@
 @import "tailwindcss";
 
-/* Prevent horizontal scroll globally */
+/* Prevent horizontal scroll globally.
+   Use `overflow-x: clip` (not `hidden`) so we don't create a scroll container on
+   <html>/<body>, which breaks `position: sticky` on iOS Safari. */
 html, body {
-  overflow-x: hidden;
+  overflow-x: clip;
   max-width: 100vw;
 }
 

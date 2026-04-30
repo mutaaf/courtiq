@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Full-bleed brand tile. iOS/Android round the corners automatically. -->
+  <defs>
+    <radialGradient id="glow" cx="30%" cy="22%" r="85%">
+      <stop offset="0%" stop-color="#FFB874" />
+      <stop offset="55%" stop-color="#F97316" />
+      <stop offset="100%" stop-color="#C2410C" />
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#glow)" />
+
+  <!-- Stylized "S" mark, white on orange -->
+  <g stroke="#FFFFFF" stroke-linecap="round" fill="none">
+    <path d="M340 132C260 132 188 168 188 232C188 296 280 312 324 328C368 344 392 376 392 412C392 468 304 504 224 504"
+      stroke-width="34" opacity="0" />
+    <path d="M340 156C264 156 196 188 196 244C196 300 280 314 320 328C360 342 380 370 380 402C380 452 300 484 228 484"
+      stroke-width="38" />
+  </g>
+
+  <!-- Motion ticks trailing the curve -->
+  <g fill="#FFFFFF">
+    <circle cx="124" cy="220" r="11" opacity="0.55" />
+    <circle cx="104" cy="262" r="9" opacity="0.4" />
+    <circle cx="116" cy="304" r="7" opacity="0.28" />
+  </g>
+  <g stroke="#FFFFFF" stroke-linecap="round">
+    <line x1="92" y1="240" x2="148" y2="240" stroke-width="10" opacity="0.45" />
+    <line x1="78" y1="284" x2="124" y2="284" stroke-width="8" opacity="0.32" />
+  </g>
+
+  <!-- AI sparkle, top-right -->
+  <g transform="translate(420, 132)" fill="#FFFFFF">
+    <path d="M0 -52 L13 -13 L52 0 L13 13 L0 52 L-13 13 L-52 0 L-13 -13Z" />
+  </g>
+  <!-- Smaller sparkle, lower-left of mark -->
+  <g transform="translate(168, 446)" fill="#FFFFFF" opacity="0.85">
+    <path d="M0 -28 L7 -7 L28 0 L7 7 L0 28 L-7 7 L-28 0 L-7 -7Z" />
+  </g>
+  <!-- Tiny sparkle accent -->
+  <g transform="translate(440, 220)" fill="#FFFFFF" opacity="0.6">
+    <path d="M0 -18 L4.5 -4.5 L18 0 L4.5 4.5 L0 18 L-4.5 4.5 L-18 0 L-4.5 -4.5Z" />
+  </g>
+</svg>
