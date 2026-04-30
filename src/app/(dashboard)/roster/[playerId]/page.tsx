@@ -40,6 +40,8 @@ import {
   Target,
   StickyNote,
   Camera,
+  QrCode,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
@@ -199,6 +201,7 @@ export default function PlayerDetailPage({
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareSent, setShareSent] = useState(false);
+  const [showQR, setShowQR] = useState(false);
 
   // Skill challenge state
   const [challengeLoading, setChallengeLoading] = useState(false);
@@ -755,6 +758,7 @@ export default function PlayerDetailPage({
   }
 
   return (
+    <>
     <div className="space-y-6 p-4 lg:p-8 pb-8 overflow-x-hidden">
       {/* Back link */}
       <Link
@@ -1889,6 +1893,16 @@ export default function PlayerDetailPage({
                   {shareSent ? 'Sent!' : 'Send to Parent'}
                 </Button>
 
+                {/* QR Code — show to parent in-person after practice */}
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() => setShowQR(true)}
+                >
+                  <QrCode className="h-4 w-4" />
+                  Show QR Code
+                </Button>
+
                 {/* Link row with copy + preview */}
                 <div className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 p-3">
                   <input
@@ -1962,5 +1976,44 @@ export default function PlayerDetailPage({
         </UpgradeGate>
       )}
     </div>
+
+    {/* QR Code overlay — fullscreen so parents can scan in-person after practice */}
+    {showQR && shareUrl && player && (
+      <div className="fixed inset-0 z-50 bg-zinc-950 flex flex-col items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-6 max-w-xs w-full">
+          <div className="text-center">
+            <p className="text-sm text-zinc-500">{activeTeam?.name}</p>
+            <h2 className="text-2xl font-bold text-white mt-0.5">{player.name}</h2>
+            <p className="text-sm text-zinc-500 mt-0.5">Progress Report</p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 shadow-2xl">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(shareUrl)}&color=09090b&bgcolor=ffffff&margin=0`}
+              alt={`QR code for ${player.name}'s progress report`}
+              width={240}
+              height={240}
+              className="block rounded"
+            />
+          </div>
+
+          <p className="text-center text-sm text-zinc-400 leading-relaxed">
+            Ask the parent to point their camera here —<br />
+            they&apos;ll open {player.name}&apos;s report instantly
+          </p>
+
+          <Button
+            variant="outline"
+            className="w-full gap-2"
+            onClick={() => setShowQR(false)}
+          >
+            <X className="h-4 w-4" />
+            Done
+          </Button>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
