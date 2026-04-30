@@ -60,6 +60,10 @@ export const metadata: Metadata = {
     creator: '@youthsportsiq',
   },
   robots: { index: true, follow: true },
+  verification: {
+    // Proves youthsportsiq.com ownership to Google (Search Console + OAuth consent screen branding).
+    google: 'xc1Us6A0PsAngfDv4UDQVS2LTbrWam4eAAocEeDEfH8',
+  },
 };
 
 export const viewport: Viewport = {
