@@ -28,7 +28,10 @@ export default function NewSessionPage() {
   const { activeTeam, coach } = useActiveTeam();
   const queryClient = useQueryClient();
 
-  const [type, setType] = useState<SessionType>('practice');
+  const [type, setType] = useState<SessionType>(() => {
+    const t = searchParams.get('type') as SessionType | null;
+    return SESSION_TYPES.some((s) => s.value === t) ? t! : 'practice';
+  });
   const [date, setDate] = useState(
     () => searchParams.get('date') || new Date().toISOString().split('T')[0]
   );

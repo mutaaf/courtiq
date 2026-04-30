@@ -217,32 +217,65 @@ export default function SessionsPage() {
           ))}
         </div>
       ) : sessions?.length === 0 ? (
-        <Card className="border-dashed border-zinc-700">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-purple-500/10 mb-6">
-              <Calendar className="h-10 w-10 text-purple-500/60" />
-            </div>
-            <h3 className="text-xl font-semibold text-zinc-200">No sessions yet</h3>
-            <p className="text-zinc-500 text-sm mt-2 max-w-sm text-center leading-relaxed">
-              Sessions track your practices, games, and scrimmages. Create a session to start logging observations and measuring your team&apos;s progress over time.
-            </p>
-            <div className="mt-8 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              <Link href="/sessions/new" className="w-full sm:w-auto">
-                <Button className="w-full sm:w-auto h-12 sm:h-10 text-base sm:text-sm">
-                  <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
-                  Create First Session
-                  <ArrowRight className="h-4 w-4" />
+        typeFilter !== 'all' ? (
+          /* Filtered empty state — team has sessions, just not of this type */
+          <Card className="border-dashed border-zinc-700">
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-800 mb-4">
+                <Filter className="h-8 w-8 text-zinc-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-zinc-200">
+                No {SESSION_TYPE_CONFIG[typeFilter].label.toLowerCase()} sessions
+              </h3>
+              <p className="text-zinc-500 text-sm mt-1.5 max-w-xs text-center">
+                You haven&apos;t logged any {SESSION_TYPE_CONFIG[typeFilter].label.toLowerCase()} sessions yet.
+              </p>
+              <div className="mt-6 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                <Link href={`/sessions/new?type=${typeFilter}`} className="w-full sm:w-auto">
+                  <Button className="w-full sm:w-auto h-12 sm:h-10 text-base sm:text-sm">
+                    <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
+                    Add {SESSION_TYPE_CONFIG[typeFilter].label} Session
+                  </Button>
+                </Link>
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto h-12 sm:h-10 text-base sm:text-sm"
+                  onClick={() => setTypeFilter('all')}
+                >
+                  Clear filter
                 </Button>
-              </Link>
-              <Link href="/capture" className="w-full sm:w-auto">
-                <Button variant="outline" className="w-full sm:w-auto h-12 sm:h-10 text-base sm:text-sm">
-                  <Mic className="h-5 w-5 sm:h-4 sm:w-4" />
-                  Quick Capture
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          /* Truly empty — no sessions of any type yet */
+          <Card className="border-dashed border-zinc-700">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-purple-500/10 mb-6">
+                <Calendar className="h-10 w-10 text-purple-500/60" />
+              </div>
+              <h3 className="text-xl font-semibold text-zinc-200">No sessions yet</h3>
+              <p className="text-zinc-500 text-sm mt-2 max-w-sm text-center leading-relaxed">
+                Sessions track your practices, games, and scrimmages. Create a session to start logging observations and measuring your team&apos;s progress over time.
+              </p>
+              <div className="mt-8 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                <Link href="/sessions/new" className="w-full sm:w-auto">
+                  <Button className="w-full sm:w-auto h-12 sm:h-10 text-base sm:text-sm">
+                    <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
+                    Create First Session
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link href="/capture" className="w-full sm:w-auto">
+                  <Button variant="outline" className="w-full sm:w-auto h-12 sm:h-10 text-base sm:text-sm">
+                    <Mic className="h-5 w-5 sm:h-4 sm:w-4" />
+                    Quick Capture
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        )
       ) : (
         <div className="space-y-3">
           {sessions?.map((session: any) => {
