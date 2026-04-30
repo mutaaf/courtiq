@@ -338,6 +338,7 @@ describe('buildParentDigestHtml', () => {
 
   it('uses singular observation when count is 1', () => {
     const html = buildParentDigestHtml({ ...baseParams, obsCount: 1, sessionCount: 0 });
-    expect(html).toContain('1 coaching observation</strong> this week.');
+    expect(html).toContain('1 coaching observation');
+    expect(html).not.toContain('1 coaching observations');
   });
 });

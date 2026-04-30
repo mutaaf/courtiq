@@ -197,6 +197,14 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+import {
+  renderEmail,
+  heroSection,
+  paragraph,
+  ctaButton,
+  divider,
+} from './email/layout';
+
 export function buildPracticeReminderHtml(params: ReminderEmailParams): string {
   const {
     coachName,
@@ -214,162 +222,62 @@ export function buildPracticeReminderHtml(params: ReminderEmailParams): string {
   const timeLabel = buildSessionTimeLabel(startTime);
   const emoji = getSessionEmoji(sessionType);
   const firstName = coachName.split(' ')[0] || coachName;
-
   const timerUrl = `${appUrl}/sessions/${sessionId}/timer`;
   const captureUrl = `${appUrl}/capture?sessionId=${sessionId}`;
-  const sessionUrl = `${appUrl}/sessions/${sessionId}`;
-  const rosterUrl = `${appUrl}/roster`;
-  const settingsUrl = `${appUrl}/settings/profile`;
 
-  const headingTime = timeLabel ? ` at ${timeLabel}` : '';
-  const subject = `${emoji} ${typeLabel} today${headingTime} — ${teamName}`;
-
-  // Neglected players section
-  let neglectedHtml = '';
+  // Two pre-game callouts: who hasn't been observed lately, and last session
+  // recap. Both render as plain styled paragraphs through the unified layout.
+  const callouts: string[] = [];
   if (neglectedPlayers.length > 0) {
-    const playerItems = neglectedPlayers
+    const list = neglectedPlayers
       .slice(0, 5)
-      .map((p) => {
-        const jersey = p.jersey_number != null ? ` #${p.jersey_number}` : '';
-        return `<li style="margin:4px 0;color:#374151;">${p.name}${jersey}</li>`;
-      })
-      .join('');
-
-    neglectedHtml = `
-      <div style="background:#fffbeb;border-left:4px solid #f59e0b;border-radius:6px;padding:16px 20px;margin:20px 0;">
-        <p style="margin:0 0 8px;font-weight:700;color:#92400e;font-size:14px;">👀 Haven't been observed this week</p>
-        <ul style="margin:0;padding-left:18px;">
-          ${playerItems}
-        </ul>
-        <p style="margin:10px 0 0;font-size:12px;color:#78350f;">Give these players extra attention today to keep your coverage complete.</p>
-      </div>
-    `;
+      .map((p) => `${p.name}${p.jersey_number != null ? ` #${p.jersey_number}` : ''}`)
+      .join(', ');
+    callouts.push(
+      paragraph(
+        `<strong>👀 Haven't been observed this week:</strong> ${list}${neglectedPlayers.length > 5 ? ` +${neglectedPlayers.length - 5} more` : ''}. Give them extra attention today.`,
+        { html: true },
+      ),
+    );
   } else if (players.length >= 2) {
-    neglectedHtml = `
-      <div style="background:#f0fdf4;border-left:4px solid #22c55e;border-radius:6px;padding:16px 20px;margin:20px 0;">
-        <p style="margin:0;font-weight:700;color:#166534;font-size:14px;">✅ Great coverage — all players observed recently</p>
-      </div>
-    `;
+    callouts.push(paragraph(`<strong>✅ Great coverage</strong> — every player has an observation in the last week.`, { html: true }));
   }
 
-  // Last session summary section
-  let lastSessionHtml = '';
   if (lastSession) {
-    const daysLabel = lastSession.daysAgo === 0
-      ? 'earlier today'
-      : lastSession.daysAgo === 1
-      ? 'yesterday'
-      : `${lastSession.daysAgo} days ago`;
-
-    const strongList = lastSession.strongCategories.length > 0
+    const daysLabel =
+      lastSession.daysAgo === 0
+        ? 'earlier today'
+        : lastSession.daysAgo === 1
+        ? 'yesterday'
+        : `${lastSession.daysAgo} days ago`;
+    const strong = lastSession.strongCategories.length > 0
       ? lastSession.strongCategories.map(capitalize).join(', ')
       : '—';
-    const weakList = lastSession.weakCategories.length > 0
+    const weak = lastSession.weakCategories.length > 0
       ? lastSession.weakCategories.map(capitalize).join(', ')
       : '—';
-
-    lastSessionHtml = `
-      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:16px 20px;margin:20px 0;">
-        <p style="margin:0 0 10px;font-weight:700;color:#1e293b;font-size:14px;">📊 Last session (${daysLabel})</p>
-        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-          <tr>
-            <td style="color:#64748b;padding:3px 0;">Observations</td>
-            <td style="color:#1e293b;font-weight:600;text-align:right;">${lastSession.totalObs} for ${lastSession.playerCount} players</td>
-          </tr>
-          <tr>
-            <td style="color:#64748b;padding:3px 0;">Strong ✅</td>
-            <td style="color:#15803d;font-weight:600;text-align:right;">${strongList}</td>
-          </tr>
-          <tr>
-            <td style="color:#64748b;padding:3px 0;">Needs work ⚠️</td>
-            <td style="color:#b45309;font-weight:600;text-align:right;">${weakList}</td>
-          </tr>
-        </table>
-        <a href="${sessionUrl}" style="display:inline-block;margin-top:12px;font-size:12px;color:#f97316;text-decoration:none;">View full session debrief →</a>
-      </div>
-    `;
+    callouts.push(
+      paragraph(
+        `<strong>📊 Last session (${daysLabel}):</strong> ${lastSession.totalObs} obs across ${lastSession.playerCount} players. Strong: ${strong}. Needs work: ${weak}.`,
+        { html: true },
+      ),
+    );
   }
 
-  // CTA buttons
-  const ctaButtons = [
-    { label: `${emoji} Start Timer`, url: timerUrl, primary: true },
-    { label: '🎙 Capture Obs', url: captureUrl, primary: false },
-    { label: '👥 View Roster', url: rosterUrl, primary: false },
-  ]
-    .map((btn) => {
-      const bg = btn.primary ? '#f97316' : '#ffffff';
-      const color = btn.primary ? '#ffffff' : '#374151';
-      const border = btn.primary ? 'none' : '1px solid #d1d5db';
-      return `<a href="${btn.url}" style="display:inline-block;padding:12px 20px;background:${bg};color:${color};border:${border};border-radius:8px;font-weight:600;font-size:14px;text-decoration:none;margin:4px;">${btn.label}</a>`;
-    })
-    .join('');
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${subject}</title>
-</head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;">
-<tr><td align="center" style="padding:24px 16px;">
-<table width="100%" style="max-width:520px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
-
-  <!-- Header -->
-  <tr>
-    <td style="background:#111827;padding:24px 28px;">
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-          <td>
-            <span style="font-weight:800;font-size:18px;color:#f97316;">SportsIQ</span>
-            <span style="color:#6b7280;font-size:13px;margin-left:8px;">Coaching Intelligence</span>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding-top:16px;">
-            <p style="margin:0;font-size:22px;font-weight:700;color:#f9fafb;">${emoji} ${typeLabel} today${headingTime}</p>
-            <p style="margin:4px 0 0;font-size:14px;color:#9ca3af;">${teamName}</p>
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-
-  <!-- Body -->
-  <tr>
-    <td style="padding:28px;">
-      <p style="margin:0 0 16px;font-size:15px;color:#374151;">Hi ${firstName},</p>
-      <p style="margin:0 0 8px;font-size:15px;color:#374151;">
-        You have <strong>${typeLabel.toLowerCase()}</strong>${timeLabel ? ` at <strong>${timeLabel}</strong>` : ''} today.
-        Here's a quick briefing to help you coach your best.
-      </p>
-
-      ${neglectedHtml}
-      ${lastSessionHtml}
-
-      <!-- CTA buttons -->
-      <div style="text-align:center;margin:24px 0 8px;">
-        ${ctaButtons}
-      </div>
-    </td>
-  </tr>
-
-  <!-- Footer -->
-  <tr>
-    <td style="background:#f8fafc;padding:16px 28px;border-top:1px solid #e5e7eb;">
-      <p style="margin:0;font-size:11px;color:#9ca3af;text-align:center;">
-        You're receiving this because you have ${typeLabel.toLowerCase()} scheduled today.
-        <a href="${settingsUrl}" style="color:#f97316;">Manage email preferences</a>
-      </p>
-    </td>
-  </tr>
-
-</table>
-</td></tr>
-</table>
-</body>
-</html>`;
+  return renderEmail({
+    transactional: true,
+    preview: `${typeLabel} today${timeLabel ? ` at ${timeLabel}` : ''} — ${teamName}.`,
+    body: [
+      heroSection(
+        `${emoji} ${typeLabel} today${timeLabel ? ` at ${timeLabel}` : ''}`,
+        `Hi ${firstName} — quick pre-session brief for ${teamName}.`,
+      ),
+      callouts.length > 0 ? callouts.join('') + divider() : '',
+      paragraph('Two-tap setup before warmups: open the timer, then Capture from the bench. Names you forget will surface in observations.'),
+      ctaButton(`${emoji} Start timer`, timerUrl),
+      paragraph(`<a href="${captureUrl}" style="color:#c2410c;text-decoration:underline;">Or jump straight to Capture →</a>`, { html: true }),
+    ].join(''),
+  });
 }
 
 // Returns subject line separately so tests can verify it without parsing HTML

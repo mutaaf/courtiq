@@ -411,7 +411,7 @@ describe('buildPracticeReminderHtml', () => {
 
   it('shows all-covered message when neglectedPlayers is empty', () => {
     const html = buildPracticeReminderHtml({ ...baseParams, neglectedPlayers: [] });
-    expect(html).toContain('all players observed recently');
+    expect(html).toContain('Great coverage');
   });
 
   it('includes last session summary when provided', () => {

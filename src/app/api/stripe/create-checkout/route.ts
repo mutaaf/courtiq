@@ -70,13 +70,12 @@ export async function POST(request: Request) {
         .eq('id', org.id);
     }
 
-    // Trial: only on first paid subscription per org. If the org already has
-    // a subscription_status set (active, past_due, canceled), they've already
-    // had their trial — skip it on re-subscribe to avoid trial-stacking abuse.
-    const isFirstSubscription = !(org as any).stripe_subscription_id;
-    const trialDays = isFirstSubscription
-      ? Number(process.env.STRIPE_TRIAL_DAYS ?? 14)
-      : 0;
+    // Trials disabled — issuer banks aggressively decline SetupIntents to
+    // brand-new merchants, especially via Link saved cards. Immediate-charge
+    // subscriptions use PaymentIntent instead, which goes through cleanly.
+    // Re-enable by setting STRIPE_TRIAL_DAYS > 0 once we have transaction
+    // history with real customers.
+    const trialDays = Number(process.env.STRIPE_TRIAL_DAYS ?? 0);
 
     // Stripe Tax is opt-in via env. When the live account doesn't have Tax
     // registrations yet, passing automatic_tax / customer_update / tax_id
@@ -88,12 +87,9 @@ export async function POST(request: Request) {
     const session = await getStripe().checkout.sessions.create({
       mode: 'subscription',
       customer: stripeCustomerId,
-      // Card-only — Link saved cards from other merchants get declined as
-      // unsupported on subscription+trial SetupIntents at brand-new
-      // merchants. Forcing the regular card form bypasses that issuer
-      // rejection in most cases. We can re-add 'link' once the merchant
-      // account has transaction history.
-      payment_method_types: ['card'],
+      // Let Stripe Checkout auto-detect supported payment methods. With trials
+      // disabled this routes through PaymentIntent (immediate charge) which
+      // doesn't trigger the issuer-side SetupIntent decline pattern.
       line_items: [{ price: getPriceId(tier, interval), quantity: 1 }],
       success_url: `${APP_URL}/settings/upgrade?success=true`,
       cancel_url: `${APP_URL}/settings/upgrade?canceled=true`,

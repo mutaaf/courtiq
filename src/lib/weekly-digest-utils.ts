@@ -244,50 +244,16 @@ export function getCoachGreeting(name: string): string {
   return `Hey ${first},`;
 }
 
-// ─── Email HTML ───────────────────────────────────────────────────────────────
-
-function emailWrap(title: string, body: string): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>${title}</title>
-  <style>
-    body{margin:0;padding:0;background:#09090b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#f4f4f5}
-    .wrapper{max-width:600px;margin:0 auto;padding:40px 20px}
-    .logo{font-size:22px;font-weight:700;color:#f97316;margin-bottom:32px}
-    .card{background:#18181b;border-radius:12px;padding:28px;margin-bottom:20px}
-    h1{font-size:22px;font-weight:700;color:#f4f4f5;margin:0 0 8px}
-    h2{font-size:16px;font-weight:600;color:#f4f4f5;margin:0 0 12px}
-    p{font-size:15px;line-height:1.6;color:#a1a1aa;margin:0 0 14px}
-    .stat-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
-    .stat{background:#27272a;border-radius:8px;padding:14px 18px;flex:1;min-width:120px;text-align:center}
-    .stat-num{font-size:26px;font-weight:700;color:#f97316;display:block}
-    .stat-label{font-size:12px;color:#71717a;text-transform:uppercase;letter-spacing:.05em}
-    .spotlight{background:linear-gradient(135deg,#f97316 0%,#ea580c 100%);border-radius:10px;padding:20px;margin-bottom:20px}
-    .spotlight h2{color:#fff;margin:0 0 4px}
-    .spotlight p{color:rgba(255,255,255,.85);margin:0}
-    .attention{background:#27272a;border-radius:8px;padding:14px 18px;margin-bottom:8px}
-    .attention p{margin:0;font-size:14px;color:#a1a1aa}
-    .pill{display:inline-block;background:#16a34a22;color:#4ade80;border-radius:20px;padding:3px 10px;font-size:13px;font-weight:500}
-    .cta{display:inline-block;background:#f97316;color:#fff!important;font-weight:600;padding:14px 28px;border-radius:8px;text-decoration:none;font-size:15px;margin-top:8px}
-    .footer{font-size:12px;color:#52525b;text-align:center;padding-top:24px;line-height:1.7}
-    a.footer-link{color:#71717a;text-decoration:underline}
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <div class="logo">SportsIQ 🏀</div>
-    ${body}
-    <div class="footer">
-      You're receiving this because you coach with SportsIQ.<br />
-      <a class="footer-link" href="${'{{unsubscribe}}'}">Unsubscribe from weekly digests</a>
-    </div>
-  </div>
-</body>
-</html>`;
-}
+// Render via the unified branded layout — header, footer, List-Unsubscribe
+// behavior all consistent with the rest of SportsIQ's email family.
+import {
+  renderEmail,
+  heroSection,
+  paragraph,
+  ctaButton,
+  statRow,
+  divider,
+} from './email/layout';
 
 export function buildDigestHtml(data: WeekDigestData): string {
   const {
@@ -305,74 +271,55 @@ export function buildDigestHtml(data: WeekDigestData): string {
     appUrl,
   } = data;
 
-  const greeting = getCoachGreeting(coachName);
   const positiveRate = weekObs > 0 ? Math.round((positiveObs / weekObs) * 100) : 0;
+  const greeting = getCoachGreeting(coachName);
 
-  // ── Stat grid ──────────────────────────────────────────────────────────────
-  const statGrid = `
-    <div class="stat-row">
-      <div class="stat">
-        <span class="stat-num">${weekObs}</span>
-        <span class="stat-label">Observations</span>
-      </div>
-      <div class="stat">
-        <span class="stat-num">${weekSessions}</span>
-        <span class="stat-label">Sessions</span>
-      </div>
-      <div class="stat">
-        <span class="stat-num">${weekPlayers}</span>
-        <span class="stat-label">Players Observed</span>
-      </div>
-    </div>
-    ${positiveRate > 0 ? `<p><span class="pill">✓ ${positiveRate}% positive observations</span>${needsWorkObs > 0 ? ` &nbsp; <span style="color:#71717a;font-size:13px">${needsWorkObs} growth areas flagged</span>` : ''}</p>` : ''}
-  `;
+  const callouts: string[] = [];
+  if (topPerformer) {
+    callouts.push(
+      paragraph(
+        `<strong>⭐ Standout: ${topPerformer.name}</strong> — ${topPerformer.count} positive observation${topPerformer.count > 1 ? 's' : ''} this week. Worth sharing with their parents.`,
+        { html: true },
+      ),
+    );
+  }
+  if (topCategory) {
+    callouts.push(
+      paragraph(
+        `<strong>💪 Top strength:</strong> ${formatCategoryLabel(topCategory)}. Keep building on it.`,
+        { html: true },
+      ),
+    );
+  }
+  if (neglectedPlayerNames.length > 0) {
+    callouts.push(
+      paragraph(
+        `<strong>👀 Haven't been observed in 7+ days:</strong> ${neglectedPlayerNames.slice(0, 5).join(', ')}${neglectedPlayerNames.length > 5 ? ` +${neglectedPlayerNames.length - 5} more` : ''}.`,
+        { html: true },
+      ),
+    );
+  }
+  if (positiveRate > 0) {
+    callouts.push(
+      paragraph(
+        `<strong>${positiveRate}%</strong> of observations were positive${needsWorkObs > 0 ? ` · ${needsWorkObs} growth area${needsWorkObs === 1 ? '' : 's'} flagged` : ''}.`,
+        { html: true },
+      ),
+    );
+  }
 
-  // ── Top performer spotlight ────────────────────────────────────────────────
-  const spotlightSection = topPerformer ? `
-    <div class="spotlight">
-      <h2>⭐ Player Spotlight — ${topPerformer.name}</h2>
-      <p>You noted ${topPerformer.count} positive observation${topPerformer.count > 1 ? 's' : ''} for ${topPerformer.name} this week. Consider sharing progress with their parents!</p>
-    </div>
-  ` : '';
-
-  // ── Category strength ─────────────────────────────────────────────────────
-  const categorySection = topCategory ? `
-    <div class="card" style="border-left:3px solid #22c55e">
-      <h2>💪 Top Strength This Week</h2>
-      <p>Your team showed the most positive momentum in <strong style="color:#4ade80">${formatCategoryLabel(topCategory)}</strong>. Keep building on it!</p>
-    </div>
-  ` : '';
-
-  // ── Neglected players ─────────────────────────────────────────────────────
-  const neglectedSection = neglectedPlayerNames.length > 0 ? `
-    <div class="card" style="border-left:3px solid #f59e0b">
-      <h2>👀 Players Needing Attention</h2>
-      <p>You haven't observed these players in the last 7 days. Give them some coaching love this week:</p>
-      ${neglectedPlayerNames.map((n) => `<div class="attention"><p>• ${n}</p></div>`).join('')}
-    </div>
-  ` : '';
-
-  // ── CTA ───────────────────────────────────────────────────────────────────
-  const ctaSection = `
-    <div class="card" style="text-align:center">
-      <h2>Ready for next week?</h2>
-      <p>Turn this week's observations into a targeted practice plan — in one tap.</p>
-      <a href="${appUrl}/plans" class="cta">Build Next Week's Plan →</a>
-    </div>
-  `;
-
-  const body = `
-    <div class="card">
-      <p style="color:#a1a1aa;font-size:14px;margin-bottom:8px">${greeting}</p>
-      <h1>Your week with ${teamName}</h1>
-      <p style="color:#71717a;font-size:14px;margin-bottom:20px">${weekLabel}</p>
-      ${statGrid}
-    </div>
-    ${spotlightSection}
-    ${categorySection}
-    ${neglectedSection}
-    ${ctaSection}
-  `;
-
-  return emailWrap(`${teamName} — Weekly Coaching Digest`, body);
+  return renderEmail({
+    preview: `${weekObs} observations across ${weekSessions} session${weekSessions === 1 ? '' : 's'} this week.`,
+    body: [
+      heroSection(`${greeting.replace(',', '')} — your week with ${teamName}`, weekLabel),
+      statRow([
+        { label: 'Observations', value: String(weekObs) },
+        { label: 'Sessions', value: String(weekSessions) },
+        { label: 'Players seen', value: String(weekPlayers) },
+      ]),
+      callouts.length > 0 ? callouts.join('') + divider() : '',
+      paragraph('Roll this week\'s data straight into next week\'s plan — one tap.'),
+      ctaButton("Build next week's plan →", `${appUrl}/plans`),
+    ].join(''),
+  });
 }

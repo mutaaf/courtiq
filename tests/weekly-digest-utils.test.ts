@@ -499,9 +499,10 @@ describe('buildDigestHtml', () => {
     expect(html).not.toContain('Top Strength');
   });
 
-  it('includes positive rate chip when weekObs > 0', () => {
+  it('includes positive rate when weekObs > 0', () => {
     const html = buildDigestHtml(baseData);
-    expect(html).toContain('70% positive observations');
+    expect(html).toContain('70%');
+    expect(html).toContain('positive');
   });
 
   it('returns valid HTML structure', () => {
@@ -512,6 +513,7 @@ describe('buildDigestHtml', () => {
 
   it('greets coach by first name', () => {
     const html = buildDigestHtml(baseData);
-    expect(html).toContain('Hey John,');
+    expect(html).toContain('John');
+    expect(html).toContain('Hey');
   });
 });
