@@ -180,10 +180,10 @@ export async function PATCH(request: Request) {
     if (!teamOwner) {
       const { data: membership } = await admin
         .from('team_coaches')
-        .select('id')
+        .select('team_id')
         .eq('team_id', teamId)
         .eq('coach_id', user.id)
-        .single();
+        .maybeSingle();
       if (!membership) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

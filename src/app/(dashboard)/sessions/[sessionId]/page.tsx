@@ -3099,6 +3099,16 @@ export default function SessionDetailPage() {
                   <Sparkles className="h-3.5 w-3.5" />
                   AI Debrief
                 </Button>
+                <Link href="/plans" onClick={() => setPracticeBannerDismissed(true)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-xs gap-1.5"
+                  >
+                    <ClipboardList className="h-3.5 w-3.5" />
+                    Plan Next Practice
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>
