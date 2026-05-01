@@ -293,6 +293,19 @@ export async function GET(
       .order('created_at', { ascending: false });
     reportData.announcements = announcements ?? [];
 
+    // Next upcoming session for the team — shown on parent portal so parents
+    // always know when the next practice or game is, eliminating "when is practice?" texts.
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const { data: nextSessions } = await supabase
+      .from('sessions')
+      .select('id, type, date, start_time, end_time, location, opponent')
+      .eq('team_id', share.team_id)
+      .gte('date', today)
+      .order('date', { ascending: true })
+      .order('start_time', { ascending: true })
+      .limit(1);
+    reportData.nextSession = nextSessions?.[0] ?? null;
+
     // Increment view count
     await supabase
       .from('parent_shares')

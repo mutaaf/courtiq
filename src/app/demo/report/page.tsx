@@ -87,6 +87,14 @@ const HOME_CHALLENGE = {
   weekLabel: 'Week of April 28, 2025',
 };
 
+const NEXT_SESSION = {
+  type: 'game',
+  date: 'Saturday, May 3',
+  time: '10:00 AM',
+  location: 'YMCA Main Gym',
+  opponent: 'Southside Warriors',
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Proficiency config
 // ─────────────────────────────────────────────────────────────────────────────
@@ -202,6 +210,29 @@ export default function DemoReportPage() {
               Hello! Here&apos;s how <span className="font-semibold">{PLAYER.firstName}</span> is doing
               this {TEAM.season.toLowerCase()} with {TEAM.name}. We&apos;re excited to share this update with you!
             </p>
+          </div>
+        </div>
+
+        {/* ─── Next Session ─── */}
+        <div className="mx-4 mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm text-xl">
+              🏀
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-500 mb-0.5">
+                Next Up
+              </p>
+              <p className="text-sm font-bold text-gray-900">
+                {NEXT_SESSION.type.charAt(0).toUpperCase() + NEXT_SESSION.type.slice(1)} vs {NEXT_SESSION.opponent}
+              </p>
+              <p className="text-sm text-gray-600 mt-0.5">
+                {NEXT_SESSION.date} · {NEXT_SESSION.time} · {NEXT_SESSION.location}
+              </p>
+              <p className="mt-1.5 text-xs text-blue-600 font-medium">
+                Come cheer {PLAYER.firstName} on! 🎉
+              </p>
+            </div>
           </div>
         </div>
 

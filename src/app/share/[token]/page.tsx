@@ -326,6 +326,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     skillChallenge,
     activeGoals,
     weeklyStarData,
+    nextSession,
   } = data;
 
   const playerName = player?.nickname || player?.name || 'your player';
@@ -642,6 +643,64 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             </div>
           </div>
         )}
+
+        {/* ─── Next Upcoming Session ─── */}
+        {nextSession && (() => {
+          const SESSION_EMOJI: Record<string, string> = {
+            practice: '🏃', game: '🏀', scrimmage: '⚡', tournament: '🏆', training: '💪',
+          };
+          const SESSION_LABEL: Record<string, string> = {
+            practice: 'Practice', game: 'Game', scrimmage: 'Scrimmage', tournament: 'Tournament', training: 'Training',
+          };
+          const emoji = SESSION_EMOJI[nextSession.type] ?? '📅';
+          const label = SESSION_LABEL[nextSession.type] ?? nextSession.type;
+          const isGame = ['game', 'scrimmage', 'tournament'].includes(nextSession.type);
+
+          // Format date: "Today", "Tomorrow", or "Wed, May 7"
+          const sessionDate = new Date(nextSession.date + 'T12:00:00');
+          const today = new Date(); today.setHours(0, 0, 0, 0);
+          const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+          let dateLabel: string;
+          if (sessionDate.toDateString() === today.toDateString()) dateLabel = 'Today';
+          else if (sessionDate.toDateString() === tomorrow.toDateString()) dateLabel = 'Tomorrow';
+          else dateLabel = sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+          // Format time: "4:30 PM"
+          let timeLabel: string | null = null;
+          if (nextSession.start_time) {
+            const [h, m] = nextSession.start_time.split(':').map(Number);
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            timeLabel = `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
+          }
+
+          return (
+            <div className="mx-4 mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm text-xl">
+                  {emoji}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-500 mb-0.5">
+                    Next Up
+                  </p>
+                  <p className="text-sm font-bold text-gray-900">
+                    {label}
+                    {isGame && nextSession.opponent ? ` vs ${nextSession.opponent}` : ''}
+                  </p>
+                  <p className="text-sm text-gray-600 mt-0.5">
+                    {dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}
+                    {nextSession.location ? ` · ${nextSession.location}` : ''}
+                  </p>
+                  {isGame && (
+                    <p className="mt-1.5 text-xs text-blue-600 font-medium">
+                      Come cheer {firstName} on! 🎉
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ─── Featured Highlight ─── */}
         {featuredHighlight && (
