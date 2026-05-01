@@ -80,6 +80,7 @@ import {
 import type { PlayerAvailability } from '@/types/database';
 import { getRatingLabel, getRatingColor } from '@/lib/session-quality-utils';
 import { formatSkillLabel } from '@/lib/skill-trend-utils';
+import { isFavorited } from '@/lib/drill-favorites-utils';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -764,6 +765,7 @@ export default function PracticeTimerPage({
 
   // Setup state
   const [drillSearch, setDrillSearch] = useState('');
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [customName, setCustomName] = useState('');
   const [customDuration, setCustomDuration] = useState('10');
   const [showDrillPicker, setShowDrillPicker] = useState(false);
@@ -824,6 +826,16 @@ export default function PracticeTimerPage({
     enabled: !!activeTeam,
     ...CACHE_PROFILES.drills,
   });
+
+  const { data: favoritesData } = useQuery({
+    queryKey: ['drill-favorites'],
+    queryFn: async () => {
+      const res = await fetch('/api/drill-favorites');
+      if (!res.ok) return { favorites: [] as string[] };
+      return res.json() as Promise<{ favorites: string[] }>;
+    },
+  });
+  const favoriteIds: string[] = favoritesData?.favorites ?? [];
 
   const { data: players = [] } = useQuery({
     queryKey: queryKeys.players.all(activeTeam?.id ?? ''),
@@ -1399,12 +1411,14 @@ export default function PracticeTimerPage({
   };
 
   // ── Filtered drills ──────────────────────────────────────────────────────
-  const filteredDrills = drills.filter(
-    (d) =>
-      !drillSearch ||
+  const filteredDrills = drills.filter((d) => {
+    if (showFavoritesOnly && !isFavorited(d.id, favoriteIds)) return false;
+    if (!drillSearch) return true;
+    return (
       d.name.toLowerCase().includes(drillSearch.toLowerCase()) ||
       d.category.toLowerCase().includes(drillSearch.toLowerCase())
-  );
+    );
+  });
 
   // ── Practice templates ───────────────────────────────────────────────────
   const availableTemplates = rankTemplates(
@@ -2110,7 +2124,7 @@ export default function PracticeTimerPage({
 
         {showDrillPicker && (
           <div className="border border-zinc-800 rounded-xl bg-zinc-900/50 overflow-hidden">
-            <div className="p-3 border-b border-zinc-800">
+            <div className="p-3 border-b border-zinc-800 space-y-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
                 <Input
@@ -2121,10 +2135,34 @@ export default function PracticeTimerPage({
                   autoFocus
                 />
               </div>
+              {favoriteIds.length > 0 && (
+                <button
+                  onClick={() => setShowFavoritesOnly((v) => !v)}
+                  className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full transition-colors ${
+                    showFavoritesOnly
+                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                      : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:text-zinc-200'
+                  }`}
+                >
+                  <Star className={`h-3 w-3 ${showFavoritesOnly ? 'fill-amber-400 text-amber-400' : ''}`} />
+                  Favorites{showFavoritesOnly ? ` (${favoriteIds.length})` : ''}
+                </button>
+              )}
             </div>
             <div className="max-h-60 overflow-y-auto divide-y divide-zinc-800">
               {filteredDrills.length === 0 ? (
-                <p className="text-sm text-zinc-500 p-4 text-center">No drills found</p>
+                <div className="p-4 text-center">
+                  {showFavoritesOnly ? (
+                    <p className="text-sm text-zinc-500">
+                      No favorites match your search.{' '}
+                      <button onClick={() => setShowFavoritesOnly(false)} className="text-amber-400 hover:text-amber-300 underline">
+                        Show all drills
+                      </button>
+                    </p>
+                  ) : (
+                    <p className="text-sm text-zinc-500">No drills found</p>
+                  )}
+                </div>
               ) : (
                 filteredDrills.slice(0, 30).map((drill) => (
                   <button
@@ -2132,7 +2170,12 @@ export default function PracticeTimerPage({
                     onClick={() => addFromLibrary(drill)}
                     className="flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-zinc-800 transition-colors group"
                   >
-                    <Dumbbell className="h-4 w-4 text-zinc-600 group-hover:text-orange-500 transition-colors shrink-0" />
+                    <div className="relative shrink-0">
+                      <Dumbbell className="h-4 w-4 text-zinc-600 group-hover:text-orange-500 transition-colors" />
+                      {isFavorited(drill.id, favoriteIds) && (
+                        <Star className="absolute -top-1.5 -right-1.5 h-2.5 w-2.5 fill-amber-400 text-amber-400" />
+                      )}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-zinc-200 truncate">{drill.name}</p>
                       <p className="text-xs text-zinc-500">{drill.category}</p>
