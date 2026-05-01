@@ -62,6 +62,16 @@ const RECENT_OBS = [
   { text: 'Excellent communication calling out defensive assignments on every half-court set.',                            category: 'Defense',  date: 'Apr 10' },
 ];
 
+const WEEKLY_STAR = {
+  week_label: 'Week of April 28, 2025',
+  headline: "Showed up as a leader all week!",
+  achievement:
+    "Marcus had his best week of the season — his defensive intensity set the tone for the entire practice. He dove for loose balls, talked on every possession, and finished every sprint. His teammates literally applauded him after a drill.",
+  growth_moment:
+    "On Wednesday, Marcus stepped in front of a baseline drive and took a charge no one expected him to take. That's the kind of IQ you can't teach.",
+  coach_shoutout: "You're exactly the kind of teammate every coach dreams of coaching. Keep it up!",
+};
+
 const HOME_CHALLENGE = {
   title: 'Figure-8 Ball Handling Challenge',
   minutes: 5,
@@ -191,6 +201,44 @@ export default function DemoReportPage() {
             <p className="text-sm leading-relaxed text-gray-700">
               Hello! Here&apos;s how <span className="font-semibold">{PLAYER.firstName}</span> is doing
               this {TEAM.season.toLowerCase()} with {TEAM.name}. We&apos;re excited to share this update with you!
+            </p>
+          </div>
+        </div>
+
+        {/* ─── Player of the Week ─── */}
+        <div className="mx-4 mt-4 overflow-hidden rounded-2xl shadow-md"
+             style={{ background: 'linear-gradient(135deg, #b45309 0%, #d97706 50%, #f59e0b 100%)' }}>
+          <div className="px-5 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl" aria-hidden="true">⭐</span>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-amber-100">
+                    Player of the Week
+                  </p>
+                  <p className="text-[10px] text-amber-200">{WEEKLY_STAR.week_label}</p>
+                </div>
+              </div>
+              <span className="rounded-full bg-white/20 px-3 py-1 text-[11px] font-bold text-white">
+                🏆 Top pick!
+              </span>
+            </div>
+
+            <p className="mt-3 text-lg font-bold leading-snug text-white">{WEEKLY_STAR.headline}</p>
+
+            <p className="mt-2 text-sm leading-relaxed text-amber-50">{WEEKLY_STAR.achievement}</p>
+
+            <div className="mt-3 rounded-xl bg-white/20 px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-200 mb-1">
+                ✨ Coaching spotlight
+              </p>
+              <p className="text-sm text-white leading-snug italic">
+                &ldquo;{WEEKLY_STAR.growth_moment}&rdquo;
+              </p>
+            </div>
+
+            <p className="mt-3 text-right text-xs font-medium text-amber-200">
+              — Coach {TEAM.coach}
             </p>
           </div>
         </div>

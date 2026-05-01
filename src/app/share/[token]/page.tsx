@@ -325,6 +325,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     latestSessionMessage,
     skillChallenge,
     activeGoals,
+    weeklyStarData,
   } = data;
 
   const playerName = player?.nickname || player?.name || 'your player';
@@ -469,6 +470,65 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             </p>
           </div>
         </div>
+
+        {/* ─── Player of the Week ─── */}
+        {weeklyStarData && (
+          <div className="mx-4 mt-4 overflow-hidden rounded-2xl shadow-md"
+               style={{ background: 'linear-gradient(135deg, #b45309 0%, #d97706 50%, #f59e0b 100%)' }}>
+            <div className="px-5 py-4">
+              {/* Badge row */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl" aria-hidden="true">⭐</span>
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-amber-100">
+                      Player of the Week
+                    </p>
+                    {weeklyStarData.week_label && (
+                      <p className="text-[10px] text-amber-200">{weeklyStarData.week_label}</p>
+                    )}
+                  </div>
+                </div>
+                <span className="rounded-full bg-white/20 px-3 py-1 text-[11px] font-bold text-white">
+                  🏆 Top pick!
+                </span>
+              </div>
+
+              {/* Headline */}
+              {weeklyStarData.headline && (
+                <p className="mt-3 text-lg font-bold leading-snug text-white">
+                  {weeklyStarData.headline}
+                </p>
+              )}
+
+              {/* Achievement */}
+              {weeklyStarData.achievement && (
+                <p className="mt-2 text-sm leading-relaxed text-amber-50">
+                  {weeklyStarData.achievement}
+                </p>
+              )}
+
+              {/* Growth moment */}
+              {weeklyStarData.growth_moment && (
+                <div className="mt-3 rounded-xl bg-white/20 px-3 py-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-200 mb-1">
+                    ✨ Coaching spotlight
+                  </p>
+                  <p className="text-sm text-white leading-snug italic">
+                    &ldquo;{weeklyStarData.growth_moment}&rdquo;
+                  </p>
+                </div>
+              )}
+
+              {/* Coach shoutout */}
+              {weeklyStarData.coach_shoutout && (
+                <p className="mt-3 text-right text-xs font-medium text-amber-200">
+                  — {coachName ? `Coach ${coachName}` : 'Your coach'}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ─── Fresh from practice banner ─── */}
         {hasFreshPractice && (

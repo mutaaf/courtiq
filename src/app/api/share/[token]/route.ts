@@ -222,6 +222,42 @@ export async function GET(
     }
     reportData.latestSessionMessage = latestSessionMessage;
 
+    // Most recent Weekly Star for this player — shown on parent portal as a
+    // celebratory "Player of the Week!" card. weekly_star plans don't store
+    // player_id directly; we match by player name in content_structured.
+    // Show any weekly star within the last 30 days to keep it relevant.
+    let weeklyStarData: Record<string, string> | null = null;
+    if (player?.name) {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: starPlans } = await supabase
+        .from('plans')
+        .select('content_structured, created_at')
+        .eq('team_id', share.team_id)
+        .eq('type', 'weekly_star')
+        .gte('created_at', thirtyDaysAgo)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (starPlans && starPlans.length > 0) {
+        const playerNameLower = player.name.toLowerCase().trim();
+        const playerFirstName = player.name.split(' ')[0].toLowerCase().trim();
+        for (const plan of starPlans) {
+          const content = plan.content_structured as any;
+          const starName = (content?.player_name || '').toLowerCase().trim();
+          if (
+            starName === playerNameLower ||
+            starName === playerFirstName ||
+            starName.startsWith(playerFirstName + ' ') ||
+            playerNameLower.startsWith(starName + ' ')
+          ) {
+            weeklyStarData = content;
+            break;
+          }
+        }
+      }
+    }
+    reportData.weeklyStarData = weeklyStarData;
+
     // Most recent AI-generated skill challenge for this player — shown as
     // "Practice at Home" on the parent portal so parents have actionable
     // home-practice steps without the coach having to do anything extra.
