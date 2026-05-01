@@ -20,6 +20,8 @@ import {
   Lock,
   Loader2,
   X,
+  Share2,
+  Check,
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import type { AchievementBadgeType, PlayerAchievement } from '@/types/database';
@@ -43,6 +45,20 @@ const BADGE_CONFIG: Record<
   rising_star:      { icon: Star,          color: 'text-yellow-400',  bg: 'bg-yellow-500/10',  border: 'border-yellow-500/30' },
 };
 
+// Parent-friendly badge descriptions for share messages
+const BADGE_PARENT_MSG: Record<AchievementBadgeType, string> = {
+  first_star:      'just received their first positive coaching note this season — a great start! 🌟',
+  team_player:     'has been showing fantastic effort and attitude in practice, earning the Team Player badge! 🤝',
+  grinder:         'is working hard every single session and earned the Grinder badge for consistent dedication! 💪',
+  all_rounder:     'has been developing skills across multiple areas of the game — a true All-Rounder! 🎯',
+  breakthrough:    'just reached game-ready level in a key skill — a huge breakthrough milestone! 🚀',
+  game_changer:    'made a real impact during a game or scrimmage and earned the Game Changer badge! ⚡',
+  session_regular: 'has attended 10 sessions and earned the Session Regular badge for showing up consistently! 📅',
+  coach_pick:      'was personally selected by the coach for outstanding effort and attitude — amazing! 🏆',
+  most_improved:   'has shown the greatest improvement on the entire team this season! 📈',
+  rising_star:     'is showing exceptional promise and potential — a true Rising Star! 🌟',
+};
+
 // manual-only badge types
 const MANUAL_BADGES: AchievementBadgeType[] = ['coach_pick', 'most_improved', 'rising_star'];
 
@@ -56,16 +72,57 @@ interface AchievementsResponse {
 interface Props {
   playerId: string;
   coachId: string;
+  playerName?: string;
+  parentPhone?: string | null;
+  coachName?: string;
+}
+
+// ─── Share helper ─────────────────────────────────────────────────────────────
+
+function buildBadgeShareText(
+  playerName: string,
+  coachName: string,
+  badgeDef: BadgeDef,
+): string {
+  const parentMsg = BADGE_PARENT_MSG[badgeDef.badge_type] ?? `just earned the ${badgeDef.name} badge!`;
+  return `🏆 ${playerName} ${parentMsg}\n\n— Coach ${coachName}`;
+}
+
+async function shareBadgeText(
+  text: string,
+  parentPhone?: string | null,
+  badgeName?: string,
+): Promise<'shared' | 'whatsapp' | 'copied'> {
+  if (typeof navigator !== 'undefined' && navigator.share) {
+    try {
+      await navigator.share({ text });
+      return 'shared';
+    } catch {}
+  }
+  const encoded = encodeURIComponent(text);
+  if (parentPhone) {
+    const phone = parentPhone.replace(/\D/g, '');
+    window.open(`https://wa.me/${phone}?text=${encoded}`, '_blank', 'noopener');
+  } else {
+    window.open(`https://wa.me/?text=${encoded}`, '_blank', 'noopener');
+  }
+  return 'whatsapp';
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function AchievementBadgesPanel({ playerId, coachId }: Props) {
+export function AchievementBadgesPanel({ playerId, coachId, playerName, parentPhone, coachName }: Props) {
   const qc = useQueryClient();
   const [showAwardModal, setShowAwardModal] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState<AchievementBadgeType | null>(null);
   const [awardNote, setAwardNote] = useState('');
   const [checkMsg, setCheckMsg] = useState<string | null>(null);
+  // Newly auto-awarded badges from the last "Check" call — shown with share buttons
+  const [newlyAwarded, setNewlyAwarded] = useState<BadgeDef[]>([]);
+  // Badge just manually awarded — shown with share button
+  const [awardedDef, setAwardedDef] = useState<BadgeDef | null>(null);
+  // Shared confirmation state per badge type
+  const [sharedType, setSharedType] = useState<AchievementBadgeType | null>(null);
 
   const { data, isLoading } = useQuery<AchievementsResponse>({
     queryKey: queryKeys.achievements.player(playerId),
@@ -91,8 +148,16 @@ export function AchievementBadgesPanel({ playerId, coachId }: Props) {
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: queryKeys.achievements.player(playerId) });
       const count = result.newly_awarded?.length ?? 0;
-      setCheckMsg(count > 0 ? `${count} new badge${count > 1 ? 's' : ''} awarded!` : 'All caught up — no new badges yet.');
-      setTimeout(() => setCheckMsg(null), 4000);
+      if (count > 0 && data?.badge_defs) {
+        const defs = result.newly_awarded
+          .map((a) => data.badge_defs.find((d) => d.badge_type === a.badge_type))
+          .filter(Boolean) as BadgeDef[];
+        setNewlyAwarded(defs);
+        setCheckMsg(null);
+      } else {
+        setCheckMsg(count > 0 ? `${count} new badge${count > 1 ? 's' : ''} awarded!` : 'All caught up — no new badges yet.');
+        setTimeout(() => setCheckMsg(null), 4000);
+      }
     },
   });
 
@@ -106,13 +171,24 @@ export function AchievementBadgesPanel({ playerId, coachId }: Props) {
       if (!res.ok) throw new Error('Award failed');
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, { badge_type }) => {
       qc.invalidateQueries({ queryKey: queryKeys.achievements.player(playerId) });
+      const def = data?.badge_defs.find((d) => d.badge_type === badge_type) ?? null;
+      setAwardedDef(def);
       setShowAwardModal(false);
       setSelectedBadge(null);
       setAwardNote('');
     },
   });
+
+  const handleShare = async (def: BadgeDef) => {
+    const name = playerName || 'This player';
+    const coach = coachName || 'Coach';
+    const text = buildBadgeShareText(name, coach, def);
+    await shareBadgeText(text, parentPhone, def.name);
+    setSharedType(def.badge_type);
+    setTimeout(() => setSharedType(null), 2500);
+  };
 
   if (isLoading) {
     return (
@@ -138,6 +214,7 @@ export function AchievementBadgesPanel({ playerId, coachId }: Props) {
   const defs = data?.badge_defs ?? [];
   const earnedMap = new Map(earned.map((a) => [a.badge_type, a]));
   const earnedCount = earned.length;
+  const canShare = !!(playerName && coachName);
 
   return (
     <>
@@ -186,6 +263,105 @@ export function AchievementBadgesPanel({ playerId, coachId }: Props) {
           )}
         </CardHeader>
         <CardContent>
+          {/* Newly auto-awarded badges with share prompt */}
+          {newlyAwarded.length > 0 && (
+            <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-amber-300">
+                  🎉 {newlyAwarded.length} new badge{newlyAwarded.length > 1 ? 's' : ''} earned!
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setNewlyAwarded([])}
+                  className="text-zinc-500 hover:text-zinc-300"
+                  aria-label="Dismiss"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="space-y-2">
+                {newlyAwarded.map((def) => {
+                  const config = BADGE_CONFIG[def.badge_type];
+                  const Icon = config.icon;
+                  const isShared = sharedType === def.badge_type;
+                  return (
+                    <div key={def.badge_type} className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Icon className={`h-4 w-4 shrink-0 ${config.color}`} />
+                        <p className="text-sm font-medium text-zinc-200 truncate">{def.name}</p>
+                      </div>
+                      {canShare && (
+                        <button
+                          type="button"
+                          onClick={() => handleShare(def)}
+                          className={`flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+                            isShared
+                              ? 'bg-emerald-500/20 text-emerald-400'
+                              : 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30'
+                          }`}
+                          aria-label={`Share ${def.name} badge with parent`}
+                        >
+                          {isShared ? (
+                            <><Check className="h-3 w-3" /> Sent!</>
+                          ) : (
+                            <><Share2 className="h-3 w-3" /> Share</>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Just manually awarded — share prompt */}
+          {awardedDef && (
+            <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  {(() => {
+                    const cfg = BADGE_CONFIG[awardedDef.badge_type];
+                    const Icon = cfg.icon;
+                    return <Icon className={`h-4 w-4 shrink-0 ${cfg.color}`} />;
+                  })()}
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-emerald-300">{awardedDef.name} awarded! 🎉</p>
+                    <p className="text-[11px] text-zinc-400 truncate">{awardedDef.description}</p>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {canShare && (
+                    <button
+                      type="button"
+                      onClick={() => handleShare(awardedDef)}
+                      className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+                        sharedType === awardedDef.badge_type
+                          ? 'bg-emerald-500/20 text-emerald-400'
+                          : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
+                      }`}
+                      aria-label={`Share ${awardedDef.name} badge with parent`}
+                    >
+                      {sharedType === awardedDef.badge_type ? (
+                        <><Check className="h-3 w-3" /> Sent!</>
+                      ) : (
+                        <><Share2 className="h-3 w-3" /> Share</>
+                      )}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setAwardedDef(null)}
+                    className="text-zinc-500 hover:text-zinc-300"
+                    aria-label="Dismiss"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {defs.length === 0 ? (
             <p className="text-sm text-zinc-500">Loading badge definitions…</p>
           ) : (
@@ -195,6 +371,7 @@ export function AchievementBadgesPanel({ playerId, coachId }: Props) {
                 const config = BADGE_CONFIG[def.badge_type];
                 const Icon = config.icon;
                 const isEarned = Boolean(achievement);
+                const isShared = sharedType === def.badge_type;
 
                 return (
                   <div
@@ -212,6 +389,25 @@ export function AchievementBadgesPanel({ playerId, coachId }: Props) {
                   >
                     {!isEarned && (
                       <Lock className="absolute right-1.5 top-1.5 h-3 w-3 text-zinc-600" />
+                    )}
+                    {/* Share button — only on earned badges when we have enough context */}
+                    {isEarned && canShare && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleShare(def); }}
+                        className={`absolute right-1.5 top-1.5 flex items-center justify-center rounded-md p-0.5 transition-colors ${
+                          isShared
+                            ? 'text-emerald-400'
+                            : 'text-zinc-500 hover:text-zinc-200'
+                        }`}
+                        aria-label={`Share ${def.name} badge with parent`}
+                      >
+                        {isShared ? (
+                          <Check className="h-3 w-3" />
+                        ) : (
+                          <Share2 className="h-3 w-3" />
+                        )}
+                      </button>
                     )}
                     <Icon
                       className={`mb-1 h-5 w-5 ${isEarned ? config.color : 'text-zinc-600'}`}

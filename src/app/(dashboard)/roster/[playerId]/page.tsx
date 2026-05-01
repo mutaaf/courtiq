@@ -1030,7 +1030,13 @@ export default function PlayerDetailPage({
           {/* Achievement Badges */}
           {coach && (
             <div className="lg:col-span-2">
-              <AchievementBadgesPanel playerId={playerId} coachId={coach.id} />
+              <AchievementBadgesPanel
+                playerId={playerId}
+                coachId={coach.id}
+                playerName={player?.name}
+                parentPhone={player?.parent_phone}
+                coachName={coach.full_name}
+              />
             </div>
           )}
 
