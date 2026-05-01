@@ -1,11 +1,13 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery } from '@tanstack/react-query';
-import { query } from '@/lib/api';
+import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { CACHE_PROFILES } from '@/lib/query/config';
+import { useAppStore } from '@/lib/store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,6 +27,9 @@ import {
   CalendarClock,
   ThumbsUp,
   ThumbsDown,
+  Play,
+  Loader2,
+  Timer,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Drill, Observation, Player } from '@/types/database';
@@ -45,7 +50,11 @@ export default function DrillDetailPage({
   params: Promise<{ drillId: string }>;
 }) {
   const { drillId } = use(params);
-  const { activeTeam } = useActiveTeam();
+  const router = useRouter();
+  const { activeTeam, coach } = useActiveTeam();
+  const practiceActive = useAppStore((s) => s.practiceActive);
+  const practiceSessionId = useAppStore((s) => s.practiceSessionId);
+  const [startingPractice, setStartingPractice] = useState(false);
 
   const { data: drill, isLoading } = useQuery({
     queryKey: queryKeys.drills.detail(drillId),
@@ -90,6 +99,37 @@ export default function DrillDetailPage({
     enabled: !!activeTeam,
     staleTime: 5 * 60 * 1000,
   });
+
+  async function handleStartPractice() {
+    if (!activeTeam || !coach || startingPractice) return;
+    setStartingPractice(true);
+    try {
+      if (practiceActive && practiceSessionId) {
+        router.push(`/sessions/${practiceSessionId}/timer?drillId=${drillId}`);
+        return;
+      }
+      const session = await mutate<{ id: string }>({
+        table: 'sessions',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          type: 'practice',
+          date: new Date().toISOString().split('T')[0],
+          notes: drill ? `Auto-created: ${drill.name}` : 'Auto-created practice session',
+        },
+        select: 'id',
+      });
+      const id = Array.isArray(session) ? (session as any)[0]?.id : (session as any)?.id;
+      if (id) {
+        router.push(`/sessions/${id}/timer?drillId=${drillId}`);
+      } else {
+        setStartingPractice(false);
+      }
+    } catch {
+      setStartingPractice(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -152,6 +192,33 @@ export default function DrillDetailPage({
         <h1 className="text-2xl font-bold text-zinc-100 leading-tight">{drill.name}</h1>
         <p className="text-zinc-400 text-sm leading-relaxed">{drill.description}</p>
       </div>
+
+      {/* Start Practice CTA */}
+      {activeTeam && coach && (
+        <Button
+          onClick={handleStartPractice}
+          disabled={startingPractice}
+          className="w-full gap-2 bg-orange-500 hover:bg-orange-400 text-white disabled:opacity-80"
+          size="lg"
+        >
+          {startingPractice ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Starting practice…
+            </>
+          ) : practiceActive ? (
+            <>
+              <Timer className="h-5 w-5" />
+              Add to Current Practice
+            </>
+          ) : (
+            <>
+              <Play className="h-5 w-5" />
+              Start Practice with This Drill
+            </>
+          )}
+        </Button>
+      )}
 
       {/* Key stats */}
       <div className="grid grid-cols-3 gap-3">
@@ -305,13 +372,32 @@ export default function DrillDetailPage({
                 <div className="flex flex-col items-center gap-2 py-4 text-center">
                   <Dumbbell className="h-8 w-8 text-zinc-700" />
                   <p className="text-sm text-zinc-400">
-                    Run this drill in your practice timer to see your team&apos;s feedback here.
+                    Run this drill in your practice timer to track your team&apos;s feedback.
                   </p>
-                  <Link href="/sessions/new">
-                    <Button variant="outline" size="sm" className="mt-1">
-                      Start a Practice
-                    </Button>
-                  </Link>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-1"
+                    onClick={handleStartPractice}
+                    disabled={startingPractice}
+                  >
+                    {startingPractice ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                        Starting…
+                      </>
+                    ) : practiceActive ? (
+                      <>
+                        <Timer className="h-3.5 w-3.5 mr-1.5" />
+                        Add to Current Practice
+                      </>
+                    ) : (
+                      <>
+                        <Play className="h-3.5 w-3.5 mr-1.5" />
+                        Start Practice with This Drill
+                      </>
+                    )}
+                  </Button>
                 </div>
               ) : (
                 <>

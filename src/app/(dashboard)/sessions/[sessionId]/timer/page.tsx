@@ -707,6 +707,7 @@ export default function PracticeTimerPage({
   const searchParams = useSearchParams();
   const planId = searchParams.get('planId');
   const templateIdParam = searchParams.get('templateId');
+  const drillIdParam = searchParams.get('drillId');
   const { activeTeam, coach } = useActiveTeam();
 
   // ── Persistence keys ─────────────────────────────────────────────────────
@@ -768,6 +769,7 @@ export default function PracticeTimerPage({
   const [showDrillPicker, setShowDrillPicker] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [loadedTemplateName, setLoadedTemplateName] = useState<string | null>(null);
+  const [loadedDrillName, setLoadedDrillName] = useState<string | null>(null);
   const [lastPracticeQueue, setLastPracticeQueue] = useState<QueueItem[] | null>(null);
 
   // Custom practice templates (persisted per-team in localStorage)
@@ -1054,6 +1056,31 @@ export default function PracticeTimerPage({
     setLoadedTemplateName(template.name);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateIdParam]);
+
+  // ── Auto-load drill from drillId URL param (from Drill Library detail page) ──
+  useEffect(() => {
+    if (!drillIdParam || queue.length > 0 || isRecovered) return;
+    query<Drill>({
+      table: 'drills',
+      select: 'id,name,description,category,duration_minutes,teaching_cues',
+      filters: { id: drillIdParam },
+      single: true,
+    }).then((drill) => {
+      if (!drill) return;
+      const item: QueueItem = {
+        id: `drill-${drill.id}-${Date.now()}`,
+        drillId: drill.id,
+        name: drill.name,
+        durationSecs: Math.max(60, (drill.duration_minutes ?? 10) * 60),
+        cues: drill.teaching_cues ?? [],
+        description: drill.description ?? '',
+        category: drill.category,
+      };
+      setQueue([item]);
+      setLoadedDrillName(drill.name);
+    }).catch(() => {/* ignore */});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drillIdParam]);
 
   // ── Timer logic ──────────────────────────────────────────────────────────
   const clearIntervals = useCallback(() => {
@@ -1758,6 +1785,14 @@ export default function PracticeTimerPage({
         <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-sm text-emerald-300">
           <Layers className="h-4 w-4 shrink-0" />
           Loaded template: <span className="font-medium">{loadedTemplateName}</span>
+        </div>
+      )}
+
+      {/* Drill loaded banner */}
+      {loadedDrillName && !loadedPlanTitle && !loadedTemplateName && (
+        <div className="flex items-center gap-2 rounded-lg bg-orange-500/10 border border-orange-500/20 px-4 py-3 text-sm text-orange-300">
+          <Dumbbell className="h-4 w-4 shrink-0" />
+          Loaded drill: <span className="font-medium">{loadedDrillName}</span>
         </div>
       )}
 
