@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
-import { Mic, X, CheckCircle2, Loader2, AlertCircle, Square, Zap, Keyboard } from 'lucide-react';
+import { Mic, X, CheckCircle2, Loader2, AlertCircle, Square, Zap, Keyboard, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { findPlayerByName } from '@/lib/player-match';
 import { useActiveTeam } from '@/hooks/use-active-team';
@@ -18,8 +18,9 @@ import {
 } from '@/lib/observation-templates';
 
 type WidgetState = 'idle' | 'recording' | 'processing' | 'success' | 'error';
-type WidgetTab = 'voice' | 'templates';
+type WidgetTab = 'voice' | 'templates' | 'sweep';
 type TemplateStep = 'pick' | 'player' | 'saved';
+type SweepState = 'sweeping' | 'done';
 
 export function QuickCaptureWidget() {
   const pathname = usePathname();
@@ -55,17 +56,23 @@ export function QuickCaptureWidget() {
   // Used to sort observed players to the bottom and show ✓ coverage indicators.
   const [observedPlayerIds, setObservedPlayerIds] = useState<Set<string>>(new Set());
 
+  // ── Sweep tab state ──────────────────────────────────────────────────────
+  const [sweepState, setSweepState] = useState<SweepState>('sweeping');
+  const [sweepIndex, setSweepIndex] = useState(0);
+  const [sweepSaved, setSweepSaved] = useState(0);
+  const [sweepSaving, setSweepSaving] = useState(false);
+
   const trapRef = useFocusTrap<HTMLDivElement>({
     enabled: isOpen,
     onEscape: () => {
-      const busy = widgetState === 'recording' || widgetState === 'processing' || savingTemplate;
+      const busy = widgetState === 'recording' || widgetState === 'processing' || savingTemplate || sweepSaving;
       if (!busy) close();
     },
   });
 
-  // Load roster (and session observations when in practice) when templates tab is opened
+  // Load roster (and session observations when in practice) when templates or sweep tab is opened
   useEffect(() => {
-    if (!isOpen || activeTab !== 'templates' || !activeTeam?.id || roster.length > 0) return;
+    if (!isOpen || (activeTab !== 'templates' && activeTab !== 'sweep') || !activeTeam?.id || roster.length > 0) return;
     setRosterLoading(true);
 
     const rosterFetch = query<{ id: string; name: string }[]>({
@@ -125,6 +132,13 @@ export function QuickCaptureWidget() {
     setObservedPlayerIds(new Set());
   }, []);
 
+  const resetSweepState = useCallback(() => {
+    setSweepState('sweeping');
+    setSweepIndex(0);
+    setSweepSaved(0);
+    setSweepSaving(false);
+  }, []);
+
   const close = useCallback(() => {
     if (autoCloseTimerRef.current) {
       clearTimeout(autoCloseTimerRef.current);
@@ -134,7 +148,8 @@ export function QuickCaptureWidget() {
     setIsOpen(false);
     resetVoiceState();
     resetTemplateState();
-  }, [cleanupMedia, resetVoiceState, resetTemplateState]);
+    resetSweepState();
+  }, [cleanupMedia, resetVoiceState, resetTemplateState, resetSweepState]);
 
   // ── Voice: start recording ─────────────────────────────────────────────
   const startRecording = useCallback(async () => {
@@ -372,10 +387,81 @@ export function QuickCaptureWidget() {
     }
   }
 
+  // ── Sweep: sorted player list (unobserved first during a session) ─────────
+  const sweepPlayers = useMemo(() => {
+    return [...roster].sort((a, b) => {
+      const aObs = observedPlayerIds.has(a.id);
+      const bObs = observedPlayerIds.has(b.id);
+      if (aObs !== bObs) return aObs ? 1 : -1;
+      return a.name.split(' ')[0].localeCompare(b.name.split(' ')[0]);
+    });
+  }, [roster, observedPlayerIds]);
+
+  const currentSweepPlayer = sweepPlayers[sweepIndex] ?? null;
+
+  function advanceSweep(nextIndex: number) {
+    if (nextIndex >= sweepPlayers.length) {
+      setSweepState('done');
+    } else {
+      setSweepIndex(nextIndex);
+    }
+  }
+
+  async function handleSweepSave(sentiment: 'positive' | 'needs-work') {
+    if (!activeTeam || !coach || !currentSweepPlayer || sweepSaving) return;
+    const sessionId = practiceActive && practiceSessionId ? practiceSessionId : null;
+    const text =
+      sentiment === 'positive'
+        ? 'Positive session — great effort and attitude today'
+        : 'Needs work — continue focusing on this area';
+
+    setSweepSaving(true);
+    try {
+      await mutate({
+        table: 'observations',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          player_id: currentSweepPlayer.id,
+          session_id: sessionId,
+          text,
+          sentiment,
+          category: 'general',
+          source: 'template',
+          ai_parsed: false,
+          coach_edited: false,
+          is_synced: true,
+        },
+      });
+
+      if (navigator.vibrate) navigator.vibrate(50);
+
+      queryClient.invalidateQueries({ queryKey: queryKeys.observations.all(activeTeam.id) });
+      queryClient.invalidateQueries({ queryKey: ['home-stats', activeTeam.id] });
+      queryClient.invalidateQueries({ queryKey: ['home-pulse', activeTeam.id] });
+      if (sessionId) {
+        queryClient.invalidateQueries({ queryKey: ['session-obs-count', sessionId] });
+        setObservedPlayerIds((prev) => new Set([...prev, currentSweepPlayer.id]));
+      }
+
+      setSweepSaved((prev) => prev + 1);
+      advanceSweep(sweepIndex + 1);
+    } catch {
+      // stay on same player so coach can retry
+    } finally {
+      setSweepSaving(false);
+    }
+  }
+
+  function handleSweepSkip() {
+    advanceSweep(sweepIndex + 1);
+  }
+
   // Don't render on the full capture page or when no team is active
   if (pathname.startsWith('/capture') || !activeTeam) return null;
 
-  const isBusy = widgetState === 'recording' || widgetState === 'processing' || savingTemplate;
+  const isBusy = widgetState === 'recording' || widgetState === 'processing' || savingTemplate || sweepSaving;
 
   const positiveTemplates = getTemplatesBySentiment('positive');
   const needsWorkTemplates = getTemplatesBySentiment('needs-work');
@@ -390,6 +476,7 @@ export function QuickCaptureWidget() {
           onClick={() => {
             resetVoiceState();
             resetTemplateState();
+            resetSweepState();
             setIsOpen(true);
           }}
           className={cn(
@@ -478,6 +565,20 @@ export function QuickCaptureWidget() {
               >
                 <Keyboard className="h-3.5 w-3.5" />
                 Templates
+              </button>
+              <button
+                type="button"
+                onClick={() => { resetSweepState(); setActiveTab('sweep'); }}
+                className={cn(
+                  'flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition-colors',
+                  activeTab === 'sweep'
+                    ? 'bg-zinc-700 text-zinc-100'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                )}
+                aria-pressed={activeTab === 'sweep'}
+              >
+                <Users className="h-3.5 w-3.5" />
+                Team
               </button>
             </div>
 
@@ -745,6 +846,140 @@ export function QuickCaptureWidget() {
                     </div>
                   </div>
                 )}
+              </>
+            )}
+
+            {/* ── Team Sweep Tab ─────────────────────────────────────────── */}
+            {activeTab === 'sweep' && (
+              <>
+                {rosterLoading ? (
+                  <div className="flex justify-center py-10">
+                    <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+                  </div>
+                ) : sweepPlayers.length === 0 ? (
+                  <div className="flex flex-col items-center gap-3 py-8 text-center">
+                    <Users className="h-8 w-8 text-zinc-600" />
+                    <p className="text-sm text-zinc-400">No active players on roster yet.</p>
+                    <p className="text-xs text-zinc-600">Add players in the Roster section first.</p>
+                  </div>
+                ) : sweepState === 'done' ? (
+                  /* Done screen */
+                  <div className="flex flex-col items-center gap-4 py-6 pb-20 lg:pb-4">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20">
+                      <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-base font-semibold text-zinc-100">Team swept!</p>
+                      <p className="mt-1 text-sm text-zinc-400">
+                        {sweepSaved} observation{sweepSaved !== 1 ? 's' : ''} logged across{' '}
+                        {sweepPlayers.length} players
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={resetSweepState}
+                      className="rounded-xl bg-zinc-800 px-5 py-2.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700 active:scale-95 touch-manipulation"
+                    >
+                      Sweep again
+                    </button>
+                  </div>
+                ) : currentSweepPlayer ? (
+                  /* Sweeping */
+                  <div className="flex flex-col gap-4 pb-20 lg:pb-2">
+                    {/* Progress bar */}
+                    <div className="flex items-center gap-2">
+                      <span className="shrink-0 text-xs text-zinc-500">
+                        {sweepIndex + 1} / {sweepPlayers.length}
+                      </span>
+                      <div className="flex-1 h-1.5 overflow-hidden rounded-full bg-zinc-800">
+                        <div
+                          className="h-full rounded-full bg-orange-500 transition-all duration-300"
+                          style={{ width: `${(sweepIndex / sweepPlayers.length) * 100}%` }}
+                        />
+                      </div>
+                      {sweepSaved > 0 && (
+                        <span className="shrink-0 text-xs font-medium text-emerald-400">
+                          {sweepSaved} logged
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Player card */}
+                    <div className="flex flex-col items-center gap-2 py-3">
+                      <div
+                        className={cn(
+                          'flex h-16 w-16 items-center justify-center rounded-2xl text-2xl font-bold',
+                          observedPlayerIds.has(currentSweepPlayer.id)
+                            ? 'bg-emerald-500/20 text-emerald-400'
+                            : 'bg-orange-500/20 text-orange-400'
+                        )}
+                      >
+                        {currentSweepPlayer.name.charAt(0).toUpperCase()}
+                      </div>
+                      <p className="text-lg font-semibold text-zinc-100">
+                        {currentSweepPlayer.name.split(' ')[0]}
+                      </p>
+                      {observedPlayerIds.has(currentSweepPlayer.id) && (
+                        <p className="text-xs text-emerald-400">✓ Already observed this session</p>
+                      )}
+                    </div>
+
+                    {/* Sentiment buttons */}
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        disabled={sweepSaving}
+                        onClick={() => handleSweepSave('positive')}
+                        className={cn(
+                          'flex flex-1 flex-col items-center justify-center gap-1 rounded-2xl py-4 font-semibold',
+                          'bg-emerald-600 text-white transition-all active:scale-95 touch-manipulation',
+                          sweepSaving && 'pointer-events-none opacity-50'
+                        )}
+                        aria-label={`Mark ${currentSweepPlayer.name.split(' ')[0]} positive`}
+                      >
+                        {sweepSaving ? (
+                          <Loader2 className="h-6 w-6 animate-spin" />
+                        ) : (
+                          <>
+                            <span className="text-2xl leading-none">👍</span>
+                            <span className="text-sm">Positive</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={sweepSaving}
+                        onClick={() => handleSweepSave('needs-work')}
+                        className={cn(
+                          'flex flex-1 flex-col items-center justify-center gap-1 rounded-2xl py-4 font-semibold',
+                          'bg-amber-600 text-white transition-all active:scale-95 touch-manipulation',
+                          sweepSaving && 'pointer-events-none opacity-50'
+                        )}
+                        aria-label={`Mark ${currentSweepPlayer.name.split(' ')[0]} needs work`}
+                      >
+                        {sweepSaving ? (
+                          <Loader2 className="h-6 w-6 animate-spin" />
+                        ) : (
+                          <>
+                            <span className="text-2xl leading-none">🔧</span>
+                            <span className="text-sm">Needs Work</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Skip link */}
+                    <div className="flex justify-center">
+                      <button
+                        type="button"
+                        onClick={handleSweepSkip}
+                        className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors touch-manipulation"
+                      >
+                        Skip {currentSweepPlayer.name.split(' ')[0]} →
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </>
             )}
           </div>
