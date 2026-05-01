@@ -386,6 +386,131 @@ const FIRST_PRACTICE: PracticeTemplate = {
   ],
 };
 
+// ─── Flag Football Templates ─────────────────────────────────────────────────
+
+const FLAG_FOOTBALL_U8: PracticeTemplate = {
+  id: 'flag-u8-30',
+  name: 'Flag Football Basics',
+  sport: 'flag_football',
+  ageLabel: 'Ages 6–8',
+  totalMins: 30,
+  description: 'Flag pulling, catching fundamentals, and a fun 3v3 game for young players.',
+  tags: ['beginner', 'fundamentals', 'short'],
+  drills: [
+    {
+      name: 'Flag Pull Frenzy',
+      durationMins: 5,
+      cues: [
+        'Grab the whole flag — don\'t just swipe at it',
+        'Stay on your feet: no diving or lunging',
+        'Call "flag!" out loud when you pull one',
+        'Keep your hips moving to protect your own flags',
+      ],
+      description: 'Everyone has flags. Players try to pull each other\'s flags in a marked grid. Last player with both flags wins.',
+    },
+    {
+      name: 'Catching Basics',
+      durationMins: 8,
+      cues: [
+        'Eyes on the ball all the way into your hands — watch it in',
+        'Fingers pointing up for high throws, down for low ones',
+        'Make a triangle with your thumbs and index fingers',
+        'Squeeze it tight — don\'t let it bounce off your chest',
+      ],
+      description: 'Coach or partner tosses soft passes at varying heights. Players focus on hand position and tracking.',
+    },
+    {
+      name: 'Route Walk-Through',
+      durationMins: 7,
+      cues: [
+        'Go route: run straight and fast — no curving sideways',
+        'Curl: run 5 big steps, then turn and face the QB',
+        'Out: run 4 steps, then cut hard 90 degrees to the sideline',
+        'Start every route the same way — keep the defense guessing',
+      ],
+      description: 'Walk through three basic routes (go, curl, out) at half-speed. QB tosses after each break.',
+    },
+    {
+      name: '3v3 Flag Game',
+      durationMins: 10,
+      cues: [
+        'Offense: spread out — make the defense cover everyone',
+        'Defense: stick to your player, where they go you go',
+        'QB: look for the open player before you throw',
+        'Celebrate every flag pull just like a tackle!',
+      ],
+      description: '3v3 small-sided flag game on a short field. Rotate teams every 3 minutes.',
+    },
+  ],
+};
+
+const FLAG_FOOTBALL_U12: PracticeTemplate = {
+  id: 'flag-u12-45',
+  name: 'Routes & Coverage',
+  sport: 'flag_football',
+  ageLabel: 'Ages 9–12',
+  totalMins: 45,
+  description: 'Route combinations, QB mechanics, zone coverage, and 5v5 flag scrimmage.',
+  tags: ['intermediate', 'tactical', 'medium'],
+  drills: [
+    {
+      name: 'Agility & Footwork',
+      durationMins: 5,
+      cues: [
+        'Quick feet are your best weapon — fast feet beat coverage',
+        'Stay low through the ladder; don\'t stand tall',
+        'Plant hard on cuts — drive off the outside foot',
+        'Visualise your first step off the line of scrimmage',
+      ],
+      description: 'Ladder footwork, cone cuts, and 5-yard burst starts. Two lines, alternate reps.',
+    },
+    {
+      name: 'Route Tree',
+      durationMins: 10,
+      cues: [
+        'Release clean: an explosive first step beats press coverage',
+        'Accelerate out of every break — don\'t drift through your cut',
+        'On curls and comebacks: come back toward the QB, don\'t wait',
+        'Sell the deep route on every short route — same release every time',
+      ],
+      description: 'Receivers run go, slant, curl, and out routes against air. QB throws after each break point.',
+    },
+    {
+      name: 'QB Mechanics',
+      durationMins: 10,
+      cues: [
+        '3-step drop: catch, 1-2-3, throw — keep it quick',
+        'Release point above the ear, not sidearm from the hip',
+        'Lead your receiver: throw to where they\'re going, not where they are',
+        'Scan: first read, second read, checkdown — don\'t stare one receiver down',
+      ],
+      description: 'QBs rotate through 3-step drops hitting receivers on curl, out, and go routes.',
+    },
+    {
+      name: 'Zone Coverage Shells',
+      durationMins: 10,
+      cues: [
+        'In zone: find your area first, then find the ball',
+        'Keep receivers in front of you — never get beat deep',
+        'Communicate constantly: "I got two!", "Help right!"',
+        'Jump routes aggressively — an interception is a scoring play',
+      ],
+      description: '7-on-7 shell drill: defenders hold zone assignments while offense runs combination routes.',
+    },
+    {
+      name: '5v5 Flag Scrimmage',
+      durationMins: 10,
+      cues: [
+        'Offense: run balanced plays — spread the ball around',
+        'Defense: know the down-and-distance; third-and-long means pass rush',
+        'QB: read the defense before the snap, not your feet',
+        'Celebrate flag pulls as loudly as scores — defense wins games',
+      ],
+      description: '5v5 on a 40-yard field. Rotate on turnovers and after every 3 plays.',
+    },
+  ],
+};
+
 // ─── Template Registry ───────────────────────────────────────────────────────
 
 export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
@@ -395,6 +520,8 @@ export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
   BASKETBALL_U16,
   SOCCER_U8,
   SOCCER_U12,
+  FLAG_FOOTBALL_U8,
+  FLAG_FOOTBALL_U12,
 ];
 
 // ─── Utility Functions ───────────────────────────────────────────────────────

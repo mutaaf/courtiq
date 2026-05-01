@@ -105,6 +105,21 @@ describe('getTemplatesForSport', () => {
     const result = getTemplatesForSport('basketball');
     expect(result.some((t) => t.sport === 'soccer')).toBe(false);
   });
+
+  it('returns flag_football templates for flag_football', () => {
+    const result = getTemplatesForSport('flag_football');
+    expect(result.some((t) => t.sport === 'flag_football')).toBe(true);
+  });
+
+  it('includes generic templates for flag_football', () => {
+    const result = getTemplatesForSport('flag_football');
+    expect(result.some((t) => t.sport === '')).toBe(true);
+  });
+
+  it('does not return basketball templates for flag_football', () => {
+    const result = getTemplatesForSport('flag_football');
+    expect(result.some((t) => t.sport === 'basketball')).toBe(false);
+  });
 });
 
 // ─── getTemplateById ─────────────────────────────────────────────────────────
@@ -129,6 +144,18 @@ describe('getTemplateById', () => {
     const result = getTemplateById('generic-first-30');
     expect(result).toBeDefined();
     expect(result?.sport).toBe('');
+  });
+
+  it('finds flag-u8-30 template', () => {
+    const result = getTemplateById('flag-u8-30');
+    expect(result).toBeDefined();
+    expect(result?.sport).toBe('flag_football');
+  });
+
+  it('finds flag-u12-45 template', () => {
+    const result = getTemplateById('flag-u12-45');
+    expect(result).toBeDefined();
+    expect(result?.sport).toBe('flag_football');
   });
 });
 
@@ -206,6 +233,31 @@ describe('matchesAgeGroup', () => {
     ['U6', 'U10', 'U14', 'U18'].forEach((ag) => {
       expect(matchesAgeGroup(template, ag)).toBe(true);
     });
+  });
+
+  it('flag U8 template matches U8 age group', () => {
+    const template = getTemplateById('flag-u8-30')!;
+    expect(matchesAgeGroup(template, 'U8')).toBe(true);
+  });
+
+  it('flag U8 template matches U6 age group', () => {
+    const template = getTemplateById('flag-u8-30')!;
+    expect(matchesAgeGroup(template, 'U6')).toBe(true);
+  });
+
+  it('flag U8 template does not match U10 age group', () => {
+    const template = getTemplateById('flag-u8-30')!;
+    expect(matchesAgeGroup(template, 'U10')).toBe(false);
+  });
+
+  it('flag U12 template matches U10 age group', () => {
+    const template = getTemplateById('flag-u12-45')!;
+    expect(matchesAgeGroup(template, 'U10')).toBe(true);
+  });
+
+  it('flag U12 template does not match U8 age group', () => {
+    const template = getTemplateById('flag-u12-45')!;
+    expect(matchesAgeGroup(template, 'U8')).toBe(false);
   });
 });
 
