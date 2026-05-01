@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
-import { Mic, X, CheckCircle2, Loader2, AlertCircle, Square, Zap, Keyboard, Users } from 'lucide-react';
+import { Mic, X, CheckCircle2, Loader2, AlertCircle, Square, Zap, Keyboard, Users, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { findPlayerByName } from '@/lib/player-match';
 import { useActiveTeam } from '@/hooks/use-active-team';
@@ -52,6 +52,7 @@ export function QuickCaptureWidget() {
   const [roster, setRoster] = useState<{ id: string; name: string }[]>([]);
   const [rosterLoading, setRosterLoading] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [playerSearch, setPlayerSearch] = useState('');
   // Tracks which players have already been observed in the current practice session.
   // Used to sort observed players to the bottom and show ✓ coverage indicators.
   const [observedPlayerIds, setObservedPlayerIds] = useState<Set<string>>(new Set());
@@ -70,9 +71,9 @@ export function QuickCaptureWidget() {
     },
   });
 
-  // Load roster (and session observations when in practice) when templates or sweep tab is opened
+  // Pre-load roster when widget opens so Templates/Sweep tabs feel instant on first switch
   useEffect(() => {
-    if (!isOpen || (activeTab !== 'templates' && activeTab !== 'sweep') || !activeTeam?.id || roster.length > 0) return;
+    if (!isOpen || !activeTeam?.id || roster.length > 0) return;
     setRosterLoading(true);
 
     const rosterFetch = query<{ id: string; name: string }[]>({
@@ -99,7 +100,7 @@ export function QuickCaptureWidget() {
       }
       setRosterLoading(false);
     });
-  }, [isOpen, activeTab, activeTeam?.id, roster.length, practiceActive, practiceSessionId]);
+  }, [isOpen, activeTeam?.id, roster.length, practiceActive, practiceSessionId]);
 
   const cleanupMedia = useCallback(() => {
     if (recognitionRef.current) {
@@ -128,6 +129,7 @@ export function QuickCaptureWidget() {
     setTemplateStep('pick');
     setSelectedTemplate(null);
     setTemplateSentiment('positive');
+    setPlayerSearch('');
     setRoster([]);
     setObservedPlayerIds(new Set());
   }, []);
@@ -335,6 +337,7 @@ export function QuickCaptureWidget() {
   // ── Templates: pick a template ────────────────────────────────────────
   function handlePickTemplate(tpl: ObservationTemplate) {
     setSelectedTemplate(tpl);
+    setPlayerSearch('');
     setTemplateStep('player');
   }
 
@@ -789,44 +792,67 @@ export function QuickCaptureWidget() {
                         if (aObs !== bObs) return aObs ? 1 : -1;
                         return a.name.split(' ')[0].localeCompare(b.name.split(' ')[0]);
                       });
+                      const query = playerSearch.trim().toLowerCase();
+                      const filtered = query
+                        ? sorted.filter((p) => p.name.toLowerCase().includes(query))
+                        : sorted;
                       return (
-                        <div className="grid max-h-52 grid-cols-2 gap-1.5 overflow-y-auto pb-1">
-                          {sorted.map((player) => {
-                            const isObserved = observedPlayerIds.has(player.id);
-                            return (
-                              <button
-                                key={player.id}
-                                type="button"
-                                disabled={savingTemplate}
-                                onClick={() => saveTemplateObservation(player.id)}
-                                className={cn(
-                                  'flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
-                                  'hover:bg-zinc-700 active:scale-[0.97] touch-manipulation',
-                                  isObserved
-                                    ? 'bg-zinc-800/50 text-zinc-500 ring-1 ring-emerald-500/25'
-                                    : 'bg-zinc-800 text-zinc-200',
-                                  savingTemplate && 'pointer-events-none opacity-50'
-                                )}
-                              >
-                                <span className={cn(
-                                  'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
-                                  isObserved
-                                    ? 'bg-emerald-500/20 text-emerald-400'
-                                    : 'bg-orange-500/20 text-orange-400'
-                                )}>
-                                  {isObserved ? '✓' : player.name.charAt(0).toUpperCase()}
-                                </span>
-                                <span className="truncate">{player.name.split(' ')[0]}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
+                        <>
+                          {roster.length > 8 && (
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+                              <input
+                                type="text"
+                                placeholder="Search players…"
+                                value={playerSearch}
+                                onChange={(e) => setPlayerSearch(e.target.value)}
+                                className="w-full rounded-xl bg-zinc-800 py-2 pl-8 pr-3 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-orange-500/50"
+                                autoComplete="off"
+                              />
+                            </div>
+                          )}
+                          <div className="grid max-h-52 grid-cols-2 gap-1.5 overflow-y-auto pb-1">
+                            {filtered.length === 0 ? (
+                              <p className="col-span-2 py-3 text-center text-xs text-zinc-500">
+                                No players match &ldquo;{playerSearch}&rdquo;
+                              </p>
+                            ) : filtered.map((player) => {
+                              const isObserved = observedPlayerIds.has(player.id);
+                              return (
+                                <button
+                                  key={player.id}
+                                  type="button"
+                                  disabled={savingTemplate}
+                                  onClick={() => saveTemplateObservation(player.id)}
+                                  className={cn(
+                                    'flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
+                                    'hover:bg-zinc-700 active:scale-[0.97] touch-manipulation',
+                                    isObserved
+                                      ? 'bg-zinc-800/50 text-zinc-500 ring-1 ring-emerald-500/25'
+                                      : 'bg-zinc-800 text-zinc-200',
+                                    savingTemplate && 'pointer-events-none opacity-50'
+                                  )}
+                                >
+                                  <span className={cn(
+                                    'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
+                                    isObserved
+                                      ? 'bg-emerald-500/20 text-emerald-400'
+                                      : 'bg-orange-500/20 text-orange-400'
+                                  )}>
+                                    {isObserved ? '✓' : player.name.charAt(0).toUpperCase()}
+                                  </span>
+                                  <span className="truncate">{player.name.split(' ')[0]}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </>
                       );
                     })()}
 
                     <button
                       type="button"
-                      onClick={() => { setTemplateStep('pick'); setSelectedTemplate(null); }}
+                      onClick={() => { setTemplateStep('pick'); setSelectedTemplate(null); setPlayerSearch(''); }}
                       className="self-start text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
                     >
                       ← Back
