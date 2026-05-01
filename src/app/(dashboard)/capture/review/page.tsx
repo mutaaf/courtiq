@@ -57,6 +57,12 @@ const sentimentLabel: Record<Sentiment, string> = {
   neutral: 'Neutral',
 };
 
+const SKILL_CATEGORIES = [
+  'awareness', 'attitude', 'defense', 'dribbling', 'effort',
+  'footwork', 'general', 'hustle', 'iq', 'leadership',
+  'offense', 'passing', 'rebounding', 'shooting', 'teamwork',
+];
+
 export default function ReviewPage() {
   const router = useRouter();
   const { activeTeam, coach } = useActiveTeam();
@@ -75,6 +81,9 @@ export default function ReviewPage() {
   const [aiUpgrade, setAiUpgrade] = useState<{ message: string } | null>(null);
   const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [roster, setRoster] = useState<Array<{ id: string; name: string }>>([]);
+  const [editingPlayerFor, setEditingPlayerFor] = useState<string | null>(null);
+  const [editingCategoryFor, setEditingCategoryFor] = useState<string | null>(null);
 
   const isApiKeyError = (msg: string): boolean => {
     const lower = msg.toLowerCase();
@@ -235,6 +244,32 @@ export default function ReviewPage() {
     setLoading(false);
     return () => { cancelled = true; };
   }, [activeTeam]);
+
+  // Fetch roster so coaches can reassign observations to a different player
+  useEffect(() => {
+    if (!activeTeam) return;
+    query<Array<{ id: string; name: string }>>({
+      table: 'players',
+      select: 'id, name',
+      filters: { team_id: activeTeam.id, is_active: true },
+    }).then((players) => {
+      if (players) setRoster(players.sort((a, b) => a.name.localeCompare(b.name)));
+    });
+  }, [activeTeam]);
+
+  const reassignPlayer = (obsId: string, playerName: string) => {
+    setObservations((prev) =>
+      prev.map((o) => (o.id === obsId ? { ...o, player_name: playerName } : o))
+    );
+    setEditingPlayerFor(null);
+  };
+
+  const reassignCategory = (obsId: string, category: string) => {
+    setObservations((prev) =>
+      prev.map((o) => (o.id === obsId ? { ...o, category } : o))
+    );
+    setEditingCategoryFor(null);
+  };
 
   const confirmObservation = (id: string) => {
     setObservations((prev) =>
@@ -725,9 +760,68 @@ export default function ReviewPage() {
               >
                 <CardContent className="p-4">
                   {/* Player & Category */}
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-zinc-100">{obs.player_name}</span>
-                    <Badge variant="outline">{obs.category}</Badge>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Player name — tap to reassign to a different roster player */}
+                    {editingPlayerFor === obs.id ? (
+                      <select
+                        autoFocus
+                        className="rounded border border-orange-500/50 bg-zinc-800 px-2 py-0.5 text-sm font-semibold text-zinc-100 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        defaultValue={obs.player_name}
+                        onChange={(e) => reassignPlayer(obs.id, e.target.value)}
+                        onBlur={() => setEditingPlayerFor(null)}
+                      >
+                        {roster.map((p) => (
+                          <option key={p.id} value={p.name}>{p.name}</option>
+                        ))}
+                        {!roster.some((p) => p.name === obs.player_name) && (
+                          <option value={obs.player_name}>{obs.player_name} (unmatched)</option>
+                        )}
+                      </select>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => roster.length > 0 && setEditingPlayerFor(obs.id)}
+                        className={`font-semibold text-zinc-100 transition-colors ${roster.length > 0 ? 'hover:text-orange-400 active:text-orange-300 cursor-pointer' : 'cursor-default'}`}
+                        title={roster.length > 0 ? 'Tap to reassign player' : ''}
+                      >
+                        {obs.player_name}
+                        {roster.length > 0 && (
+                          <span className="ml-1 text-[10px] text-zinc-600">▾</span>
+                        )}
+                      </button>
+                    )}
+
+                    {/* Category badge — tap to change skill category */}
+                    {editingCategoryFor === obs.id ? (
+                      <select
+                        autoFocus
+                        className="rounded border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        defaultValue={obs.category}
+                        onChange={(e) => reassignCategory(obs.id, e.target.value)}
+                        onBlur={() => setEditingCategoryFor(null)}
+                      >
+                        {SKILL_CATEGORIES.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                        {!SKILL_CATEGORIES.includes(obs.category) && (
+                          <option value={obs.category}>{obs.category}</option>
+                        )}
+                      </select>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setEditingCategoryFor(obs.id)}
+                        title="Tap to change skill category"
+                      >
+                        <Badge
+                          variant="outline"
+                          className="cursor-pointer hover:border-orange-400/60 hover:text-orange-300 transition-colors"
+                        >
+                          {obs.category}
+                        </Badge>
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => {
