@@ -326,6 +326,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     skillChallenge,
     activeGoals,
     weeklyStarData,
+    playerOfMatch,
     nextSession,
   } = data;
 
@@ -524,6 +525,65 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
               {/* Coach shoutout */}
               {weeklyStarData.coach_shoutout && (
                 <p className="mt-3 text-right text-xs font-medium text-amber-200">
+                  — {coachName ? `Coach ${coachName}` : 'Your coach'}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ─── Player of the Match ─── */}
+        {playerOfMatch && (
+          <div className="mx-4 mt-4 overflow-hidden rounded-2xl shadow-md"
+               style={{ background: 'linear-gradient(135deg, #78350f 0%, #92400e 40%, #b45309 70%, #c2410c 100%)' }}>
+            <div className="px-5 py-4">
+              {/* Badge row */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl" aria-hidden="true">🏅</span>
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-orange-100">
+                      Player of the Match
+                    </p>
+                    {playerOfMatch.session_label && (
+                      <p className="text-[10px] text-orange-200">{playerOfMatch.session_label}</p>
+                    )}
+                  </div>
+                </div>
+                <span className="rounded-full bg-white/20 px-3 py-1 text-[11px] font-bold text-white">
+                  🔥 Game MVP!
+                </span>
+              </div>
+
+              {/* Headline */}
+              {playerOfMatch.headline && (
+                <p className="mt-3 text-lg font-bold leading-snug text-white">
+                  {playerOfMatch.headline}
+                </p>
+              )}
+
+              {/* Achievement */}
+              {playerOfMatch.achievement && (
+                <p className="mt-2 text-sm leading-relaxed text-orange-50">
+                  {playerOfMatch.achievement}
+                </p>
+              )}
+
+              {/* Key moment */}
+              {playerOfMatch.key_moment && (
+                <div className="mt-3 rounded-xl bg-white/20 px-3 py-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-200 mb-1">
+                    🎯 Key moment
+                  </p>
+                  <p className="text-sm text-white leading-snug italic">
+                    &ldquo;{playerOfMatch.key_moment}&rdquo;
+                  </p>
+                </div>
+              )}
+
+              {/* Coach message */}
+              {playerOfMatch.coach_message && (
+                <p className="mt-3 text-right text-xs font-medium text-orange-200">
                   — {coachName ? `Coach ${coachName}` : 'Your coach'}
                 </p>
               )}

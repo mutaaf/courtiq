@@ -82,14 +82,63 @@ export default function DemoPage() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const transcriptRef = useRef('');
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      stopEverything();
-    };
-  }, []);
+  const processWithAI = async (rawTranscript: string) => {
+    // Empty transcript → show sample observations
+    if (!rawTranscript || !rawTranscript.trim()) {
+      setTimeout(() => {
+        setObservations(ENHANCED_MOCK_OBSERVATIONS);
+        setFromAI(false);
+        setTranscript('(No speech detected — showing sample observations)');
+        setStep('results');
+        setTimeout(() => setShowSignupModal(true), 3000);
+      }, 1500);
+      return;
+    }
 
-  const stopEverything = () => {
+    try {
+      // Public endpoint — no auth required, IP rate-limited
+      const response = await fetch('/api/ai/demo-segment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcript: rawTranscript,
+          demoRoster: DEMO_TEAM_CONTEXT.roster,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (!result.fallback && result.observations && result.observations.length > 0) {
+          setObservations(
+            result.observations.map((obs: any) => ({
+              player_name: obs.player_name,
+              category: obs.category,
+              sentiment: obs.sentiment,
+              text: obs.text,
+              stats: obs.stats || null,
+              tendency: obs.tendency || null,
+            }))
+          );
+          setFromAI(true);
+          setStep('results');
+          setTimeout(() => setShowSignupModal(true), 3000);
+          return;
+        }
+      }
+    } catch {
+      // Network error — fall through to mock
+    }
+
+    // Fallback: use pre-built sample observations
+    setTimeout(() => {
+      setObservations(ENHANCED_MOCK_OBSERVATIONS);
+      setFromAI(false);
+      setStep('results');
+      setTimeout(() => setShowSignupModal(true), 3000);
+    }, 1500);
+  };
+
+  const stopEverything = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch {}
@@ -101,7 +150,17 @@ export default function DemoPage() {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
-  };
+  }, []);
+
+  const finishRecording = useCallback(() => {
+    stopEverything();
+    setStep('processing');
+
+    const capturedTranscript = transcriptRef.current;
+
+    // Try to call the real AI endpoint
+    processWithAI(capturedTranscript);
+  }, [stopEverything]);
 
   const startRecording = useCallback(async () => {
     setTranscript('');
@@ -167,73 +226,14 @@ export default function DemoPage() {
         alert('Microphone access is required for the demo. Please allow microphone access.');
       }
     }
-  }, []);
+  }, [finishRecording]);
 
-  const finishRecording = useCallback(() => {
-    stopEverything();
-    setStep('processing');
-
-    const capturedTranscript = transcriptRef.current;
-
-    // Try to call the real AI endpoint
-    processWithAI(capturedTranscript);
-  }, []);
-
-  const processWithAI = async (rawTranscript: string) => {
-    // Empty transcript → show sample observations
-    if (!rawTranscript || !rawTranscript.trim()) {
-      setTimeout(() => {
-        setObservations(ENHANCED_MOCK_OBSERVATIONS);
-        setFromAI(false);
-        setTranscript('(No speech detected — showing sample observations)');
-        setStep('results');
-        setTimeout(() => setShowSignupModal(true), 3000);
-      }, 1500);
-      return;
-    }
-
-    try {
-      // Public endpoint — no auth required, IP rate-limited
-      const response = await fetch('/api/ai/demo-segment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transcript: rawTranscript,
-          demoRoster: DEMO_TEAM_CONTEXT.roster,
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (!result.fallback && result.observations && result.observations.length > 0) {
-          setObservations(
-            result.observations.map((obs: any) => ({
-              player_name: obs.player_name,
-              category: obs.category,
-              sentiment: obs.sentiment,
-              text: obs.text,
-              stats: obs.stats || null,
-              tendency: obs.tendency || null,
-            }))
-          );
-          setFromAI(true);
-          setStep('results');
-          setTimeout(() => setShowSignupModal(true), 3000);
-          return;
-        }
-      }
-    } catch {
-      // Network error — fall through to mock
-    }
-
-    // Fallback: use pre-built sample observations
-    setTimeout(() => {
-      setObservations(ENHANCED_MOCK_OBSERVATIONS);
-      setFromAI(false);
-      setStep('results');
-      setTimeout(() => setShowSignupModal(true), 3000);
-    }, 1500);
-  };
+  // Cleanup on unmount — stopEverything is declared above
+  useEffect(() => {
+    return () => {
+      stopEverything();
+    };
+  }, [stopEverything]);
 
   const handleTextSubmit = () => {
     if (!textInput.trim()) return;

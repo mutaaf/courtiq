@@ -175,7 +175,7 @@ export default function CapturePage() {
     } catch {
       // silent — coverage is a nice-to-have
     }
-  }, [urlSessionId, activeTeam?.id]);
+  }, [urlSessionId, activeTeam]);
 
   useEffect(() => {
     if (!urlSessionId || !activeTeam?.id) return;
@@ -286,6 +286,7 @@ export default function CapturePage() {
         await new Promise(resolve => setTimeout(resolve, 500));
 
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        // eslint-disable-next-line react-hooks/immutability
         await processRecording(audioBlob, mimeType);
       };
 

@@ -258,6 +258,42 @@ export async function GET(
     }
     reportData.weeklyStarData = weeklyStarData;
 
+    // Most recent Player of the Match for this player — shown on parent portal as a
+    // gold MVP card after game/scrimmage/tournament sessions. player_of_match plans
+    // are team-level; we match by player name. Show within the last 14 days so it
+    // stays tied to a recent specific game.
+    let playerOfMatch: Record<string, string> | null = null;
+    if (player?.name) {
+      const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: matchPlans } = await supabase
+        .from('plans')
+        .select('content_structured, created_at')
+        .eq('team_id', share.team_id)
+        .eq('type', 'player_of_match')
+        .gte('created_at', fourteenDaysAgo)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (matchPlans && matchPlans.length > 0) {
+        const playerNameLower = player.name.toLowerCase().trim();
+        const playerFirstName = player.name.split(' ')[0].toLowerCase().trim();
+        for (const plan of matchPlans) {
+          const content = plan.content_structured as any;
+          const matchName = (content?.player_name || '').toLowerCase().trim();
+          if (
+            matchName === playerNameLower ||
+            matchName === playerFirstName ||
+            matchName.startsWith(playerFirstName + ' ') ||
+            playerNameLower.startsWith(matchName + ' ')
+          ) {
+            playerOfMatch = content;
+            break;
+          }
+        }
+      }
+    }
+    reportData.playerOfMatch = playerOfMatch;
+
     // Most recent AI-generated skill challenge for this player — shown as
     // "Practice at Home" on the parent portal so parents have actionable
     // home-practice steps without the coach having to do anything extra.

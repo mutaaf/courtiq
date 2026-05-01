@@ -23,7 +23,9 @@ export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
   const isDraggingRef = useRef(false);
   const isRefreshingRef = useRef(false);
   const onRefreshRef = useRef(onRefresh);
-  onRefreshRef.current = onRefresh;
+  useEffect(() => {
+    onRefreshRef.current = onRefresh;
+  });
   const reducedMotion = useReducedMotion();
 
   const [indicatorState, setIndicatorState] = useState<IndicatorState>('hidden');

@@ -72,6 +72,16 @@ const WEEKLY_STAR = {
   coach_shoutout: "You're exactly the kind of teammate every coach dreams of coaching. Keep it up!",
 };
 
+const PLAYER_OF_MATCH = {
+  session_label: 'Game vs. Lincoln Eagles — Apr 26',
+  headline: "Took over when it mattered most!",
+  achievement:
+    "Marcus was the clear standout in Saturday's win over Lincoln Eagles. He finished with a string of defensive stops in the fourth quarter and kept the team's energy high throughout. His intensity was contagious — the whole team fed off it.",
+  key_moment:
+    "With 2 minutes left and the game tied, Marcus read the passing lane perfectly, got the steal, and converted the layup that put the Rockets up for good. Pure instinct.",
+  coach_message: "You showed every kid on that team what it looks like to compete. So proud of you.",
+};
+
 const HOME_CHALLENGE = {
   title: 'Figure-8 Ball Handling Challenge',
   minutes: 5,
@@ -269,6 +279,44 @@ export default function DemoReportPage() {
             </div>
 
             <p className="mt-3 text-right text-xs font-medium text-amber-200">
+              — Coach {TEAM.coach}
+            </p>
+          </div>
+        </div>
+
+        {/* ─── Player of the Match ─── */}
+        <div className="mx-4 mt-4 overflow-hidden rounded-2xl shadow-md"
+             style={{ background: 'linear-gradient(135deg, #78350f 0%, #92400e 40%, #b45309 70%, #c2410c 100%)' }}>
+          <div className="px-5 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl" aria-hidden="true">🏅</span>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-orange-100">
+                    Player of the Match
+                  </p>
+                  <p className="text-[10px] text-orange-200">{PLAYER_OF_MATCH.session_label}</p>
+                </div>
+              </div>
+              <span className="rounded-full bg-white/20 px-3 py-1 text-[11px] font-bold text-white">
+                🔥 Game MVP!
+              </span>
+            </div>
+
+            <p className="mt-3 text-lg font-bold leading-snug text-white">{PLAYER_OF_MATCH.headline}</p>
+
+            <p className="mt-2 text-sm leading-relaxed text-orange-50">{PLAYER_OF_MATCH.achievement}</p>
+
+            <div className="mt-3 rounded-xl bg-white/20 px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-200 mb-1">
+                🎯 Key moment
+              </p>
+              <p className="text-sm text-white leading-snug italic">
+                &ldquo;{PLAYER_OF_MATCH.key_moment}&rdquo;
+              </p>
+            </div>
+
+            <p className="mt-3 text-right text-xs font-medium text-orange-200">
               — Coach {TEAM.coach}
             </p>
           </div>
