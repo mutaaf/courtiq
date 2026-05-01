@@ -52,6 +52,7 @@ import {
   Check,
   BookOpen,
   PenLine,
+  Medal,
   Send,
   Share2,
   Plus,
@@ -88,6 +89,11 @@ import {
   hasNextSessionHint,
 } from '@/lib/huddle-script-utils';
 import type { HuddleScript } from '@/lib/huddle-script-utils';
+import type { PlayerOfMatch } from '@/lib/ai/schemas';
+import {
+  buildMatchShareText,
+  buildMatchSessionLabel,
+} from '@/lib/player-of-match-utils';
 import { matchMessageToPlayer, countPlayersWithPhone, type ParentEmailPlayer } from '@/lib/parent-email-utils';
 import { buildWhatsAppUrl } from '@/lib/birthday-utils';
 import {
@@ -406,6 +412,223 @@ function SessionCoverageTracker({
                 </span>
               ))}
             </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Player of the Match Card ──────────────────────────────────────────────────
+// Gold-themed one-tap card for game / scrimmage / tournament sessions.
+// AI picks the standout player from session observations and writes a
+// shareable shoutout — the immediate post-game viral moment.
+
+function PlayerOfMatchCard({
+  sessionId,
+  teamId,
+  session,
+  coachName,
+  teamName,
+}: {
+  sessionId: string;
+  teamId: string;
+  session: { type: string; opponent?: string | null; date?: string | null };
+  coachName: string;
+  teamName: string;
+}) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<PlayerOfMatch | null>(null);
+  const [expanded, setExpanded] = useState(true);
+  const [shared, setShared] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const sessionLabel = buildMatchSessionLabel(session.type, session.opponent, session.date);
+
+  async function handleGenerate() {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/ai/player-of-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, teamId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate Player of the Match');
+      }
+      const data = await res.json();
+      setResult(data.result);
+      setExpanded(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function handleShare() {
+    if (!result) return;
+    const text = buildMatchShareText(result, teamName, coachName);
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `Player of the Match — ${result.player_name}`, text });
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      } else {
+        const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+        window.open(waUrl, '_blank', 'noopener,noreferrer');
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      }
+    } catch { /* user cancelled */ }
+  }
+
+  async function handleCopy() {
+    if (!result) return;
+    const text = buildMatchShareText(result, teamName, coachName);
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <Card className={result ? 'border-yellow-500/30 bg-yellow-500/5' : 'border-zinc-800'}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Medal className="h-5 w-5 text-yellow-400" />
+            Player of the Match
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            {result && (
+              <>
+                <button
+                  onClick={handleCopy}
+                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+                  aria-label="Copy to clipboard"
+                >
+                  {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+                <button
+                  onClick={handleGenerate}
+                  disabled={isGenerating}
+                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors disabled:opacity-40"
+                  aria-label="Regenerate Player of the Match"
+                >
+                  {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                  Refresh
+                </button>
+                <button
+                  onClick={() => setExpanded((v) => !v)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+                  aria-label={expanded ? 'Collapse' : 'Expand'}
+                  aria-expanded={expanded}
+                >
+                  {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent>
+        {!result && !isGenerating && (
+          <div className="flex flex-col items-center justify-center py-6 text-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-yellow-500/10">
+              <Medal className="h-7 w-7 text-yellow-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-zinc-200">Who was your standout player?</p>
+              <p className="text-xs text-zinc-500 mt-1 max-w-xs mx-auto">
+                AI picks the best performer from your game observations and writes a shareable shoutout — send it to the parent group chat in one tap.
+              </p>
+            </div>
+            <Button
+              onClick={handleGenerate}
+              className="bg-yellow-600 hover:bg-yellow-700 text-white"
+            >
+              <Medal className="h-4 w-4" />
+              Name the Player of the Match
+            </Button>
+            {error && <p className="text-xs text-red-400 max-w-xs text-center">{error}</p>}
+          </div>
+        )}
+
+        {isGenerating && !result && (
+          <div className="flex flex-col items-center justify-center py-8 gap-3">
+            <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
+            <p className="text-sm text-zinc-400">Picking your standout player…</p>
+          </div>
+        )}
+
+        {result && expanded && (
+          <div className="space-y-4">
+            {/* Player name + headline banner */}
+            <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-yellow-500/20">
+                  <Medal className="h-6 w-6 text-yellow-400" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-lg font-bold text-zinc-100">{result.player_name}</span>
+                    <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2.5 py-0.5 text-xs font-semibold text-yellow-300">
+                      Player of the Match
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium text-yellow-300 mt-0.5">{result.headline}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">{result.session_label}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Achievement */}
+            {result.achievement && (
+              <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-3.5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1.5">What They Did</p>
+                <p className="text-sm text-zinc-200 leading-relaxed">{result.achievement}</p>
+              </div>
+            )}
+
+            {/* Key moment */}
+            {result.key_moment && (
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-amber-500 mb-1.5 flex items-center gap-1.5">
+                  <Star className="h-3 w-3" />
+                  Key Moment
+                </p>
+                <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{result.key_moment}&rdquo;</p>
+              </div>
+            )}
+
+            {/* Coach message */}
+            {result.coach_message && (
+              <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-3.5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1.5 flex items-center gap-1.5">
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  From the Coach
+                </p>
+                <p className="text-sm text-zinc-200 leading-relaxed italic">&ldquo;{result.coach_message}&rdquo;</p>
+              </div>
+            )}
+
+            {/* Share button */}
+            <button
+              onClick={handleShare}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-yellow-500/30 bg-yellow-500/10 py-3 text-sm font-semibold text-yellow-300 transition-all hover:bg-yellow-500/15 active:scale-[0.98] touch-manipulation"
+              aria-label="Share Player of the Match"
+            >
+              {shared ? (
+                <><Check className="h-4 w-4" /> Shared!</>
+              ) : (
+                <><Share2 className="h-4 w-4" /> Share with Parent Group Chat</>
+              )}
+            </button>
           </div>
         )}
       </CardContent>
@@ -3140,6 +3363,16 @@ export default function SessionDetailPage() {
             {label}
           </button>
         ))}
+        {(session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
+          <button
+            type="button"
+            onClick={() => document.getElementById('player-of-match-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-yellow-500/30 bg-yellow-500/5 px-3 py-2 text-xs font-medium text-yellow-400 transition-colors hover:border-yellow-500/60 hover:bg-yellow-500/10 active:scale-95 touch-manipulation"
+          >
+            <Medal className="h-3.5 w-3.5" aria-hidden="true" />
+            Player MVP
+          </button>
+        )}
         <Link href="/plans" className="shrink-0 flex items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs font-medium text-zinc-400 transition-colors hover:border-emerald-500/50 hover:bg-zinc-800 hover:text-emerald-400 active:scale-95 touch-manipulation">
           <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />
           Plan Next
@@ -3449,6 +3682,19 @@ export default function SessionDetailPage() {
           teamId={activeTeam.id}
           opponent={session.opponent}
         />
+      )}
+
+      {/* Player of the Match — game/scrimmage/tournament only */}
+      {activeTeam && (session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
+        <div id="player-of-match-section">
+          <PlayerOfMatchCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+            session={{ type: session.type, opponent: session.opponent, date: session.date }}
+            coachName={coach?.full_name ?? 'Coach'}
+            teamName={activeTeam.name}
+          />
+        </div>
       )}
 
       {/* Game Recap — game/scrimmage/tournament only */}

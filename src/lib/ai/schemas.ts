@@ -281,6 +281,17 @@ export const gameRecapSchema = z.object({
 
 export type GameRecap = z.infer<typeof gameRecapSchema>;
 
+export const playerOfMatchSchema = z.object({
+  player_name: z.string(),
+  session_label: z.string(),               // e.g. "Game vs. Lincoln"
+  headline: z.string().min(5),            // catchy 5–8 word phrase
+  achievement: z.string().min(10),        // 2–3 sentences of what they did well
+  key_moment: z.string().min(10),         // 1–2 sentences quoting a specific observation
+  coach_message: z.string().min(5),       // warm 1-sentence coach shoutout
+});
+
+export type PlayerOfMatch = z.infer<typeof playerOfMatchSchema>;
+
 export const weeklyStarSchema = z.object({
   player_name: z.string(),
   week_label: z.string(),

@@ -54,6 +54,7 @@ import {
   Lock,
   Fingerprint,
   Search,
+  Medal,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { PrintButton } from '@/components/ui/print-button';
@@ -89,6 +90,7 @@ const PLAN_TYPE_CONFIG: Record<
   team_personality: { label: 'Team Personality', icon: Fingerprint, color: 'text-violet-400' },
   practice_arc: { label: 'Practice Series', icon: Zap, color: 'text-sky-400' },
   skill_challenge: { label: 'Skill Challenges', icon: Zap, color: 'text-amber-400' },
+  player_of_match: { label: 'Player of the Match', icon: Medal, color: 'text-yellow-400' },
 };
 
 const SUGGESTION_CHIPS = [
@@ -96,6 +98,51 @@ const SUGGESTION_CHIPS = [
   'Game day sheet',
   'Ball handling drills',
 ];
+
+function MatchShareButton({ shareText, playerName }: { shareText: string; playerName: string }) {
+  const [shared, setShared] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function handleShare() {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `Player of the Match — ${playerName}`, text: shareText });
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      } else {
+        const waUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+        window.open(waUrl, '_blank', 'noopener,noreferrer');
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      }
+    } catch { /* user cancelled */ }
+  }
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(shareText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div className="flex gap-2">
+      <button
+        onClick={handleShare}
+        className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-yellow-500/30 bg-yellow-500/10 py-3 text-sm font-semibold text-yellow-300 transition-all hover:bg-yellow-500/15 active:scale-[0.98] touch-manipulation"
+        aria-label="Share Player of the Match"
+      >
+        {shared ? <><Check className="h-4 w-4" /> Shared!</> : <><Share2 className="h-4 w-4" /> Share</>}
+      </button>
+      <button
+        onClick={handleCopy}
+        className="flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm font-medium text-zinc-300 transition-all hover:bg-zinc-700 active:scale-[0.98] touch-manipulation"
+        aria-label="Copy to clipboard"
+      >
+        {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+      </button>
+    </div>
+  );
+}
 
 function PlayerMsgItem({ msg }: { msg: { player_name: string; message: string; highlight: string; next_focus: string } }) {
   const [copied, setCopied] = useState(false);
@@ -2052,6 +2099,78 @@ export default function PlansPage() {
               </div>
             </div>
           )}
+        </div>
+      );
+    }
+
+    // Player of the Match renderer
+    if (structured.player_name && structured.achievement && structured.key_moment && structured.coach_message && !structured.week_label) {
+      const shareText = [
+        `🏅 Player of the Match`,
+        structured.session_label ?? '',
+        '',
+        `⭐ ${structured.player_name}: ${structured.headline}`,
+        '',
+        structured.achievement,
+        '',
+        structured.key_moment ? `"${structured.key_moment}"` : '',
+        '',
+        `"${structured.coach_message}"`,
+        '',
+        'Powered by SportsIQ',
+      ].filter(Boolean).join('\n').replace(/\n{3,}/g, '\n\n');
+
+      return (
+        <div className="space-y-4">
+          {/* Header banner */}
+          <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-yellow-500/20">
+                <Medal className="h-6 w-6 text-yellow-400" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                  <span className="text-lg font-bold text-zinc-100">{structured.player_name}</span>
+                  <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2.5 py-0.5 text-xs font-semibold text-yellow-300">
+                    Player of the Match
+                  </span>
+                </div>
+                {structured.headline && (
+                  <p className="text-sm font-medium text-yellow-300">{structured.headline}</p>
+                )}
+                {structured.session_label && (
+                  <p className="text-xs text-zinc-500 mt-0.5">{structured.session_label}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Achievement */}
+          {structured.achievement && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-3.5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1.5">What They Did</p>
+              <p className="text-sm text-zinc-200 leading-relaxed">{structured.achievement}</p>
+            </div>
+          )}
+
+          {/* Key moment */}
+          {structured.key_moment && (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-amber-500 mb-1.5">Key Moment</p>
+              <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{structured.key_moment}&rdquo;</p>
+            </div>
+          )}
+
+          {/* Coach message */}
+          {structured.coach_message && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-3.5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1.5">From the Coach</p>
+              <p className="text-sm text-zinc-200 leading-relaxed italic">&ldquo;{structured.coach_message}&rdquo;</p>
+            </div>
+          )}
+
+          {/* Share button */}
+          <MatchShareButton shareText={shareText} playerName={structured.player_name as string} />
         </div>
       );
     }

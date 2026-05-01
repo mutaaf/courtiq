@@ -569,6 +569,42 @@ export const PROMPT_REGISTRY = {
       '{ "image_description": "brief description of what you see", "observations": [{ "player_name", "category", "sentiment", "text", "skill_id" }], "team_observations": [{ "category", "sentiment", "text" }] }',
     ].filter(Boolean).join('\n'),
   }),
+  playerOfMatch: (params: PromptParams & {
+    playerName: string;
+    sessionLabel: string;
+    positiveObservations: Array<{ category: string; text: string }>;
+    allObsCount: number;
+    positiveCount: number;
+    topCategories: string[];
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You write a celebratory "Player of the Match" spotlight for the coach to share with parents immediately after a game.',
+      '',
+      'Rules:',
+      '- Tone is immediate, enthusiastic, warm — like a post-game shoutout in the team WhatsApp group.',
+      '- Base everything on the observations provided. Do not invent skills not mentioned.',
+      '- The headline is 5–8 words max, catchy, no player name (it will be added separately).',
+      '- The achievement (2–3 sentences) describes exactly what made this game special.',
+      '- The key_moment must quote or directly paraphrase ONE specific observation from the list.',
+      '- The coach_message is a single warm sentence the coach would actually say to this player.',
+      '- Use age-appropriate, encouraging language suitable for youth sports.',
+    ].join('\n'),
+    user: [
+      `Team: ${params.teamName} (${params.sportName}, ${params.ageGroup})`,
+      `Session: ${params.sessionLabel}`,
+      `Player: ${params.playerName}`,
+      `Total observations this game: ${params.allObsCount} (${params.positiveCount} positive)`,
+      `Top skill areas: ${params.topCategories.join(', ')}`,
+      '',
+      'Observations that earned the spotlight:',
+      params.positiveObservations.map((o) => `- [${o.category}] ${o.text}`).join('\n'),
+      '',
+      'Write the Player of the Match card as JSON:',
+      '{ "player_name": "string", "session_label": "string (copy from Session above)", "headline": "string (5-8 words, no player name)", "achievement": "string (2-3 sentences, warm and specific)", "key_moment": "string (1-2 sentences, directly quoting one observation)", "coach_message": "string (1 sentence, personal and warm)" }',
+    ].filter(Boolean).join('\n'),
+  }),
+
   playerWeeklyStar: (params: PromptParams & {
     playerName: string;
     weekLabel: string;
