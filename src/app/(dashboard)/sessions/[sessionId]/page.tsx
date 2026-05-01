@@ -3364,14 +3364,32 @@ export default function SessionDetailPage() {
           </button>
         ))}
         {(session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
-          <button
-            type="button"
-            onClick={() => document.getElementById('player-of-match-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-            className="flex shrink-0 items-center gap-1.5 rounded-full border border-yellow-500/30 bg-yellow-500/5 px-3 py-2 text-xs font-medium text-yellow-400 transition-colors hover:border-yellow-500/60 hover:bg-yellow-500/10 active:scale-95 touch-manipulation"
-          >
-            <Medal className="h-3.5 w-3.5" aria-hidden="true" />
-            Player MVP
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => document.getElementById('halftime-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-purple-500/30 bg-purple-500/5 px-3 py-2 text-xs font-medium text-purple-400 transition-colors hover:border-purple-500/60 hover:bg-purple-500/10 active:scale-95 touch-manipulation"
+            >
+              <Shuffle className="h-3.5 w-3.5" aria-hidden="true" />
+              Halftime
+            </button>
+            <button
+              type="button"
+              onClick={() => document.getElementById('player-of-match-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-yellow-500/30 bg-yellow-500/5 px-3 py-2 text-xs font-medium text-yellow-400 transition-colors hover:border-yellow-500/60 hover:bg-yellow-500/10 active:scale-95 touch-manipulation"
+            >
+              <Medal className="h-3.5 w-3.5" aria-hidden="true" />
+              Player MVP
+            </button>
+            <button
+              type="button"
+              onClick={() => document.getElementById('game-recap-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/5 px-3 py-2 text-xs font-medium text-rose-400 transition-colors hover:border-rose-500/60 hover:bg-rose-500/10 active:scale-95 touch-manipulation"
+            >
+              <Radio className="h-3.5 w-3.5" aria-hidden="true" />
+              Recap
+            </button>
+          </>
         )}
         <Link href="/plans" className="shrink-0 flex items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs font-medium text-zinc-400 transition-colors hover:border-emerald-500/50 hover:bg-zinc-800 hover:text-emerald-400 active:scale-95 touch-manipulation">
           <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />
@@ -3677,11 +3695,13 @@ export default function SessionDetailPage() {
 
       {/* Half-Time Adjustments — game/scrimmage/tournament only */}
       {activeTeam && (session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
-        <HalftimeAdjustmentsCard
-          sessionId={sessionId}
-          teamId={activeTeam.id}
-          opponent={session.opponent}
-        />
+        <div id="halftime-section">
+          <HalftimeAdjustmentsCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+            opponent={session.opponent}
+          />
+        </div>
       )}
 
       {/* Player of the Match — game/scrimmage/tournament only */}
@@ -3699,10 +3719,12 @@ export default function SessionDetailPage() {
 
       {/* Game Recap — game/scrimmage/tournament only */}
       {activeTeam && (session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
-        <GameRecapCard
-          sessionId={sessionId}
-          teamId={activeTeam.id}
-        />
+        <div id="game-recap-section">
+          <GameRecapCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+          />
+        </div>
       )}
 
       {/* Coach Reflection Journal — all session types */}
