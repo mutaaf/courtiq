@@ -551,7 +551,7 @@ export default function ReviewPage() {
                 <>
                   <Button
                     className="w-full"
-                    onClick={() => router.push(`/sessions/${sessionId}`)}
+                    onClick={() => router.push(`/sessions/${sessionId}?fromPractice=1&obsCount=${savedCount ?? 0}&playerCount=${uniquePlayers}`)}
                   >
                     <Sparkles className="h-4 w-4" />
                     AI Debrief &amp; Parent Updates
@@ -559,7 +559,7 @@ export default function ReviewPage() {
                   <Button
                     variant="outline"
                     className="w-full"
-                    onClick={() => router.push('/capture')}
+                    onClick={() => router.push(`/capture?sessionId=${sessionId}`)}
                   >
                     <Mic className="h-4 w-4" />
                     Capture More
