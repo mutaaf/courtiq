@@ -1117,6 +1117,122 @@ export default function PlansPage() {
       );
     }
 
+    // Development Card renderer
+    if (
+      typeof structured.player_name === 'string' &&
+      Array.isArray(structured.strengths) &&
+      Array.isArray(structured.growth_areas) &&
+      Array.isArray(structured.goals)
+    ) {
+      const goals = structured.goals as Array<{
+        skill: string; current_level: string; target_level: string; action_steps: string[];
+      }>;
+      const drills = (structured.recommended_drills ?? []) as Array<{
+        name: string; description: string; focus: string;
+      }>;
+      return (
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-indigo-500/10 to-indigo-500/5 p-5 space-y-1">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-indigo-400" />
+              <h2 className="text-lg font-bold text-indigo-200">Development Card</h2>
+            </div>
+            <p className="text-sm text-zinc-400">{structured.player_name}</p>
+          </div>
+
+          {/* Strengths & Growth Areas */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {structured.strengths.length > 0 && (
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400">Strengths</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(structured.strengths as string[]).map((s, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-300">
+                      ✓ {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {structured.growth_areas.length > 0 && (
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-amber-400">Growth Areas</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(structured.growth_areas as string[]).map((g, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-300">
+                      → {g}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Goals */}
+          {goals.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Development Goals</p>
+              {goals.map((goal, i) => (
+                <div key={i} className="rounded-xl border border-zinc-700/50 bg-zinc-900/60 p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-xs font-bold text-indigo-300">{i + 1}</div>
+                      <p className="text-sm font-semibold text-zinc-100">{goal.skill}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 text-[11px] text-zinc-500">
+                      <span className="rounded-full bg-zinc-800 px-2 py-0.5">{goal.current_level}</span>
+                      <span>→</span>
+                      <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-indigo-300">{goal.target_level}</span>
+                    </div>
+                  </div>
+                  {Array.isArray(goal.action_steps) && goal.action_steps.length > 0 && (
+                    <ul className="space-y-1 pl-8">
+                      {goal.action_steps.map((step, si) => (
+                        <li key={si} className="flex items-start gap-1.5 text-xs text-zinc-400">
+                          <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-600" />
+                          {step}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Recommended Drills */}
+          {drills.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Recommended Drills</p>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {drills.map((d, i) => (
+                  <div key={i} className="rounded-xl border border-zinc-700/50 bg-zinc-900/40 p-3 space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <Dumbbell className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+                      <p className="text-sm font-medium text-zinc-200 leading-tight">{d.name}</p>
+                    </div>
+                    <p className="text-xs text-zinc-400 leading-relaxed">{d.description}</p>
+                    {d.focus && (
+                      <span className="inline-block rounded-full bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 text-[11px] text-indigo-300">Focus: {d.focus}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Coach Note */}
+          {structured.coach_note && (
+            <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/40 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Coach Note</p>
+              <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{structured.coach_note}&rdquo;</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     // Skill Challenge renderer
     if (Array.isArray(structured.challenges) && typeof structured.player_name === 'string') {
       const challenges = structured.challenges as Array<{

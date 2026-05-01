@@ -230,6 +230,11 @@ export default function PlayerDetailPage({
   const [selfSuccess, setSelfSuccess] = useState(false);
   const [expandedAssessment, setExpandedAssessment] = useState<string | null>(null);
 
+  // Development Card state
+  const [devCardLoading, setDevCardLoading] = useState(false);
+  const [devCardError, setDevCardError] = useState<string | null>(null);
+  const [devCardData, setDevCardData] = useState<any>(null);
+
   // Observation highlights filter
   const [obsHighlightsOnly, setObsHighlightsOnly] = useState(false);
 
@@ -440,6 +445,29 @@ export default function PlayerDetailPage({
       setTimeout(() => setChallengeTextCopied(false), 2000);
     } catch {
       // clipboard not available
+    }
+  }
+
+  async function handleGenerateDevCard() {
+    if (!activeTeam || !player) return;
+    setDevCardLoading(true);
+    setDevCardError(null);
+    try {
+      const res = await fetch('/api/ai/development-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id, playerId: player.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate development card');
+      }
+      const data = await res.json();
+      setDevCardData(data.content);
+    } catch (err) {
+      setDevCardError(err instanceof Error ? err.message : 'Generation failed');
+    } finally {
+      setDevCardLoading(false);
     }
   }
 
@@ -1039,6 +1067,163 @@ export default function PlayerDetailPage({
               />
             </div>
           )}
+
+          {/* Development Card */}
+          <Card className="lg:col-span-2 border-indigo-500/20">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-indigo-400" />
+                <CardTitle className="text-base">Development Card</CardTitle>
+              </div>
+              {devCardData && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleGenerateDevCard}
+                  disabled={devCardLoading}
+                  className="h-8 px-2 text-xs text-zinc-400 hover:text-zinc-200"
+                  aria-label="Regenerate development card"
+                >
+                  {devCardLoading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent>
+              {devCardError && (
+                <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400 mb-4">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{devCardError}</span>
+                </div>
+              )}
+
+              {!devCardData && !devCardLoading && (
+                <div className="flex flex-col items-center py-6 text-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-500/10">
+                    <TrendingUp className="h-6 w-6 text-indigo-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-zinc-200">AI Development Card</p>
+                    <p className="text-xs text-zinc-500 mt-0.5">Get a personalised strengths analysis, development goals, and drill recommendations for {player?.name ?? 'this player'}.</p>
+                  </div>
+                  <Button size="sm" onClick={handleGenerateDevCard} disabled={devCardLoading} className="bg-indigo-600 hover:bg-indigo-500 text-white">
+                    <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                    Generate Development Card
+                  </Button>
+                </div>
+              )}
+
+              {devCardLoading && !devCardData && (
+                <div className="flex flex-col items-center py-8 gap-3 text-zinc-500">
+                  <Loader2 className="h-6 w-6 animate-spin text-indigo-400" />
+                  <p className="text-sm">Analysing {player?.name}&rsquo;s data&hellip;</p>
+                </div>
+              )}
+
+              {devCardData && (
+                <div className="space-y-4">
+                  {/* Strengths & Growth Areas */}
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {Array.isArray(devCardData.strengths) && devCardData.strengths.length > 0 && (
+                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400">Strengths</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(devCardData.strengths as string[]).map((s: string, i: number) => (
+                            <span key={i} className="inline-flex items-center rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-300">
+                              ✓ {s}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {Array.isArray(devCardData.growth_areas) && devCardData.growth_areas.length > 0 && (
+                      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 space-y-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-400">Growth Areas</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(devCardData.growth_areas as string[]).map((g: string, i: number) => (
+                            <span key={i} className="inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-300">
+                              → {g}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Goals */}
+                  {Array.isArray(devCardData.goals) && devCardData.goals.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Development Goals</p>
+                      {devCardData.goals.map((goal: any, i: number) => (
+                        <div key={i} className="rounded-xl border border-zinc-700/50 bg-zinc-900/60 p-3 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-[10px] font-bold text-indigo-300">{i + 1}</div>
+                              <p className="text-sm font-semibold text-zinc-100">{goal.skill}</p>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0 text-[11px] text-zinc-500">
+                              <span className="rounded-full bg-zinc-800 px-2 py-0.5">{goal.current_level}</span>
+                              <span>→</span>
+                              <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-indigo-300">{goal.target_level}</span>
+                            </div>
+                          </div>
+                          {Array.isArray(goal.action_steps) && goal.action_steps.length > 0 && (
+                            <ul className="space-y-1 pl-7">
+                              {goal.action_steps.map((step: string, si: number) => (
+                                <li key={si} className="flex items-start gap-1.5 text-xs text-zinc-400">
+                                  <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-zinc-600" />
+                                  {step}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Recommended Drills */}
+                  {Array.isArray(devCardData.recommended_drills) && devCardData.recommended_drills.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Recommended Drills</p>
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {devCardData.recommended_drills.map((d: any, i: number) => (
+                          <div key={i} className="rounded-xl border border-zinc-700/50 bg-zinc-900/40 p-3 space-y-1">
+                            <div className="flex items-center gap-1.5">
+                              <Sparkles className="h-3 w-3 text-indigo-400 shrink-0" />
+                              <p className="text-xs font-medium text-zinc-200 leading-tight">{d.name}</p>
+                            </div>
+                            <p className="text-xs text-zinc-500 leading-relaxed">{d.description}</p>
+                            {d.focus && (
+                              <span className="inline-block rounded-full bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 text-[10px] text-indigo-300">
+                                {d.focus}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Coach Note */}
+                  {devCardData.coach_note && (
+                    <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/40 p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-1.5">Coach Note</p>
+                      <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{devCardData.coach_note}&rdquo;</p>
+                    </div>
+                  )}
+
+                  <Link href="/plans" className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+                    <ExternalLink className="h-3 w-3" />
+                    View in Plans
+                  </Link>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Recent Observations */}
           <Card className="lg:col-span-2">
