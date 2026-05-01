@@ -455,6 +455,7 @@ function DoneScreen({
   sessionId,
   isRecovered,
   onStartFresh,
+  presentPlayers,
 }: {
   drillsRun: QueueItem[];
   notes: CapturedNote[];
@@ -464,6 +465,7 @@ function DoneScreen({
   sessionId: string;
   isRecovered?: boolean;
   onStartFresh?: () => void;
+  presentPlayers?: { id: string; name: string }[];
 }) {
   const [rating, setRating] = useState<number>(0);
   const [ratingSaved, setRatingSaved] = useState(false);
@@ -630,6 +632,35 @@ function DoneScreen({
             <p className="text-xs text-zinc-600 text-center">Tap a star — helps track session quality over time</p>
           )}
         </div>
+
+        {/* Unobserved players strip — shows who had no observations this session */}
+        {(() => {
+          if (!presentPlayers || presentPlayers.length === 0) return null;
+          const observedIds = new Set(notes.filter((n) => n.playerId).map((n) => n.playerId!));
+          const unobserved = presentPlayers.filter((p) => !observedIds.has(p.id));
+          if (unobserved.length === 0) return null;
+          return (
+            <div className="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2 text-left">
+              <p className="text-xs font-semibold text-amber-300 flex items-center gap-1.5">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {unobserved.length} player{unobserved.length !== 1 ? 's' : ''} not yet observed
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {unobserved.map((p) => (
+                  <span
+                    key={p.id}
+                    className="inline-flex items-center rounded-full bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 text-xs font-medium text-amber-200"
+                  >
+                    {p.name.split(' ')[0]}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[10px] text-amber-400/60">
+                Focus on these players next session to maintain even coverage.
+              </p>
+            </div>
+          );
+        })()}
 
         {saveError && (
           <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 rounded-lg px-4 py-3 w-full">
@@ -1452,6 +1483,7 @@ export default function PracticeTimerPage({
         sessionId={sessionId}
         isRecovered={isRecovered}
         onStartFresh={handleStartFresh}
+        presentPlayers={presentPlayers}
       />
     );
   }
