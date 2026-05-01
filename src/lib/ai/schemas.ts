@@ -400,6 +400,15 @@ export const huddleScriptSchema = z.object({
 
 export type HuddleScript = z.infer<typeof huddleScriptSchema>;
 
+export const teamTalkSchema = z.object({
+  team_talk: z.string().min(30),                   // Full 20-30 second script the coach reads aloud at session start
+  focus_words: z.array(z.string().min(2).max(20)).min(2).max(3),  // 2-3 one-word themes to display visually
+  energy_level: z.enum(['high', 'focused', 'calm']),              // Guides coach delivery tone
+  chant: z.string().min(5).max(60),               // Closing team chant, e.g. "1-2-3 ROCKETS!"
+});
+
+export type TeamTalk = z.infer<typeof teamTalkSchema>;
+
 export const teamPersonalitySchema = z.object({
   team_type: z.string().min(3).max(40),          // e.g. "The Grinders"
   type_emoji: z.string().min(1).max(4),          // e.g. "💪"

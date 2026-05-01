@@ -89,7 +89,7 @@ import {
   hasNextSessionHint,
 } from '@/lib/huddle-script-utils';
 import type { HuddleScript } from '@/lib/huddle-script-utils';
-import type { PlayerOfMatch } from '@/lib/ai/schemas';
+import type { PlayerOfMatch, TeamTalk } from '@/lib/ai/schemas';
 import {
   buildMatchShareText,
   buildMatchSessionLabel,
@@ -2090,6 +2090,179 @@ function HuddleScriptCard({
   );
 }
 
+// ─── Opening Team Talk ────────────────────────────────────────────────────────
+
+const ENERGY_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  high: { label: 'High energy', color: 'text-orange-400', bg: 'bg-orange-500/10' },
+  focused: { label: 'Stay focused', color: 'text-amber-400', bg: 'bg-amber-500/10' },
+  calm: { label: 'Calm & patient', color: 'text-sky-400', bg: 'bg-sky-500/10' },
+};
+
+function TeamTalkCard({
+  sessionId,
+  teamId,
+  session,
+}: {
+  sessionId: string;
+  teamId: string;
+  session: Session;
+}) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const sessionDate = new Date(session.date + 'T00:00:00');
+  const isUpcoming = sessionDate >= today;
+
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [teamTalk, setTeamTalk] = useState<TeamTalk | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  if (!isUpcoming) return null;
+
+  async function handleGenerate() {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/ai/team-talk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, teamId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate team talk');
+      }
+      const data = await res.json();
+      setTeamTalk(data.teamTalk);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function handleCopy() {
+    if (!teamTalk) return;
+    const text = `${teamTalk.team_talk}\n\n${teamTalk.chant}`;
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  const energyCfg = ENERGY_CONFIG[teamTalk?.energy_level ?? 'focused'];
+
+  return (
+    <Card className={teamTalk ? 'border-amber-500/20' : 'border-zinc-800'}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Megaphone className="h-5 w-5 text-amber-400" />
+            Opening Team Talk
+          </CardTitle>
+          {teamTalk && (
+            <button
+              onClick={handleGenerate}
+              disabled={isGenerating}
+              className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors disabled:opacity-40"
+              aria-label="Regenerate team talk"
+            >
+              {isGenerating ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3 w-3" />
+              )}
+              Refresh
+            </button>
+          )}
+        </div>
+        <p className="text-xs text-zinc-500">
+          AI-written script to read aloud to your team before the session starts
+        </p>
+      </CardHeader>
+      <CardContent>
+        {!teamTalk && !isGenerating && (
+          <div className="flex flex-col items-center justify-center py-6 text-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10">
+              <Megaphone className="h-7 w-7 text-amber-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-zinc-200">Generate your opening talk</p>
+              <p className="text-xs text-zinc-500 mt-1 max-w-xs mx-auto">
+                Get a personalized 20-second script to energize your team at the start of
+                {session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament'
+                  ? ' the game'
+                  : ' practice'}.
+              </p>
+            </div>
+            <Button
+              onClick={handleGenerate}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              <Sparkles className="h-4 w-4" />
+              Generate Team Talk
+            </Button>
+            {error && <p className="text-xs text-red-400">{error}</p>}
+          </div>
+        )}
+
+        {isGenerating && !teamTalk && (
+          <div className="flex flex-col items-center justify-center py-8 gap-3">
+            <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+            <p className="text-sm text-zinc-400">Writing your team talk...</p>
+          </div>
+        )}
+
+        {teamTalk && (
+          <div className="space-y-4">
+            {/* Energy level badge + focus words */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${energyCfg.bg} ${energyCfg.color}`}>
+                {energyCfg.label}
+              </span>
+              {(teamTalk.focus_words || []).map((word, i) => (
+                <span key={i} className="rounded-full bg-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-300">
+                  {word}
+                </span>
+              ))}
+            </div>
+
+            {/* Script */}
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-500 mb-2">
+                Say this to the team
+              </p>
+              <p className="text-sm leading-relaxed text-zinc-100 italic">
+                "{teamTalk.team_talk}"
+              </p>
+            </div>
+
+            {/* Chant */}
+            <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-3 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">
+                Team chant
+              </p>
+              <p className="text-base font-bold text-zinc-100">{teamTalk.chant}</p>
+            </div>
+
+            {/* Copy button */}
+            <Button
+              onClick={handleCopy}
+              variant="outline"
+              className="w-full border-zinc-700 text-zinc-300 hover:bg-zinc-800 gap-2"
+            >
+              {copied ? (
+                <><Check className="h-4 w-4 text-emerald-400" />Copied to clipboard!</>
+              ) : (
+                <><Copy className="h-4 w-4" />Copy script</>
+              )}
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Pre-Practice Parent Reminder ────────────────────────────────────────────
 
 function PracticeReminderCard({
@@ -3033,6 +3206,13 @@ export default function SessionDetailPage() {
     });
   }
 
+  const isSessionUpcoming = (() => {
+    if (!session?.date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(session.date + 'T00:00:00') >= today;
+  })();
+
   function formatTime(time: string | null) {
     if (!time) return null;
     const [h, m] = time.split(':');
@@ -3363,6 +3543,16 @@ export default function SessionDetailPage() {
             {label}
           </button>
         ))}
+        {isSessionUpcoming && (
+          <button
+            type="button"
+            onClick={() => document.getElementById('team-talk-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs font-medium text-amber-400 transition-colors hover:border-amber-500/60 hover:bg-amber-500/10 active:scale-95 touch-manipulation"
+          >
+            <Megaphone className="h-3.5 w-3.5" aria-hidden="true" />
+            Team Talk
+          </button>
+        )}
         {(session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
           <>
             <button
@@ -3470,6 +3660,17 @@ export default function SessionDetailPage() {
           sessionId={sessionId}
           teamId={activeTeam.id}
         />
+      )}
+
+      {/* Opening Team Talk — upcoming/today sessions only */}
+      {activeTeam && session && (
+        <div id="team-talk-section">
+          <TeamTalkCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+            session={session}
+          />
+        </div>
       )}
 
       {/* Observations */}

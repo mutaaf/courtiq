@@ -91,6 +91,7 @@ const PLAN_TYPE_CONFIG: Record<
   practice_arc: { label: 'Practice Series', icon: Zap, color: 'text-sky-400' },
   skill_challenge: { label: 'Skill Challenges', icon: Zap, color: 'text-amber-400' },
   player_of_match: { label: 'Player of the Match', icon: Medal, color: 'text-yellow-400' },
+  team_talk: { label: 'Opening Team Talk', icon: Megaphone, color: 'text-amber-400' },
 };
 
 const SUGGESTION_CHIPS = [
@@ -2821,6 +2822,41 @@ export default function PlansPage() {
               </div>
             </div>
           )}
+        </div>
+      );
+    }
+
+    // Opening Team Talk renderer
+    if (
+      typeof structured.team_talk === 'string' &&
+      Array.isArray(structured.focus_words) &&
+      typeof structured.chant === 'string'
+    ) {
+      const talk = structured as any;
+      const energyConfig: Record<string, { label: string; color: string; bg: string }> = {
+        high: { label: 'High energy', color: 'text-orange-400', bg: 'bg-orange-500/10' },
+        focused: { label: 'Stay focused', color: 'text-amber-400', bg: 'bg-amber-500/10' },
+        calm: { label: 'Calm & patient', color: 'text-sky-400', bg: 'bg-sky-500/10' },
+      };
+      const energyCfg = energyConfig[talk.energy_level] ?? energyConfig.focused;
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${energyCfg.bg} ${energyCfg.color}`}>
+              {energyCfg.label}
+            </span>
+            {(talk.focus_words as string[]).map((word: string, i: number) => (
+              <span key={i} className="rounded-full bg-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-300">{word}</span>
+            ))}
+          </div>
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-500 mb-2">Say this to the team</p>
+            <p className="text-sm leading-relaxed text-zinc-100 italic">"{talk.team_talk}"</p>
+          </div>
+          <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-3 text-center">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">Team chant</p>
+            <p className="text-base font-bold text-zinc-100">{talk.chant}</p>
+          </div>
         </div>
       );
     }
