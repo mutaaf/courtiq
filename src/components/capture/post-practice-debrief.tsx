@@ -21,6 +21,7 @@ import {
   MessageCircle,
   Send,
   Copy,
+  Megaphone,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import Link from 'next/link';
@@ -96,6 +97,9 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
   // Quick Plan Next Practice state
   type PlanState = 'idle' | 'generating' | 'ready' | 'error';
   const [planState, setPlanState] = useState<PlanState>('idle');
+
+  // Instant Huddle Script state
+  const [huddleCopied, setHuddleCopied] = useState(false);
 
   useEffect(() => {
     if (!activeTeam?.id) return;
@@ -334,6 +338,49 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
     }
     onClose();
   }
+
+  function buildInstantHuddle(): string {
+    const standoutNames = selectedPlayers
+      .map(id => players.find(p => p.id === id)?.name.split(' ')[0])
+      .filter((n): n is string => Boolean(n));
+
+    const lines: string[] = ['Bring it in!'];
+
+    if (standoutNames.length === 1) {
+      lines.push(`Big shoutout to ${standoutNames[0]} — you really showed up today.`);
+    } else if (standoutNames.length === 2) {
+      lines.push(`Big shoutout to ${standoutNames[0]} and ${standoutNames[1]} — you both really showed up today.`);
+    } else if (standoutNames.length >= 3) {
+      const rest = [...standoutNames];
+      const last = rest.pop()!;
+      lines.push(`Big shoutout to ${rest.join(', ')} and ${last} — you all really showed up today.`);
+    }
+
+    if (positives.length > 0) {
+      const wins = positives.slice(0, 2).map(p => p.text.toLowerCase()).join(' and ');
+      lines.push(`What I loved today: ${wins}. That's our identity.`);
+    }
+
+    if (needsWork.length > 0) {
+      lines.push(`Next time we're focusing on ${needsWork[0].text.toLowerCase()}. That's how we get better.`);
+    }
+
+    const tn = activeTeam?.name || 'team';
+    lines.push(`Let's go ${tn}! On three: one, two, three, ${tn.toUpperCase()}!`);
+    return lines.join(' ');
+  }
+
+  function handleCopyHuddle() {
+    const script = buildInstantHuddle();
+    navigator.clipboard.writeText(script).catch(() => {});
+    setHuddleCopied(true);
+    setTimeout(() => setHuddleCopied(false), 2000);
+  }
+
+  const showHuddle =
+    step === 'done' &&
+    savedSummary &&
+    (selectedPlayers.length > 0 || positives.length > 0 || needsWork.length > 0);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -740,6 +787,30 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                   </div>
                 )}
               </div>
+
+              {/* Instant Huddle Script */}
+              {showHuddle && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Megaphone className="h-4 w-4 text-amber-400 shrink-0" />
+                    <p className="text-xs font-semibold text-amber-300">Instant Huddle Script</p>
+                    <span className="ml-auto text-xs text-amber-400/60">Read out loud now</span>
+                  </div>
+                  <p className="text-sm text-zinc-200 leading-relaxed mb-3">
+                    {buildInstantHuddle()}
+                  </p>
+                  <button
+                    onClick={handleCopyHuddle}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 py-2 text-xs font-semibold text-amber-300 transition-colors touch-manipulation active:scale-[0.97]"
+                  >
+                    {huddleCopied ? (
+                      <><Check className="h-3.5 w-3.5" />Copied!</>
+                    ) : (
+                      <><Copy className="h-3.5 w-3.5" />Copy Script</>
+                    )}
+                  </button>
+                </div>
+              )}
 
               <Button
                 variant="ghost"
