@@ -84,6 +84,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
   const [saving, setSaving] = useState(false);
   const [savedSummary, setSavedSummary] = useState<SavedSummary | null>(null);
   const [sessionObservedIds, setSessionObservedIds] = useState<Set<string>>(new Set());
+  const [practiceRating, setPracticeRating] = useState<number | null>(null);
 
   // Share with Parents state
   type ShareState = 'idle' | 'generating' | 'ready' | 'copied' | 'shared' | 'error' | 'upgrade';
@@ -273,6 +274,20 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
     setSavedSummary({ obsCount, playerCount });
     setSaving(false);
     setStep('done');
+  }
+
+  async function handleRatePractice(rating: number) {
+    setPracticeRating(rating);
+    try {
+      await mutate({
+        table: 'sessions',
+        operation: 'update',
+        data: { quality_rating: rating },
+        filters: { id: sessionId },
+      });
+    } catch {
+      // silent — rating is nice-to-have
+    }
   }
 
   function handleClose() {
@@ -502,6 +517,35 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                     {' '}AI debrief is generating in the background.
                   </p>
                 </div>
+              </div>
+
+              {/* Quick session quality rating */}
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+                <p className="text-xs font-medium text-zinc-500 text-center mb-3">How did practice go?</p>
+                <div className="flex justify-center gap-1.5">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => handleRatePractice(star)}
+                      className={`h-11 w-11 flex items-center justify-center rounded-lg transition-all touch-manipulation active:scale-90 ${
+                        practiceRating !== null && star <= practiceRating
+                          ? 'text-amber-400'
+                          : 'text-zinc-700 hover:text-amber-400/60'
+                      }`}
+                      aria-label={`Rate ${star} star${star !== 1 ? 's' : ''}`}
+                    >
+                      <Star className={`h-7 w-7 ${practiceRating !== null && star <= practiceRating ? 'fill-amber-400' : ''}`} />
+                    </button>
+                  ))}
+                </div>
+                {practiceRating !== null && (
+                  <p className={`text-xs text-center mt-2 font-medium ${
+                    practiceRating >= 4 ? 'text-emerald-400' :
+                    practiceRating === 3 ? 'text-amber-400' : 'text-zinc-400'
+                  }`}>
+                    {['Poor', 'Fair', 'Good', 'Great', 'Excellent!'][practiceRating - 1]} — saved ✓
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

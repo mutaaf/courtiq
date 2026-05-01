@@ -23,6 +23,7 @@ import {
   Star,
   Eye,
   TrendingDown,
+  Loader2,
 } from 'lucide-react';
 import type { Session } from '@/types/database';
 import { useAppStore } from '@/lib/store';
@@ -373,9 +374,11 @@ export default function HomePage() {
   const practiceSessionId = useAppStore((s) => s.practiceSessionId);
   const setPracticeSessionId = useAppStore((s) => s.setPracticeSessionId);
   const setPracticeStartedAt = useAppStore((s) => s.setPracticeStartedAt);
+  const [startingPractice, setStartingPractice] = useState(false);
 
   async function startPractice() {
-    if (!activeTeam || !coach) return;
+    if (!activeTeam || !coach || startingPractice) return;
+    setStartingPractice(true);
     try {
       const session = await mutate<{ id: string }>({
         table: 'sessions',
@@ -397,6 +400,8 @@ export default function HomePage() {
       }
     } catch (err) {
       console.warn('Failed to start practice session:', err);
+    } finally {
+      setStartingPractice(false);
     }
   }
 
@@ -805,15 +810,22 @@ export default function HomePage() {
       ) : (
         <button
           onClick={startPractice}
-          className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 p-5 text-left text-white shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all touch-manipulation"
+          disabled={startingPractice}
+          className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 p-5 text-left text-white shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all touch-manipulation disabled:opacity-80 disabled:scale-100"
         >
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/20">
-              <Play className="h-7 w-7" />
+              {startingPractice ? (
+                <Loader2 className="h-7 w-7 animate-spin" />
+              ) : (
+                <Play className="h-7 w-7" />
+              )}
             </div>
             <div>
-              <p className="text-lg font-bold">Start Practice</p>
-              <p className="text-sm text-emerald-100">Tap when you arrive at the gym</p>
+              <p className="text-lg font-bold">{startingPractice ? 'Starting…' : 'Start Practice'}</p>
+              <p className="text-sm text-emerald-100">
+                {startingPractice ? 'Setting up your session' : 'Tap when you arrive at the gym'}
+              </p>
             </div>
           </div>
         </button>
