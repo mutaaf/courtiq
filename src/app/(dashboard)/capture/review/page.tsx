@@ -26,6 +26,8 @@ import {
   AlertTriangle,
   Sparkles,
   Calendar,
+  Dumbbell,
+  User,
 } from 'lucide-react';
 import Link from 'next/link';
 import { findPlayerByName } from '@/lib/player-match';
@@ -516,6 +518,15 @@ export default function ReviewPage() {
     );
   }
 
+  // Maps observation skill categories → drill library categories for deep-linking
+  const OBS_TO_DRILL_CATEGORY: Record<string, string> = {
+    defense: 'Defense', dribbling: 'Dribbling', offense: 'Offense',
+    passing: 'Passing', shooting: 'Shooting', teamwork: 'Teamwork',
+    effort: 'Conditioning', hustle: 'Conditioning', attitude: 'Conditioning',
+    awareness: 'Fundamentals', iq: 'Fundamentals', footwork: 'Fundamentals',
+    rebounding: 'Fundamentals',
+  };
+
   // Online success state
   if (savedCount !== null) {
     const savedObs = observations.filter((o) => o.status !== 'discarded');
@@ -523,6 +534,19 @@ export default function ReviewPage() {
     const needsWorkObs = savedObs.filter((o) => o.sentiment === 'needs-work');
     const uniquePlayers = new Set(savedObs.map((o) => o.player_name)).size;
     const topHighlights = positiveObs.slice(0, 2);
+
+    // Compute dominant needs-work category for drill shortcut
+    const gapCounts: Record<string, number> = {};
+    for (const obs of needsWorkObs) {
+      const cat = (obs.category || 'general').toLowerCase();
+      gapCounts[cat] = (gapCounts[cat] || 0) + 1;
+    }
+    const dominantGapCategory = Object.entries(gapCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    const drillCategory = dominantGapCategory ? (OBS_TO_DRILL_CATEGORY[dominantGapCategory] ?? null) : null;
+
+    // Single-player shortcut: find in roster for direct profile link
+    const singlePlayerName = uniquePlayers === 1 ? savedObs[0]?.player_name : null;
+    const singlePlayer = singlePlayerName ? roster.find((p) => p.name === singlePlayerName) : null;
 
     return (
       <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center p-4">
@@ -616,6 +640,35 @@ export default function ReviewPage() {
                 </>
               )}
             </div>
+
+            {/* Smart "Next Step" suggestions based on what was captured */}
+            {(drillCategory || singlePlayer) && (
+              <div className="space-y-2 border-t border-zinc-800 pt-3">
+                <p className="text-center text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                  Next Step
+                </p>
+                {drillCategory && (
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/drills?category=${encodeURIComponent(drillCategory)}`)}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm font-medium text-amber-300 transition-colors hover:bg-amber-500/20"
+                  >
+                    <Dumbbell className="h-4 w-4" />
+                    Find {drillCategory} drills
+                  </button>
+                )}
+                {singlePlayer && (
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/roster/${singlePlayer.id}`)}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/50 px-4 py-2.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700/50"
+                  >
+                    <User className="h-4 w-4" />
+                    View {singlePlayer.name.split(' ')[0]}&apos;s profile
+                  </button>
+                )}
+              </div>
+            )}
 
             {!sessionId && savedCount > 0 && (
               <p className="text-center text-xs text-zinc-600">

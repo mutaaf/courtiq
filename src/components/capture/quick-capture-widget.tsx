@@ -480,6 +480,8 @@ export function QuickCaptureWidget() {
             resetVoiceState();
             resetTemplateState();
             resetSweepState();
+            // During practice, default to Templates for faster in-court capture
+            if (practiceActive) setActiveTab('templates');
             setIsOpen(true);
           }}
           className={cn(
