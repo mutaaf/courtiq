@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Check, Clock, Mic, CheckCircle2 } from 'lucide-react';
+import { Check, Clock, Mic, CheckCircle2, PlusCircle } from 'lucide-react';
 import type { Player, PlayerAvailability } from '@/types/database';
 import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { AvailabilityBadge } from '@/components/roster/availability-badge';
@@ -221,6 +221,21 @@ export function PlayerCard({
                     <span className="text-lg font-bold text-orange-500">{observationCount}</span>
                     <span className="text-[10px] text-zinc-500">obs</span>
                   </div>
+                )}
+                {/* Quick observe button — one-tap ad-hoc observation without entering the player profile */}
+                {!selectMode && (
+                  <Link
+                    href={`/capture?playerId=${player.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex flex-col items-center gap-0.5 touch-manipulation"
+                    aria-label={`Add observation for ${player.name}`}
+                    title={`Add observation for ${player.name}`}
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 active:scale-95 transition-all">
+                      <PlusCircle className="h-3.5 w-3.5 text-zinc-400" />
+                    </div>
+                    <span className="text-[9px] text-zinc-500">Observe</span>
+                  </Link>
                 )}
                 {/* Tap when "available" to set a restriction */}
                 {!showBadge && teamId && !selectMode && (

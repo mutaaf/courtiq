@@ -1239,7 +1239,16 @@ export default function PlayerDetailPage({
             </CardHeader>
             <CardContent className="space-y-3">
               {observations.length === 0 ? (
-                <p className="text-sm text-zinc-500">No observations yet.</p>
+                <div className="flex flex-col items-center py-4 text-center">
+                  <p className="text-sm text-zinc-500">No observations yet.</p>
+                  <Link
+                    href={`/capture?playerId=${playerId}`}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-orange-500/15 px-3 py-1.5 text-sm font-medium text-orange-400 transition-colors hover:bg-orange-500/25 active:scale-95"
+                  >
+                    <Zap className="h-3.5 w-3.5" />
+                    Add first observation
+                  </Link>
+                </div>
               ) : (
                 observations.slice(0, 5).map((obs) => (
                   <div
@@ -1317,8 +1326,9 @@ export default function PlayerDetailPage({
                       <>
                         <Eye className="mb-3 h-10 w-10 text-zinc-700" />
                         <p className="text-zinc-400">No observations recorded for this player yet.</p>
-                        <Link href="/capture">
-                          <Button className="mt-4" size="sm">Start Capturing</Button>
+                        <p className="mt-1 text-xs text-zinc-600">Watch {player?.name?.split(' ')[0] ?? 'them'} at your next practice and tap to record what you see.</p>
+                        <Link href={`/capture?playerId=${playerId}`}>
+                          <Button className="mt-4" size="sm">Add First Observation</Button>
                         </Link>
                       </>
                     )}
