@@ -91,6 +91,15 @@ export default function CapturePage() {
     photo_url: string | null;
   } | null>(null);
 
+  // Last observation for the focused player — shown as a coaching context chip.
+  const [focusedPlayerLastObs, setFocusedPlayerLastObs] = useState<{
+    text: string;
+    sentiment: string;
+    category: string;
+    daysAgo: number;
+    fromCurrentSession: boolean;
+  } | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     if (!urlPlayerId || !activeTeam?.id) {
@@ -116,6 +125,41 @@ export default function CapturePage() {
     }).catch(() => {});
     return () => { cancelled = true; };
   }, [urlPlayerId, activeTeam?.id, coverageRoster]);
+
+  // Fetch the most recent observation for the focused player to show coaching context.
+  useEffect(() => {
+    let cancelled = false;
+    if (!urlPlayerId || !activeTeam?.id) {
+      setFocusedPlayerLastObs(null);
+      return;
+    }
+    const since30d = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    query<{ text: string; sentiment: string | null; category: string | null; created_at: string; session_id: string | null }[]>({
+      table: 'observations',
+      select: 'text, sentiment, category, created_at, session_id',
+      filters: {
+        player_id: urlPlayerId,
+        team_id: activeTeam.id,
+        created_at: { op: 'gte', value: since30d },
+      },
+      order: { column: 'created_at', ascending: false },
+      limit: 1,
+    }).then((obs) => {
+      if (cancelled) return;
+      const o = obs?.[0];
+      if (!o?.text) { setFocusedPlayerLastObs(null); return; }
+      const fromCurrentSession = !!(urlSessionId && o.session_id === urlSessionId);
+      const daysAgo = Math.max(0, Math.floor((Date.now() - new Date(o.created_at).getTime()) / 86_400_000));
+      setFocusedPlayerLastObs({
+        text: o.text,
+        sentiment: o.sentiment ?? 'neutral',
+        category: o.category ?? 'general',
+        daysAgo,
+        fromCurrentSession,
+      });
+    }).catch(() => { setFocusedPlayerLastObs(null); });
+    return () => { cancelled = true; };
+  }, [urlPlayerId, activeTeam?.id, urlSessionId]);
 
   const refreshCoverageObs = useCallback(async () => {
     if (!urlSessionId || !activeTeam?.id) return;
@@ -895,6 +939,7 @@ export default function CapturePage() {
             teamId={activeTeam.id}
             coachId={coach.id}
             sessionId={urlSessionId}
+            lastObs={focusedPlayerLastObs}
             onClose={() => setUrlPlayerId(null)}
             onSwitchPlayer={
               coverageRoster.length > 1

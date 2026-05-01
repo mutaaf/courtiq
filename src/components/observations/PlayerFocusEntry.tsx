@@ -41,6 +41,7 @@ import {
   type ObservationTemplate,
   type TemplateSentiment,
 } from '@/lib/observation-templates';
+import { formatLastObsTime, truncateObsText } from '@/lib/timer-focus-utils';
 import type { Sentiment } from '@/types/database';
 
 type FocusSentiment = Sentiment;
@@ -77,6 +78,14 @@ interface Props {
   /** Compact rendering for inline use on the player detail page. */
   compact?: boolean;
   autoFocusInput?: boolean;
+  /** Most recent observation for this player — shown as a context chip above the templates. */
+  lastObs?: {
+    text: string;
+    sentiment: string;
+    category: string;
+    daysAgo: number;
+    fromCurrentSession: boolean;
+  } | null;
 }
 
 const SENTIMENT_TABS: Array<{
@@ -110,6 +119,7 @@ export function PlayerFocusEntry({
   onClose,
   compact = false,
   autoFocusInput = false,
+  lastObs = null,
 }: Props) {
   const queryClient = useQueryClient();
   const [sentiment, setSentiment] = useState<FocusSentiment>('positive');
@@ -325,6 +335,30 @@ export function PlayerFocusEntry({
             )}
           </div>
         </div>
+
+        {/* Last observation context chip — helps coach recall what they noted last time */}
+        {lastObs && (
+          <div className={`flex items-start gap-2 rounded-xl px-3 py-2 text-xs border ${
+            lastObs.fromCurrentSession
+              ? 'bg-orange-500/10 border-orange-500/20 text-orange-200'
+              : lastObs.sentiment === 'positive'
+                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-200'
+                : 'bg-amber-500/10 border-amber-500/20 text-amber-200'
+          }`}>
+            <span className="shrink-0 mt-0.5" aria-hidden>
+              {lastObs.fromCurrentSession ? '📝' : lastObs.sentiment === 'positive' ? '✓' : '!'}
+            </span>
+            <div className="min-w-0">
+              <span className="font-semibold mr-1 opacity-70">
+                {formatLastObsTime(lastObs.daysAgo, lastObs.fromCurrentSession)}:
+              </span>
+              <span>{truncateObsText(lastObs.text, 72)}</span>
+              {lastObs.category && lastObs.category !== 'general' && (
+                <span className="ml-1 opacity-50">· {lastObs.category}</span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Sentiment tabs */}
         <div className="flex gap-2">
