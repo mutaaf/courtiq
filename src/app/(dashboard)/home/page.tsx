@@ -24,6 +24,7 @@ import {
   Eye,
   TrendingDown,
   Loader2,
+  Send,
 } from 'lucide-react';
 import type { Session } from '@/types/database';
 import { useAppStore } from '@/lib/store';
@@ -633,6 +634,17 @@ export default function HomePage() {
     return { label, count, href };
   }, [sessionObsStats]);
 
+  // Link for the "Parents" quick action: active session > last session > roster
+  const parentHref = useMemo(() => {
+    if (practiceActive && practiceSessionId) {
+      return `/sessions/${practiceSessionId}#player-messages-section`;
+    }
+    if (lastSession) {
+      return `/sessions/${lastSession.id}#player-messages-section`;
+    }
+    return '/roster';
+  }, [practiceActive, practiceSessionId, lastSession]);
+
   // ── No team state ─────────────────────────────────────────────────────────
   if (!activeTeam) {
     return (
@@ -832,7 +844,7 @@ export default function HomePage() {
       )}
 
       {/* Quick actions */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Link href={practiceActive && practiceSessionId ? `/capture?sessionId=${practiceSessionId}` : '/capture'}>
           <Card className="cursor-pointer transition-colors hover:border-orange-500/50 active:scale-[0.97] touch-manipulation">
             <CardContent className="flex flex-col items-center gap-3 p-3 sm:p-4 sm:gap-2">
@@ -860,6 +872,16 @@ export default function HomePage() {
                 <ClipboardList className="h-7 w-7 sm:h-6 sm:w-6 text-emerald-500" />
               </div>
               <span className="text-sm font-medium">Plans</span>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href={parentHref}>
+          <Card className="cursor-pointer transition-colors hover:border-teal-500/50 active:scale-[0.97] touch-manipulation">
+            <CardContent className="flex flex-col items-center gap-3 p-3 sm:p-4 sm:gap-2">
+              <div className="flex h-14 w-14 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-teal-500/20">
+                <Send className="h-7 w-7 sm:h-6 sm:w-6 text-teal-500" />
+              </div>
+              <span className="text-sm font-medium">Parents</span>
             </CardContent>
           </Card>
         </Link>
