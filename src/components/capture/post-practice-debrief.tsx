@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { buildWhatsAppUrl, formatGroupMessage } from '@/lib/team-group-message-utils';
 import type { TeamGroupMessage } from '@/lib/team-group-message-utils';
 
@@ -73,6 +74,7 @@ interface SavedSummary {
 export function PostPracticeDebrief({ sessionId, onClose }: Props) {
   const { activeTeam, coach } = useActiveTeam();
   const qc = useQueryClient();
+  const router = useRouter();
   const setPracticeActive = useAppStore((s) => s.setPracticeActive);
 
   const [step, setStep] = useState<Step>('standouts');
@@ -90,6 +92,10 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
   type ShareState = 'idle' | 'generating' | 'ready' | 'copied' | 'shared' | 'error' | 'upgrade';
   const [shareState, setShareState] = useState<ShareState>('idle');
   const [groupMessage, setGroupMessage] = useState<string | null>(null);
+
+  // Quick Plan Next Practice state
+  type PlanState = 'idle' | 'generating' | 'ready' | 'error';
+  const [planState, setPlanState] = useState<PlanState>('idle');
 
   useEffect(() => {
     if (!activeTeam?.id) return;
@@ -196,6 +202,36 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
     navigator.clipboard.writeText(groupMessage).catch(() => {});
     setShareState('copied');
     setTimeout(() => setShareState('ready'), 2000);
+  }
+
+  async function handleQuickPlan() {
+    if (!activeTeam?.id || planState === 'generating') return;
+    setPlanState('generating');
+    try {
+      const focusSkills = needsWork.length > 0 ? needsWork.map((t) => t.text) : undefined;
+      const res = await fetch('/api/ai/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId: activeTeam.id,
+          type: 'practice',
+          ...(focusSkills ? { focusSkills } : {}),
+        }),
+      });
+      if (!res.ok) {
+        setPlanState('error');
+        return;
+      }
+      await res.json();
+      setPlanState('ready');
+    } catch {
+      setPlanState('error');
+    }
+  }
+
+  function handleViewPlan() {
+    onClose();
+    router.push('/plans');
   }
 
   async function handleSave() {
@@ -559,14 +595,57 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                     <span className="text-xs text-zinc-500">AI debrief + timeline</span>
                   </button>
                 </Link>
-                <Link href="/plans" onClick={onClose}>
-                  <button className="w-full flex flex-col items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 p-4 text-center hover:border-orange-500/40 hover:bg-zinc-800 transition-colors touch-manipulation active:scale-[0.97]">
-                    <ClipboardList className="h-6 w-6 text-blue-400" />
-                    <span className="text-sm font-medium text-zinc-200">Plan Next Practice</span>
-                    <span className="text-xs text-zinc-500">AI-powered from today</span>
-                  </button>
-                </Link>
+
+                {/* Plan Next Practice — interactive generator */}
+                <button
+                  onClick={planState === 'ready' ? handleViewPlan : planState === 'idle' || planState === 'error' ? handleQuickPlan : undefined}
+                  disabled={planState === 'generating'}
+                  className={`w-full flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-colors touch-manipulation active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed ${
+                    planState === 'ready'
+                      ? 'border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/15'
+                      : planState === 'error'
+                        ? 'border-red-500/30 bg-zinc-800/60 hover:border-red-500/40'
+                        : 'border-zinc-700 bg-zinc-800/60 hover:border-blue-500/40 hover:bg-zinc-800'
+                  }`}
+                >
+                  {planState === 'generating' ? (
+                    <>
+                      <Loader2 className="h-6 w-6 text-blue-400 animate-spin" />
+                      <span className="text-sm font-medium text-zinc-300">Building…</span>
+                      <span className="text-xs text-zinc-500">Takes ~10s</span>
+                    </>
+                  ) : planState === 'ready' ? (
+                    <>
+                      <Check className="h-6 w-6 text-emerald-400" />
+                      <span className="text-sm font-medium text-emerald-300">Plan ready!</span>
+                      <span className="text-xs text-emerald-500/70">Tap to view →</span>
+                    </>
+                  ) : planState === 'error' ? (
+                    <>
+                      <AlertTriangle className="h-6 w-6 text-red-400" />
+                      <span className="text-sm font-medium text-zinc-200">Try again</span>
+                      <span className="text-xs text-zinc-500">Tap to retry</span>
+                    </>
+                  ) : (
+                    <>
+                      <ClipboardList className="h-6 w-6 text-blue-400" />
+                      <span className="text-sm font-medium text-zinc-200">Plan Next Practice</span>
+                      <span className="text-xs text-zinc-500">
+                        {needsWork.length > 0 ? `Focus: ${needsWork.slice(0, 2).map(t => t.text).join(', ')}` : 'AI-powered from today'}
+                      </span>
+                    </>
+                  )}
+                </button>
               </div>
+
+              {planState === 'error' && (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
+                  <p className="text-xs text-red-400">Couldn't generate plan — try from Plans page</p>
+                  <Link href="/plans" onClick={onClose} className="shrink-0 text-xs font-semibold text-red-400 hover:text-red-300">
+                    Open Plans →
+                  </Link>
+                </div>
+              )}
 
               {/* Share with Parents */}
               <div className="rounded-xl border border-teal-500/30 bg-teal-500/10 p-4">
