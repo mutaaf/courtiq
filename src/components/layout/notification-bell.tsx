@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Bell, X, AlertTriangle, Target, Calendar, Trophy, Cake, Heart } from 'lucide-react';
+import { Bell, X, AlertTriangle, Target, Calendar, Trophy, Cake, Heart, Eye } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useActiveTeam } from '@/hooks/use-active-team';
@@ -35,12 +35,13 @@ const TYPE_CONFIG: Record<
   NotificationType,
   { Icon: React.ElementType; color: string; label: string }
 > = {
-  unobserved_player:        { Icon: AlertTriangle, color: 'text-amber-400', label: 'Attention needed' },
+  unobserved_player:        { Icon: AlertTriangle, color: 'text-amber-400',  label: 'Attention needed' },
   goal_deadline:            { Icon: Target,        color: 'text-orange-400', label: 'Goal deadline' },
   session_today:            { Icon: Calendar,      color: 'text-blue-400',   label: 'Session today' },
   achievement_earned:       { Icon: Trophy,        color: 'text-emerald-400', label: 'Achievement' },
   birthday_today:           { Icon: Cake,          color: 'text-amber-400',  label: 'Birthday today' },
   parent_reaction_message:  { Icon: Heart,         color: 'text-pink-400',   label: 'Parent message' },
+  parent_viewed:            { Icon: Eye,           color: 'text-sky-400',    label: 'Parent viewed' },
 };
 
 const PRIORITY_DOT: Record<string, string> = {

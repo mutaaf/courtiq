@@ -8,7 +8,8 @@ export type NotificationType =
   | 'session_today'            // session scheduled today with no observations
   | 'achievement_earned'       // badge awarded in last 48 hours
   | 'birthday_today'           // player birthday is today
-  | 'parent_reaction_message'; // parent sent a message via share portal
+  | 'parent_reaction_message'  // parent sent a message via share portal
+  | 'parent_viewed';           // parent opened a player's share portal in last 48h
 
 export type NotificationPriority = 'high' | 'medium' | 'low';
 
@@ -81,7 +82,7 @@ export async function GET(request: Request) {
   const sevenDaysAgo = new Date(now - 7 * day).toISOString();
 
   // Fetch all data in parallel for minimal latency
-  const [playersRes, obsRes, goalsRes, sessionsRes, achievementsRes, reactionsRes] = await Promise.all([
+  const [playersRes, obsRes, goalsRes, sessionsRes, achievementsRes, reactionsRes, sharesRes] = await Promise.all([
     admin
       .from('players')
       .select('id, name, date_of_birth')
@@ -120,6 +121,15 @@ export async function GET(request: Request) {
       .gte('created_at', sevenDaysAgo)
       .order('created_at', { ascending: false })
       .limit(5),
+    admin
+      .from('parent_shares')
+      .select('id, player_id, view_count, last_viewed_at')
+      .eq('team_id', teamId)
+      .eq('is_active', true)
+      .gt('view_count', 0)
+      .gte('last_viewed_at', fortyEightHoursAgo)
+      .order('last_viewed_at', { ascending: false })
+      .limit(10),
   ]);
 
   const players = playersRes.data ?? [];
@@ -128,6 +138,7 @@ export async function GET(request: Request) {
   const sessions = sessionsRes.data ?? [];
   const achievements = achievementsRes.data ?? [];
   const parentReactions = reactionsRes.data ?? [];
+  const parentViews = sharesRes.data ?? [];
 
   // Build a player name lookup
   const playerMap: Record<string, string> = {};
@@ -225,7 +236,32 @@ export async function GET(request: Request) {
     });
   }
 
-  // ── 6. Player birthdays today ────────────────────────────────────────────────
+  // ── 6. Parent viewed share portal in last 48 hours ───────────────────────────
+  // Dedup by player_id — show only the most recent view per player.
+  const latestViewByPlayer = new Map<string, { shareId: string; viewedAt: string }>();
+  for (const share of parentViews) {
+    const pid = (share as any).player_id as string;
+    const viewedAt = (share as any).last_viewed_at as string;
+    const existing = latestViewByPlayer.get(pid);
+    if (!existing || viewedAt > existing.viewedAt) {
+      latestViewByPlayer.set(pid, { shareId: (share as any).id as string, viewedAt });
+    }
+  }
+  for (const [playerId, { shareId, viewedAt }] of latestViewByPlayer) {
+    const playerName = playerMap[playerId];
+    if (!playerName) continue; // skip shares whose player is no longer on this team
+    notifications.push({
+      id: buildNotificationId('parent_viewed', shareId),
+      type: 'parent_viewed',
+      title: `${playerName}'s parent viewed the report`,
+      body: 'They saw the progress update — a great time to add new observations.',
+      href: `/roster/${playerId}`,
+      priority: 'low',
+      timestamp: viewedAt,
+    });
+  }
+
+  // ── 7. Player birthdays today ────────────────────────────────────────────────
   const todayDate = new Date();
   for (const player of players) {
     const dob = (player as any).date_of_birth as string | null;
