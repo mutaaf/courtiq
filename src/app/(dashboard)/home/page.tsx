@@ -19,6 +19,7 @@ import {
   Play,
   Square,
   Timer,
+  BarChart2,
   History,
   Star,
   Eye,
@@ -127,6 +128,14 @@ function TodaySessionCard({
             <Button size="sm" variant="outline" className="shrink-0 gap-1.5">
               <Timer className="h-4 w-4" />
               Timer
+            </Button>
+          </Link>
+        )}
+        {(session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
+          <Link href={`/sessions/${session.id}/game-tracker`}>
+            <Button size="sm" variant="outline" className="shrink-0 gap-1.5">
+              <BarChart2 className="h-4 w-4" />
+              Stats
             </Button>
           </Link>
         )}
