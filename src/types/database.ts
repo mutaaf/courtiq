@@ -168,6 +168,8 @@ export interface Team {
   id: string;
   org_id: string;
   sport_id: string;
+  /** Slug of the sport (e.g. 'volleyball', 'basketball'). Resolved by /api/me via sports join. */
+  sport_slug?: string | null;
   curriculum_id: string | null;
   name: string;
   age_group: string;

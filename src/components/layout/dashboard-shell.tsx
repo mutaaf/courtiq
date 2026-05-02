@@ -435,7 +435,7 @@ export function DashboardShell({ coach, children }: Props) {
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-1.5 mb-3">
-                  {getTemplatesBySentiment(miniSentiment, activeTeam?.sport_id)
+                  {getTemplatesBySentiment(miniSentiment, activeTeam?.sport_slug ?? activeTeam?.sport_id)
                     .slice(0, 6)
                     .map((template) => (
                       <button

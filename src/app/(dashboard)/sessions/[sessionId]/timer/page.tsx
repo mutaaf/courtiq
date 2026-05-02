@@ -1427,9 +1427,10 @@ export default function PracticeTimerPage({
   });
 
   // ── Practice templates ───────────────────────────────────────────────────
+  const teamSportSlug = activeTeam?.sport_slug ?? activeTeam?.sport_id ?? '';
   const availableTemplates = rankTemplates(
-    getTemplatesForSport(activeTeam?.sport_id || ''),
-    activeTeam?.sport_id || '',
+    getTemplatesForSport(teamSportSlug),
+    teamSportSlug,
     activeTeam?.age_group || ''
   );
 
@@ -1550,7 +1551,7 @@ export default function PracticeTimerPage({
         onSkip={handleBreakSkip}
         capturedPlayerIds={capturedPlayerIds}
         lastObsByPlayer={lastObsByPlayer}
-        sportId={activeTeam?.sport_id}
+        sportId={activeTeam?.sport_slug ?? activeTeam?.sport_id}
       />
     );
   }

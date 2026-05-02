@@ -887,7 +887,7 @@ export default function PlayerDetailPage({
           teamId={activeTeam.id}
           coachId={coach.id}
           sessionId={practiceActive && practiceSessionId ? practiceSessionId : undefined}
-          sportId={activeTeam.sport_id}
+          sportId={activeTeam.sport_slug ?? activeTeam.sport_id}
           compact
           autoFocusInput
           onClose={() => setShowQuickEntry(false)}

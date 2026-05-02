@@ -1032,7 +1032,7 @@ export default function HomePage() {
         <FirstPracticeLauncher
           teamId={activeTeam.id}
           coachId={coach.id}
-          sportId={activeTeam.sport_id}
+          sportId={activeTeam.sport_slug ?? activeTeam.sport_id}
           ageGroup={activeTeam.age_group}
         />
       )}
