@@ -107,6 +107,7 @@ export const PROMPT_REGISTRY = {
   practicePlan: (params: PromptParams & {
     proficiencyData?: unknown;
     focusSkills?: string[];
+    promptText?: string;
     observationInsights?: ObservationInsightsParam;
   }) => {
     const insights = params.observationInsights;
@@ -183,6 +184,7 @@ export const PROMPT_REGISTRY = {
       ].join('\n'),
       user: [
         `Generate a practice plan for ${params.teamName || 'the team'}.`,
+        params.promptText ? `Coach's request: "${params.promptText}"` : '',
         params.focusSkills?.length ? `Requested focus skills: ${params.focusSkills.join(', ')}` : '',
         insightsBlock,
         params.proficiencyData ? `Additional proficiency data: ${JSON.stringify(params.proficiencyData)}` : '',

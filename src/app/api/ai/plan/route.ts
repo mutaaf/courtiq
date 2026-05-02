@@ -161,6 +161,7 @@ export async function POST(request: Request) {
     type = 'practice',
     opponent,
     focusSkills,
+    promptText,
     opponentStrengths,
     opponentWeaknesses,
     keyOpponentPlayers,
@@ -211,6 +212,7 @@ export async function POST(request: Request) {
       prompt = PROMPT_REGISTRY.practicePlan({
         ...context,
         focusSkills,
+        promptText: typeof promptText === 'string' && promptText.trim() ? promptText.trim() : undefined,
         observationInsights: observationInsights ?? undefined,
       });
       schema = practicePlanSchema;

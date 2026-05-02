@@ -627,6 +627,7 @@ export default function PlansPage() {
           teamId: activeTeam.id,
           type,
           focusSkills: focusSkills.length > 0 ? focusSkills : undefined,
+          promptText: !smartMode && text.trim() ? text.trim() : undefined,
         }),
       });
       if (!res.ok) {
