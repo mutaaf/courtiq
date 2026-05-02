@@ -14,7 +14,7 @@ interface RosterPlayer {
 
 interface PrePracticeSnapshotCardProps {
   teamId: string;
-  sessionId: string;
+  sessionId?: string;
   rosterPlayers: RosterPlayer[];
 }
 
@@ -126,12 +126,14 @@ export function PrePracticeSnapshotCard({
         )}
       </div>
 
-      <Link
-        href={`/sessions/${sessionId}`}
-        className="text-[11px] text-orange-400 hover:text-orange-300 transition-colors"
-      >
-        Full AI brief →
-      </Link>
+      {sessionId && (
+        <Link
+          href={`/sessions/${sessionId}`}
+          className="text-[11px] text-orange-400 hover:text-orange-300 transition-colors"
+        >
+          Full AI brief →
+        </Link>
+      )}
     </div>
   );
 }

@@ -652,7 +652,7 @@ export default function HomePage() {
         filters: { team_id: activeTeam.id, is_active: true },
       });
     },
-    enabled: !!activeTeam && (todaySessions.length > 0 || practiceActive || !!tomorrowSession),
+    enabled: !!activeTeam,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -967,6 +967,13 @@ export default function HomePage() {
               </div>
             </div>
           </button>
+          {/* Pre-practice coaching brief for coaches without a scheduled session */}
+          {!tomorrowSession && (
+            <PrePracticeSnapshotCard
+              teamId={activeTeam.id}
+              rosterPlayers={rosterPlayers}
+            />
+          )}
         </>
       )}
 
