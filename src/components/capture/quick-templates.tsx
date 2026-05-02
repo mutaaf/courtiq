@@ -32,8 +32,16 @@ interface QuickTemplatesProps {
   coachId: string;
   sessionId?: string | null;
   preselectPlayerId?: string | null;
+  sportId?: string | null;
   onSaved?: () => void;
 }
+
+// ── Sport label map ───────────────────────────────────────────────────────────
+
+const SPORT_LABELS: Record<string, string> = {
+  soccer: '⚽ Soccer',
+  flag_football: '🏈 Flag Football',
+};
 
 // ── Sentiment tab ──────────────────────────────────────────────────────────────
 
@@ -269,13 +277,13 @@ function SuccessToast({ message, onDismiss }: { message: string; onDismiss: () =
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId, onSaved: onSavedCallback }: QuickTemplatesProps) {
+export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId, sportId, onSaved: onSavedCallback }: QuickTemplatesProps) {
   const [activeTab, setActiveTab] = useState<TemplateSentiment>('positive');
   const [selectedTemplate, setSelectedTemplate] = useState<ObservationTemplate | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [successTimer, setSuccessTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
-  const templates = getTemplatesBySentiment(activeTab);
+  const templates = getTemplatesBySentiment(activeTab, sportId);
 
   const handleTemplateClick = useCallback((template: ObservationTemplate) => {
     setSelectedTemplate(template);
@@ -305,6 +313,11 @@ export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId, 
           <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
             Quick Templates
           </h2>
+          {sportId && SPORT_LABELS[sportId.toLowerCase()] && (
+            <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-medium text-zinc-400">
+              {SPORT_LABELS[sportId.toLowerCase()]}
+            </span>
+          )}
         </div>
 
         {/* Sentiment tabs */}

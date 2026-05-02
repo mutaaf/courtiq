@@ -940,6 +940,7 @@ export default function CapturePage() {
             teamId={activeTeam.id}
             coachId={coach.id}
             sessionId={urlSessionId}
+            sportId={activeTeam.sport_id}
             lastObs={focusedPlayerLastObs}
             onClose={() => setUrlPlayerId(null)}
             onSwitchPlayer={
@@ -1328,6 +1329,7 @@ export default function CapturePage() {
               coachId={coach.id}
               sessionId={urlSessionId}
               preselectPlayerId={urlPlayerId}
+              sportId={activeTeam.sport_id}
               onSaved={refreshCoverageObs}
             />
           </>

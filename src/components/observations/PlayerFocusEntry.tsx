@@ -37,7 +37,7 @@ import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 import {
-  OBSERVATION_TEMPLATES,
+  getTemplatesBySentiment,
   type ObservationTemplate,
   type TemplateSentiment,
 } from '@/lib/observation-templates';
@@ -71,6 +71,7 @@ interface Props {
   teamId: string;
   coachId: string;
   sessionId?: string | null;
+  sportId?: string | null;
   /** Triggered when the coach taps the Switch button. If omitted, button is hidden. */
   onSwitchPlayer?: () => void;
   /** Triggered when the coach dismisses focus mode entirely. */
@@ -115,6 +116,7 @@ export function PlayerFocusEntry({
   teamId,
   coachId,
   sessionId,
+  sportId,
   onSwitchPlayer,
   onClose,
   compact = false,
@@ -155,8 +157,8 @@ export function PlayerFocusEntry({
   const templatesForSentiment = useMemo<ObservationTemplate[]>(() => {
     if (sentiment === 'neutral') return []; // Neutral is freeform — encourages typing.
     const tone = sentiment as TemplateSentiment;
-    return OBSERVATION_TEMPLATES.filter((t) => t.sentiment === tone);
-  }, [sentiment]);
+    return getTemplatesBySentiment(tone, sportId);
+  }, [sentiment, sportId]);
 
   const invalidateAfterSave = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: queryKeys.observations.all(teamId) }).catch(() => {});

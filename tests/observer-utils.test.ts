@@ -16,7 +16,7 @@ import {
   checkObserverRateLimit,
   getObserverRateKey,
 } from '@/lib/observer-utils';
-import { OBSERVATION_TEMPLATES } from '@/lib/observation-templates';
+import { OBSERVATION_TEMPLATES, getTemplatesForSport } from '@/lib/observation-templates';
 
 // ── Token payload helpers ──────────────────────────────────────────────────────
 
@@ -160,6 +160,14 @@ describe('isValidTemplateId', () => {
     expect(isValidTemplateId('nw-defense')).toBe(true);
   });
 
+  it('returns true for a soccer template id', () => {
+    expect(isValidTemplateId('soc-pos-touch')).toBe(true);
+  });
+
+  it('returns true for a flag football template id', () => {
+    expect(isValidTemplateId('ff-pos-routes')).toBe(true);
+  });
+
   it('returns false for an unknown id', () => {
     expect(isValidTemplateId('not-a-real-id')).toBe(false);
   });
@@ -188,11 +196,19 @@ describe('getPositiveTemplates', () => {
     expect(positives.every((t) => t.sentiment === 'positive')).toBe(true);
   });
 
-  it('includes all expected positive templates from the main list', () => {
+  it('includes all expected positive templates from the default (basketball) list', () => {
     const expectedCount = OBSERVATION_TEMPLATES.filter(
       (t) => t.sentiment === 'positive'
     ).length;
     expect(getPositiveTemplates()).toHaveLength(expectedCount);
+  });
+
+  it('returns soccer positive templates when sportId is soccer', () => {
+    const soccerPositives = getPositiveTemplates('soccer');
+    const expected = getTemplatesForSport('soccer').filter((t) => t.sentiment === 'positive');
+    expect(soccerPositives).toHaveLength(expected.length);
+    expect(soccerPositives.every((t) => t.sentiment === 'positive')).toBe(true);
+    expect(soccerPositives.some((t) => t.text.toLowerCase().includes('touch'))).toBe(true);
   });
 });
 
@@ -203,9 +219,16 @@ describe('getNeedsWorkTemplates', () => {
     expect(nw.every((t) => t.sentiment === 'needs-work')).toBe(true);
   });
 
-  it('combined positive + needs-work equals the full list length', () => {
+  it('combined positive + needs-work equals the default list length', () => {
     const total = getPositiveTemplates().length + getNeedsWorkTemplates().length;
     expect(total).toBe(OBSERVATION_TEMPLATES.length);
+  });
+
+  it('returns flag_football needs-work templates when sportId is flag_football', () => {
+    const ffNw = getNeedsWorkTemplates('flag_football');
+    const expected = getTemplatesForSport('flag_football').filter((t) => t.sentiment === 'needs-work');
+    expect(ffNw).toHaveLength(expected.length);
+    expect(ffNw.every((t) => t.sentiment === 'needs-work')).toBe(true);
   });
 });
 

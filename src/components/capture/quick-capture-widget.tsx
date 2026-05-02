@@ -12,7 +12,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query/keys';
 import { useAppStore } from '@/lib/store';
 import {
-  OBSERVATION_TEMPLATES,
   getTemplatesBySentiment,
   type ObservationTemplate,
 } from '@/lib/observation-templates';
@@ -466,8 +465,8 @@ export function QuickCaptureWidget() {
 
   const isBusy = widgetState === 'recording' || widgetState === 'processing' || savingTemplate || sweepSaving;
 
-  const positiveTemplates = getTemplatesBySentiment('positive');
-  const needsWorkTemplates = getTemplatesBySentiment('needs-work');
+  const positiveTemplates = getTemplatesBySentiment('positive', activeTeam?.sport_id);
+  const needsWorkTemplates = getTemplatesBySentiment('needs-work', activeTeam?.sport_id);
   const shownTemplates = templateSentiment === 'positive' ? positiveTemplates : needsWorkTemplates;
 
   return (

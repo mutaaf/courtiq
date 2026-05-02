@@ -6,7 +6,12 @@
  */
 
 import crypto from 'crypto';
-import { OBSERVATION_TEMPLATES, ObservationTemplate } from './observation-templates';
+import {
+  getAllTemplateIds,
+  getTemplatesBySentiment,
+  findTemplateById,
+  ObservationTemplate,
+} from './observation-templates';
 
 // ── Secret resolution ─────────────────────────────────────────────────────────
 // Prefer a strong server-side secret; fall back gracefully in dev/test.
@@ -88,19 +93,19 @@ export function buildObserverUrl(token: string, baseUrl?: string): string {
 // ── Template validation ───────────────────────────────────────────────────────
 
 export function isValidTemplateId(id: string): boolean {
-  return OBSERVATION_TEMPLATES.some((t) => t.id === id);
+  return getAllTemplateIds().has(id);
 }
 
 export function getTemplateById(id: string): ObservationTemplate | undefined {
-  return OBSERVATION_TEMPLATES.find((t) => t.id === id);
+  return findTemplateById(id);
 }
 
-export function getPositiveTemplates(): ObservationTemplate[] {
-  return OBSERVATION_TEMPLATES.filter((t) => t.sentiment === 'positive');
+export function getPositiveTemplates(sportId?: string | null): ObservationTemplate[] {
+  return getTemplatesBySentiment('positive', sportId);
 }
 
-export function getNeedsWorkTemplates(): ObservationTemplate[] {
-  return OBSERVATION_TEMPLATES.filter((t) => t.sentiment === 'needs-work');
+export function getNeedsWorkTemplates(sportId?: string | null): ObservationTemplate[] {
+  return getTemplatesBySentiment('needs-work', sportId);
 }
 
 // ── Observation payload builder ────────────────────────────────────────────────
