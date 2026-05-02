@@ -291,39 +291,50 @@ function LastSessionCard({ session }: {
 
   return (
     <Card className="border-zinc-800">
-      <CardContent className="flex items-center gap-3 p-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-lg">
-          {emoji}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
-            Last session · {dateLabel}
-          </p>
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-semibold text-zinc-200">{label}</p>
-            {hasRating && (
-              <div className="flex items-center gap-0.5" title={`Rated ${rating}/5`}>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`h-3 w-3 ${i < rating! ? 'text-amber-400 fill-amber-400' : 'text-zinc-700'}`}
-                  />
-                ))}
-              </div>
-            )}
+      <CardContent className="p-4 space-y-0">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-lg">
+            {emoji}
           </div>
-          <p className="text-xs text-zinc-500 mt-0.5">
-            {obsCount > 0
-              ? `${obsCount} observation${obsCount !== 1 ? 's' : ''} captured`
-              : 'No observations — tap to add'}
-          </p>
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+              Last session · {dateLabel}
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-semibold text-zinc-200">{label}</p>
+              {hasRating && (
+                <div className="flex items-center gap-0.5" title={`Rated ${rating}/5`}>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`h-3 w-3 ${i < rating! ? 'text-amber-400 fill-amber-400' : 'text-zinc-700'}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              {obsCount > 0
+                ? `${obsCount} observation${obsCount !== 1 ? 's' : ''} captured`
+                : 'No observations — tap to add'}
+            </p>
+          </div>
+          <Link href={`/sessions/${session.id}`} className="shrink-0">
+            <Button size="sm" variant="outline" className="gap-1.5">
+              <History className="h-3.5 w-3.5" />
+              View
+            </Button>
+          </Link>
         </div>
-        <Link href={`/sessions/${session.id}`} className="shrink-0">
-          <Button size="sm" variant="outline" className="gap-1.5">
-            <History className="h-3.5 w-3.5" />
-            View
-          </Button>
-        </Link>
+        {obsCount > 0 && (
+          <Link href={`/sessions/${session.id}#player-messages-section`}>
+            <div className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-teal-500/30 bg-teal-500/10 px-4 py-2.5 text-sm font-medium text-teal-300 hover:bg-teal-500/15 active:scale-[0.98] transition-all touch-manipulation">
+              <Send className="h-4 w-4 shrink-0" />
+              Send player updates to parents
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-teal-500/60 ml-auto" />
+            </div>
+          </Link>
+        )}
       </CardContent>
     </Card>
   );
