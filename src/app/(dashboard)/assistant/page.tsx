@@ -274,7 +274,7 @@ function buildDynamicSuggestions(
   }
 
   // 2. Top skill gap (last 14 days needs-work observations)
-  const recentNeedsWork = obs.filter(o => o.sentiment === 'needs_work' && o.created_at >= twoWeeksAgo);
+  const recentNeedsWork = obs.filter(o => o.sentiment === 'needs-work' && o.created_at >= twoWeeksAgo);
   if (recentNeedsWork.length >= 2) {
     const catCounts: Record<string, number> = {};
     recentNeedsWork.forEach(o => {

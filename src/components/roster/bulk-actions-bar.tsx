@@ -19,7 +19,7 @@ type ActionState = 'idle' | 'loading' | 'success' | 'error';
 export function BulkActionsBar({ selectedPlayers, teamId, coachId, onClear }: BulkActionsBarProps) {
   const [obsModal, setObsModal] = useState(false);
   const [obsText, setObsText] = useState('');
-  const [obsSentiment, setObsSentiment] = useState<'positive' | 'neutral' | 'needs_work'>('neutral');
+  const [obsSentiment, setObsSentiment] = useState<'positive' | 'neutral' | 'needs-work'>('neutral');
   const [obsCategory, setObsCategory] = useState('general');
   const [obsState, setObsState] = useState<ActionState>('idle');
   const [obsMessage, setObsMessage] = useState('');
@@ -210,7 +210,7 @@ export function BulkActionsBar({ selectedPlayers, teamId, coachId, onClear }: Bu
               >
                 <option value="positive">Positive</option>
                 <option value="neutral">Neutral</option>
-                <option value="needs_work">Needs Work</option>
+                <option value="needs-work">Needs Work</option>
               </select>
             </div>
 
