@@ -1220,6 +1220,10 @@ export default function PracticeTimerPage({
     setMode('break');
   };
 
+  const handleExtendDrill = () => {
+    setTimeLeft((prev) => prev + 120);
+  };
+
   const handleBreakSave = (note: string, playerId?: string, playerName?: string, sentiment: Sentiment = 'positive', category?: string) => {
     const drill = queue[currentIdx];
     setNotes((prev) => [
@@ -1553,7 +1557,7 @@ export default function PracticeTimerPage({
     const drill = queue[currentIdx];
     const nextDrill = queue[currentIdx + 1];
     const progress = drill
-      ? ((drill.durationSecs - timeLeft) / drill.durationSecs) * 100
+      ? Math.max(0, ((drill.durationSecs - timeLeft) / drill.durationSecs) * 100)
       : 0;
     const currentCue = drill?.cues[cueIdx];
     const isLowTime = timeLeft <= 30 && timeLeft > 0;
@@ -1671,7 +1675,7 @@ export default function PracticeTimerPage({
 
         {/* Controls */}
         <div className="p-6 flex gap-4 justify-center items-center">
-          {swapAlternatives.length > 0 && (
+          {swapAlternatives.length > 0 ? (
             <button
               onClick={() => setShowSwapSheet(true)}
               className="flex flex-col items-center gap-1 text-zinc-500 hover:text-zinc-300 transition-colors"
@@ -1680,6 +1684,8 @@ export default function PracticeTimerPage({
               <Shuffle className="h-5 w-5" />
               <span className="text-xs">Swap</span>
             </button>
+          ) : (
+            <div className="w-9" />
           )}
           <Button
             onClick={handlePauseResume}
@@ -1692,8 +1698,14 @@ export default function PracticeTimerPage({
           >
             {isPaused ? <Play className="h-6 w-6" /> : <Pause className="h-6 w-6" />}
           </Button>
-          {/* spacer to balance the Swap button */}
-          {swapAlternatives.length > 0 && <div className="w-9" />}
+          <button
+            onClick={handleExtendDrill}
+            className="flex flex-col items-center gap-1 text-teal-500 hover:text-teal-300 transition-colors touch-manipulation active:scale-95"
+            aria-label="Add 2 more minutes to this drill"
+          >
+            <Plus className="h-5 w-5" />
+            <span className="text-xs">+2 min</span>
+          </button>
         </div>
 
         {/* Swap Drill bottom sheet */}
