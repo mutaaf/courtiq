@@ -47,6 +47,7 @@ import { TeamSkillTrendsCard } from '@/components/home/team-skill-trends-card';
 import { WeeklyFocusCard } from '@/components/home/weekly-focus-card';
 import { FreemiumNudge } from '@/components/ui/freemium-nudge';
 import { SeasonalPromo } from '@/components/onboarding/seasonal-promo';
+import { TestimonialPrompt } from '@/components/onboarding/testimonial-prompt';
 import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot-card';
 
 // ─── Today's Session Card ────────────────────────────────────────────────────
@@ -1139,6 +1140,11 @@ export default function HomePage() {
         sessionId={practiceSessionId}
         onClose={() => setShowDebrief(false)}
       />
+    )}
+
+    {/* NPS testimonial prompt — shown after 10 observations, manages own visibility */}
+    {!practiceActive && coach && stats && (
+      <TestimonialPrompt coachId={coach.id} observationCount={stats.observations} />
     )}
     </>
   );
