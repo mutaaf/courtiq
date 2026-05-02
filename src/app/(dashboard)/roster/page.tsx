@@ -20,6 +20,10 @@ import { AvailabilityBadge } from '@/components/roster/availability-badge';
 import type { Player, PlayerAvailability } from '@/types/database';
 import type { PlayerMomentum } from '@/lib/momentum-utils';
 import { useAppStore } from '@/lib/store';
+import {
+  buildGrowthStreakData,
+  type GrowthObs,
+} from '@/lib/player-growth-streak-utils';
 
 type SortMode = 'alpha' | 'attention' | 'momentum';
 
@@ -63,17 +67,18 @@ export default function RosterPage() {
     ...CACHE_PROFILES.roster,
   });
 
-  const { data: obsData = { counts: {}, lastObs: {}, lastObsPreview: {} }, refetch: refetchObs } = useQuery({
+  const { data: obsData = { counts: {}, lastObs: {}, lastObsPreview: {}, growthStreaks: {} }, refetch: refetchObs } = useQuery({
     queryKey: [...queryKeys.observations.all(activeTeam?.id ?? ''), 'counts'],
     queryFn: async () => {
-      const data = await query<{ player_id: string; created_at: string; text: string; sentiment: string }[]>({
+      const data = await query<{ player_id: string; session_id: string | null; created_at: string; text: string; sentiment: string }[]>({
         table: 'observations',
-        select: 'player_id, created_at, text, sentiment',
+        select: 'player_id, session_id, created_at, text, sentiment',
         filters: { team_id: activeTeam!.id, player_id: { op: 'neq', value: null } },
       });
       const counts: Record<string, number> = {};
       const lastObs: Record<string, string> = {};
       const lastObsPreview: Record<string, { text: string; sentiment: string }> = {};
+      const playerObsMap: Record<string, GrowthObs[]> = {};
       for (const obs of data || []) {
         if (obs.player_id) {
           counts[obs.player_id] = (counts[obs.player_id] || 0) + 1;
@@ -81,9 +86,16 @@ export default function RosterPage() {
             lastObs[obs.player_id] = obs.created_at;
             if (obs.text) lastObsPreview[obs.player_id] = { text: obs.text, sentiment: obs.sentiment };
           }
+          if (!playerObsMap[obs.player_id]) playerObsMap[obs.player_id] = [];
+          playerObsMap[obs.player_id].push({ session_id: obs.session_id, sentiment: obs.sentiment, created_at: obs.created_at });
         }
       }
-      return { counts, lastObs, lastObsPreview };
+      const growthStreaks: Record<string, number> = {};
+      for (const [pid, obs] of Object.entries(playerObsMap)) {
+        const streakData = buildGrowthStreakData(obs);
+        if (streakData.currentStreak > 0) growthStreaks[pid] = streakData.currentStreak;
+      }
+      return { counts, lastObs, lastObsPreview, growthStreaks };
     },
     enabled: !!activeTeam,
     ...CACHE_PROFILES.observations,
@@ -91,6 +103,7 @@ export default function RosterPage() {
   const obsCounts = obsData.counts;
   const lastObsMap = obsData.lastObs;
   const lastObsPreviewMap = obsData.lastObsPreview;
+  const growthStreakMap = obsData.growthStreaks;
 
   // Fetch momentum scores for all players
   const { data: momentumMap = {} } = useQuery({
@@ -457,6 +470,7 @@ export default function RosterPage() {
               momentum={momentumMap[player.id] ?? null}
               practiceSessionId={practiceActive ? practiceSessionId : null}
               observedInSession={practiceActive ? sessionObsIds.has(player.id) : false}
+              growthStreak={growthStreakMap[player.id] ?? 0}
             />
           ))}
         </div>

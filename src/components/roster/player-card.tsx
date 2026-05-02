@@ -39,6 +39,8 @@ interface PlayerCardProps {
   practiceSessionId?: string | null;
   /** True when this player has already been observed in the active session */
   observedInSession?: boolean;
+  /** Number of consecutive sessions with ≥1 positive observation (0 = no active streak) */
+  growthStreak?: number;
 }
 
 const positionColors: Record<string, string> = {
@@ -63,6 +65,7 @@ export function PlayerCard({
   momentum = null,
   practiceSessionId = null,
   observedInSession = false,
+  growthStreak = 0,
 }: PlayerCardProps) {
   const router = useRouter();
   const [showAvailability, setShowAvailability] = useState(false);
@@ -149,6 +152,20 @@ export function PlayerCard({
                   title={`Momentum: ${momentum.score}/100`}
                 >
                   {momentum.tier === 'rising' ? '↑' : '↓'} {getMomentumLabel(momentum.tier)}
+                </span>
+              )}
+              {/* Growth streak badge — shown when player has 3+ consecutive positive sessions */}
+              {growthStreak >= 3 && (
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold',
+                    growthStreak >= 5
+                      ? 'bg-amber-900/50 text-amber-300 border-amber-700/40'
+                      : 'bg-orange-900/50 text-orange-300 border-orange-700/40',
+                  )}
+                  title={`Growth streak: ${growthStreak} sessions in a row with positive feedback`}
+                >
+                  {growthStreak >= 5 ? '⚡' : '🔥'} {growthStreak}
                 </span>
               )}
             </div>

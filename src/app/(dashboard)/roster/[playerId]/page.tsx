@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useEffect } from 'react';
+import { use, useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { query, mutate } from '@/lib/api';
@@ -64,6 +64,19 @@ import {
   isHotStreak,
   type PlayerMomentum,
 } from '@/lib/momentum-utils';
+import {
+  buildGrowthStreakData,
+  hasEnoughDataForGrowthStreak,
+  getStreakEmoji,
+  getStreakLabel,
+  getStreakBadgeClasses,
+  getStreakTextColor,
+  isHotStreak as isGrowthHotStreak,
+  buildShareText as buildGrowthShareText,
+  buildParentMessage,
+  formatStreakCount,
+  type GrowthObs,
+} from '@/lib/player-growth-streak-utils';
 
 type Tab = 'overview' | 'observations' | 'report-card' | 'media' | 'share' | 'challenges' | 'storyline' | 'self-assessment' | 'goals' | 'notes';
 
@@ -174,6 +187,142 @@ function MomentumCard({ playerId, teamId }: { playerId: string; teamId: string }
                 <p className="text-[10px] text-zinc-600 leading-tight">{factor.detail}</p>
               </div>
             ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── GrowthStreakCard ─────────────────────────────────────────────────────────
+
+function GrowthStreakCard({
+  playerName,
+  observations,
+}: {
+  playerName: string;
+  observations: GrowthObs[];
+}) {
+  const data = useMemo(() => buildGrowthStreakData(observations), [observations]);
+  const [shareCopied, setShareCopied] = useState(false);
+
+  if (!hasEnoughDataForGrowthStreak(observations)) return null;
+  if (!data.hasAnyPositive && data.totalObservedSessions < 3) return null;
+
+  const hot = isGrowthHotStreak(data);
+  const emoji = getStreakEmoji(data.currentStreak);
+  const label = getStreakLabel(data.currentStreak);
+  const badgeClasses = getStreakBadgeClasses(data.currentStreak);
+  const textColor = getStreakTextColor(data.currentStreak);
+  const firstName = playerName.split(' ')[0];
+
+  async function handleShare() {
+    const text = buildGrowthShareText(data, playerName);
+    if (navigator.share) {
+      try {
+        await navigator.share({ text });
+        return;
+      } catch {
+        // fall through to clipboard
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // ignore
+    }
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 2000);
+  }
+
+  return (
+    <Card className={`lg:col-span-2 ${hot ? 'border-orange-500/30' : 'border-emerald-500/20'}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <span className="text-lg" aria-hidden>{emoji || '🌱'}</span>
+            Growth Streak
+            {hot && (
+              <span className="rounded-full bg-orange-500/10 border border-orange-500/30 px-2 py-0.5 text-[10px] font-bold text-orange-400">
+                On a roll!
+              </span>
+            )}
+          </CardTitle>
+          {data.currentStreak >= 2 && (
+            <button
+              onClick={handleShare}
+              className="text-xs text-zinc-400 hover:text-zinc-200 transition-colors flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-zinc-800 touch-manipulation"
+              aria-label="Share this streak with parent"
+            >
+              {shareCopied ? (
+                <span className="text-emerald-400">✓ Copied!</span>
+              ) : (
+                <>
+                  <Share2 className="h-3.5 w-3.5" />
+                  Share with parent
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Streak display */}
+        <div className="flex items-center gap-4">
+          <div className={`flex flex-col items-center justify-center h-16 w-16 shrink-0 rounded-full border-2 ${
+            data.currentStreak === 0 ? 'border-zinc-700' : hot ? 'border-orange-500/50' : 'border-emerald-500/40'
+          }`}>
+            <span className={`text-2xl font-bold tabular-nums ${textColor}`}>
+              {data.currentStreak}
+            </span>
+            <span className="text-[10px] text-zinc-500 mt-0.5">sessions</span>
+          </div>
+          <div className="space-y-1">
+            {data.currentStreak > 0 ? (
+              <>
+                <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeClasses}`}>
+                  {emoji} {label}
+                </span>
+                <p className="text-xs text-zinc-500">
+                  {firstName} got positive coaching feedback in {formatStreakCount(data.currentStreak)} in a row
+                </p>
+              </>
+            ) : (
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-800/50 px-2.5 py-1 text-xs font-semibold text-zinc-400">
+                  Streak at 0
+                </span>
+                <p className="text-xs text-zinc-500">
+                  Last positive session streak: {formatStreakCount(data.longestStreak)}
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 text-center">
+            <p className={`text-lg font-bold tabular-nums ${textColor}`}>{data.currentStreak}</p>
+            <p className="text-[10px] text-zinc-500 mt-0.5">Current</p>
+          </div>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 text-center">
+            <p className="text-lg font-bold tabular-nums text-amber-400">{data.longestStreak}</p>
+            <p className="text-[10px] text-zinc-500 mt-0.5">Best ever</p>
+          </div>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 text-center">
+            <p className="text-lg font-bold tabular-nums text-blue-400">{data.positiveSessionCount}</p>
+            <p className="text-[10px] text-zinc-500 mt-0.5">+ve sessions</p>
+          </div>
+        </div>
+
+        {/* Parent message preview */}
+        {data.currentStreak >= 2 && (
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 px-3 py-2.5">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500 mb-1">Parent message preview</p>
+            <p className="text-xs text-zinc-300 leading-relaxed italic">
+              &ldquo;{buildParentMessage(data, playerName)}&rdquo;
+            </p>
           </div>
         )}
       </CardContent>
@@ -1118,6 +1267,14 @@ export default function PlayerDetailPage({
           {/* Momentum Score */}
           {activeTeam && (
             <MomentumCard playerId={playerId} teamId={activeTeam.id} />
+          )}
+
+          {/* Growth Streak */}
+          {player && observations.length > 0 && (
+            <GrowthStreakCard
+              playerName={player.name}
+              observations={observations}
+            />
           )}
 
           {/* Achievement Badges */}
