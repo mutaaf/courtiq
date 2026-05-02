@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
@@ -424,12 +425,17 @@ function ObservationCard({
 export default function ObservationsPage() {
   const { activeTeam } = useActiveTeam();
   const qc = useQueryClient();
+  const searchParams = useSearchParams();
 
-  // Filter state
+  // Filter state — URL params set initial values so deep-links work
   const [searchText, setSearchText] = useState('');
   const [playerFilter, setPlayerFilter] = useState<string>('all');
-  const [sentimentFilter, setSentimentFilter] = useState<Sentiment | 'all'>('all');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [sentimentFilter, setSentimentFilter] = useState<Sentiment | 'all'>(
+    (searchParams.get('sentiment') as Sentiment | null) ?? 'all'
+  );
+  const [categoryFilter, setCategoryFilter] = useState<string>(
+    searchParams.get('category') ?? 'all'
+  );
   const [dateRange, setDateRange] = useState<number>(30);
   const [highlightsOnly, setHighlightsOnly] = useState(false);
   const [page, setPage] = useState(1);

@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Target, X, ChevronDown, Dumbbell, Loader2, AlertCircle } from 'lucide-react';
+import { Target, X, ChevronDown, Dumbbell, Loader2, AlertCircle, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 import {
   FOCUS_CATEGORIES,
   getWeeklyFocus,
@@ -81,6 +82,27 @@ export function WeeklyFocusCard({ teamId }: WeeklyFocusCardProps) {
   const config = focus ? getFocusCategoryConfig(focus.category) : null;
   const daysLeft = focus ? getDaysRemaining(focus) : 0;
   const ageLabel = focus ? formatFocusAge(focus) : '';
+
+  // Map focus category IDs → drill library category filter values
+  const FOCUS_TO_DRILL_CATEGORY: Record<string, string> = {
+    shooting: 'Shooting',
+    defense: 'Defense',
+    dribbling: 'Ball Handling',
+    passing: 'Passing',
+    hustle: 'Conditioning',
+    awareness: 'Defense',
+    teamwork: 'Team Play',
+    footwork: 'Conditioning',
+    conditioning: 'Conditioning',
+    leadership: 'Team Play',
+  };
+
+  const drillsUrl = focus
+    ? `/drills?category=${encodeURIComponent(FOCUS_TO_DRILL_CATEGORY[focus.category] ?? config?.label ?? focus.category)}`
+    : '/drills';
+  const obsUrl = focus
+    ? `/observations?category=${encodeURIComponent(focus.category)}&sentiment=needs-work`
+    : '/observations';
 
   // ── Picker mode ────────────────────────────────────────────────────────────
   if (picking || !focus) {
@@ -198,6 +220,24 @@ export function WeeklyFocusCard({ teamId }: WeeklyFocusCardProps) {
           <p className="text-xs text-red-400">{genError}</p>
         </div>
       )}
+
+      {/* Quick-access links — drill library + observation feed filtered to focus */}
+      <div className="flex gap-2">
+        <Link
+          href={drillsUrl}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-zinc-700/50 bg-zinc-800/40 px-3 py-2 text-xs font-medium text-zinc-300 hover:border-indigo-500/40 hover:bg-indigo-500/10 hover:text-indigo-300 active:scale-[0.98] transition-all touch-manipulation"
+        >
+          <Dumbbell className="h-3.5 w-3.5" />
+          {config?.label ?? ''} Drills
+        </Link>
+        <Link
+          href={obsUrl}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-zinc-700/50 bg-zinc-800/40 px-3 py-2 text-xs font-medium text-zinc-300 hover:border-indigo-500/40 hover:bg-indigo-500/10 hover:text-indigo-300 active:scale-[0.98] transition-all touch-manipulation"
+        >
+          <Eye className="h-3.5 w-3.5" />
+          View Observations
+        </Link>
+      </div>
     </div>
   );
 }
