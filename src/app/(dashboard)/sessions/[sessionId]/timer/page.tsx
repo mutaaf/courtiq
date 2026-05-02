@@ -81,6 +81,7 @@ import type { PlayerAvailability } from '@/types/database';
 import { getRatingLabel, getRatingColor } from '@/lib/session-quality-utils';
 import { formatSkillLabel } from '@/lib/skill-trend-utils';
 import { isFavorited } from '@/lib/drill-favorites-utils';
+import { getPhraseForDay, getPhraseLabelForCategory, hasPhrases } from '@/lib/coaching-phrases';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -1635,11 +1636,24 @@ export default function PracticeTimerPage({
             </span>
           </div>
 
-          {/* Coaching cue */}
+          {/* Coaching cue — drill-specific tip from the drill library */}
           {currentCue && (
             <div className="flex items-start gap-3 bg-zinc-900/80 rounded-xl px-5 py-4 max-w-sm w-full">
               <Lightbulb className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
               <p className="text-sm text-zinc-200 leading-relaxed">{currentCue}</p>
+            </div>
+          )}
+
+          {/* Coaching phrase — sport/category phrase shown when no drill-specific cue */}
+          {!currentCue && drill?.category && hasPhrases(drill.category, activeTeam?.sport_slug) && (
+            <div className="flex flex-col gap-1.5 bg-zinc-900/80 rounded-xl px-5 py-4 max-w-sm w-full">
+              <p className="text-[10px] text-zinc-500 uppercase tracking-wide flex items-center gap-1.5">
+                <MessageSquare className="h-3 w-3" />
+                {getPhraseLabelForCategory(drill.category, activeTeam?.sport_slug)}
+              </p>
+              <p className="text-sm text-zinc-200 leading-relaxed italic">
+                &ldquo;{getPhraseForDay(drill.category, activeTeam?.sport_slug)}&rdquo;
+              </p>
             </div>
           )}
 
