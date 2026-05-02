@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { isBirthdayToday, getAgeThisBirthday } from '@/lib/birthday-utils';
+import {
+  findStrugglingPlayers,
+  hasEnoughDataForStruggling,
+  buildStrugglingNotificationTitle,
+  buildStrugglingNotificationBody,
+  sortByStrugglingCount,
+} from '@/lib/struggling-player-utils';
 
 export type NotificationType =
   | 'unobserved_player'        // player not observed in 14+ days
@@ -9,7 +16,8 @@ export type NotificationType =
   | 'achievement_earned'       // badge awarded in last 48 hours
   | 'birthday_today'           // player birthday is today
   | 'parent_reaction_message'  // parent sent a message via share portal
-  | 'parent_viewed';           // parent opened a player's share portal in last 48h
+  | 'parent_viewed'            // parent opened a player's share portal in last 48h
+  | 'struggling_player';       // player has 3+ needs-work obs in same category in last 14 days
 
 export type NotificationPriority = 'high' | 'medium' | 'low';
 
@@ -90,7 +98,7 @@ export async function GET(request: Request) {
       .eq('is_active', true),
     admin
       .from('observations')
-      .select('player_id, session_id, created_at')
+      .select('player_id, session_id, created_at, sentiment, category')
       .eq('team_id', teamId)
       .gte('created_at', fourteenDaysAgo),
     admin
@@ -279,6 +287,33 @@ export async function GET(request: Request) {
       priority: 'high',
       timestamp: new Date().toISOString(),
     });
+  }
+
+  // ── 8. Players struggling in a specific skill category ───────────────────────
+  // Surfaces players with 3+ needs-work observations in the same category in
+  // the last 14 days — the same window already fetched for unobserved players.
+  const obsForStruggling = obs.map((o: any) => ({
+    player_id: o.player_id as string | null,
+    category: o.category as string | null,
+    sentiment: o.sentiment as string | null,
+  }));
+
+  if (hasEnoughDataForStruggling(obsForStruggling)) {
+    const strugging = sortByStrugglingCount(
+      findStrugglingPlayers(obsForStruggling, players as Array<{ id: string; name: string }>, 3)
+    );
+    // Surface up to 2 struggling players to avoid notification fatigue
+    for (const sp of strugging.slice(0, 2)) {
+      notifications.push({
+        id: buildNotificationId('struggling_player', `${sp.playerId}|${sp.category}`),
+        type: 'struggling_player',
+        title: buildStrugglingNotificationTitle(sp),
+        body: buildStrugglingNotificationBody(sp),
+        href: sp.drillUrl,
+        priority: 'medium',
+        timestamp: new Date().toISOString(),
+      });
+    }
   }
 
   return NextResponse.json({

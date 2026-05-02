@@ -45,6 +45,7 @@ import { DrillOfDayCard } from '@/components/home/drill-of-day-card';
 import { AICoachingTipsCard } from '@/components/home/ai-coaching-tips-card';
 import { TeamSkillTrendsCard } from '@/components/home/team-skill-trends-card';
 import { WeeklyFocusCard } from '@/components/home/weekly-focus-card';
+import { StrugglingPlayerCard } from '@/components/home/struggling-player-card';
 import { FreemiumNudge } from '@/components/ui/freemium-nudge';
 import { SeasonalPromo } from '@/components/onboarding/seasonal-promo';
 import { TestimonialPrompt } from '@/components/onboarding/testimonial-prompt';
@@ -1024,6 +1025,11 @@ export default function HomePage() {
       {/* Last session summary — shown when no today session and practice not active */}
       {!practiceActive && todaySessions.length === 0 && lastSession && (
         <LastSessionCard session={lastSession} />
+      )}
+
+      {/* Struggling Player Alert — player with 3+ needs-work obs in same category this week */}
+      {!practiceActive && !isLoadingStats && stats && stats.observations >= 5 && (
+        <StrugglingPlayerCard teamId={activeTeam.id} />
       )}
 
       {/* Daily Focus — which player needs attention today (shown when enough data exists) */}

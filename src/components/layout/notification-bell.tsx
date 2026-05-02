@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Bell, X, AlertTriangle, Target, Calendar, Trophy, Cake, Heart, Eye } from 'lucide-react';
+import { Bell, X, AlertTriangle, Target, Calendar, Trophy, Cake, Heart, Eye, TrendingDown } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useActiveTeam } from '@/hooks/use-active-team';
@@ -42,6 +42,7 @@ const TYPE_CONFIG: Record<
   birthday_today:           { Icon: Cake,          color: 'text-amber-400',  label: 'Birthday today' },
   parent_reaction_message:  { Icon: Heart,         color: 'text-pink-400',   label: 'Parent message' },
   parent_viewed:            { Icon: Eye,           color: 'text-sky-400',    label: 'Parent viewed' },
+  struggling_player:        { Icon: TrendingDown,  color: 'text-red-400',    label: 'Skill struggle' },
 };
 
 const PRIORITY_DOT: Record<string, string> = {
