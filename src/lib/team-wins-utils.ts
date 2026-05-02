@@ -22,13 +22,44 @@ export interface GoalWin {
   achieved_at: string;
 }
 
-export type TeamWin = BadgeWin | GoalWin;
+export interface StreakWin {
+  type: 'streak';
+  player_id: string;
+  player_name: string;
+  player_jersey: number | null;
+  streak: number;       // consecutive positive-session count
+  streak_at: string;   // ISO timestamp of the most recent positive observation
+}
+
+export type TeamWin = BadgeWin | GoalWin | StreakWin;
 
 // ─── Pure utilities ───────────────────────────────────────────────────────────
 
-/** Returns the canonical date string for a win (earned_at for badge, achieved_at for goal). */
+/** Returns the canonical date string for a win. */
 export function getWinDate(win: TeamWin): string {
-  return win.type === 'badge' ? win.earned_at : win.achieved_at;
+  if (win.type === 'badge') return win.earned_at;
+  if (win.type === 'goal') return win.achieved_at;
+  return win.streak_at;
+}
+
+/** Returns the emoji for a growth streak count. */
+export function getStreakEmoji(streak: number): string {
+  return streak >= 5 ? '⚡' : '🔥';
+}
+
+/** Returns a short human-readable label for a growth streak. */
+export function getStreakLabel(streak: number): string {
+  if (streak >= 10) return `${streak} sessions in a row! 🏆`;
+  if (streak >= 7)  return `${streak} sessions in a row!`;
+  if (streak >= 5)  return `${streak} sessions in a row!`;
+  return `${streak} sessions in a row!`;
+}
+
+/** Builds a parent-friendly share message for a growth streak. */
+export function buildStreakShareText(playerName: string, streak: number, teamName: string): string {
+  const emoji = getStreakEmoji(streak);
+  const first = playerName.split(' ')[0];
+  return `${emoji} ${first} has been amazing at practice — ${streak} sessions in a row with great feedback from Coach! ${teamName} is so proud. — via SportsIQ`;
 }
 
 /** Sorts wins newest-first. Returns a new array. */

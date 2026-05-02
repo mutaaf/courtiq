@@ -4,6 +4,7 @@
  * Covers:
  *  - getWinDate: returns earned_at for badge wins
  *  - getWinDate: returns achieved_at for goal wins
+ *  - getWinDate: returns streak_at for streak wins
  *  - sortWins: empty array → []
  *  - sortWins: single win → returns that win
  *  - sortWins: sorts newest badge first
@@ -11,6 +12,11 @@
  *  - sortWins: mixed types sorted by date
  *  - sortWins: equal dates → stable order preserved
  *  - sortWins: does not mutate the input array
+ *  - sortWins: streak wins sorted with badge and goal wins
+ *  - getStreakEmoji: returns 🔥 for streak < 5
+ *  - getStreakEmoji: returns ⚡ for streak ≥ 5
+ *  - getStreakLabel: returns "N sessions in a row!" for any count
+ *  - buildStreakShareText: includes player first name, streak count, team name
  *  - formatTimeAgo: 30 seconds ago → "1m ago"
  *  - formatTimeAgo: 5 minutes ago → "5m ago"
  *  - formatTimeAgo: 59 minutes ago → "59m ago"
@@ -22,8 +28,15 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { getWinDate, sortWins, formatTimeAgo } from '@/lib/team-wins-utils';
-import type { BadgeWin, GoalWin } from '@/lib/team-wins-utils';
+import {
+  getWinDate,
+  sortWins,
+  formatTimeAgo,
+  getStreakEmoji,
+  getStreakLabel,
+  buildStreakShareText,
+} from '@/lib/team-wins-utils';
+import type { BadgeWin, GoalWin, StreakWin } from '@/lib/team-wins-utils';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -53,6 +66,17 @@ function makeGoal(achieved_at: string, player_name = 'Bob'): GoalWin {
   };
 }
 
+function makeStreak(streak_at: string, streak: number, player_name = 'Marcus'): StreakWin {
+  return {
+    type: 'streak',
+    player_id: 'p3',
+    player_name,
+    player_jersey: 5,
+    streak,
+    streak_at,
+  };
+}
+
 // ─── getWinDate ───────────────────────────────────────────────────────────────
 
 describe('getWinDate', () => {
@@ -64,6 +88,11 @@ describe('getWinDate', () => {
   it('returns achieved_at for goal wins', () => {
     const win = makeGoal('2026-04-11T09:00:00Z');
     expect(getWinDate(win)).toBe('2026-04-11T09:00:00Z');
+  });
+
+  it('returns streak_at for streak wins', () => {
+    const win = makeStreak('2026-04-14T10:00:00Z', 4);
+    expect(getWinDate(win)).toBe('2026-04-14T10:00:00Z');
   });
 });
 
@@ -112,6 +141,82 @@ describe('sortWins', () => {
     sortWins(input);
     expect(input[0]).toBe(older);
     expect(input[1]).toBe(newer);
+  });
+
+  it('sorts streak wins alongside badge and goal wins', () => {
+    const badge = makeBadge('2026-04-09T00:00:00Z');
+    const streak = makeStreak('2026-04-11T00:00:00Z', 5);
+    const goal = makeGoal('2026-04-12T00:00:00Z');
+    const result = sortWins([badge, streak, goal]);
+    expect(result[0]).toBe(goal);
+    expect(result[1]).toBe(streak);
+    expect(result[2]).toBe(badge);
+  });
+});
+
+// ─── getStreakEmoji ───────────────────────────────────────────────────────────
+
+describe('getStreakEmoji', () => {
+  it('returns 🔥 for streak of 3', () => {
+    expect(getStreakEmoji(3)).toBe('🔥');
+  });
+
+  it('returns 🔥 for streak of 4', () => {
+    expect(getStreakEmoji(4)).toBe('🔥');
+  });
+
+  it('returns ⚡ for streak of 5', () => {
+    expect(getStreakEmoji(5)).toBe('⚡');
+  });
+
+  it('returns ⚡ for streak of 10', () => {
+    expect(getStreakEmoji(10)).toBe('⚡');
+  });
+});
+
+// ─── getStreakLabel ───────────────────────────────────────────────────────────
+
+describe('getStreakLabel', () => {
+  it('returns "N sessions in a row!" for streak of 3', () => {
+    expect(getStreakLabel(3)).toBe('3 sessions in a row!');
+  });
+
+  it('returns "N sessions in a row!" for streak of 7', () => {
+    expect(getStreakLabel(7)).toBe('7 sessions in a row!');
+  });
+
+  it('includes trophy for streak of 10+', () => {
+    expect(getStreakLabel(10)).toContain('10 sessions in a row!');
+  });
+});
+
+// ─── buildStreakShareText ─────────────────────────────────────────────────────
+
+describe('buildStreakShareText', () => {
+  it('includes player first name', () => {
+    const text = buildStreakShareText('Marcus Johnson', 5, 'YMCA Rockets');
+    expect(text).toContain('Marcus');
+    expect(text).not.toContain('Johnson');
+  });
+
+  it('includes streak count', () => {
+    const text = buildStreakShareText('Sarah', 4, 'U12 Tigers');
+    expect(text).toContain('4');
+  });
+
+  it('includes team name', () => {
+    const text = buildStreakShareText('Tyler', 3, 'YMCA Ravens');
+    expect(text).toContain('YMCA Ravens');
+  });
+
+  it('uses ⚡ emoji for streak ≥ 5', () => {
+    const text = buildStreakShareText('Jay', 5, 'Eagles');
+    expect(text).toContain('⚡');
+  });
+
+  it('uses 🔥 emoji for streak < 5', () => {
+    const text = buildStreakShareText('Jay', 4, 'Eagles');
+    expect(text).toContain('🔥');
   });
 });
 
