@@ -1,10 +1,10 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { query } from '@/lib/api';
-import { TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
-import Link from 'next/link';
+import { TrendingUp, TrendingDown, Loader2, AlertCircle, Dumbbell } from 'lucide-react';
 import {
   buildSkillTrends,
   getTopImprovingSkills,
@@ -23,6 +23,32 @@ interface TeamSkillTrendsCardProps {
 }
 
 export function TeamSkillTrendsCard({ teamId }: TeamSkillTrendsCardProps) {
+  const router = useRouter();
+  const [generatingSkill, setGeneratingSkill] = useState<string | null>(null);
+  const [genError, setGenError] = useState<string | null>(null);
+
+  async function handleBuildPlan(skillLabel: string) {
+    if (generatingSkill) return;
+    setGeneratingSkill(skillLabel);
+    setGenError(null);
+    try {
+      const res = await fetch('/api/ai/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId, type: 'practice', focusSkills: [skillLabel] }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as any).error || 'Failed to generate plan');
+      }
+      router.push('/plans');
+    } catch (err) {
+      setGenError(err instanceof Error ? err.message : 'Generation failed');
+    } finally {
+      setGeneratingSkill(null);
+    }
+  }
+
   const { cutoff14, cutoff7 } = useMemo(() => {
     const now = Date.now();
     return {
@@ -115,30 +141,46 @@ export function TeamSkillTrendsCard({ teamId }: TeamSkillTrendsCardProps) {
               <span className="text-xs font-medium text-red-400">Needs attention</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {declining.map((t) => (
-                <Link
-                  key={t.category}
-                  href="/plans"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-1 text-xs text-red-300 hover:bg-red-500/20 transition-colors touch-manipulation"
-                >
-                  {t.label}
-                  <span className="text-[10px] font-bold text-red-500">
-                    {formatTrendDelta(t.delta)}
-                  </span>
-                  <span className="text-[10px] text-zinc-600">
-                    ({t.recentCount})
-                  </span>
-                  <ArrowRight className="h-2.5 w-2.5 opacity-50" />
-                </Link>
-              ))}
+              {declining.map((t) => {
+                const isGenerating = generatingSkill === t.label;
+                return (
+                  <button
+                    key={t.category}
+                    onClick={() => handleBuildPlan(t.label)}
+                    disabled={!!generatingSkill}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-1 text-xs text-red-300 hover:bg-red-500/20 active:scale-95 transition-all touch-manipulation disabled:opacity-60 disabled:cursor-not-allowed"
+                    title={`Build a ${t.label} practice plan`}
+                  >
+                    {isGenerating ? (
+                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                    ) : (
+                      <Dumbbell className="h-2.5 w-2.5 opacity-60" />
+                    )}
+                    {t.label}
+                    <span className="text-[10px] font-bold text-red-500">
+                      {formatTrendDelta(t.delta)}
+                    </span>
+                    <span className="text-[10px] text-zinc-600">
+                      ({t.recentCount})
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
       </div>
 
-      {declining.length > 0 && (
+      {genError && (
+        <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0 text-red-400" />
+          <p className="text-xs text-red-400">{genError}</p>
+        </div>
+      )}
+
+      {declining.length > 0 && !genError && (
         <p className="text-[11px] text-zinc-600 leading-relaxed">
-          Tap a declining skill to generate a targeted practice plan.
+          Tap a declining skill to instantly build a targeted practice plan.
         </p>
       )}
     </div>
