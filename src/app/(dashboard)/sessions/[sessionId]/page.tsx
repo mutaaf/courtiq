@@ -2379,12 +2379,27 @@ function PracticeReminderCard({
 
 // ─── Pre-Session Briefing ─────────────────────────────────────────────────────
 
+function skillToDrillUrl(skill: string): string | null {
+  const s = skill.toLowerCase();
+  if (s.includes('dribbl') || s.includes('ball handling')) return '/drills?category=Ball%20Handling';
+  if (s.includes('defense') || s.includes('defensive') || s.includes('guarding')) return '/drills?category=Defense';
+  if (s.includes('pass') || s.includes('court vision') || s.includes('assist')) return '/drills?category=Passing';
+  if (s.includes('shoot') || s.includes('free throw') || s.includes('scoring') || s.includes('three')) return '/drills?category=Shooting';
+  if (s.includes('rebound')) return '/drills?category=Rebounding';
+  if (s.includes('teamwork') || s.includes('communication') || s.includes('collaboration')) return '/drills?category=Teamwork';
+  if (s.includes('hustle') || s.includes('condition') || s.includes('endurance') || s.includes('footwork') || s.includes('agility')) return '/drills?category=Conditioning';
+  if (s.includes('offens') || s.includes('attack')) return '/drills?category=Offense';
+  return null;
+}
+
 function PreSessionBriefingCard({
   sessionId,
   teamId,
+  rosterPlayers,
 }: {
   sessionId: string;
   teamId: string;
+  rosterPlayers: Player[];
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2523,6 +2538,7 @@ function PreSessionBriefingCard({
                 <div className="space-y-2">
                   {briefing.focus_areas.map((area, i) => {
                     const cfg = PRIORITY_CONFIG[area.priority];
+                    const drillUrl = skillToDrillUrl(area.skill);
                     return (
                       <div key={i} className={`rounded-lg border ${cfg.bg} p-2.5`}>
                         <div className="flex items-center justify-between mb-1">
@@ -2532,6 +2548,16 @@ function PreSessionBriefingCard({
                           </span>
                         </div>
                         <p className="text-xs text-zinc-400 leading-relaxed">{area.reason}</p>
+                        {drillUrl && (
+                          <Link
+                            href={drillUrl}
+                            className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-blue-400 hover:text-blue-300 transition-colors"
+                          >
+                            <Dumbbell className="h-3 w-3" />
+                            Find drills
+                            <ArrowRight className="h-3 w-3" />
+                          </Link>
+                        )}
                       </div>
                     );
                   })}
@@ -2549,15 +2575,34 @@ function PreSessionBriefingCard({
                   {briefing.players_to_watch.map((player, i) => {
                     const cfg = PLAYER_WATCH_CONFIG[player.type];
                     const Icon = cfg.icon;
+                    const matchedPlayer = rosterPlayers.find(
+                      (p) => p.name.toLowerCase().includes(player.name.toLowerCase()) ||
+                        player.name.toLowerCase().includes(p.name.split(' ')[0].toLowerCase())
+                    );
+                    const captureHref = matchedPlayer
+                      ? `/capture?playerId=${matchedPlayer.id}&sessionId=${sessionId}`
+                      : null;
+                    const showCapture = captureHref && (player.type === 'needs_attention' || player.type === 'returning');
                     return (
                       <div key={i} className="flex items-start gap-2.5">
                         <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${cfg.color}`} />
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-medium text-zinc-200">{player.name}</span>
-                            <span className={`text-[10px] font-medium ${cfg.color}`}>· {cfg.label}</span>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-sm font-medium text-zinc-200">{player.name}</span>
+                              <span className={`text-[10px] font-medium ${cfg.color} shrink-0`}>· {cfg.label}</span>
+                            </div>
+                            {showCapture && (
+                              <Link
+                                href={captureHref}
+                                className="shrink-0 inline-flex items-center gap-1 rounded-full bg-orange-500/15 px-2 py-0.5 text-[11px] font-medium text-orange-400 hover:bg-orange-500/25 transition-colors"
+                              >
+                                <Mic className="h-3 w-3" />
+                                Observe
+                              </Link>
+                            )}
                           </div>
-                          <p className="text-xs text-zinc-400 leading-relaxed">{player.note}</p>
+                          <p className="text-xs text-zinc-400 leading-relaxed mt-0.5">{player.note}</p>
                         </div>
                       </div>
                     );
@@ -3662,6 +3707,7 @@ export default function SessionDetailPage() {
         <PreSessionBriefingCard
           sessionId={sessionId}
           teamId={activeTeam.id}
+          rosterPlayers={rosterPlayers}
         />
       )}
 
