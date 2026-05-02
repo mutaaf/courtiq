@@ -42,6 +42,7 @@ import {
   Camera,
   QrCode,
   X,
+  Dumbbell,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
@@ -1565,11 +1566,21 @@ export default function PlayerDetailPage({
                 className={obs.is_highlighted ? 'border-amber-500/40 bg-amber-500/5' : ''}
               >
                 <CardContent className="p-4">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant={sentimentVariant[obs.sentiment]}>
                       {sentimentLabel[obs.sentiment]}
                     </Badge>
                     <Badge variant="outline">{obs.category}</Badge>
+                    {obs.sentiment === 'needs-work' && obs.category && obs.category !== 'general' && (
+                      <Link
+                        href={`/drills?category=${encodeURIComponent(obs.category)}`}
+                        className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                        title={`Find ${obs.category} drills`}
+                      >
+                        <Dumbbell className="h-3 w-3" />
+                        Find drill
+                      </Link>
+                    )}
                     <Badge variant="secondary">{obs.source}</Badge>
                     <span className="ml-auto text-xs text-zinc-500">
                       {formatDate(obs.created_at)}

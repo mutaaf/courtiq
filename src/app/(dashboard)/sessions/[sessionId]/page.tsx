@@ -256,13 +256,16 @@ function SessionSnapshotCard({ observations }: { observations: any[] }) {
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {snap.topGaps.map(({ category, count }) => (
-                    <span
+                    <Link
                       key={category}
-                      className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 text-xs font-medium text-amber-300"
+                      href={`/drills?category=${encodeURIComponent(category)}`}
+                      className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 text-xs font-medium text-amber-300 hover:bg-amber-500/20 hover:border-amber-500/40 transition-colors touch-manipulation"
+                      title={`Find ${formatSnapshotCategory(category)} drills`}
                     >
+                      <Dumbbell className="h-3 w-3 text-amber-400/70" aria-hidden="true" />
                       {formatSnapshotCategory(category)}
                       <span className="text-amber-500/60 text-[10px]">×{count}</span>
-                    </span>
+                    </Link>
                   ))}
                 </div>
               </div>
