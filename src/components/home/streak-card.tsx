@@ -1,7 +1,8 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { Flame } from 'lucide-react';
+import { Flame, Zap } from 'lucide-react';
+import Link from 'next/link';
 import {
   getNextMilestone,
   streakPercentToNextMilestone,
@@ -116,6 +117,17 @@ export function StreakCard({ teamId, observationCount }: StreakCardProps) {
             </span>
           ))}
         </div>
+      )}
+
+      {/* At-risk CTA — one tap to keep the streak alive */}
+      {data.atRisk && (
+        <Link
+          href="/capture?source=streak"
+          className="flex items-center justify-center gap-2 w-full rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-300 hover:bg-amber-500/20 active:scale-[0.97] transition-all touch-manipulation"
+        >
+          <Zap className="h-4 w-4 shrink-0" />
+          Observe a player — keep your streak!
+        </Link>
       )}
     </div>
   );
