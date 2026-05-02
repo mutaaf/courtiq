@@ -11,6 +11,7 @@ import {
   Users,
   ClipboardList,
   CalendarClock,
+  CalendarDays,
   Plus,
   Sparkles,
   ArrowRight,
@@ -328,6 +329,88 @@ function LastSessionCard({ session }: {
   );
 }
 
+// ─── Tomorrow's Session Card ─────────────────────────────────────────────────
+
+function TomorrowSessionCard({
+  session,
+  teamId,
+  rosterPlayers,
+}: {
+  session: Session;
+  teamId: string;
+  rosterPlayers: Array<{ id: string; name: string }>;
+}) {
+  const TYPE_LABEL: Record<string, string> = {
+    practice: 'Practice',
+    game: 'Game',
+    scrimmage: 'Scrimmage',
+    tournament: 'Tournament',
+    training: 'Training',
+  };
+
+  function fmtTime(t: string | null) {
+    if (!t) return null;
+    const parts = t.split(':').map(Number);
+    const h = parts[0];
+    const m = parts[1];
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
+  }
+
+  const label = TYPE_LABEL[session.type] ?? session.type;
+  const isCompetitive = ['game', 'scrimmage', 'tournament'].includes(session.type);
+
+  return (
+    <div className="rounded-2xl border border-sky-500/30 bg-sky-500/5 p-5 space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sky-500/20">
+            <CalendarDays className="h-6 w-6 text-sky-400" />
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+              Tomorrow
+            </p>
+            <p className="font-bold text-zinc-100">{label}</p>
+            {session.start_time && (
+              <p className="text-sm text-zinc-400">{fmtTime(session.start_time)}</p>
+            )}
+            {session.location && (
+              <p className="text-xs text-zinc-500">{session.location}</p>
+            )}
+          </div>
+        </div>
+        {session.opponent && (
+          <span className="shrink-0 rounded-full bg-zinc-800 px-3 py-1 text-sm font-medium text-zinc-300">
+            vs {session.opponent}
+          </span>
+        )}
+      </div>
+
+      {/* Quick coaching brief — reuses pre-practice snapshot logic */}
+      <PrePracticeSnapshotCard
+        teamId={teamId}
+        sessionId={session.id}
+        rosterPlayers={rosterPlayers}
+      />
+
+      {/* Prep CTAs */}
+      <div className="flex gap-2">
+        <Link href={`/sessions/${session.id}`} className="flex-1">
+          <button className="w-full rounded-xl border border-sky-500/30 bg-sky-500/10 py-2.5 text-sm font-semibold text-sky-300 hover:bg-sky-500/15 transition-colors active:scale-[0.98] touch-manipulation">
+            Get Ready →
+          </button>
+        </Link>
+        <Link href="/plans" className="flex-1">
+          <button className="w-full rounded-xl border border-zinc-700 bg-zinc-800 py-2.5 text-sm font-medium text-zinc-300 hover:bg-zinc-700 transition-colors active:scale-[0.98] touch-manipulation">
+            {isCompetitive ? 'Game Day Sheet' : 'Build Plan'}
+          </button>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 // ─── Team Health Score Card ───────────────────────────────────────────────────
 
 function HealthScoreCard({ score, delta }: { score: number | null; delta: number | null }) {
@@ -541,7 +624,12 @@ export default function HomePage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Roster for availability warnings + active practice coverage
+  // First session scheduled for tomorrow (used to show prep card)
+  const tomorrowSession = useMemo(() => {
+    return upcomingSessions.find((s) => s.date === tomorrowStr) ?? null;
+  }, [upcomingSessions, tomorrowStr]);
+
+  // Roster for availability warnings + active practice coverage + tomorrow prep card
   const { data: rosterPlayers = [] } = useQuery({
     queryKey: ['home-roster', activeTeam?.id],
     queryFn: async () => {
@@ -552,7 +640,7 @@ export default function HomePage() {
         filters: { team_id: activeTeam.id, is_active: true },
       });
     },
-    enabled: !!activeTeam && (todaySessions.length > 0 || practiceActive),
+    enabled: !!activeTeam && (todaySessions.length > 0 || practiceActive || !!tomorrowSession),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -837,27 +925,37 @@ export default function HomePage() {
           />
         </>
       ) : (
-        <button
-          onClick={startPractice}
-          disabled={startingPractice}
-          className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 p-5 text-left text-white shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all touch-manipulation disabled:opacity-80 disabled:scale-100"
-        >
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/20">
-              {startingPractice ? (
-                <Loader2 className="h-7 w-7 animate-spin" />
-              ) : (
-                <Play className="h-7 w-7" />
-              )}
+        <>
+          {/* Tomorrow's session prep card — shown the evening/morning before practice */}
+          {tomorrowSession && (
+            <TomorrowSessionCard
+              session={tomorrowSession}
+              teamId={activeTeam.id}
+              rosterPlayers={rosterPlayers}
+            />
+          )}
+          <button
+            onClick={startPractice}
+            disabled={startingPractice}
+            className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 p-5 text-left text-white shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all touch-manipulation disabled:opacity-80 disabled:scale-100"
+          >
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/20">
+                {startingPractice ? (
+                  <Loader2 className="h-7 w-7 animate-spin" />
+                ) : (
+                  <Play className="h-7 w-7" />
+                )}
+              </div>
+              <div>
+                <p className="text-lg font-bold">{startingPractice ? 'Starting…' : 'Start Practice'}</p>
+                <p className="text-sm text-emerald-100">
+                  {startingPractice ? 'Setting up your session' : 'Tap when you arrive at the gym'}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-lg font-bold">{startingPractice ? 'Starting…' : 'Start Practice'}</p>
-              <p className="text-sm text-emerald-100">
-                {startingPractice ? 'Setting up your session' : 'Tap when you arrive at the gym'}
-              </p>
-            </div>
-          </div>
-        </button>
+          </button>
+        </>
       )}
 
       {/* Quick actions */}
