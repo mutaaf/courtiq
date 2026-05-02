@@ -53,6 +53,7 @@ import { AchievementBadgesPanel } from '@/components/player/achievement-badges';
 import { PlayerGoalsPanel } from '@/components/player/player-goals-panel';
 import { PlayerNotesPanel } from '@/components/player/player-notes-panel';
 import { countHighlighted } from '@/lib/observation-highlights';
+import { formatSkillLabel } from '@/lib/skill-trend-utils';
 import type { Player, Observation, PlayerSkillProficiency, Plan, Sentiment, ParentShare } from '@/types/database';
 import type { PlayerAttendanceStat } from '@/app/api/attendance-stats/route';
 import {
@@ -347,6 +348,28 @@ export default function PlayerDetailPage({
     .sort(([, a], [, b]) => b - a);
 
   const maxCategoryCount = sortedCategories.length > 0 ? sortedCategories[0][1] : 0;
+
+  // Observation-based skill stats — shown when no curriculum proficiency data exists
+  const _obsCatMap: Record<string, { pos: number; neg: number; total: number }> = {};
+  for (const obs of observations) {
+    const cat = obs.category;
+    if (!cat || cat === 'general') continue;
+    if (!_obsCatMap[cat]) _obsCatMap[cat] = { pos: 0, neg: 0, total: 0 };
+    _obsCatMap[cat].total++;
+    if (obs.sentiment === 'positive') _obsCatMap[cat].pos++;
+    if (obs.sentiment === 'needs-work') _obsCatMap[cat].neg++;
+  }
+  const obsCategoryStats = Object.entries(_obsCatMap)
+    .sort((a, b) => b[1].total - a[1].total)
+    .slice(0, 8)
+    .map(([cat, stats]) => ({
+      category: cat,
+      label: formatSkillLabel(cat),
+      pos: stats.pos,
+      neg: stats.neg,
+      total: stats.total,
+      ratio: stats.total > 0 ? stats.pos / stats.total : 0,
+    }));
 
   // Toggle highlight on a player observation with optimistic update
   async function handleTogglePlayerObsHighlight(obsId: string, next: boolean) {
@@ -927,9 +950,50 @@ export default function PlayerDetailPage({
             </CardHeader>
             <CardContent className="space-y-4">
               {proficiencies.length === 0 ? (
-                <p className="text-sm text-zinc-500">
-                  Skill proficiencies will appear here once enough observations have been recorded.
-                </p>
+                obsCategoryStats.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-zinc-500">Based on {observations.length} observation{observations.length !== 1 ? 's' : ''}</p>
+                      <Link href="/settings/sport" className="text-xs text-orange-400 hover:text-orange-300 transition-colors">
+                        Set up curriculum →
+                      </Link>
+                    </div>
+                    <div className="space-y-3.5">
+                      {obsCategoryStats.map(({ category, label, pos, neg, total, ratio }) => {
+                        const posPercent = Math.round(ratio * 100);
+                        const barColor = ratio >= 0.7 ? 'bg-emerald-500' : ratio >= 0.4 ? 'bg-amber-500' : 'bg-red-500';
+                        const bgColor = ratio >= 0.7 ? 'bg-emerald-500/10' : ratio >= 0.4 ? 'bg-amber-500/10' : 'bg-red-500/10';
+                        const textColor = ratio >= 0.7 ? 'text-emerald-400' : ratio >= 0.4 ? 'text-amber-400' : 'text-red-400';
+                        const statusLabel = ratio >= 0.7 ? 'Strong' : ratio >= 0.4 ? 'Mixed' : 'Needs Work';
+                        return (
+                          <div key={category} className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-zinc-200">{label}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-zinc-500">{total} obs</span>
+                                <span className={`text-xs font-semibold ${textColor}`}>{statusLabel}</span>
+                              </div>
+                            </div>
+                            <div className={`h-2 w-full overflow-hidden rounded-full ${bgColor}`}>
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                                style={{ width: `${Math.max(posPercent, 2)}%` }}
+                              />
+                            </div>
+                            <div className="flex justify-between text-[10px] text-zinc-500">
+                              <span>✓ {pos} positive</span>
+                              {neg > 0 && <span>⚠ {neg} needs work</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-zinc-500">
+                    Skill proficiencies will appear here once enough observations have been recorded.
+                  </p>
+                )
               ) : (
                 <>
                   {/* Skills at a Glance summary strip */}
