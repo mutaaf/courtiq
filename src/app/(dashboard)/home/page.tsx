@@ -45,6 +45,7 @@ import { TeamSkillTrendsCard } from '@/components/home/team-skill-trends-card';
 import { WeeklyFocusCard } from '@/components/home/weekly-focus-card';
 import { FreemiumNudge } from '@/components/ui/freemium-nudge';
 import { SeasonalPromo } from '@/components/onboarding/seasonal-promo';
+import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot-card';
 
 // ─── Today's Session Card ────────────────────────────────────────────────────
 
@@ -815,10 +816,17 @@ export default function HomePage() {
           )}
         </div>
       ) : todaySessions.length > 0 ? (
-        <TodaySessionCard
-          session={todaySessions[0]}
-          restrictedPlayers={restrictedPlayersToday}
-        />
+        <>
+          <TodaySessionCard
+            session={todaySessions[0]}
+            restrictedPlayers={restrictedPlayersToday}
+          />
+          <PrePracticeSnapshotCard
+            teamId={activeTeam.id}
+            sessionId={todaySessions[0].id}
+            rosterPlayers={rosterPlayers}
+          />
+        </>
       ) : (
         <button
           onClick={startPractice}
