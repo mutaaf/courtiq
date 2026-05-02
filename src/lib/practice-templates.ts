@@ -511,6 +511,131 @@ const FLAG_FOOTBALL_U12: PracticeTemplate = {
   ],
 };
 
+// ─── Volleyball Templates ────────────────────────────────────────────────────
+
+const VOLLEYBALL_U8: PracticeTemplate = {
+  id: 'vball-u8-30',
+  name: 'Volleyball Basics',
+  sport: 'volleyball',
+  ageLabel: 'Ages 6–8',
+  totalMins: 30,
+  description: 'Serving, bumping, and a cooperative rally game for young players. Fun first introduction to volleyball.',
+  tags: ['beginner', 'fundamentals', 'short'],
+  drills: [
+    {
+      name: 'Balloon Rally Warm-Up',
+      durationMins: 5,
+      cues: [
+        'Keep the balloon in the air — focus on hitting it up, not across',
+        'Use both hands flat together when you hit it',
+        'Move your feet to get under the balloon before you hit it',
+        'Count your hits out loud — try to beat your record!',
+      ],
+      description: 'Each player with a balloon, keep it up in the air as long as possible. Builds tracking and hand-eye coordination.',
+    },
+    {
+      name: 'Underhand Serve Practice',
+      durationMins: 8,
+      cues: [
+        'Hold the ball in your non-dominant hand at waist height',
+        'Swing your dominant hand like a pendulum — don\'t slap it',
+        'Step with your opposite foot when you swing',
+        'Follow through — point your hand toward where you want the ball to go',
+      ],
+      description: 'Line up behind the service line and practice underhand serves over the net. Coach adjusts distance for success.',
+    },
+    {
+      name: 'Bump (Forearm Pass) Basics',
+      durationMins: 8,
+      cues: [
+        'Make a flat platform — put fists together, arms straight',
+        'Bend your knees and get low before the ball arrives',
+        'Let the ball come to you — don\'t swing your arms',
+        'Watch the ball hit your forearms every single time',
+      ],
+      description: 'Coach tosses softly, players practice bumping the ball straight up in the air. Work in pairs.',
+    },
+    {
+      name: 'Cooperative Net Rally',
+      durationMins: 9,
+      cues: [
+        'Goal is to keep the rally going — help your teammates!',
+        'Call "mine!" when you\'re going for the ball',
+        'Move toward the ball, don\'t wait for it to come to you',
+        'Celebrate every long rally — that\'s teamwork!',
+      ],
+      description: 'Two groups of 3 on each side. Goal is to set a team record for consecutive hits across the net without it hitting the ground.',
+    },
+  ],
+};
+
+const VOLLEYBALL_U12: PracticeTemplate = {
+  id: 'vball-u12-45',
+  name: 'Pass, Set, Attack',
+  sport: 'volleyball',
+  ageLabel: 'Ages 9–12',
+  totalMins: 45,
+  description: 'Serving, platform passing, overhead setting, and first attacking. Builds the 3-hit combination.',
+  tags: ['intermediate', 'fundamentals', 'medium'],
+  drills: [
+    {
+      name: 'Dynamic Warm-Up & Pepper',
+      durationMins: 8,
+      cues: [
+        'Pepper: serve → bump → set → spike → repeat — stay focused',
+        'Platform passing: arms locked, platform flat, let the ball come to you',
+        'Communicate every touch: "Mine!", "Help!", "Out!"',
+        'Move your feet first — get your body behind the ball before you pass',
+      ],
+      description: 'Pair warm-up: light stretches, then pepper drill — players continuously rally using bump, set, spike in sequence.',
+    },
+    {
+      name: 'Overhand Serving',
+      durationMins: 8,
+      cues: [
+        'Toss the ball slightly in front and above your hitting shoulder',
+        'Step with your non-dominant foot — hip rotation = power',
+        'Contact at the highest point with a stiff wrist — no limp wrist',
+        'Aim for zones, not just "over the net" — target deep corners',
+      ],
+      description: 'Players serve from behind the endline. Progress from float serves to top-spin. Coach tracks accuracy in target zones.',
+    },
+    {
+      name: 'Forearm Pass + Overhead Set Combo',
+      durationMins: 10,
+      cues: [
+        'Bump: platform is the foundation — lock arms early',
+        'Set: hands above forehead, fingers spread, push not slap',
+        'Call the ball before you touch it — no surprise passes',
+        'Setter: face the outside hitter, square your hips to your target',
+      ],
+      description: 'Groups of 3: server tosses, first player bumps, second player sets. Focus on clean two-touch exchange.',
+    },
+    {
+      name: 'Attacking Off the Set',
+      durationMins: 10,
+      cues: [
+        'Approach: left-right-left jump for right-handers (opposite for lefties)',
+        'Arm swing: elbow high, snap through contact — don\'t push',
+        'Contact the top of the ball — you want it going DOWN into the court',
+        'Land on both feet and immediately reset to be ready to dig',
+      ],
+      description: 'Set up on the outside pin. Setter delivers a high ball, hitter approaches and attacks. Rotate after 3 swings.',
+    },
+    {
+      name: '3-Hit Scrimmage',
+      durationMins: 9,
+      cues: [
+        'Every rally must have 3 touches — no single hits over the net',
+        'Setter: get to position 2 or 3 as soon as the ball goes over',
+        'Defense: stay low between points, ready position every play',
+        'After each point, huddle quickly — one adjustment, play again',
+      ],
+      description: '6v6 or 4v4 scrimmage with a mandatory 3-touch rule. Coach calls violations and gives immediate feedback.',
+    },
+  ],
+};
+
 // ─── Template Registry ───────────────────────────────────────────────────────
 
 export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
@@ -522,6 +647,8 @@ export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
   SOCCER_U12,
   FLAG_FOOTBALL_U8,
   FLAG_FOOTBALL_U12,
+  VOLLEYBALL_U8,
+  VOLLEYBALL_U12,
 ];
 
 // ─── Utility Functions ───────────────────────────────────────────────────────

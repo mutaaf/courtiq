@@ -75,6 +75,34 @@ const SOCCER_TEMPLATES: ObservationTemplate[] = [
   { id: 'soc-nw-conditioning', text: 'Conditioning concerns',       sentiment: 'needs-work', category: 'conditioning', emoji: '💪' },
 ];
 
+// ── Volleyball ───────────────────────────────────────────────────────────────
+
+const VOLLEYBALL_TEMPLATES: ObservationTemplate[] = [
+  // ── Positive ──────────────────────────────────────────────────────────────
+  { id: 'vb-pos-serve',       text: 'Strong, accurate serve',       sentiment: 'positive',   category: 'shooting',    emoji: '🏐' },
+  { id: 'vb-pos-setting',     text: 'Great set — high and precise', sentiment: 'positive',   category: 'passing',     emoji: '🎯' },
+  { id: 'vb-pos-passing',     text: 'Excellent platform passing',   sentiment: 'positive',   category: 'passing',     emoji: '🤝' },
+  { id: 'vb-pos-defense',     text: 'Solid defensive dig',         sentiment: 'positive',   category: 'defense',     emoji: '🛡️' },
+  { id: 'vb-pos-blocking',    text: 'Good net block',               sentiment: 'positive',   category: 'defense',     emoji: '✋' },
+  { id: 'vb-pos-hustle',      text: 'Outstanding court hustle',     sentiment: 'positive',   category: 'hustle',      emoji: '🔥' },
+  { id: 'vb-pos-communication', text: 'Called the ball — great communication', sentiment: 'positive', category: 'teamwork', emoji: '📣' },
+  { id: 'vb-pos-footwork',    text: 'Quick footwork to the ball',  sentiment: 'positive',   category: 'footwork',    emoji: '👟' },
+  { id: 'vb-pos-attitude',    text: 'Coachable attitude',           sentiment: 'positive',   category: 'attitude',    emoji: '⭐' },
+  { id: 'vb-pos-leadership',  text: 'Led the team through a tough rally', sentiment: 'positive', category: 'leadership', emoji: '🏆' },
+
+  // ── Needs work ────────────────────────────────────────────────────────────
+  { id: 'vb-nw-serve',        text: 'Serve accuracy needs work',   sentiment: 'needs-work', category: 'shooting',    emoji: '🏐' },
+  { id: 'vb-nw-setting',      text: 'Setting needs more precision', sentiment: 'needs-work', category: 'passing',     emoji: '🎯' },
+  { id: 'vb-nw-passing',      text: 'Platform passing off target', sentiment: 'needs-work', category: 'passing',     emoji: '🤝' },
+  { id: 'vb-nw-defense',      text: 'Defensive positioning off',  sentiment: 'needs-work', category: 'defense',     emoji: '🛡️' },
+  { id: 'vb-nw-blocking',     text: 'Blocking technique needs work', sentiment: 'needs-work', category: 'defense',   emoji: '✋' },
+  { id: 'vb-nw-hustle',       text: 'Needs to pursue the ball harder', sentiment: 'needs-work', category: 'hustle',  emoji: '🔥' },
+  { id: 'vb-nw-communication', text: 'Not calling the ball — communication gap', sentiment: 'needs-work', category: 'teamwork', emoji: '📣' },
+  { id: 'vb-nw-footwork',     text: 'Footwork to ball needs work', sentiment: 'needs-work', category: 'footwork',   emoji: '👟' },
+  { id: 'vb-nw-attitude',     text: 'Coachability concerns',       sentiment: 'needs-work', category: 'attitude',   emoji: '⭐' },
+  { id: 'vb-nw-conditioning', text: 'Conditioning concerns',       sentiment: 'needs-work', category: 'conditioning', emoji: '💪' },
+];
+
 // ── Flag Football ────────────────────────────────────────────────────────────
 
 const FLAG_FOOTBALL_TEMPLATES: ObservationTemplate[] = [
@@ -108,6 +136,7 @@ const FLAG_FOOTBALL_TEMPLATES: ObservationTemplate[] = [
 const SPORT_TEMPLATES: Record<string, ObservationTemplate[]> = {
   soccer: SOCCER_TEMPLATES,
   flag_football: FLAG_FOOTBALL_TEMPLATES,
+  volleyball: VOLLEYBALL_TEMPLATES,
 };
 
 /**
@@ -130,7 +159,7 @@ export function getTemplatesBySentiment(
 /** Look up a single template by its stable id (checks all sport sets). */
 export function findTemplateById(id: string): ObservationTemplate | undefined {
   // Check sport-specific sets first, then fall back to default
-  for (const templates of [SOCCER_TEMPLATES, FLAG_FOOTBALL_TEMPLATES, OBSERVATION_TEMPLATES]) {
+  for (const templates of [SOCCER_TEMPLATES, FLAG_FOOTBALL_TEMPLATES, VOLLEYBALL_TEMPLATES, OBSERVATION_TEMPLATES]) {
     const found = templates.find((t) => t.id === id);
     if (found) return found;
   }
@@ -140,7 +169,7 @@ export function findTemplateById(id: string): ObservationTemplate | undefined {
 /** All template IDs across all sports — used for validation in observer-utils. */
 export function getAllTemplateIds(): Set<string> {
   const ids = new Set<string>();
-  for (const templates of [OBSERVATION_TEMPLATES, SOCCER_TEMPLATES, FLAG_FOOTBALL_TEMPLATES]) {
+  for (const templates of [OBSERVATION_TEMPLATES, SOCCER_TEMPLATES, FLAG_FOOTBALL_TEMPLATES, VOLLEYBALL_TEMPLATES]) {
     for (const t of templates) ids.add(t.id);
   }
   return ids;

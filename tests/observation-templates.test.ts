@@ -55,7 +55,14 @@ describe('getTemplatesForSport', () => {
   });
 
   it('returns basketball templates for an unrecognised sport', () => {
-    expect(getTemplatesForSport('volleyball')).toStrictEqual(OBSERVATION_TEMPLATES);
+    expect(getTemplatesForSport('lacrosse')).toStrictEqual(OBSERVATION_TEMPLATES);
+  });
+
+  it('returns volleyball templates when sportId is volleyball', () => {
+    const templates = getTemplatesForSport('volleyball');
+    expect(templates.length).toBeGreaterThan(0);
+    expect(templates).not.toStrictEqual(OBSERVATION_TEMPLATES);
+    expect(templates.some((t) => t.id.startsWith('vb-'))).toBe(true);
   });
 
   it('returns soccer templates when sportId is soccer', () => {
@@ -201,17 +208,70 @@ describe('getTemplatesBySentiment', () => {
   });
 
   it('falls back to basketball when given an unknown sport', () => {
-    const result = getTemplatesBySentiment('positive', 'volleyball');
+    const result = getTemplatesBySentiment('positive', 'lacrosse');
     const expected = OBSERVATION_TEMPLATES.filter((t) => t.sentiment === 'positive');
     expect(result).toStrictEqual(expected);
   });
 
+  it('returns volleyball positive templates when sportId is volleyball', () => {
+    const result = getTemplatesBySentiment('positive', 'volleyball');
+    expect(result.every((t) => t.sentiment === 'positive')).toBe(true);
+    expect(result.every((t) => t.id.startsWith('vb-'))).toBe(true);
+  });
+
+  it('returns volleyball needs-work templates when sportId is volleyball', () => {
+    const result = getTemplatesBySentiment('needs-work', 'volleyball');
+    expect(result.every((t) => t.sentiment === 'needs-work')).toBe(true);
+    expect(result.every((t) => t.id.startsWith('vb-'))).toBe(true);
+  });
+
   it('returns 10 templates per sentiment for each sport (balanced sets)', () => {
-    for (const sport of ['basketball', 'soccer', 'flag_football']) {
+    for (const sport of ['basketball', 'soccer', 'flag_football', 'volleyball']) {
       const pos = getTemplatesBySentiment('positive', sport);
       const nw = getTemplatesBySentiment('needs-work', sport);
       expect(pos).toHaveLength(10);
       expect(nw).toHaveLength(10);
+    }
+  });
+});
+
+// ── Volleyball templates ─────────────────────────────────────────────────────
+
+describe('volleyball templates', () => {
+  const vbTemplates = getTemplatesForSport('volleyball');
+
+  it('has 20 templates (10 positive + 10 needs-work)', () => {
+    expect(vbTemplates).toHaveLength(20);
+  });
+
+  it('all ids start with vb-', () => {
+    expect(vbTemplates.every((t) => t.id.startsWith('vb-'))).toBe(true);
+  });
+
+  it('includes a serve positive template', () => {
+    const t = vbTemplates.find((t) => t.id === 'vb-pos-serve');
+    expect(t).toBeDefined();
+    expect(t?.sentiment).toBe('positive');
+    expect(t?.text.toLowerCase()).toContain('serve');
+  });
+
+  it('includes a passing needs-work template', () => {
+    const t = vbTemplates.find((t) => t.id === 'vb-nw-passing');
+    expect(t).toBeDefined();
+    expect(t?.sentiment).toBe('needs-work');
+  });
+
+  it('all ids are unique within the volleyball set', () => {
+    const ids = vbTemplates.map((t) => t.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('every template has a non-empty id, text, emoji, and category', () => {
+    for (const t of vbTemplates) {
+      expect(t.id).toBeTruthy();
+      expect(t.text).toBeTruthy();
+      expect(t.emoji).toBeTruthy();
+      expect(t.category).toBeTruthy();
     }
   });
 });
@@ -272,8 +332,14 @@ describe('getAllTemplateIds', () => {
     expect(ids.has('not-a-template')).toBe(false);
   });
 
-  it('total size is 60 (20 per sport × 3 sports)', () => {
-    expect(getAllTemplateIds().size).toBe(60);
+  it('total size is 80 (20 per sport × 4 sports)', () => {
+    expect(getAllTemplateIds().size).toBe(80);
+  });
+
+  it('returns a Set containing volleyball ids', () => {
+    const ids = getAllTemplateIds();
+    expect(ids.has('vb-pos-serve')).toBe(true);
+    expect(ids.has('vb-nw-passing')).toBe(true);
   });
 
   it('all ids across all sports are globally unique', () => {
@@ -282,6 +348,7 @@ describe('getAllTemplateIds', () => {
       ...OBSERVATION_TEMPLATES,
       ...getTemplatesForSport('soccer'),
       ...getTemplatesForSport('flag_football'),
+      ...getTemplatesForSport('volleyball'),
     ];
     expect(ids.size).toBe(allTemplates.length);
   });

@@ -41,6 +41,7 @@ interface QuickTemplatesProps {
 const SPORT_LABELS: Record<string, string> = {
   soccer: '⚽ Soccer',
   flag_football: '🏈 Flag Football',
+  volleyball: '🏐 Volleyball',
 };
 
 // ── Sentiment tab ──────────────────────────────────────────────────────────────
