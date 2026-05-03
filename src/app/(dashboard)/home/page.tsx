@@ -29,6 +29,7 @@ import {
   Send,
   Share2,
   CheckCircle2,
+  CalendarPlus,
 } from 'lucide-react';
 import type { Session } from '@/types/database';
 import { useAppStore } from '@/lib/store';
@@ -59,6 +60,7 @@ import {
   getResultBadgeClasses,
   type ResultValue,
 } from '@/lib/season-record-utils';
+import { addToCalendar } from '@/lib/calendar-utils';
 
 // ─── Today's Session Card ────────────────────────────────────────────────────
 
@@ -76,6 +78,7 @@ function TodaySessionCard({
   practiceJustEnded?: boolean;
 }) {
   const [headsUpCopied, setHeadsUpCopied] = useState(false);
+  const [calAdded, setCalAdded] = useState(false);
   const obsCount = (session as any).observations?.[0]?.count ?? 0;
   const hasObservations = obsCount > 0;
 
@@ -196,6 +199,20 @@ function TodaySessionCard({
               </Button>
             </Link>
           </div>
+
+          {/* Add session to phone/calendar app */}
+          <button
+            onClick={() => {
+              addToCalendar(session, teamName);
+              setCalAdded(true);
+              setTimeout(() => setCalAdded(false), 2000);
+            }}
+            className="w-full flex items-center justify-center gap-2 rounded-xl border border-zinc-700/40 bg-zinc-800/30 py-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition-colors active:scale-[0.98] touch-manipulation"
+            aria-label="Add session to calendar"
+          >
+            <CalendarPlus className="h-3.5 w-3.5" aria-hidden />
+            {calAdded ? '✓ Added to calendar!' : 'Add to calendar'}
+          </button>
 
           {/* Send a quick heads-up to parents about today's session */}
           <button
@@ -537,6 +554,7 @@ function TomorrowSessionCard({
   teamName?: string | null;
 }) {
   const [reminderCopied, setReminderCopied] = useState(false);
+  const [calAdded, setCalAdded] = useState(false);
 
   const TYPE_LABEL: Record<string, string> = {
     practice: 'Practice',
@@ -605,6 +623,20 @@ function TomorrowSessionCard({
           </button>
         </Link>
       </div>
+
+      {/* Add session to phone/calendar app */}
+      <button
+        onClick={() => {
+          addToCalendar(session, teamName);
+          setCalAdded(true);
+          setTimeout(() => setCalAdded(false), 2000);
+        }}
+        className="w-full flex items-center justify-center gap-2 rounded-xl border border-zinc-700/40 bg-zinc-800/30 py-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition-colors active:scale-[0.98] touch-manipulation"
+        aria-label="Add session to calendar"
+      >
+        <CalendarPlus className="h-3.5 w-3.5" aria-hidden />
+        {calAdded ? '✓ Added to calendar!' : 'Add to calendar'}
+      </button>
 
       {/* Remind parents about tomorrow's session */}
       <button

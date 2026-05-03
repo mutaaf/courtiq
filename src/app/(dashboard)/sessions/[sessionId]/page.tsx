@@ -60,6 +60,7 @@ import {
   Megaphone,
   Pencil,
   Mail,
+  CalendarPlus,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
@@ -88,6 +89,7 @@ import {
   buildHuddleShareText,
   hasNextSessionHint,
 } from '@/lib/huddle-script-utils';
+import { addToCalendar } from '@/lib/calendar-utils';
 import type { HuddleScript } from '@/lib/huddle-script-utils';
 import type { PlayerOfMatch, TeamTalk } from '@/lib/ai/schemas';
 import {
@@ -3051,6 +3053,8 @@ export default function SessionDetailPage() {
   // Observation grouping mode: by player (default) or by drill (when timer data exists)
   const [obsGroupBy, setObsGroupBy] = useState<'player' | 'drill'>('player');
 
+  const [calAdded, setCalAdded] = useState(false);
+
   // Quick result entry state
   const [resultEditing, setResultEditing] = useState(false);
   const [resultPendingOutcome, setResultPendingOutcome] = useState<ResultValue | null>(null);
@@ -3445,6 +3449,19 @@ export default function SessionDetailPage() {
               </span>
             )}
           </div>
+          <button
+            onClick={() => {
+              addToCalendar(session, activeTeam?.name ?? null);
+              setCalAdded(true);
+              setTimeout(() => setCalAdded(false), 2000);
+            }}
+            className="flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-300 transition-colors touch-manipulation"
+            aria-label="Add session to calendar"
+          >
+            <CalendarPlus className="h-3.5 w-3.5" aria-hidden />
+            {calAdded ? '✓ Added to calendar!' : 'Add to calendar'}
+          </button>
+
           {session.curriculum_week && (
             <Badge variant="secondary">Curriculum Week {session.curriculum_week}</Badge>
           )}
