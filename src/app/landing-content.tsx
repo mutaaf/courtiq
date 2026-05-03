@@ -20,14 +20,78 @@ import {
   Lock,
   Calendar,
   Star,
+  Loader2,
+  RotateCcw,
+  Wand2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 
 export default function LandingContent() {
   const [annual, setAnnual] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  // ── Inline AI demo state ────────────────────────────────────────────────────
+  type InlineDemoPhase = 'idle' | 'loading' | 'done';
+  const [inlinePhase, setInlinePhase] = useState<InlineDemoPhase>('idle');
+  const [inlineText, setInlineText] = useState('');
+  const [inlineObs, setInlineObs] = useState<Array<{
+    player_name: string;
+    category: string;
+    sentiment: 'positive' | 'needs-work';
+    text: string;
+  }>>([]);
+  const [inlineFromAI, setInlineFromAI] = useState(false);
+
+  const INLINE_ROSTER = [
+    { name: 'Marcus', nickname: null, position: 'Guard', jersey_number: 12, name_variants: [] },
+    { name: 'Sofia', nickname: null, position: 'Guard', jersey_number: 23, name_variants: [] },
+    { name: 'Jayden', nickname: 'Jay', position: 'Forward', jersey_number: 7, name_variants: [] },
+    { name: 'Tyler', nickname: null, position: 'Forward', jersey_number: 4, name_variants: [] },
+  ];
+
+  const INLINE_PLACEHOLDER =
+    "Marcus had a great cut to the basket. Sofia needs to work on her footwork — she's getting caught flat-footed on defense. Jayden showed excellent court vision and made the extra pass.";
+
+  const INLINE_FALLBACK = [
+    { player_name: 'Marcus', category: 'Offense', sentiment: 'positive' as const, text: 'Excellent cut to the basket with great timing. Shows strong off-ball movement and reads the defense well.' },
+    { player_name: 'Sofia', category: 'Defense', sentiment: 'needs-work' as const, text: 'Needs to work on footwork on defense — getting caught flat-footed when the offense changes direction quickly.' },
+    { player_name: 'Jayden', category: 'IQ', sentiment: 'positive' as const, text: 'Made a smart extra pass to the open player instead of forcing a shot. Great court vision under pressure.' },
+  ];
+
+  async function handleInlineDemo() {
+    const transcript = inlineText.trim() || INLINE_PLACEHOLDER;
+    setInlinePhase('loading');
+    try {
+      const res = await fetch('/api/ai/demo-segment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript, demoRoster: INLINE_ROSTER }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (!data.fallback && data.observations?.length > 0) {
+          setInlineObs(data.observations.slice(0, 3));
+          setInlineFromAI(true);
+          setInlinePhase('done');
+          return;
+        }
+      }
+    } catch {}
+    setInlineObs(INLINE_FALLBACK);
+    setInlineFromAI(false);
+    setInlinePhase('done');
+  }
+
+  function resetInlineDemo() {
+    setInlinePhase('idle');
+    setInlineText('');
+    setInlineObs([]);
+    setInlineFromAI(false);
+  }
+  // ────────────────────────────────────────────────────────────────────────────
 
   const monthlyPrices = [0, 9.99, 24.99];
   const annualPrices = monthlyPrices.map((p) => +(p * 0.8).toFixed(2));
@@ -442,40 +506,146 @@ export default function LandingContent() {
         </div>
       </section>
 
-      {/* ── Demo Preview ── */}
+      {/* ── Demo Preview — inline AI ── */}
       <section className="border-y border-zinc-200 bg-zinc-50/50 py-16 sm:py-20">
-        <div className="mx-auto max-w-3xl px-4 text-center">
-          <h2 className="text-2xl font-bold sm:text-3xl mb-4">See it in action</h2>
-          <p className="text-zinc-600 mb-8">Try the live recording demo. 20 seconds, no account needed.</p>
+        <div className="mx-auto max-w-2xl px-4">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold sm:text-3xl mb-3">See it in action</h2>
+            <p className="text-zinc-600 max-w-md mx-auto">
+              Type what you&apos;d say on the sideline. Claude AI turns your words into structured player observations instantly — no account needed.
+            </p>
+          </div>
 
-          <Card className="p-8 sm:p-10 bg-white border-orange-200 text-zinc-900 hover:border-orange-400 hover:shadow-lg transition-all">
-            <div className="flex flex-col items-center gap-5">
-              <div className="relative">
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-orange-100 ring-2 ring-orange-500/30">
-                  <Mic className="h-10 w-10 text-orange-500" />
+          <Card className="bg-white border-orange-200 text-zinc-900 overflow-hidden">
+            {/* Idle state — input */}
+            {inlinePhase === 'idle' && (
+              <div className="p-6 sm:p-8 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">
+                    What did you see at practice today?
+                  </label>
+                  <Textarea
+                    placeholder={INLINE_PLACEHOLDER}
+                    value={inlineText}
+                    onChange={(e) => setInlineText(e.target.value)}
+                    rows={3}
+                    className="w-full resize-none border-zinc-300 text-zinc-900 placeholder:text-zinc-400 focus:border-orange-400 bg-white"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleInlineDemo();
+                    }}
+                  />
+                  <p className="mt-1.5 text-xs text-zinc-400">Mention any player names — AI will match them automatically. ⌘↵ to run.</p>
                 </div>
-                <span className="absolute -top-1 -right-1 flex h-5 w-5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-40" />
-                  <span className="relative inline-flex rounded-full h-5 w-5 bg-orange-500" />
-                </span>
-              </div>
-              <p className="text-sm text-zinc-600 max-w-sm">
-                &ldquo;Hit record, coach like normal, and let AI turn your words into organized player notes.&rdquo;
-              </p>
-              <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-                <Button asChild size="lg" className="w-full sm:w-auto shadow-lg shadow-orange-500/25">
-                  <Link href="/demo">
-                    Try it yourself — no signup
-                    <ArrowRight className="ml-1.5 h-4 w-4" />
-                  </Link>
+                <Button
+                  onClick={handleInlineDemo}
+                  size="lg"
+                  className="w-full shadow-lg shadow-orange-500/25"
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Analyze with Claude AI
                 </Button>
-                <Button asChild variant="outline" size="lg" className="w-full sm:w-auto border-orange-300 text-orange-700 hover:bg-orange-50">
-                  <Link href="/demo/report">
-                    See a sample report
+                <div className="flex items-center justify-center gap-4 text-xs text-zinc-400">
+                  <span>No signup · No mic needed</span>
+                  <span>·</span>
+                  <Link href="/demo" className="hover:text-zinc-600 underline underline-offset-2 flex items-center gap-1">
+                    <Mic className="h-3 w-3" />
+                    Prefer voice?
                   </Link>
-                </Button>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Loading state */}
+            {inlinePhase === 'loading' && (
+              <div className="p-8 flex flex-col items-center gap-4 text-center">
+                <div className="relative flex h-14 w-14 items-center justify-center">
+                  <div className="absolute inset-0 animate-spin rounded-full border-4 border-orange-500 border-t-transparent" />
+                  <Sparkles className="h-5 w-5 text-orange-500" />
+                </div>
+                <div>
+                  <p className="font-semibold text-zinc-800">Claude AI is reading your coaching…</p>
+                  <p className="text-sm text-zinc-500 mt-1">Identifying players, categorising skills, flagging growth areas</p>
+                </div>
+                <div className="mt-1 flex flex-col gap-1.5 text-xs text-zinc-400">
+                  {['👤 Matching player names', '🏀 Categorising by skill', '💡 Positive vs needs-work'].map((s, i) => (
+                    <span key={s} className="animate-pulse" style={{ animationDelay: `${i * 0.3}s` }}>{s}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Done state — results */}
+            {inlinePhase === 'done' && (
+              <div className="divide-y divide-zinc-100">
+                {/* Header bar */}
+                <div className="flex items-center justify-between px-5 py-3 bg-zinc-50 border-b border-zinc-200">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-zinc-600">
+                      {inlineObs.length} observation{inlineObs.length !== 1 ? 's' : ''} found
+                    </span>
+                    {inlineFromAI && (
+                      <span className="flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">
+                        <Wand2 className="h-2.5 w-2.5" />
+                        Live Claude AI
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={resetInlineDemo}
+                    className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    Try again
+                  </button>
+                </div>
+
+                {/* Observation cards */}
+                <div className="p-5 space-y-3">
+                  {inlineObs.map((obs, i) => (
+                    <div key={i} className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-orange-600">
+                            {obs.player_name[0]}
+                          </div>
+                          <span className="font-semibold text-sm text-zinc-800">{obs.player_name}</span>
+                        </div>
+                        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                          obs.sentiment === 'positive'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {obs.sentiment === 'positive' ? '✓' : '!'} {obs.category}
+                        </span>
+                      </div>
+                      <p className="text-sm text-zinc-600 leading-relaxed">{obs.text}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Signup CTA */}
+                <div className="p-5 bg-gradient-to-r from-orange-500 to-orange-600 text-center space-y-3">
+                  <div>
+                    <p className="font-bold text-white">Ready to save observations and track real progress?</p>
+                    <p className="text-orange-100 text-sm mt-0.5">
+                      Free account · 2-minute setup · No credit card needed
+                    </p>
+                  </div>
+                  <Link href="/signup">
+                    <button className="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-bold text-orange-600 hover:bg-orange-50 transition-colors shadow-lg">
+                      Create free account
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                  </Link>
+                  <p className="text-xs text-orange-200">
+                    Or{' '}
+                    <Link href="/demo" className="underline hover:text-white">try the voice demo</Link>
+                    {' '}·{' '}
+                    <Link href="/demo/report" className="underline hover:text-white">see a sample parent report</Link>
+                  </p>
+                </div>
+              </div>
+            )}
           </Card>
         </div>
       </section>
