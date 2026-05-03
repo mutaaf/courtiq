@@ -34,15 +34,16 @@ export default function UpgradePage() {
   const intentParam = searchParams.get('intent') ?? '';
   const intentConfig = !intentDismissed && INTENT_CONFIG[intentParam] ? INTENT_CONFIG[intentParam] : null;
 
-  // Handle Stripe redirect query params
+  // Handle Stripe redirect query params — Stripe appends ?success=true or ?canceled=true
   useEffect(() => {
-    const status = searchParams.get('status');
-    if (status === 'success') {
+    const success = searchParams.get('success');
+    const canceled = searchParams.get('canceled');
+    if (success === 'true') {
       setToast({ type: 'success', message: 'Subscription activated! Welcome to your new plan.' });
-    } else if (status === 'canceled') {
+    } else if (canceled === 'true') {
       setToast({ type: 'canceled', message: 'Checkout canceled. No charges were made.' });
     }
-    if (status) {
+    if (success || canceled) {
       const timer = setTimeout(() => setToast(null), 6000);
       return () => clearTimeout(timer);
     }
@@ -112,6 +113,7 @@ export default function UpgradePage() {
       name: 'Coach',
       icon: CreditCard,
       color: 'orange',
+      popular: true,
       monthlyPrice: 9.99,
       annualPrice: 7.99,
       features: ['3 teams, 1 sport', 'Unlimited players', 'Unlimited AI observations', 'Practice plans & game sheets', 'Player report cards', 'Parent sharing portal'],
@@ -121,9 +123,8 @@ export default function UpgradePage() {
       name: 'Pro Coach',
       icon: Sparkles,
       color: 'blue',
-      popular: true,
-      monthlyPrice: 39.99,
-      annualPrice: 31.99,
+      monthlyPrice: 24.99,
+      annualPrice: 19.99,
       features: ['Unlimited teams & sports', 'Everything in Coach', 'AI Coach Assistant', 'Player analytics & trends', 'Session media upload', 'Custom AI prompts'],
     },
     {
@@ -131,8 +132,8 @@ export default function UpgradePage() {
       name: 'Organization',
       icon: Users,
       color: 'purple',
-      monthlyPrice: 99.99,
-      annualPrice: 79.99,
+      monthlyPrice: 49.99,
+      annualPrice: 39.99,
       features: ['Everything in Pro Coach', 'Multi-coach collaboration', 'Program-wide analytics', 'Custom branding', 'Priority support'],
     },
   ];
@@ -316,7 +317,7 @@ export default function UpgradePage() {
             : isIntended
             ? 'border-orange-500 bg-orange-500/5 shadow-xl shadow-orange-500/20 ring-1 ring-orange-500/30'
             : plan.popular
-            ? 'border-blue-500/30 bg-blue-500/5'
+            ? 'border-orange-500/30 bg-orange-500/5 shadow-lg shadow-orange-500/10'
             : 'border-zinc-800 bg-zinc-900/40';
 
           return (
@@ -334,7 +335,7 @@ export default function UpgradePage() {
               )}
               {plan.popular && !isCurrent && !isIntended && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge className="bg-blue-500 text-white text-xs px-3 py-0.5 shadow-sm">
+                  <Badge className="bg-orange-500 text-white text-xs px-3 py-0.5 shadow-sm">
                     Most Popular
                   </Badge>
                 </div>
