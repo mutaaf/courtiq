@@ -10,7 +10,7 @@
 
 import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, ChevronRight, X, Loader2, Zap } from 'lucide-react';
+import { CheckCircle2, ChevronRight, X, Loader2, Zap, Lightbulb } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { mutate, query } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
@@ -20,6 +20,11 @@ import {
   type ObservationTemplate,
   type TemplateSentiment,
 } from '@/lib/observation-templates';
+import {
+  getPhraseForDay,
+  getPhraseLabelForCategory,
+  hasPhrases,
+} from '@/lib/coaching-phrases';
 
 interface Player {
   id: string;
@@ -69,6 +74,7 @@ interface PlayerPickerProps {
   coachId: string;
   sessionId?: string | null;
   preselectPlayerId?: string | null;
+  sportId?: string | null;
   onClose: () => void;
   onSaved: (playerName: string) => void;
 }
@@ -79,6 +85,7 @@ function PlayerPicker({
   coachId,
   sessionId,
   preselectPlayerId,
+  sportId,
   onClose,
   onSaved,
 }: PlayerPickerProps) {
@@ -88,6 +95,12 @@ function PlayerPicker({
   const [loadError, setLoadError] = useState(false);
 
   const sheetRef = useFocusTrap<HTMLDivElement>({ enabled: true, onEscape: onClose });
+
+  // Normalize sport slug for coaching-phrases lookup (flag_football → flagfootball)
+  const sportSlug = sportId ? sportId.toLowerCase().replace('_', '') : null;
+  const coachingPhrase =
+    hasPhrases(template.category, sportSlug) ? getPhraseForDay(template.category, sportSlug) : null;
+  const phraseLabel = coachingPhrase ? getPhraseLabelForCategory(template.category, sportSlug) : null;
 
   // Load players lazily when sheet opens
   useState(() => {
@@ -131,6 +144,11 @@ function PlayerPicker({
         await queryClient.invalidateQueries({
           queryKey: queryKeys.observations.all(teamId),
         });
+        queryClient.invalidateQueries({ queryKey: ['home-stats', teamId] });
+        queryClient.invalidateQueries({ queryKey: ['home-pulse', teamId] });
+        if (sessionId) {
+          queryClient.invalidateQueries({ queryKey: ['session-obs-count', sessionId] });
+        }
 
         if (navigator.vibrate) navigator.vibrate([60, 30, 60]);
         onSaved(player.name.split(' ')[0]);
@@ -184,6 +202,17 @@ function PlayerPicker({
             <X className="h-4 w-4" />
           </button>
         </div>
+
+        {/* Coaching cue — helps volunteer coaches know what to say right now */}
+        {coachingPhrase && (
+          <div className="mx-5 mb-4 rounded-xl border border-blue-500/20 bg-blue-500/8 px-3.5 py-2.5">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Lightbulb className="h-3 w-3 text-blue-400 shrink-0" />
+              <p className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">{phraseLabel}</p>
+            </div>
+            <p className="text-xs text-blue-200 italic leading-relaxed">"{coachingPhrase}"</p>
+          </div>
+        )}
 
         <p className="px-5 pb-3 text-xs font-medium text-zinc-500 uppercase tracking-wider">
           Select player
@@ -376,6 +405,7 @@ export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId, 
           coachId={coachId}
           sessionId={sessionId}
           preselectPlayerId={preselectPlayerId}
+          sportId={sportId}
           onClose={handleClose}
           onSaved={handleSaved}
         />
