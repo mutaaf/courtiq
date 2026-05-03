@@ -2,7 +2,7 @@
 
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,6 +52,13 @@ import { FreemiumNudge } from '@/components/ui/freemium-nudge';
 import { SeasonalPromo } from '@/components/onboarding/seasonal-promo';
 import { TestimonialPrompt } from '@/components/onboarding/testimonial-prompt';
 import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot-card';
+import {
+  isGameType,
+  parseResult,
+  buildResultString,
+  getResultBadgeClasses,
+  type ResultValue,
+} from '@/lib/season-record-utils';
 
 // ─── Today's Session Card ────────────────────────────────────────────────────
 
@@ -348,8 +355,14 @@ const SKILL_DISPLAY_LABEL: Record<string, string> = {
 };
 
 function LastSessionCard({ session }: {
-  session: { id: string; type: string; date: string; quality_rating?: number | null; observations?: [{ count: number }] };
+  session: { id: string; type: string; date: string; quality_rating?: number | null; result?: string | null; opponent?: string | null; observations?: [{ count: number }] };
 }) {
+  const { activeTeam, coach } = useActiveTeam();
+  const queryClient = useQueryClient();
+  const [localResult, setLocalResult] = useState<string | null>(null);
+  const [savingOutcome, setSavingOutcome] = useState<ResultValue | null>(null);
+  const [shared, setShared] = useState(false);
+
   const obsCount = session.observations?.[0]?.count ?? 0;
   const emoji = SESSION_EMOJI[session.type] ?? '📋';
   const label = SESSION_LABEL[session.type] ?? session.type;
@@ -360,6 +373,49 @@ function LastSessionCard({ session }: {
     (Date.now() - new Date(session.date + 'T12:00:00').getTime()) / 86_400_000
   );
   const dateLabel = daysDiff === 1 ? 'Yesterday' : `${daysDiff} days ago`;
+
+  const isGame = isGameType(session.type);
+  const effectiveResult = localResult ?? session.result ?? null;
+  const parsedResult = parseResult(effectiveResult);
+
+  async function handleQuickResult(outcome: ResultValue) {
+    if (savingOutcome) return;
+    const resultStr = buildResultString(outcome);
+    setSavingOutcome(outcome);
+    setLocalResult(resultStr);
+    try {
+      await mutate({
+        table: 'sessions',
+        operation: 'update',
+        data: { result: resultStr },
+        filters: { id: session.id },
+      });
+      queryClient.invalidateQueries({ queryKey: ['last-session', activeTeam?.id] });
+    } catch {
+      setLocalResult(null);
+    } finally {
+      setSavingOutcome(null);
+    }
+  }
+
+  function handleShareResult(outcome: ResultValue) {
+    const teamName = activeTeam?.name || 'the team';
+    const coachFirst = coach?.full_name?.split(' ')[0] || 'Coach';
+    const opponentPart = session.opponent ? ` vs ${session.opponent}` : '';
+    const msgs: Record<ResultValue, string> = {
+      win:  `🏆 ${teamName} won today!${opponentPart} Great effort from the whole team! — ${coachFirst}`,
+      loss: `Tough game for ${teamName}${opponentPart}. The team gave great effort — we'll use this to improve! — ${coachFirst}`,
+      tie:  `Hard-fought draw for ${teamName}${opponentPart}! Great resilience from the team! — ${coachFirst}`,
+    };
+    const text = msgs[outcome];
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      navigator.share({ title: `${teamName} Game Result`, text }).catch(() => {});
+    } else {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+    }
+    setShared(true);
+    setTimeout(() => setShared(false), 2500);
+  }
 
   return (
     <Card className="border-zinc-800">
@@ -398,6 +454,59 @@ function LastSessionCard({ session }: {
             </Button>
           </Link>
         </div>
+
+        {/* Game result entry / display */}
+        {isGame && (
+          <div className="mt-3">
+            {parsedResult ? (
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${getResultBadgeClasses(parsedResult)}`}>
+                  {parsedResult === 'win' ? 'W' : parsedResult === 'loss' ? 'L' : 'T'}
+                </span>
+                {session.opponent && (
+                  <span className="text-xs text-zinc-500">vs {session.opponent}</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleShareResult(parsedResult)}
+                  className="ml-auto flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300 hover:bg-zinc-700 active:scale-[0.97] transition-all touch-manipulation"
+                >
+                  {shared ? (
+                    <><CheckCircle2 className="h-3 w-3 text-emerald-400" />Shared!</>
+                  ) : (
+                    <><Share2 className="h-3 w-3" />{parsedResult === 'win' ? '🎉 Share' : 'Share'}</>
+                  )}
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-zinc-500 shrink-0">Log result:</span>
+                {(['win', 'loss', 'tie'] as const).map((outcome) => (
+                  <button
+                    key={outcome}
+                    type="button"
+                    onClick={() => handleQuickResult(outcome)}
+                    disabled={savingOutcome !== null}
+                    className={`flex items-center justify-center rounded-lg px-3 py-1.5 text-xs font-bold transition-colors touch-manipulation disabled:opacity-50 ${
+                      outcome === 'win'
+                        ? 'border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
+                        : outcome === 'loss'
+                        ? 'border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20'
+                        : 'border border-zinc-600 bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                    }`}
+                  >
+                    {savingOutcome === outcome ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      outcome === 'win' ? 'W' : outcome === 'loss' ? 'L' : 'T'
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {obsCount > 0 && (
           <Link href={`/sessions/${session.id}#player-messages-section`}>
             <div className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-teal-500/30 bg-teal-500/10 px-4 py-2.5 text-sm font-medium text-teal-300 hover:bg-teal-500/15 active:scale-[0.98] transition-all touch-manipulation">
@@ -780,7 +889,7 @@ export default function HomePage() {
       const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000).toISOString().split('T')[0];
       const sessions = await query<any[]>({
         table: 'sessions',
-        select: 'id, type, date, quality_rating, observations:observations(count)',
+        select: 'id, type, date, quality_rating, result, opponent, observations:observations(count)',
         filters: {
           team_id: activeTeam.id,
           date: { op: 'lt', value: today },
