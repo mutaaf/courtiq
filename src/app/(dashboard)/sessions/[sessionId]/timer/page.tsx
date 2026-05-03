@@ -460,6 +460,7 @@ function DoneScreen({
   isRecovered,
   onStartFresh,
   presentPlayers,
+  onAddNote,
 }: {
   drillsRun: QueueItem[];
   notes: CapturedNote[];
@@ -470,9 +471,13 @@ function DoneScreen({
   isRecovered?: boolean;
   onStartFresh?: () => void;
   presentPlayers?: { id: string; name: string }[];
+  onAddNote?: (playerId: string, playerName: string, sentiment: Sentiment, note: string) => void;
 }) {
   const [rating, setRating] = useState<number>(0);
   const [ratingSaved, setRatingSaved] = useState(false);
+  const [expandedPlayer, setExpandedPlayer] = useState<{ id: string; name: string } | null>(null);
+  const [quickSentiment, setQuickSentiment] = useState<Sentiment>('positive');
+  const [quickNote, setQuickNote] = useState('');
 
   async function handleRate(n: number) {
     setRating(n);
@@ -637,31 +642,133 @@ function DoneScreen({
           )}
         </div>
 
-        {/* Unobserved players strip — shows who had no observations this session */}
+        {/* Unobserved players strip — tappable chips open an inline quick-note form */}
         {(() => {
           if (!presentPlayers || presentPlayers.length === 0) return null;
           const observedIds = new Set(notes.filter((n) => n.playerId).map((n) => n.playerId!));
           const unobserved = presentPlayers.filter((p) => !observedIds.has(p.id));
           if (unobserved.length === 0) return null;
+
+          function handleChipTap(p: { id: string; name: string }) {
+            if (!onAddNote) return;
+            if (expandedPlayer?.id === p.id) {
+              setExpandedPlayer(null);
+            } else {
+              setExpandedPlayer(p);
+              setQuickSentiment('positive');
+              setQuickNote('');
+            }
+          }
+
+          function handleQuickAdd() {
+            if (!expandedPlayer || !onAddNote) return;
+            const fallback = quickSentiment === 'positive' ? 'Participated in practice' : 'Needs follow-up next session';
+            onAddNote(expandedPlayer.id, expandedPlayer.name, quickSentiment, quickNote.trim() || fallback);
+            setExpandedPlayer(null);
+            setQuickNote('');
+            setQuickSentiment('positive');
+          }
+
           return (
-            <div className="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2 text-left">
+            <div className="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-3 text-left">
               <p className="text-xs font-semibold text-amber-300 flex items-center gap-1.5">
                 <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                 {unobserved.length} player{unobserved.length !== 1 ? 's' : ''} not yet observed
+                {onAddNote && (
+                  <span className="ml-auto text-[10px] font-normal text-amber-400/60">
+                    tap a name to add a quick note
+                  </span>
+                )}
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {unobserved.map((p) => (
-                  <span
-                    key={p.id}
-                    className="inline-flex items-center rounded-full bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 text-xs font-medium text-amber-200"
-                  >
-                    {p.name.split(' ')[0]}
-                  </span>
+                  onAddNote ? (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => handleChipTap(p)}
+                      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium transition-colors touch-manipulation active:scale-95 ${
+                        expandedPlayer?.id === p.id
+                          ? 'bg-amber-500/40 border-amber-400 text-amber-100'
+                          : 'bg-amber-500/20 border-amber-500/30 text-amber-200 hover:bg-amber-500/30'
+                      }`}
+                    >
+                      {p.name.split(' ')[0]}
+                    </button>
+                  ) : (
+                    <span
+                      key={p.id}
+                      className="inline-flex items-center rounded-full bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 text-xs font-medium text-amber-200"
+                    >
+                      {p.name.split(' ')[0]}
+                    </span>
+                  )
                 ))}
               </div>
-              <p className="text-[10px] text-amber-400/60">
-                Focus on these players next session to maintain even coverage.
-              </p>
+
+              {/* Inline quick-note form — appears below chips when a player chip is tapped */}
+              {expandedPlayer && onAddNote && (
+                <div className="rounded-lg border border-amber-500/40 bg-zinc-900/80 p-3 space-y-2.5">
+                  <p className="text-xs font-semibold text-zinc-200">
+                    Quick note for <span className="text-amber-300">{expandedPlayer.name.split(' ')[0]}</span>
+                  </p>
+                  {/* Sentiment toggle */}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setQuickSentiment('positive')}
+                      className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-colors touch-manipulation ${
+                        quickSentiment === 'positive'
+                          ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50'
+                          : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600'
+                      }`}
+                    >
+                      👍 Positive
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setQuickSentiment('needs-work')}
+                      className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-colors touch-manipulation ${
+                        quickSentiment === 'needs-work'
+                          ? 'bg-red-500/25 text-red-300 border border-red-500/40'
+                          : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600'
+                      }`}
+                    >
+                      👎 Needs Work
+                    </button>
+                  </div>
+                  {/* Optional note text */}
+                  <textarea
+                    value={quickNote}
+                    onChange={(e) => setQuickNote(e.target.value)}
+                    placeholder={quickSentiment === 'positive' ? 'e.g. Hustled all practice (optional)' : 'e.g. Follow up on footwork (optional)'}
+                    rows={2}
+                    className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-500 resize-none focus:outline-none focus:border-amber-500/60"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleQuickAdd}
+                      className="flex-1 rounded-lg bg-amber-500 py-2 text-xs font-semibold text-white hover:bg-amber-600 transition-colors touch-manipulation active:scale-[0.98]"
+                    >
+                      Add Note
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setExpandedPlayer(null); setQuickNote(''); }}
+                      className="px-4 rounded-lg bg-zinc-800 py-2 text-xs text-zinc-400 hover:bg-zinc-700 transition-colors touch-manipulation"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!onAddNote && (
+                <p className="text-[10px] text-amber-400/60">
+                  Focus on these players next session to maintain even coverage.
+                </p>
+              )}
             </div>
           );
         })()}
@@ -1249,6 +1356,21 @@ export default function PracticeTimerPage({
     advanceToNextDrill();
   };
 
+  const handleDoneAddNote = (playerId: string, playerName: string, sentiment: Sentiment, note: string) => {
+    setNotes((prev) => [
+      ...prev,
+      {
+        drillName: 'Post-Practice',
+        note,
+        playerId,
+        playerName,
+        sentiment,
+        category: 'general',
+        timestamp: new Date(),
+      },
+    ]);
+  };
+
   const advanceToNextDrill = () => {
     const next = currentIdx + 1;
     if (next >= queue.length) {
@@ -1533,6 +1655,7 @@ export default function PracticeTimerPage({
         isRecovered={isRecovered}
         onStartFresh={handleStartFresh}
         presentPlayers={presentPlayers}
+        onAddNote={handleDoneAddNote}
       />
     );
   }
