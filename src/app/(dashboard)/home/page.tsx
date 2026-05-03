@@ -28,6 +28,7 @@ import {
   Loader2,
   Send,
   Share2,
+  CheckCircle2,
 } from 'lucide-react';
 import type { Session } from '@/types/database';
 import { useAppStore } from '@/lib/store';
@@ -59,13 +60,17 @@ function TodaySessionCard({
   restrictedPlayers,
   coachName,
   teamName,
+  practiceJustEnded = false,
 }: {
-  session: Session;
+  session: Session & { observations?: [{ count: number }] };
   restrictedPlayers: Array<{ name: string; status: string }>;
   coachName?: string | null;
   teamName?: string | null;
+  practiceJustEnded?: boolean;
 }) {
   const [headsUpCopied, setHeadsUpCopied] = useState(false);
+  const obsCount = (session as any).observations?.[0]?.count ?? 0;
+  const hasObservations = obsCount > 0;
 
   const TYPE_LABEL: Record<string, string> = {
     practice: 'Practice',
@@ -126,62 +131,93 @@ function TodaySessionCard({
         </div>
       )}
 
-      <div className="flex gap-2">
-        <Link href={`/sessions/${session.id}`} className="flex-1">
-          <Button size="sm" className="w-full">
-            <ArrowRight className="h-4 w-4" />
-            Open Session
-          </Button>
-        </Link>
-        {session.type === 'practice' && (
-          <Link href={`/sessions/${session.id}/timer`}>
-            <Button size="sm" variant="outline" className="shrink-0 gap-1.5">
-              <Timer className="h-4 w-4" />
-              Timer
-            </Button>
+      {practiceJustEnded && hasObservations ? (
+        /* Post-practice mode: nudge coach toward AI debrief + parent updates */
+        <div className="space-y-2">
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+            <p className="text-xs font-medium text-emerald-300">
+              Practice wrapped up · {obsCount} observation{obsCount !== 1 ? 's' : ''} captured
+            </p>
+          </div>
+          <Link href={`/sessions/${session.id}#player-messages-section`} className="block">
+            <div className="flex items-center justify-center gap-2 rounded-xl border border-teal-500/30 bg-teal-500/10 px-4 py-2.5 text-sm font-medium text-teal-300 hover:bg-teal-500/15 active:scale-[0.98] transition-all touch-manipulation">
+              <Send className="h-4 w-4 shrink-0" />
+              Send player updates to parents
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-teal-500/60 ml-auto" />
+            </div>
           </Link>
-        )}
-        {(session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
-          <Link href={`/sessions/${session.id}/game-tracker`}>
-            <Button size="sm" variant="outline" className="shrink-0 gap-1.5">
-              <BarChart2 className="h-4 w-4" />
-              Stats
-            </Button>
+          <Link href={`/sessions/${session.id}#ai-debrief-section`} className="block">
+            <div className="flex items-center justify-center gap-2 rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-2.5 text-sm font-medium text-orange-300 hover:bg-orange-500/15 active:scale-[0.98] transition-all touch-manipulation">
+              <Sparkles className="h-4 w-4 shrink-0" />
+              AI Debrief
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-orange-500/60 ml-auto" />
+            </div>
           </Link>
-        )}
-        <Link href={`/capture?sessionId=${session.id}`}>
-          <Button size="sm" variant="outline" className="shrink-0" aria-label="Capture observation">
-            <Mic className="h-4 w-4" />
-          </Button>
-        </Link>
-      </div>
+          <Link href={`/sessions/${session.id}`} className="block text-center text-xs text-zinc-500 hover:text-zinc-300 py-1">
+            View full session →
+          </Link>
+        </div>
+      ) : (
+        <>
+          <div className="flex gap-2">
+            <Link href={`/sessions/${session.id}`} className="flex-1">
+              <Button size="sm" className="w-full">
+                <ArrowRight className="h-4 w-4" />
+                Open Session
+              </Button>
+            </Link>
+            {session.type === 'practice' && (
+              <Link href={`/sessions/${session.id}/timer`}>
+                <Button size="sm" variant="outline" className="shrink-0 gap-1.5">
+                  <Timer className="h-4 w-4" />
+                  Timer
+                </Button>
+              </Link>
+            )}
+            {(session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
+              <Link href={`/sessions/${session.id}/game-tracker`}>
+                <Button size="sm" variant="outline" className="shrink-0 gap-1.5">
+                  <BarChart2 className="h-4 w-4" />
+                  Stats
+                </Button>
+              </Link>
+            )}
+            <Link href={`/capture?sessionId=${session.id}`}>
+              <Button size="sm" variant="outline" className="shrink-0" aria-label="Capture observation">
+                <Mic className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
 
-      {/* Send a quick heads-up to parents about today's session */}
-      <button
-        onClick={async () => {
-          const time = fmtTime(session.start_time);
-          const loc = session.location ? ` @ ${session.location}` : '';
-          const signoff = coachName
-            ? `— Coach ${coachName.split(' ')[0]}${teamName ? ` · ${teamName}` : ''}`
-            : teamName
-            ? `— ${teamName}`
-            : null;
-          const lines = [
-            `📅 ${label} today${time ? ` at ${time}` : ''}${loc}!`,
-            `👟 Come ready to work hard and have fun.`,
-            ...(signoff ? [signoff] : []),
-          ];
-          const text = lines.join('\n');
-          try { await navigator.share({ text }); } catch { await navigator.clipboard.writeText(text).catch(() => {}); }
-          setHeadsUpCopied(true);
-          setTimeout(() => setHeadsUpCopied(false), 2000);
-        }}
-        className="w-full flex items-center justify-center gap-2 rounded-xl border border-zinc-700/40 bg-zinc-800/30 py-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition-colors active:scale-[0.98] touch-manipulation"
-        aria-label="Send parents a heads-up about today's session"
-      >
-        <Share2 className="h-3.5 w-3.5" aria-hidden />
-        {headsUpCopied ? '✓ Message copied!' : 'Send parents a heads-up'}
-      </button>
+          {/* Send a quick heads-up to parents about today's session */}
+          <button
+            onClick={async () => {
+              const time = fmtTime(session.start_time);
+              const loc = session.location ? ` @ ${session.location}` : '';
+              const signoff = coachName
+                ? `— Coach ${coachName.split(' ')[0]}${teamName ? ` · ${teamName}` : ''}`
+                : teamName
+                ? `— ${teamName}`
+                : null;
+              const lines = [
+                `📅 ${label} today${time ? ` at ${time}` : ''}${loc}!`,
+                `👟 Come ready to work hard and have fun.`,
+                ...(signoff ? [signoff] : []),
+              ];
+              const text = lines.join('\n');
+              try { await navigator.share({ text }); } catch { await navigator.clipboard.writeText(text).catch(() => {}); }
+              setHeadsUpCopied(true);
+              setTimeout(() => setHeadsUpCopied(false), 2000);
+            }}
+            className="w-full flex items-center justify-center gap-2 rounded-xl border border-zinc-700/40 bg-zinc-800/30 py-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition-colors active:scale-[0.98] touch-manipulation"
+            aria-label="Send parents a heads-up about today's session"
+          >
+            <Share2 className="h-3.5 w-3.5" aria-hidden />
+            {headsUpCopied ? '✓ Message copied!' : 'Send parents a heads-up'}
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -666,7 +702,7 @@ export default function HomePage() {
       if (!activeTeam) return [];
       return query<Session[]>({
         table: 'sessions',
-        select: 'id, type, date, start_time, end_time, location, opponent, result',
+        select: 'id, type, date, start_time, end_time, location, opponent, result, observations:observations(count)',
         filters: { team_id: activeTeam.id, date: todayStr },
         order: { column: 'start_time', ascending: true },
       });
@@ -1001,6 +1037,7 @@ export default function HomePage() {
             restrictedPlayers={restrictedPlayersToday}
             coachName={coach?.full_name ?? null}
             teamName={activeTeam.name}
+            practiceJustEnded={!practiceActive}
           />
           <PrePracticeSnapshotCard
             teamId={activeTeam.id}
