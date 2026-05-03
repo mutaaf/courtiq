@@ -2,8 +2,9 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { query } from '@/lib/api';
-import { Dumbbell, ChevronRight, X, Target } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { query, mutate } from '@/lib/api';
+import { Dumbbell, ChevronRight, X, Target, Play, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -17,6 +18,7 @@ import {
   buildDrillViewUrl,
 } from '@/lib/drill-of-day-utils';
 import { getWeeklyFocus } from '@/lib/weekly-focus-utils';
+import { useActiveTeam } from '@/hooks/use-active-team';
 import type { Drill } from '@/types/database';
 
 interface DrillOfDayCardProps {
@@ -52,6 +54,10 @@ export function DrillOfDayCard({ teamId, sportId }: DrillOfDayCardProps) {
   const today = useMemo(() => new Date(), []);
   const [dismissed, setDismissed] = useState(false);
   const [weeklyFocusCategory, setWeeklyFocusCategory] = useState<string | null>(null);
+  const [startingPractice, setStartingPractice] = useState(false);
+
+  const router = useRouter();
+  const { activeTeam, coach } = useActiveTeam();
 
   useEffect(() => {
     try {
@@ -109,6 +115,33 @@ export function DrillOfDayCard({ teamId, sportId }: DrillOfDayCardProps) {
   }, [drills, recentObs, teamId, today]);
 
   const matchesFocus = !!(topCategory && weeklyFocusCategory && topCategory === weeklyFocusCategory);
+
+  async function handleRunDrill() {
+    if (!activeTeam || !coach || !drill || startingPractice) return;
+    setStartingPractice(true);
+    try {
+      const session = await mutate<{ id: string }>({
+        table: 'sessions',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          type: 'practice',
+          date: new Date().toISOString().split('T')[0],
+          notes: `Auto-created: ${drill.name}`,
+        },
+        select: 'id',
+      });
+      const id = Array.isArray(session) ? (session as any)[0]?.id : (session as any)?.id;
+      if (id) {
+        router.push(`/sessions/${id}/timer?drillId=${drill.id}`);
+      } else {
+        setStartingPractice(false);
+      }
+    } catch {
+      setStartingPractice(false);
+    }
+  }
 
   function handleDismiss() {
     try {
@@ -187,16 +220,30 @@ export function DrillOfDayCard({ teamId, sportId }: DrillOfDayCardProps) {
         <span>👥 {playerCount}</span>
       </div>
 
-      <Link href={viewUrl}>
+      <div className="flex flex-col gap-2">
         <Button
           size="sm"
-          variant="outline"
-          className="w-full h-8 gap-1.5 border-teal-500/30 text-teal-400 hover:bg-teal-500/10 text-xs"
+          onClick={handleRunDrill}
+          disabled={startingPractice || !coach}
+          className="w-full h-9 gap-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold"
         >
-          See all {categoryLabel} drills
-          <ChevronRight className="h-3.5 w-3.5" />
+          {startingPractice ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Starting practice…
+            </>
+          ) : (
+            <>
+              <Play className="h-3.5 w-3.5" />
+              Start Practice with This Drill
+            </>
+          )}
         </Button>
-      </Link>
+        <Link href={viewUrl} className="text-center text-[11px] text-zinc-500 hover:text-teal-400 transition-colors flex items-center justify-center gap-1">
+          See all {categoryLabel} drills
+          <ChevronRight className="h-3 w-3" />
+        </Link>
+      </div>
     </div>
   );
 }
