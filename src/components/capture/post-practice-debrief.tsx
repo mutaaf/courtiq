@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { query, mutate } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
@@ -28,42 +28,19 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { buildWhatsAppUrl, formatGroupMessage } from '@/lib/team-group-message-utils';
 import type { TeamGroupMessage } from '@/lib/team-group-message-utils';
+import {
+  getTemplatesBySentiment,
+  type ObservationTemplate,
+} from '@/lib/observation-templates';
 
 interface Props {
   sessionId: string;
   onClose: () => void;
 }
 
-interface Template {
-  text: string;
-  category: string;
-}
-
 interface SessionObs {
   player_id: string | null;
 }
-
-const POSITIVE_TEMPLATES: Template[] = [
-  { text: 'Great energy',      category: 'hustle'      },
-  { text: 'Strong passing',    category: 'passing'     },
-  { text: 'Good defense',      category: 'defense'     },
-  { text: 'Excellent hustle',  category: 'hustle'      },
-  { text: 'Smart plays',       category: 'awareness'   },
-  { text: 'Team leadership',   category: 'leadership'  },
-  { text: 'Great shooting',    category: 'shooting'    },
-  { text: 'Strong rebounding', category: 'rebounding'  },
-];
-
-const NEEDS_WORK_TEMPLATES: Template[] = [
-  { text: 'Ball handling',         category: 'dribbling' },
-  { text: 'Spacing',               category: 'awareness' },
-  { text: 'Transitions',           category: 'hustle'    },
-  { text: 'Communication',         category: 'teamwork'  },
-  { text: 'Shot selection',        category: 'shooting'  },
-  { text: 'Defensive positioning', category: 'defense'   },
-  { text: 'Footwork',              category: 'footwork'  },
-  { text: 'Free throws',           category: 'shooting'  },
-];
 
 type Step = 'standouts' | 'positives' | 'work' | 'notes' | 'done';
 
@@ -78,10 +55,22 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
   const router = useRouter();
   const setPracticeActive = useAppStore((s) => s.setPracticeActive);
 
+  const sportSlug = activeTeam?.sport_slug ?? null;
+
+  const positiveOptions = useMemo(
+    () => getTemplatesBySentiment('positive', sportSlug).slice(0, 8),
+    [sportSlug],
+  );
+
+  const needsWorkOptions = useMemo(
+    () => getTemplatesBySentiment('needs-work', sportSlug).slice(0, 8),
+    [sportSlug],
+  );
+
   const [step, setStep] = useState<Step>('standouts');
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
-  const [positives, setPositives] = useState<Template[]>([]);
-  const [needsWork, setNeedsWork] = useState<Template[]>([]);
+  const [positives, setPositives] = useState<ObservationTemplate[]>([]);
+  const [needsWork, setNeedsWork] = useState<ObservationTemplate[]>([]);
   const [notes, setNotes] = useState('');
   const [players, setPlayers] = useState<{ id: string; name: string; jersey_number: number | null }[]>([]);
   const [saving, setSaving] = useState(false);
@@ -144,15 +133,15 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
     );
   }
 
-  function togglePositive(t: Template) {
+  function togglePositive(t: ObservationTemplate) {
     setPositives((prev) =>
-      prev.some((p) => p.text === t.text) ? prev.filter((p) => p.text !== t.text) : [...prev, t]
+      prev.some((p) => p.id === t.id) ? prev.filter((p) => p.id !== t.id) : [...prev, t]
     );
   }
 
-  function toggleWork(t: Template) {
+  function toggleWork(t: ObservationTemplate) {
     setNeedsWork((prev) =>
-      prev.some((p) => p.text === t.text) ? prev.filter((p) => p.text !== t.text) : [...prev, t]
+      prev.some((p) => p.id === t.id) ? prev.filter((p) => p.id !== t.id) : [...prev, t]
     );
   }
 
@@ -519,17 +508,17 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                   <p className="text-xs text-zinc-500 mt-1">Tap all that apply</p>
                 </div>
                 <div className="flex flex-wrap gap-2 justify-center">
-                  {POSITIVE_TEMPLATES.map((t) => (
+                  {positiveOptions.map((t) => (
                     <button
-                      key={t.text}
+                      key={t.id}
                       onClick={() => togglePositive(t)}
                       className={`rounded-full px-4 py-2 text-sm font-medium transition-all active:scale-95 touch-manipulation ${
-                        positives.some((p) => p.text === t.text)
+                        positives.some((p) => p.id === t.id)
                           ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
                           : 'bg-zinc-800 border border-zinc-700 text-zinc-300 hover:border-zinc-600'
                       }`}
                     >
-                      {t.text}
+                      {t.emoji && <span className="mr-1">{t.emoji}</span>}{t.text}
                     </button>
                   ))}
                 </div>
@@ -547,17 +536,17 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                   <p className="text-xs text-zinc-500 mt-1">Tap all that apply</p>
                 </div>
                 <div className="flex flex-wrap gap-2 justify-center">
-                  {NEEDS_WORK_TEMPLATES.map((t) => (
+                  {needsWorkOptions.map((t) => (
                     <button
-                      key={t.text}
+                      key={t.id}
                       onClick={() => toggleWork(t)}
                       className={`rounded-full px-4 py-2 text-sm font-medium transition-all active:scale-95 touch-manipulation ${
-                        needsWork.some((p) => p.text === t.text)
+                        needsWork.some((p) => p.id === t.id)
                           ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300'
                           : 'bg-zinc-800 border border-zinc-700 text-zinc-300 hover:border-zinc-600'
                       }`}
                     >
-                      {t.text}
+                      {t.emoji && <span className="mr-1">{t.emoji}</span>}{t.text}
                     </button>
                   ))}
                 </div>
