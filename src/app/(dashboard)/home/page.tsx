@@ -27,6 +27,7 @@ import {
   TrendingDown,
   Loader2,
   Send,
+  Share2,
 } from 'lucide-react';
 import type { Session } from '@/types/database';
 import { useAppStore } from '@/lib/store';
@@ -56,10 +57,16 @@ import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot
 function TodaySessionCard({
   session,
   restrictedPlayers,
+  coachName,
+  teamName,
 }: {
   session: Session;
   restrictedPlayers: Array<{ name: string; status: string }>;
+  coachName?: string | null;
+  teamName?: string | null;
 }) {
+  const [headsUpCopied, setHeadsUpCopied] = useState(false);
+
   const TYPE_LABEL: Record<string, string> = {
     practice: 'Practice',
     game: 'Game',
@@ -148,6 +155,33 @@ function TodaySessionCard({
           </Button>
         </Link>
       </div>
+
+      {/* Send a quick heads-up to parents about today's session */}
+      <button
+        onClick={async () => {
+          const time = fmtTime(session.start_time);
+          const loc = session.location ? ` @ ${session.location}` : '';
+          const signoff = coachName
+            ? `— Coach ${coachName.split(' ')[0]}${teamName ? ` · ${teamName}` : ''}`
+            : teamName
+            ? `— ${teamName}`
+            : null;
+          const lines = [
+            `📅 ${label} today${time ? ` at ${time}` : ''}${loc}!`,
+            `👟 Come ready to work hard and have fun.`,
+            ...(signoff ? [signoff] : []),
+          ];
+          const text = lines.join('\n');
+          try { await navigator.share({ text }); } catch { await navigator.clipboard.writeText(text).catch(() => {}); }
+          setHeadsUpCopied(true);
+          setTimeout(() => setHeadsUpCopied(false), 2000);
+        }}
+        className="w-full flex items-center justify-center gap-2 rounded-xl border border-zinc-700/40 bg-zinc-800/30 py-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition-colors active:scale-[0.98] touch-manipulation"
+        aria-label="Send parents a heads-up about today's session"
+      >
+        <Share2 className="h-3.5 w-3.5" aria-hidden />
+        {headsUpCopied ? '✓ Message copied!' : 'Send parents a heads-up'}
+      </button>
     </div>
   );
 }
@@ -348,11 +382,17 @@ function TomorrowSessionCard({
   session,
   teamId,
   rosterPlayers,
+  coachName,
+  teamName,
 }: {
   session: Session;
   teamId: string;
   rosterPlayers: Array<{ id: string; name: string }>;
+  coachName?: string | null;
+  teamName?: string | null;
 }) {
+  const [reminderCopied, setReminderCopied] = useState(false);
+
   const TYPE_LABEL: Record<string, string> = {
     practice: 'Practice',
     game: 'Game',
@@ -420,6 +460,33 @@ function TomorrowSessionCard({
           </button>
         </Link>
       </div>
+
+      {/* Remind parents about tomorrow's session */}
+      <button
+        onClick={async () => {
+          const time = fmtTime(session.start_time);
+          const loc = session.location ? ` @ ${session.location}` : '';
+          const signoff = coachName
+            ? `— Coach ${coachName.split(' ')[0]}${teamName ? ` · ${teamName}` : ''}`
+            : teamName
+            ? `— ${teamName}`
+            : null;
+          const lines = [
+            `📅 Reminder: ${label} tomorrow${time ? ` at ${time}` : ''}${loc}!`,
+            `💪 Come ready to give your best.`,
+            ...(signoff ? [signoff] : []),
+          ];
+          const text = lines.join('\n');
+          try { await navigator.share({ text }); } catch { await navigator.clipboard.writeText(text).catch(() => {}); }
+          setReminderCopied(true);
+          setTimeout(() => setReminderCopied(false), 2000);
+        }}
+        className="w-full flex items-center justify-center gap-2 rounded-xl border border-zinc-700/40 bg-zinc-800/30 py-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition-colors active:scale-[0.98] touch-manipulation"
+        aria-label="Remind parents about tomorrow's session"
+      >
+        <Share2 className="h-3.5 w-3.5" aria-hidden />
+        {reminderCopied ? '✓ Message copied!' : 'Remind parents about tomorrow'}
+      </button>
     </div>
   );
 }
@@ -930,6 +997,8 @@ export default function HomePage() {
           <TodaySessionCard
             session={todaySessions[0]}
             restrictedPlayers={restrictedPlayersToday}
+            coachName={coach?.full_name ?? null}
+            teamName={activeTeam.name}
           />
           <PrePracticeSnapshotCard
             teamId={activeTeam.id}
@@ -945,6 +1014,8 @@ export default function HomePage() {
               session={tomorrowSession}
               teamId={activeTeam.id}
               rosterPlayers={rosterPlayers}
+              coachName={coach?.full_name ?? null}
+              teamName={activeTeam.name}
             />
           )}
           <button
