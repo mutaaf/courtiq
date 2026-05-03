@@ -27,6 +27,8 @@ export function QuickCaptureWidget() {
   const queryClient = useQueryClient();
   const practiceActive = useAppStore((s) => s.practiceActive);
   const practiceSessionId = useAppStore((s) => s.practiceSessionId);
+  const quickCapturePreselectPlayer = useAppStore((s) => s.quickCapturePreselectPlayer);
+  const setQuickCapturePreselectPlayer = useAppStore((s) => s.setQuickCapturePreselectPlayer);
 
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<WidgetTab>('voice');
@@ -48,6 +50,8 @@ export function QuickCaptureWidget() {
   const [templateStep, setTemplateStep] = useState<TemplateStep>('pick');
   const [templateSentiment, setTemplateSentiment] = useState<'positive' | 'needs-work'>('positive');
   const [selectedTemplate, setSelectedTemplate] = useState<ObservationTemplate | null>(null);
+  // When set, the widget skips the player-picker step and saves directly for this player.
+  const [preselectPlayer, setPreselectPlayer] = useState<{ id: string; name: string } | null>(null);
   const [roster, setRoster] = useState<{ id: string; name: string }[]>([]);
   const [rosterLoading, setRosterLoading] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -129,6 +133,7 @@ export function QuickCaptureWidget() {
     setSelectedTemplate(null);
     setTemplateSentiment('positive');
     setPlayerSearch('');
+    setPreselectPlayer(null);
     setRoster([]);
     setObservedPlayerIds(new Set());
   }, []);
@@ -151,6 +156,20 @@ export function QuickCaptureWidget() {
     resetTemplateState();
     resetSweepState();
   }, [cleanupMedia, resetVoiceState, resetTemplateState, resetSweepState]);
+
+  // ── Coverage-strip preselect: open widget for a specific player ──────────
+  // The home-page coverage strip calls setQuickCapturePreselectPlayer({ id, name })
+  // instead of navigating to /capture. This effect reacts by opening the widget
+  // in Templates tab with that player pre-selected so the coach saves in ~2 taps.
+  useEffect(() => {
+    if (!quickCapturePreselectPlayer) return;
+    // Consume the signal immediately so it doesn't re-trigger on re-renders
+    setQuickCapturePreselectPlayer(null);
+    setPreselectPlayer(quickCapturePreselectPlayer);
+    setActiveTab('templates');
+    setTemplateStep('pick');
+    setIsOpen(true);
+  }, [quickCapturePreselectPlayer, setQuickCapturePreselectPlayer]);
 
   // ── Voice: start recording ─────────────────────────────────────────────
   const startRecording = useCallback(async () => {
@@ -337,12 +356,21 @@ export function QuickCaptureWidget() {
   function handlePickTemplate(tpl: ObservationTemplate) {
     setSelectedTemplate(tpl);
     setPlayerSearch('');
-    setTemplateStep('player');
+    // When a player is already pre-selected (tapped from coverage strip),
+    // skip the player-picker step and save immediately.
+    if (preselectPlayer) {
+      saveTemplateObservation(preselectPlayer.id, tpl);
+    } else {
+      setTemplateStep('player');
+    }
   }
 
   // ── Templates: save observation for chosen player ─────────────────────
-  async function saveTemplateObservation(playerId: string) {
-    if (!selectedTemplate || !activeTeam || !coach) return;
+  // tplOverride: when saving immediately from handlePickTemplate (preselect flow),
+  // selectedTemplate hasn't been set yet so we pass the template directly.
+  async function saveTemplateObservation(playerId: string, tplOverride?: ObservationTemplate) {
+    const tpl = tplOverride ?? selectedTemplate;
+    if (!tpl || !activeTeam || !coach) return;
     setSavingTemplate(true);
     const sessionId = practiceActive && practiceSessionId ? practiceSessionId : null;
     try {
@@ -354,9 +382,9 @@ export function QuickCaptureWidget() {
           coach_id: coach.id,
           player_id: playerId,
           session_id: sessionId,
-          text: selectedTemplate.text,
-          sentiment: selectedTemplate.sentiment,
-          category: selectedTemplate.category,
+          text: tpl.text,
+          sentiment: tpl.sentiment,
+          category: tpl.category,
           source: 'template',
           ai_parsed: false,
           coach_edited: false,
@@ -376,7 +404,8 @@ export function QuickCaptureWidget() {
       }
 
       setTemplateStep('saved');
-      // Auto-reset so coach can log another immediately
+      // Auto-reset so coach can log another immediately.
+      // Keep preselectPlayer so coach can quickly log a second observation for same player.
       setTimeout(() => {
         setTemplateStep('pick');
         setSelectedTemplate(null);
@@ -688,6 +717,28 @@ export function QuickCaptureWidget() {
                 {/* Step 1: pick template */}
                 {templateStep === 'pick' && (
                   <div className="flex flex-col gap-3">
+                    {/* Pre-selected player banner — shown when opened from coverage strip */}
+                    {preselectPlayer && (
+                      <div className="flex items-center justify-between rounded-xl border border-orange-500/30 bg-orange-500/10 px-3 py-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500/20 text-xs font-bold text-orange-300">
+                            {preselectPlayer.name.charAt(0)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-orange-400/70">Observing</p>
+                            <p className="text-sm font-semibold text-orange-200 truncate">{preselectPlayer.name}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPreselectPlayer(null)}
+                          className="shrink-0 p-1 text-orange-400/60 hover:text-orange-300 transition-colors"
+                          aria-label="Clear player selection"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
                     {/* Sentiment toggle */}
                     <div className="flex rounded-xl bg-zinc-800 p-1">
                       <button
@@ -740,7 +791,9 @@ export function QuickCaptureWidget() {
                     </div>
 
                     <p className="text-center text-xs text-zinc-600">
-                      Tap a template, then pick the player — saved instantly
+                      {preselectPlayer
+                        ? `Tap a template — saved instantly for ${preselectPlayer.name.split(' ')[0]}`
+                        : 'Tap a template, then pick the player — saved instantly'}
                     </p>
                   </div>
                 )}

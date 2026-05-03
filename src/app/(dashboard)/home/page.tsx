@@ -548,6 +548,7 @@ export default function HomePage() {
   const practiceSessionId = useAppStore((s) => s.practiceSessionId);
   const setPracticeSessionId = useAppStore((s) => s.setPracticeSessionId);
   const setPracticeStartedAt = useAppStore((s) => s.setPracticeStartedAt);
+  const setQuickCapturePreselectPlayer = useAppStore((s) => s.setQuickCapturePreselectPlayer);
   const [startingPractice, setStartingPractice] = useState(false);
 
   async function startPractice() {
@@ -956,13 +957,14 @@ export default function HomePage() {
               {unobservedPlayers.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {unobservedPlayers.slice(0, 8).map((p) => (
-                    <Link
+                    <button
                       key={p.id}
-                      href={`/capture?sessionId=${practiceSessionId ?? ''}&playerId=${p.id}`}
+                      type="button"
+                      onClick={() => setQuickCapturePreselectPlayer({ id: p.id, name: p.name })}
                       className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-300 hover:bg-amber-500/20 active:scale-95 transition-all touch-manipulation"
                     >
                       {p.name.split(' ')[0]}
-                    </Link>
+                    </button>
                   ))}
                   {unobservedPlayers.length > 8 && (
                     <span className="rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-500">

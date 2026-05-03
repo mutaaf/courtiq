@@ -21,6 +21,10 @@ interface AppState {
   setPracticeSessionId: (id: string | null) => void;
   practiceStartedAt: string | null;
   setPracticeStartedAt: (at: string | null) => void;
+  // Triggers the Quick Capture Widget to open pre-selected to a specific player.
+  // Set from the home-page coverage strip; cleared by the widget when it opens.
+  quickCapturePreselectPlayer: { id: string; name: string } | null;
+  setQuickCapturePreselectPlayer: (player: { id: string; name: string } | null) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -44,6 +48,8 @@ export const useAppStore = create<AppState>()(
       setPracticeSessionId: (id) => set({ practiceSessionId: id }),
       practiceStartedAt: null,
       setPracticeStartedAt: (at) => set({ practiceStartedAt: at }),
+      quickCapturePreselectPlayer: null,
+      setQuickCapturePreselectPlayer: (player) => set({ quickCapturePreselectPlayer: player }),
     }),
     {
       name: 'courtiq-store',
