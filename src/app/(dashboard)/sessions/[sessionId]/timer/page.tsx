@@ -1958,6 +1958,21 @@ export default function PracticeTimerPage({
                             <p className="text-xs text-zinc-500">
                               {tpl.queue.length} drill{tpl.queue.length !== 1 ? 's' : ''} · {fmt(tpl.queue.reduce((s, q) => s + q.durationSecs, 0))}
                             </p>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {tpl.queue.slice(0, 3).map((q) => (
+                                <span
+                                  key={q.id}
+                                  className="text-[10px] px-1.5 py-0.5 rounded border border-zinc-700 bg-zinc-900 text-zinc-400"
+                                >
+                                  {q.name}
+                                </span>
+                              ))}
+                              {tpl.queue.length > 3 && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded border border-zinc-700 bg-zinc-900 text-zinc-500">
+                                  +{tpl.queue.length - 3}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </button>
                         <button
@@ -2016,6 +2031,22 @@ export default function PracticeTimerPage({
                             </span>
                           ))}
                         </div>
+                      </div>
+                      {/* Drill name preview */}
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {tpl.drills.slice(0, 4).map((d) => (
+                          <span
+                            key={d.name}
+                            className="text-[10px] px-1.5 py-0.5 rounded border border-zinc-700 bg-zinc-900 text-zinc-400"
+                          >
+                            {d.name}
+                          </span>
+                        ))}
+                        {tpl.drills.length > 4 && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded border border-zinc-700 bg-zinc-900 text-zinc-500">
+                            +{tpl.drills.length - 4} more
+                          </span>
+                        )}
                       </div>
                     </div>
                   </button>

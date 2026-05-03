@@ -61,6 +61,7 @@ export function NotificationBell() {
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const lastFetchedAt = useRef<number>(0);
 
   // Hydrate read state from localStorage after mount
   useEffect(() => {
@@ -75,6 +76,7 @@ export function NotificationBell() {
       if (res.ok) {
         const data = (await res.json()) as { notifications: AppNotification[] };
         setNotifications(data.notifications ?? []);
+        lastFetchedAt.current = Date.now();
       }
     } finally {
       setLoading(false);
@@ -87,6 +89,15 @@ export function NotificationBell() {
     setFetched(false);
     fetchNotifications(activeTeamId);
   }, [activeTeamId, fetchNotifications]);
+
+  // Refresh when the panel opens if data is >2 minutes old.
+  useEffect(() => {
+    if (!open || !activeTeamId || loading) return;
+    const staleMs = Date.now() - lastFetchedAt.current;
+    if (staleMs > 2 * 60 * 1000) {
+      fetchNotifications(activeTeamId);
+    }
+  }, [open, activeTeamId, loading, fetchNotifications]);
 
   // Close panel on outside click / Escape
   useEffect(() => {
