@@ -3594,9 +3594,11 @@ export default function SessionDetailPage() {
         {([
           { id: 'session-observations', label: 'Observations', icon: MessageSquare },
           { id: 'ai-debrief-section',   label: 'AI Debrief',   icon: Sparkles },
-          { id: 'player-messages-section', label: 'Parents',   icon: Send },
-          { id: 'session-reflection',   label: 'Reflect',      icon: BookOpen },
-          { id: 'session-notes',        label: 'Notes',        icon: PenLine },
+          { id: 'player-messages-section', label: 'Parents',      icon: Send },
+          { id: 'group-message-section', label: 'Group Msg',   icon: Users },
+          { id: 'huddle-section',        label: 'Huddle',       icon: Zap },
+          { id: 'session-reflection',    label: 'Reflect',      icon: BookOpen },
+          { id: 'session-notes',         label: 'Notes',        icon: PenLine },
         ] as const).map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -4016,22 +4018,26 @@ export default function SessionDetailPage() {
       </div>
 
       {/* Team Group Message — one-tap WhatsApp/SMS for the parent group chat */}
-      {activeTeam && (
-        <TeamGroupMessageCard
-          sessionId={sessionId}
-          teamId={activeTeam.id}
-          observationCount={observations?.length || 0}
-        />
-      )}
+      <div id="group-message-section">
+        {activeTeam && (
+          <TeamGroupMessageCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+            observationCount={observations?.length || 0}
+          />
+        )}
+      </div>
 
       {/* Huddle Script — 30-second end-of-practice script to read to the team */}
-      {activeTeam && (
-        <HuddleScriptCard
-          sessionId={sessionId}
-          teamId={activeTeam.id}
-          observationCount={observations?.length || 0}
-        />
-      )}
+      <div id="huddle-section">
+        {activeTeam && (
+          <HuddleScriptCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+            observationCount={observations?.length || 0}
+          />
+        )}
+      </div>
 
       {/* Media Upload Section */}
       <Card>
