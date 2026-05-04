@@ -120,6 +120,43 @@ function totalDuration(queue: QueueItem[]) {
   return queue.reduce((sum, d) => sum + d.durationSecs, 0);
 }
 
+function buildQuickParentUpdate(notes: CapturedNote[], coachFirstName: string, teamName: string): string {
+  const positive = notes.filter((n) => n.sentiment === 'positive').length;
+  const needsWork = notes.filter((n) => n.sentiment === 'needs-work').length;
+  const playerCount = new Set(notes.filter((n) => n.playerId).map((n) => n.playerId!)).size;
+
+  const catCounts: Record<string, number> = {};
+  for (const n of notes) {
+    if (n.category && n.category !== 'general') {
+      catCounts[n.category] = (catCounts[n.category] || 0) + 1;
+    }
+  }
+  const topCats = Object.entries(catCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([cat]) => cat.charAt(0).toUpperCase() + cat.slice(1).replace(/_/g, ' '));
+
+  const lines: string[] = [];
+  lines.push(`📋 Practice update from Coach ${coachFirstName}!`);
+  lines.push('');
+  if (playerCount > 0) {
+    lines.push(
+      `Great session! ${positive > 0 ? `${positive} great moment${positive !== 1 ? 's' : ''} captured` : `${notes.length} observation${notes.length !== 1 ? 's' : ''} captured`} across ${playerCount} player${playerCount !== 1 ? 's' : ''}.`,
+    );
+  } else {
+    lines.push(`Great practice today! ${notes.length} coaching observation${notes.length !== 1 ? 's' : ''} captured.`);
+  }
+  if (topCats.length > 0) {
+    lines.push(`We focused on: ${topCats.join(' & ')}.`);
+  }
+  if (needsWork > 0) {
+    lines.push('Keep practising at home to stay sharp!');
+  }
+  lines.push('');
+  lines.push(`— Coach ${coachFirstName}, ${teamName}`);
+  return lines.join('\n');
+}
+
 // ─── Break Screen (observation capture) ─────────────────────────────────────
 
 function BreakScreen({
@@ -461,6 +498,9 @@ function DoneScreen({
   onStartFresh,
   presentPlayers,
   onAddNote,
+  saveSuccess,
+  coachName,
+  teamName,
 }: {
   drillsRun: QueueItem[];
   notes: CapturedNote[];
@@ -472,12 +512,16 @@ function DoneScreen({
   onStartFresh?: () => void;
   presentPlayers?: { id: string; name: string }[];
   onAddNote?: (playerId: string, playerName: string, sentiment: Sentiment, note: string) => void;
+  saveSuccess?: boolean;
+  coachName?: string;
+  teamName?: string;
 }) {
   const [rating, setRating] = useState<number>(0);
   const [ratingSaved, setRatingSaved] = useState(false);
   const [expandedPlayer, setExpandedPlayer] = useState<{ id: string; name: string } | null>(null);
   const [quickSentiment, setQuickSentiment] = useState<Sentiment>('positive');
   const [quickNote, setQuickNote] = useState('');
+  const [parentMsgShared, setParentMsgShared] = useState(false);
 
   async function handleRate(n: number) {
     setRating(n);
@@ -780,27 +824,87 @@ function DoneScreen({
           </div>
         )}
 
-        <div className="flex flex-col gap-3 w-full">
-          {notes.length > 0 && (
-            <Button
-              onClick={onSave}
-              disabled={isSaving}
-              className="h-12 bg-orange-500 hover:bg-orange-600 text-white font-semibold w-full"
+        {saveSuccess && coachName && teamName ? (
+          /* ── Post-save success state ── */
+          <div className="w-full space-y-3">
+            {/* Saved confirmation */}
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 px-4 py-3">
+              <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+              <p className="text-sm font-semibold text-emerald-300">
+                {notes.length} observation{notes.length !== 1 ? 's' : ''} saved!
+              </p>
+            </div>
+
+            {/* Quick parent update card */}
+            <div className="w-full rounded-xl border border-teal-500/30 bg-teal-500/10 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-teal-400 shrink-0" />
+                <p className="text-sm font-semibold text-teal-300">Quick parent update ready</p>
+              </div>
+              <p className="text-xs text-teal-400/70 leading-relaxed whitespace-pre-line line-clamp-4">
+                {buildQuickParentUpdate(notes, coachName.split(' ')[0], teamName)}
+              </p>
+              <button
+                type="button"
+                onClick={async () => {
+                  const msg = buildQuickParentUpdate(notes, coachName.split(' ')[0], teamName);
+                  if (typeof navigator !== 'undefined' && navigator.share) {
+                    try { await navigator.share({ text: msg }); } catch { /* dismissed */ }
+                  } else {
+                    try { await navigator.clipboard.writeText(msg); } catch { /* ignore */ }
+                  }
+                  setParentMsgShared(true);
+                  setTimeout(() => setParentMsgShared(false), 2500);
+                }}
+                className="w-full flex items-center justify-center gap-2 rounded-lg bg-teal-500 hover:bg-teal-600 active:scale-[0.98] px-4 py-2.5 text-sm font-semibold text-white transition-colors touch-manipulation"
+              >
+                {parentMsgShared ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    {typeof navigator !== 'undefined' && !navigator.share ? 'Copied!' : 'Sent!'}
+                  </>
+                ) : (
+                  <>
+                    <MessageSquare className="h-4 w-4" />
+                    Send to parent group chat
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* View session CTA */}
+            <Link
+              href={`/sessions/${sessionId}?fromPractice=1&obsCount=${notes.length}&playerCount=${new Set(notes.filter((n) => n.playerId).map((n) => n.playerId!)).size}`}
+              className="w-full"
             >
-              {isSaving ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Save className="h-4 w-4 mr-2" />
-              )}
-              {isSaving ? 'Saving…' : `Save ${notes.length} Observation${notes.length !== 1 ? 's' : ''}`}
-            </Button>
-          )}
-          <Link href={`/sessions/${sessionId}`} className="w-full">
-            <Button variant="outline" className="w-full h-12">
-              Back to Session
-            </Button>
-          </Link>
-        </div>
+              <Button className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-semibold">
+                View Session &amp; AI Debrief →
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 w-full">
+            {notes.length > 0 && (
+              <Button
+                onClick={onSave}
+                disabled={isSaving}
+                className="h-12 bg-orange-500 hover:bg-orange-600 text-white font-semibold w-full"
+              >
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                {isSaving ? 'Saving…' : `Save ${notes.length} Observation${notes.length !== 1 ? 's' : ''}`}
+              </Button>
+            )}
+            <Link href={`/sessions/${sessionId}`} className="w-full">
+              <Button variant="outline" className="w-full h-12">
+                Back to Session
+              </Button>
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1429,9 +1533,8 @@ export default function PracticeTimerPage({
         localStorage.removeItem(QUEUE_KEY);
       } catch { /* ignore */ }
       setSaveSuccess(true);
-      // Navigate back with practice-complete context so the session page can show next-step guidance
-      const uniquePlayerCount = new Set(notes.filter(n => n.playerId).map(n => n.playerId!)).size;
-      setTimeout(() => router.push(`/sessions/${sessionId}?fromPractice=1&obsCount=${notes.length}&playerCount=${uniquePlayerCount}`), 1200);
+      setIsSaving(false);
+      // Coach sees success state with parent update card; navigates via "View Session & AI Debrief" button.
     } catch (err: any) {
       setSaveError(err.message || 'Failed to save observations');
       setIsSaving(false);
@@ -1656,6 +1759,9 @@ export default function PracticeTimerPage({
         onStartFresh={handleStartFresh}
         presentPlayers={presentPlayers}
         onAddNote={handleDoneAddNote}
+        saveSuccess={saveSuccess}
+        coachName={coach?.full_name ?? undefined}
+        teamName={activeTeam?.name ?? undefined}
       />
     );
   }
