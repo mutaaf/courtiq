@@ -14,6 +14,8 @@ import {
   getHealthColor,
   getHealthBarColor,
   buildSessionSnapshot,
+  getUnobservedPlayerNames,
+  buildPracticeShareText,
   type SnapshotObs,
 } from '../src/lib/session-snapshot-utils';
 
@@ -390,5 +392,177 @@ describe('buildSessionSnapshot', () => {
     ];
     const snap = buildSessionSnapshot(obs);
     expect(snap.uniquePlayersObserved).toBe(3);
+  });
+});
+
+// ─── getUnobservedPlayerNames ─────────────────────────────────────────────────
+
+const ROSTER = [
+  { id: 'p1', name: 'Alice Smith' },
+  { id: 'p2', name: 'Bob Jones' },
+  { id: 'p3', name: 'Carol Lee' },
+  { id: 'p4', name: 'Dave Kim' },
+];
+
+describe('getUnobservedPlayerNames', () => {
+  it('returns first names of players with no observations', () => {
+    const obs = [pos('defense', 'p1', 'Alice'), pos('passing', 'p2', 'Bob')];
+    const names = getUnobservedPlayerNames(obs, ROSTER);
+    expect(names).toContain('Carol');
+    expect(names).toContain('Dave');
+    expect(names).not.toContain('Alice');
+    expect(names).not.toContain('Bob');
+  });
+
+  it('returns empty array when all players are observed', () => {
+    const obs = ROSTER.map((p) => pos('defense', p.id, p.name));
+    expect(getUnobservedPlayerNames(obs, ROSTER)).toHaveLength(0);
+  });
+
+  it('returns empty array when roster is empty', () => {
+    expect(getUnobservedPlayerNames(MIX, [])).toHaveLength(0);
+  });
+
+  it('caps at 5 names', () => {
+    const bigRoster = Array.from({ length: 10 }, (_, i) => ({ id: `p${i}`, name: `Player${i} Last` }));
+    const names = getUnobservedPlayerNames([], bigRoster);
+    expect(names.length).toBeLessThanOrEqual(5);
+  });
+
+  it('returns only first name (no last name)', () => {
+    const obs: SnapshotObs[] = [];
+    const names = getUnobservedPlayerNames(obs, [{ id: 'p99', name: 'John Doe' }]);
+    expect(names[0]).toBe('John');
+  });
+
+  it('ignores team observations (null player_id)', () => {
+    const obs = [neutral()]; // player_id: null
+    const names = getUnobservedPlayerNames(obs, ROSTER);
+    expect(names).toHaveLength(4); // all roster unobserved
+  });
+});
+
+// ─── buildPracticeShareText ───────────────────────────────────────────────────
+
+const BASE_SNAP = buildSessionSnapshot(MIX);
+
+const BASE_OPTS = {
+  snap: BASE_SNAP,
+  sessionType: 'practice',
+  sessionDate: '2026-05-04',
+  sessionTime: '17:00:00',
+  teamName: 'YMCA Rockets',
+  coachName: 'Sarah Johnson',
+  rosterCount: 12,
+  unobservedNames: ['Tyler', 'Jordan'],
+};
+
+describe('buildPracticeShareText', () => {
+  it('includes team name in header', () => {
+    const text = buildPracticeShareText(BASE_OPTS);
+    expect(text).toContain('YMCA Rockets');
+  });
+
+  it('labels practice sessions as "Practice Summary"', () => {
+    const text = buildPracticeShareText(BASE_OPTS);
+    expect(text).toContain('Practice Summary');
+  });
+
+  it('labels training sessions as "Training Summary"', () => {
+    const text = buildPracticeShareText({ ...BASE_OPTS, sessionType: 'training' });
+    expect(text).toContain('Training Summary');
+  });
+
+  it('includes formatted date', () => {
+    const text = buildPracticeShareText(BASE_OPTS);
+    // 2026-05-04 is a Monday
+    expect(text).toContain('Monday');
+    expect(text).toContain('May 4');
+  });
+
+  it('includes formatted time when provided', () => {
+    const text = buildPracticeShareText(BASE_OPTS);
+    expect(text).toContain('5:00 PM');
+  });
+
+  it('omits time section when sessionTime is null', () => {
+    const text = buildPracticeShareText({ ...BASE_OPTS, sessionTime: null });
+    expect(text).not.toContain('PM');
+    expect(text).not.toContain('AM');
+  });
+
+  it('includes coverage count', () => {
+    const text = buildPracticeShareText(BASE_OPTS);
+    expect(text).toContain('/12 players observed');
+  });
+
+  it('includes health percentage and label', () => {
+    const text = buildPracticeShareText(BASE_OPTS);
+    expect(text).toMatch(/\d+% positive/);
+    expect(text).toMatch(/Good|Excellent|Mixed|Needs Work|Tough Day/);
+  });
+
+  it('includes standout player when present', () => {
+    const text = buildPracticeShareText(BASE_OPTS);
+    // MIX has Alice as standout (2 positive obs)
+    expect(text).toContain('Alice');
+    expect(text).toContain('⭐');
+  });
+
+  it('includes strength categories', () => {
+    const text = buildPracticeShareText(BASE_OPTS);
+    expect(text).toContain('💪');
+    expect(text).toContain('Defense');
+  });
+
+  it('includes gap categories', () => {
+    const text = buildPracticeShareText(BASE_OPTS);
+    expect(text).toContain('📌');
+  });
+
+  it('includes unobserved player names', () => {
+    const text = buildPracticeShareText(BASE_OPTS);
+    expect(text).toContain('Tyler');
+    expect(text).toContain('Jordan');
+    expect(text).toContain('Next session focus');
+  });
+
+  it('omits unobserved section when empty', () => {
+    const text = buildPracticeShareText({ ...BASE_OPTS, unobservedNames: [] });
+    expect(text).not.toContain('Next session focus');
+  });
+
+  it('includes coach first name in sign-off', () => {
+    const text = buildPracticeShareText(BASE_OPTS);
+    expect(text).toContain('Coach Sarah');
+  });
+
+  it('uses generic sign-off when no coach name', () => {
+    const text = buildPracticeShareText({ ...BASE_OPTS, coachName: null });
+    expect(text).toContain('— SportsIQ');
+    expect(text).not.toContain('Coach');
+  });
+
+  it('handles all-neutral obs (no strengths or gaps)', () => {
+    const neutralSnap = buildSessionSnapshot([neutral(), neutral(), neutral()]);
+    const text = buildPracticeShareText({ ...BASE_OPTS, snap: neutralSnap });
+    expect(text).toContain('0% positive');
+    expect(text).not.toContain('💪');
+    expect(text).not.toContain('📌');
+  });
+
+  it('produces non-empty output for minimal data', () => {
+    const minSnap = buildSessionSnapshot([pos('defense', 'p1', 'Alice'), pos('passing', 'p1', 'Alice'), neg('shooting', 'p1', 'Alice')]);
+    const text = buildPracticeShareText({
+      snap: minSnap,
+      sessionType: 'practice',
+      sessionDate: '2026-01-01',
+      sessionTime: null,
+      teamName: 'Team A',
+      coachName: null,
+      rosterCount: 5,
+      unobservedNames: [],
+    });
+    expect(text.length).toBeGreaterThan(50);
   });
 });

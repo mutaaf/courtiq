@@ -100,6 +100,8 @@ import { matchMessageToPlayer, countPlayersWithPhone, type ParentEmailPlayer } f
 import { buildWhatsAppUrl } from '@/lib/birthday-utils';
 import {
   buildSessionSnapshot,
+  buildPracticeShareText,
+  getUnobservedPlayerNames,
   hasEnoughDataForSnapshot,
   formatSnapshotCategory,
   getHealthLabel,
@@ -173,12 +175,58 @@ const PRIORITY_CONFIG: Record<
 
 // ─── Session Snapshot Card ────────────────────────────────────────────────────
 
-function SessionSnapshotCard({ observations }: { observations: any[] }) {
+function SessionSnapshotCard({
+  observations,
+  session,
+  rosterPlayers,
+  teamName,
+  coachName,
+}: {
+  observations: any[];
+  session?: any;
+  rosterPlayers?: any[];
+  teamName?: string;
+  coachName?: string | null;
+}) {
   const [collapsed, setCollapsed] = useState(false);
+  const [shared, setShared] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const snap = buildSessionSnapshot(observations as SnapshotObs[]);
 
   if (!hasEnoughDataForSnapshot(observations as SnapshotObs[])) return null;
+
+  const isPracticeSession = session?.type === 'practice' || session?.type === 'training';
+
+  async function handleShareSummary() {
+    if (!session || !isPracticeSession) return;
+    const unobservedNames = rosterPlayers
+      ? getUnobservedPlayerNames(observations as SnapshotObs[], rosterPlayers)
+      : [];
+    const text = buildPracticeShareText({
+      snap,
+      sessionType: session.type,
+      sessionDate: session.date,
+      sessionTime: session.start_time ?? null,
+      teamName: teamName || 'My Team',
+      coachName: coachName ?? null,
+      rosterCount: rosterPlayers?.length ?? snap.uniquePlayersObserved,
+      unobservedNames,
+    });
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `Practice Summary — ${teamName ?? 'My Team'}`, text });
+        setShared(true);
+        setTimeout(() => setShared(false), 2500);
+      } else {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch {
+      // user cancelled or clipboard unavailable
+    }
+  }
 
   const pct = Math.round(snap.positiveRatio * 100);
   const healthLabel = getHealthLabel(snap.positiveRatio);
@@ -300,6 +348,24 @@ function SessionSnapshotCard({ observations }: { observations: any[] }) {
               ? 'No player-tagged observations yet'
               : `${snap.uniquePlayersObserved} player${snap.uniquePlayersObserved !== 1 ? 's' : ''} observed · ${snap.totalObs} total observation${snap.totalObs !== 1 ? 's' : ''}`}
           </p>
+
+          {/* Share practice summary — practice/training sessions only */}
+          {isPracticeSession && (
+            <button
+              type="button"
+              onClick={handleShareSummary}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-700/60 bg-zinc-800/40 px-3 py-2 text-xs font-medium text-zinc-400 transition-colors hover:border-zinc-600 hover:bg-zinc-800 hover:text-zinc-200 active:scale-95 touch-manipulation"
+              aria-label="Share practice summary"
+            >
+              {shared ? (
+                <><Check className="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" /><span className="text-emerald-400">Sent!</span></>
+              ) : copied ? (
+                <><Check className="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" /><span className="text-emerald-400">Copied to clipboard</span></>
+              ) : (
+                <><Share2 className="h-3.5 w-3.5" aria-hidden="true" />Share Practice Summary</>
+              )}
+            </button>
+          )}
         </CardContent>
       )}
     </Card>
@@ -3782,7 +3848,13 @@ export default function SessionDetailPage() {
 
         {/* Session Snapshot — at-a-glance summary of practice quality */}
         {!obsLoading && observations && observations.length >= 3 && (
-          <SessionSnapshotCard observations={observations} />
+          <SessionSnapshotCard
+            observations={observations}
+            session={session}
+            rosterPlayers={rosterPlayers}
+            teamName={activeTeam.name}
+            coachName={coach?.full_name}
+          />
         )}
 
         {/* Coverage Tracker — who have I observed this session? */}

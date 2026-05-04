@@ -159,6 +159,84 @@ export function getHealthBarColor(ratio: number): string {
   return 'bg-orange-500';
 }
 
+// ─── Share helpers ────────────────────────────────────────────────────────────
+
+function formatDateForShare(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}`;
+}
+
+function formatTimeForShare(timeStr: string): string {
+  const [h, m] = timeStr.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hour12 = h % 12 || 12;
+  return `${hour12}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+export function getUnobservedPlayerNames(
+  obs: SnapshotObs[],
+  rosterPlayers: { id: string; name: string }[]
+): string[] {
+  const observedIds = new Set(obs.filter((o) => o.player_id).map((o) => o.player_id as string));
+  return rosterPlayers
+    .filter((p) => !observedIds.has(p.id))
+    .map((p) => p.name.split(' ')[0])
+    .slice(0, 5);
+}
+
+export interface PracticeShareOpts {
+  snap: SessionSnapshot;
+  sessionType: string;
+  sessionDate: string;
+  sessionTime?: string | null;
+  teamName: string;
+  coachName?: string | null;
+  rosterCount: number;
+  unobservedNames: string[];
+}
+
+export function buildPracticeShareText(opts: PracticeShareOpts): string {
+  const { snap, sessionType, sessionDate, sessionTime, teamName, coachName, rosterCount, unobservedNames } = opts;
+  const typeLabel = sessionType === 'training' ? 'Training' : 'Practice';
+  const pct = Math.round(snap.positiveRatio * 100);
+  const healthLabel = getHealthLabel(snap.positiveRatio);
+  const lines: string[] = [];
+
+  lines.push(`📋 ${typeLabel} Summary — ${teamName}`);
+  lines.push(`📅 ${formatDateForShare(sessionDate)}${sessionTime ? ` · ${formatTimeForShare(sessionTime)}` : ''}`);
+  lines.push('');
+  lines.push(`👥 ${snap.uniquePlayersObserved}/${rosterCount} players observed`);
+  lines.push(`📊 Team Health: ${pct}% positive (${healthLabel})`);
+
+  if (snap.standout) {
+    lines.push('');
+    lines.push(`⭐ Star: ${snap.standout.name} (${snap.standout.positiveCount} positive obs)`);
+  }
+
+  if (snap.topStrengths.length > 0) {
+    const str = snap.topStrengths.map((s) => formatSnapshotCategory(s.category)).join(', ');
+    lines.push(`💪 Strengths: ${str}`);
+  }
+
+  if (snap.topGaps.length > 0) {
+    const str = snap.topGaps.map((g) => formatSnapshotCategory(g.category)).join(', ');
+    lines.push(`📌 Work on: ${str}`);
+  }
+
+  if (unobservedNames.length > 0) {
+    lines.push('');
+    lines.push(`Next session focus: ${unobservedNames.join(', ')}`);
+  }
+
+  lines.push('');
+  const firstName = coachName ? coachName.split(' ')[0] : null;
+  lines.push(firstName ? `— Coach ${firstName} | SportsIQ` : '— SportsIQ');
+
+  return lines.join('\n');
+}
+
 // ─── Main builder ─────────────────────────────────────────────────────────────
 
 export function buildSessionSnapshot(obs: SnapshotObs[]): SessionSnapshot {
