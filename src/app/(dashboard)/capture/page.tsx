@@ -14,6 +14,7 @@ import { generateId } from '@/lib/utils';
 import { localDB } from '@/lib/storage/local-db';
 import Link from 'next/link';
 import { QuickTemplates } from '@/components/capture/quick-templates';
+import { LongAudioDropzone } from '@/components/voice/LongAudioDropzone';
 import { useAppStore } from '@/lib/store';
 import { Check } from 'lucide-react';
 import { useTier } from '@/hooks/use-tier';
@@ -51,6 +52,7 @@ export default function CapturePage() {
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [uploadDuration, setUploadDuration] = useState<number | null>(null);
   const [durationWarning, setDurationWarning] = useState<string | null>(null);
+  const [longSessionFile, setLongSessionFile] = useState<File | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -605,8 +607,10 @@ export default function CapturePage() {
       const data = await res.json();
 
       if (data.tooLong) {
-        setErrorMessage(data.error || 'Audio file is too long');
+        // Hand off to the resumable long-session upload rather than showing a dead-end error
         setUploadState('idle');
+        setUploadFile(null);
+        setLongSessionFile(file);
         return;
       }
 
@@ -1028,8 +1032,27 @@ export default function CapturePage() {
           </Card>
         )}
 
+        {/* Long Session Upload — shown when a file is too long for quick transcription */}
+        {longSessionFile && captureState === 'idle' && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2">
+              <FileAudio className="h-4 w-4 shrink-0 text-amber-400" />
+              <p className="text-xs text-amber-300">
+                <span className="font-semibold">Recording too long for quick upload.</span>{' '}
+                Using resumable upload so nothing gets lost.
+              </p>
+            </div>
+            <LongAudioDropzone
+              teamId={activeTeam?.id ?? ''}
+              sessionId={urlSessionId}
+              initialFile={longSessionFile}
+              onCancel={() => setLongSessionFile(null)}
+            />
+          </div>
+        )}
+
         {/* Quick Note Toggle */}
-        {captureState === 'idle' && uploadState === 'idle' && (
+        {captureState === 'idle' && uploadState === 'idle' && !longSessionFile && (
           <>
             {!showQuickNote ? (
               <div className="hidden">

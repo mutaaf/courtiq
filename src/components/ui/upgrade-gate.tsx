@@ -1,7 +1,7 @@
 'use client';
 import { useTier } from '@/hooks/use-tier';
 import { Button } from './button';
-import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye } from 'lucide-react';
+import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye, FileAudio } from 'lucide-react';
 import Link from 'next/link';
 import type { Tier } from '@/lib/tier';
 
@@ -172,6 +172,22 @@ const FEATURE_CONFIG: Record<string, FeatureConfig> = {
     accentColor: 'text-teal-400',
     accentBg: 'bg-teal-500/15',
     accentBorder: 'border-teal-500/30',
+  },
+  long_session_audio: {
+    icon: FileAudio,
+    headline: 'Unlock Long-Session Recording Upload',
+    tagline: 'Upload a full practice recording and get AI observations for every player.',
+    benefits: [
+      'Upload up to 90 minutes of practice audio',
+      'AI transcribes and extracts observations automatically',
+      'Every player mention becomes a coaching note',
+      'Resumable upload — safe on slow connections',
+      'Coach plan: 5 uploads/month · Pro plan: unlimited',
+    ],
+    requiredTier: 'coach',
+    accentColor: 'text-orange-400',
+    accentBg: 'bg-orange-500/15',
+    accentBorder: 'border-orange-500/30',
   },
 };
 
