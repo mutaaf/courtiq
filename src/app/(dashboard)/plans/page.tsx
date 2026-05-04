@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
@@ -442,6 +442,9 @@ export default function PlansPage() {
   const [arcEvent, setArcEvent] = useState('');
   const [arcFocus, setArcFocus] = useState('');
 
+  // Plan type filter
+  const [planTypeFilter, setPlanTypeFilter] = useState<string | null>(null);
+
   // Run Practice modal state
   const [showRunModal, setShowRunModal] = useState(false);
   const [creatingSession, setCreatingSession] = useState(false);
@@ -476,6 +479,25 @@ export default function PlansPage() {
     },
     enabled: !!activeTeam,
   });
+
+  // Available plan types from existing plans (for filter chips)
+  const planTypeOptions = useMemo(() => {
+    if (!plans?.length) return [];
+    const counts: Record<string, number> = {};
+    for (const p of plans) {
+      counts[p.type] = (counts[p.type] ?? 0) + 1;
+    }
+    return Object.entries(counts)
+      .filter(([type]) => PLAN_TYPE_CONFIG[type])
+      .sort((a, b) => b[1] - a[1])
+      .map(([type, count]) => ({ type, count, label: PLAN_TYPE_CONFIG[type].label }));
+  }, [plans]);
+
+  const filteredPlans = useMemo(() => {
+    if (!plans) return [];
+    if (!planTypeFilter) return plans;
+    return plans.filter((p) => p.type === planTypeFilter);
+  }, [plans, planTypeFilter]);
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const { data: todaySessions = [] } = useQuery({
@@ -3691,9 +3713,49 @@ export default function PlansPage() {
 
       {/* Plans list */}
       <div className="space-y-3">
-        <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">
-          Previous Plans
-        </h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">
+            Previous Plans
+            {planTypeFilter && filteredPlans.length > 0 && (
+              <span className="ml-1.5 text-zinc-500 normal-case font-normal">({filteredPlans.length})</span>
+            )}
+          </h2>
+          {planTypeFilter && (
+            <button
+              onClick={() => setPlanTypeFilter(null)}
+              className="text-xs text-orange-400 hover:text-orange-300 font-medium transition-colors"
+              aria-label="Clear plan type filter"
+            >
+              Clear filter
+            </button>
+          )}
+        </div>
+
+        {/* Type filter chips — only shown when there are 2+ plan types */}
+        {!isLoading && planTypeOptions.length >= 2 && (
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4">
+            {planTypeOptions.map(({ type, count, label }) => {
+              const isActive = planTypeFilter === type;
+              return (
+                <button
+                  key={type}
+                  onClick={() => setPlanTypeFilter(isActive ? null : type)}
+                  aria-pressed={isActive}
+                  className={`shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors touch-manipulation ${
+                    isActive
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-300'
+                  }`}
+                >
+                  {label}
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${isActive ? 'bg-white/20 text-white' : 'bg-zinc-700 text-zinc-500'}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {isLoading ? (
           <div className="space-y-3">
@@ -3713,9 +3775,23 @@ export default function PlansPage() {
               </p>
             </CardContent>
           </Card>
+        ) : filteredPlans.length === 0 ? (
+          <Card className="border-dashed border-zinc-700">
+            <CardContent className="flex flex-col items-center justify-center py-10">
+              <p className="text-zinc-500 text-sm text-center">
+                No {planTypeFilter && PLAN_TYPE_CONFIG[planTypeFilter] ? PLAN_TYPE_CONFIG[planTypeFilter].label : ''} plans yet.
+              </p>
+              <button
+                onClick={() => setPlanTypeFilter(null)}
+                className="mt-2 text-xs text-orange-400 hover:text-orange-300 font-medium transition-colors"
+              >
+                Show all plans
+              </button>
+            </CardContent>
+          </Card>
         ) : (
           <div className="space-y-2">
-            {plans?.map((plan) => {
+            {filteredPlans.map((plan) => {
               const typeConfig = PLAN_TYPE_CONFIG[plan.type] || PLAN_TYPE_CONFIG.custom;
               const TypeIcon = typeConfig.icon;
               const isExpanded = expandedPlanId === plan.id;
