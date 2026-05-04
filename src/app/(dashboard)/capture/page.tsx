@@ -1330,6 +1330,7 @@ export default function CapturePage() {
               sessionId={urlSessionId}
               preselectPlayerId={urlPlayerId}
               sportId={activeTeam.sport_slug ?? activeTeam.sport_id}
+              sessionObsPlayerIds={coverageObservedIds.size > 0 ? coverageObservedIds : undefined}
               onSaved={refreshCoverageObs}
             />
           </>

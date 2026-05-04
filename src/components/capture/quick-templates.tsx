@@ -8,9 +8,9 @@
  * sentiment and category are already defined by the template).
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, ChevronRight, X, Loader2, Zap, Lightbulb } from 'lucide-react';
+import { CheckCircle2, ChevronRight, X, Loader2, Zap, Lightbulb, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { mutate, query } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
@@ -38,6 +38,7 @@ interface QuickTemplatesProps {
   sessionId?: string | null;
   preselectPlayerId?: string | null;
   sportId?: string | null;
+  sessionObsPlayerIds?: Set<string>;
   onSaved?: () => void;
 }
 
@@ -75,8 +76,9 @@ interface PlayerPickerProps {
   sessionId?: string | null;
   preselectPlayerId?: string | null;
   sportId?: string | null;
+  sessionObsPlayerIds?: Set<string>;
   onClose: () => void;
-  onSaved: (playerName: string) => void;
+  onSaved: (playerName: string, playerId: string) => void;
 }
 
 function PlayerPicker({
@@ -86,6 +88,7 @@ function PlayerPicker({
   sessionId,
   preselectPlayerId,
   sportId,
+  sessionObsPlayerIds,
   onClose,
   onSaved,
 }: PlayerPickerProps) {
@@ -93,8 +96,19 @@ function PlayerPicker({
   const [savingId, setSavingId] = useState<string | null>(null);
   const [players, setPlayers] = useState<Player[] | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const [search, setSearch] = useState('');
+  // Optimistically track newly-observed players within this picker session
+  const [localObservedIds, setLocalObservedIds] = useState<Set<string>>(new Set());
 
   const sheetRef = useFocusTrap<HTMLDivElement>({ enabled: true, onEscape: onClose });
+
+  // Combined observed set: passed-in session coverage + optimistic local saves
+  const allObservedIds = useMemo(() => {
+    if (!sessionObsPlayerIds && localObservedIds.size === 0) return null;
+    const merged = new Set(sessionObsPlayerIds ?? []);
+    localObservedIds.forEach((id) => merged.add(id));
+    return merged;
+  }, [sessionObsPlayerIds, localObservedIds]);
 
   // Normalize sport slug for coaching-phrases lookup (flag_football → flagfootball)
   const sportSlug = sportId ? sportId.toLowerCase().replace('_', '') : null;
@@ -113,6 +127,27 @@ function PlayerPicker({
       .then((data) => setPlayers(data ?? []))
       .catch(() => setLoadError(true));
   });
+
+  // Sorted + filtered player list:
+  // 1. Preselected player first (orange ring)
+  // 2. Unobserved players (alphabetical)
+  // 3. Already-observed players (dimmed, ✓ badge, alphabetical)
+  const displayedPlayers = useMemo(() => {
+    if (!players) return null;
+    const q = search.trim().toLowerCase();
+    const filtered = q ? players.filter((p) => p.name.toLowerCase().includes(q)) : players;
+    return filtered.slice().sort((a, b) => {
+      const aPresel = a.id === preselectPlayerId;
+      const bPresel = b.id === preselectPlayerId;
+      if (aPresel !== bPresel) return aPresel ? -1 : 1;
+      if (allObservedIds) {
+        const aObs = allObservedIds.has(a.id);
+        const bObs = allObservedIds.has(b.id);
+        if (aObs !== bObs) return aObs ? 1 : -1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }, [players, search, preselectPlayerId, allObservedIds]);
 
   const save = useCallback(
     async (player: Player) => {
@@ -150,8 +185,10 @@ function PlayerPicker({
           queryClient.invalidateQueries({ queryKey: ['session-obs-count', sessionId] });
         }
 
+        // Optimistically mark this player as observed
+        setLocalObservedIds((prev) => new Set([...prev, player.id]));
         if (navigator.vibrate) navigator.vibrate([60, 30, 60]);
-        onSaved(player.name.split(' ')[0]);
+        onSaved(player.name.split(' ')[0], player.id);
       } catch {
         setSavingId(null);
       }
@@ -163,6 +200,11 @@ function PlayerPicker({
     template.sentiment === 'positive'
       ? { badge: 'bg-emerald-500/15 text-emerald-400', dot: 'bg-emerald-500' }
       : { badge: 'bg-amber-500/15 text-amber-400', dot: 'bg-amber-500' };
+
+  const showSearch = (players?.length ?? 0) >= 9;
+  const observedCount = allObservedIds ? allObservedIds.size : 0;
+  const totalCount = players?.length ?? 0;
+  const allCovered = allObservedIds && totalCount > 0 && observedCount >= totalCount;
 
   return (
     /* Overlay */
@@ -214,12 +256,41 @@ function PlayerPicker({
           </div>
         )}
 
+        {/* Session coverage strip — only shown when in a practice session */}
+        {allObservedIds && totalCount > 0 && (
+          <div className={cn(
+            'mx-5 mb-3 flex items-center gap-2 rounded-lg px-3 py-2',
+            allCovered ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-amber-500/10 border border-amber-500/20'
+          )}>
+            <CheckCircle2 className={cn('h-3.5 w-3.5 shrink-0', allCovered ? 'text-emerald-400' : 'text-amber-400')} />
+            <span className={cn('text-xs font-medium', allCovered ? 'text-emerald-300' : 'text-amber-300')}>
+              {allCovered
+                ? `✓ All ${totalCount} players observed this session`
+                : `${observedCount}/${totalCount} observed this session`}
+            </span>
+          </div>
+        )}
+
+        {/* Search — shown for teams with 9+ players */}
+        {showSearch && (
+          <div className="relative mx-5 mb-3">
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search players…"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 py-2 pl-8 pr-3 text-sm text-zinc-100 placeholder-zinc-500 focus:border-orange-500/50 focus:outline-none"
+            />
+          </div>
+        )}
+
         <p className="px-5 pb-3 text-xs font-medium text-zinc-500 uppercase tracking-wider">
-          Select player
+          {search ? `Results for "${search}"` : 'Select player'}
         </p>
 
         {/* Player list */}
-        <div className="max-h-[55vh] overflow-y-auto pb-6 px-3">
+        <div className="max-h-[50vh] overflow-y-auto pb-6 px-3">
           {loadError && (
             <p className="px-2 py-4 text-center text-sm text-red-400">Failed to load players.</p>
           )}
@@ -234,18 +305,14 @@ function PlayerPicker({
             <p className="px-2 py-4 text-center text-sm text-zinc-500">No active players on this team.</p>
           )}
 
-          {players
-            ?.slice()
-            .sort((a, b) => {
-              if (preselectPlayerId) {
-                if (a.id === preselectPlayerId) return -1;
-                if (b.id === preselectPlayerId) return 1;
-              }
-              return 0;
-            })
-            .map((player) => {
+          {displayedPlayers?.length === 0 && search && (
+            <p className="px-2 py-4 text-center text-sm text-zinc-500">No players match "{search}".</p>
+          )}
+
+          {displayedPlayers?.map((player) => {
             const isSaving = savingId === player.id;
             const isPreselected = preselectPlayerId === player.id;
+            const isObserved = allObservedIds?.has(player.id) ?? false;
             return (
               <button
                 key={player.id}
@@ -253,24 +320,39 @@ function PlayerPicker({
                 disabled={!!savingId}
                 className={cn(
                   'flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition-colors hover:bg-zinc-800/70 active:scale-[0.98] touch-manipulation disabled:opacity-60',
-                  isPreselected && 'border border-orange-500/40 bg-orange-500/8'
+                  isPreselected && 'border border-orange-500/40 bg-orange-500/8',
+                  isObserved && !isPreselected && 'opacity-50'
                 )}
               >
-                {/* Jersey badge */}
+                {/* Jersey / observed badge */}
                 <div className={cn(
                   'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold',
-                  isPreselected ? 'bg-orange-500/20 text-orange-300' : 'bg-zinc-800 text-zinc-300'
+                  isPreselected ? 'bg-orange-500/20 text-orange-300'
+                  : isObserved ? 'bg-emerald-500/20 text-emerald-400'
+                  : 'bg-zinc-800 text-zinc-300'
                 )}>
-                  {player.jersey_number != null ? `#${player.jersey_number}` : '—'}
+                  {isObserved && !isPreselected ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : player.jersey_number != null ? (
+                    `#${player.jersey_number}`
+                  ) : (
+                    '—'
+                  )}
                 </div>
-                <span className={cn('flex-1 text-sm font-medium', isPreselected ? 'text-orange-200' : 'text-zinc-200')}>
+                <span className={cn(
+                  'flex-1 text-sm font-medium',
+                  isPreselected ? 'text-orange-200'
+                  : isObserved ? 'text-zinc-400'
+                  : 'text-zinc-200'
+                )}>
                   {player.name}
                   {isPreselected && <span className="ml-2 text-xs text-orange-400/80">suggested</span>}
+                  {isObserved && !isPreselected && <span className="ml-2 text-xs text-emerald-500/70">observed</span>}
                 </span>
                 {isSaving ? (
                   <Loader2 className="h-4 w-4 animate-spin text-orange-400" />
                 ) : (
-                  <ChevronRight className={cn('h-4 w-4', isPreselected ? 'text-orange-400' : 'text-zinc-600')} />
+                  <ChevronRight className={cn('h-4 w-4', isPreselected ? 'text-orange-400' : isObserved ? 'text-zinc-600' : 'text-zinc-600')} />
                 )}
               </button>
             );
@@ -307,7 +389,7 @@ function SuccessToast({ message, onDismiss }: { message: string; onDismiss: () =
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId, sportId, onSaved: onSavedCallback }: QuickTemplatesProps) {
+export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId, sportId, sessionObsPlayerIds, onSaved: onSavedCallback }: QuickTemplatesProps) {
   const [activeTab, setActiveTab] = useState<TemplateSentiment>('positive');
   const [selectedTemplate, setSelectedTemplate] = useState<ObservationTemplate | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -321,7 +403,7 @@ export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId, 
     setSuccessMsg(null);
   }, [successTimer]);
 
-  const handleSaved = useCallback((playerFirstName: string) => {
+  const handleSaved = useCallback((playerFirstName: string, _playerId: string) => {
     setSelectedTemplate(null);
     const msg = `Saved for ${playerFirstName}`;
     setSuccessMsg(msg);
@@ -406,6 +488,7 @@ export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId, 
           sessionId={sessionId}
           preselectPlayerId={preselectPlayerId}
           sportId={sportId}
+          sessionObsPlayerIds={sessionObsPlayerIds}
           onClose={handleClose}
           onSaved={handleSaved}
         />
