@@ -109,6 +109,138 @@ export default function CapturePage() {
     }
   }, []);
 
+  const checkApiKeyError = (errorText: string): boolean => {
+    const lower = errorText.toLowerCase();
+    return lower.includes('api key') || lower.includes('not configured') || lower.includes('no api');
+  };
+
+  async function processRecording(audioBlob: Blob, mimeType: string) {
+    if (!activeTeam) return;
+
+    try {
+      if (!coach) throw new Error('Not authenticated');
+
+      // Use ref for latest transcript (state may be stale in callback closure)
+      const currentTranscript = transcriptRef.current;
+
+      // Guard: empty transcript
+      if (!currentTranscript || !currentTranscript.trim()) {
+        setErrorMessage('No speech was detected. Please try recording again and speak clearly.');
+        setCaptureState('error');
+        return;
+      }
+
+      const recordingId = generateId();
+      const storagePath = `recordings/${activeTeam.id}/${recordingId}.webm`;
+
+      // Upload audio via API route (uses service role, bypasses RLS)
+      let uploadSucceeded = false;
+      try {
+        const uploadForm = new FormData();
+        uploadForm.append('audio', audioBlob);
+        uploadForm.append('path', storagePath);
+        const uploadRes = await fetch('/api/voice/upload-audio', { method: 'POST', body: uploadForm });
+        if (uploadRes.ok) uploadSucceeded = true;
+      } catch {
+        // Storage upload failed, continue
+      }
+
+      // Create recording record — best-effort, don't block the AI call
+      try {
+        await mutate({
+          table: 'recordings',
+          operation: 'insert',
+          data: {
+            id: recordingId,
+            team_id: activeTeam.id,
+            coach_id: coach.id,
+            storage_path: uploadSucceeded ? storagePath : null,
+            mime_type: mimeType,
+            file_size_bytes: audioBlob.size,
+            status: 'uploaded' as const,
+            raw_transcript: currentTranscript || null,
+          },
+        });
+      } catch (e) {
+        console.error('Recording insert failed:', e);
+      }
+
+      // Send for AI segmentation
+      const response = await fetch('/api/ai/segment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript: currentTranscript, teamId: activeTeam.id }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const errMsg = errData.error || 'AI processing failed';
+
+        // Monthly tier limit — send to review page with upgrade prompt
+        if (response.status === 402 && errData.upgrade) {
+          sessionStorage.setItem(
+            'pending_observations',
+            JSON.stringify({
+              recording_id: recordingId,
+              session_id: urlSessionId,
+              observations: [],
+              transcript: currentTranscript,
+              unmatched_names: [],
+              error: errMsg,
+              upgrade: true,
+            })
+          );
+          router.push(`/capture/review?recording_id=${recordingId}`);
+          return;
+        }
+
+        if (checkApiKeyError(errMsg)) {
+          setIsApiKeyError(true);
+          setErrorMessage(errMsg);
+          setCaptureState('error');
+          return;
+        }
+
+        // If API isn't ready yet, redirect to review with recording_id
+        router.push(`/capture/review?recording_id=${recordingId}`);
+        return;
+      }
+
+      const result = await response.json();
+      setTranscript(result.transcript || currentTranscript);
+
+      // Check for API key error in response
+      if (result.error && checkApiKeyError(result.error)) {
+        setIsApiKeyError(true);
+        setErrorMessage(result.error);
+        setCaptureState('error');
+        return;
+      }
+
+      // Store parsed observations in sessionStorage for review page
+      sessionStorage.setItem(
+        'pending_observations',
+        JSON.stringify({
+          recording_id: recordingId,
+          session_id: urlSessionId,
+          observations: result.observations || [],
+          transcript: result.transcript || currentTranscript,
+          unmatched_names: result.unmatched_names || [],
+          error: result.error || null,
+        })
+      );
+
+      router.push(`/capture/review?recording_id=${recordingId}`);
+    } catch (err: any) {
+      const msg = err.message || 'Failed to process recording.';
+      if (checkApiKeyError(msg)) {
+        setIsApiKeyError(true);
+      }
+      setErrorMessage(msg);
+      setCaptureState('error');
+    }
+  }
+
   const startRecording = useCallback(async () => {
     if (!activeTeam) return;
     setErrorMessage(null);
@@ -358,138 +490,6 @@ export default function CapturePage() {
       startRecording();
     }
   }, [captureState, startRecording, stopRecording]);
-
-  const checkApiKeyError = (errorText: string): boolean => {
-    const lower = errorText.toLowerCase();
-    return lower.includes('api key') || lower.includes('not configured') || lower.includes('no api');
-  };
-
-  const processRecording = async (audioBlob: Blob, mimeType: string) => {
-    if (!activeTeam) return;
-
-    try {
-      if (!coach) throw new Error('Not authenticated');
-
-      // Use ref for latest transcript (state may be stale in callback closure)
-      const currentTranscript = transcriptRef.current;
-
-      // Guard: empty transcript
-      if (!currentTranscript || !currentTranscript.trim()) {
-        setErrorMessage('No speech was detected. Please try recording again and speak clearly.');
-        setCaptureState('error');
-        return;
-      }
-
-      const recordingId = generateId();
-      const storagePath = `recordings/${activeTeam.id}/${recordingId}.webm`;
-
-      // Upload audio via API route (uses service role, bypasses RLS)
-      let uploadSucceeded = false;
-      try {
-        const uploadForm = new FormData();
-        uploadForm.append('audio', audioBlob);
-        uploadForm.append('path', storagePath);
-        const uploadRes = await fetch('/api/voice/upload-audio', { method: 'POST', body: uploadForm });
-        if (uploadRes.ok) uploadSucceeded = true;
-      } catch {
-        // Storage upload failed, continue
-      }
-
-      // Create recording record — best-effort, don't block the AI call
-      try {
-        await mutate({
-          table: 'recordings',
-          operation: 'insert',
-          data: {
-            id: recordingId,
-            team_id: activeTeam.id,
-            coach_id: coach.id,
-            storage_path: uploadSucceeded ? storagePath : null,
-            mime_type: mimeType,
-            file_size_bytes: audioBlob.size,
-            status: 'uploaded' as const,
-            raw_transcript: currentTranscript || null,
-          },
-        });
-      } catch (e) {
-        console.error('Recording insert failed:', e);
-      }
-
-      // Send for AI segmentation
-      const response = await fetch('/api/ai/segment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: currentTranscript, teamId: activeTeam.id }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        const errMsg = errData.error || 'AI processing failed';
-
-        // Monthly tier limit — send to review page with upgrade prompt
-        if (response.status === 402 && errData.upgrade) {
-          sessionStorage.setItem(
-            'pending_observations',
-            JSON.stringify({
-              recording_id: recordingId,
-              session_id: urlSessionId,
-              observations: [],
-              transcript: currentTranscript,
-              unmatched_names: [],
-              error: errMsg,
-              upgrade: true,
-            })
-          );
-          router.push(`/capture/review?recording_id=${recordingId}`);
-          return;
-        }
-
-        if (checkApiKeyError(errMsg)) {
-          setIsApiKeyError(true);
-          setErrorMessage(errMsg);
-          setCaptureState('error');
-          return;
-        }
-
-        // If API isn't ready yet, redirect to review with recording_id
-        router.push(`/capture/review?recording_id=${recordingId}`);
-        return;
-      }
-
-      const result = await response.json();
-      setTranscript(result.transcript || currentTranscript);
-
-      // Check for API key error in response
-      if (result.error && checkApiKeyError(result.error)) {
-        setIsApiKeyError(true);
-        setErrorMessage(result.error);
-        setCaptureState('error');
-        return;
-      }
-
-      // Store parsed observations in sessionStorage for review page
-      sessionStorage.setItem(
-        'pending_observations',
-        JSON.stringify({
-          recording_id: recordingId,
-          session_id: urlSessionId,
-          observations: result.observations || [],
-          transcript: result.transcript || currentTranscript,
-          unmatched_names: result.unmatched_names || [],
-          error: result.error || null,
-        })
-      );
-
-      router.push(`/capture/review?recording_id=${recordingId}`);
-    } catch (err: any) {
-      const msg = err.message || 'Failed to process recording.';
-      if (checkApiKeyError(msg)) {
-        setIsApiKeyError(true);
-      }
-      setErrorMessage(msg);
-      setCaptureState('error');
-    }
-  };
 
   const handleQuickNote = async () => {
     if (!activeTeam || !quickNote.trim()) return;

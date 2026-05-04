@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlayerCard } from '@/components/roster/player-card';
 import { BulkActionsBar } from '@/components/roster/bulk-actions-bar';
-import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareArrows, CheckSquare, ShieldAlert } from 'lucide-react';
+import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareArrows, CheckSquare, ShieldAlert, Radio, Share2, Check } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { ParentEngagementPanel } from '@/components/roster/parent-engagement-panel';
@@ -19,6 +19,7 @@ import { TeamAttendancePanel } from '@/components/roster/team-attendance-panel';
 import { AvailabilityBadge } from '@/components/roster/availability-badge';
 import type { Player, PlayerAvailability } from '@/types/database';
 import type { PlayerMomentum } from '@/lib/momentum-utils';
+import { useAppStore } from '@/lib/store';
 
 type SortMode = 'alpha' | 'attention' | 'momentum';
 
@@ -29,6 +30,13 @@ export default function RosterPage() {
   const [sortMode, setSortMode] = useState<SortMode>('alpha');
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const practiceActive = useAppStore((s) => s.practiceActive);
+  const practiceSessionId = useAppStore((s) => s.practiceSessionId);
+
+  // Collect parent contacts
+  const [contactLinkGenerating, setContactLinkGenerating] = useState(false);
+  const [contactLinkCopied, setContactLinkCopied] = useState(false);
 
   function toggleSelect(playerId: string) {
     setSelectedIds((prev) => {
@@ -42,6 +50,31 @@ export default function RosterPage() {
   function exitSelectMode() {
     setSelectMode(false);
     setSelectedIds(new Set());
+  }
+
+  async function handleCollectContacts() {
+    if (!activeTeam) return;
+    setContactLinkGenerating(true);
+    try {
+      const res = await fetch('/api/parents/generate-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id }),
+      });
+      if (!res.ok) throw new Error('Failed to generate link');
+      const { url, shareText } = await res.json();
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: `Join ${activeTeam.name} parent updates`, text: shareText, url });
+      } else {
+        await navigator.clipboard.writeText(shareText);
+      }
+      setContactLinkCopied(true);
+      setTimeout(() => setContactLinkCopied(false), 3000);
+    } catch {
+      // user cancelled share or clipboard error — silently ignore
+    } finally {
+      setContactLinkGenerating(false);
+    }
   }
 
   const { data: players = [], isLoading, refetch: refetchPlayers } = useQuery({
@@ -166,6 +199,12 @@ export default function RosterPage() {
     [players, availabilityMap],
   );
 
+  // Players with no parent phone — used to show the collect-contacts prompt
+  const missingContactCount = useMemo(
+    () => players.filter((p) => !p.parent_phone).length,
+    [players],
+  );
+
   if (!activeTeam) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center min-h-[60vh]">
@@ -258,6 +297,33 @@ export default function RosterPage() {
                 ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Collect parent contacts — shown when players have no phone numbers */}
+      {players.length > 0 && missingContactCount > 0 && (
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-teal-500/30 bg-teal-500/5 px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-teal-300">
+              {missingContactCount} player{missingContactCount !== 1 ? 's' : ''} missing parent contact
+            </p>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Share a link so parents can add their own numbers in 30 seconds
+            </p>
+          </div>
+          <button
+            onClick={handleCollectContacts}
+            disabled={contactLinkGenerating}
+            className="shrink-0 flex items-center gap-1.5 rounded-lg bg-teal-500/20 border border-teal-500/30 px-3 py-2 text-sm font-medium text-teal-300 hover:bg-teal-500/30 transition-colors touch-manipulation disabled:opacity-60"
+          >
+            {contactLinkGenerating ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-teal-400 border-t-transparent" />
+            ) : contactLinkCopied ? (
+              <><Check className="h-4 w-4" />Copied!</>
+            ) : (
+              <><Share2 className="h-4 w-4" />Share link</>
+            )}
+          </button>
         </div>
       )}
 

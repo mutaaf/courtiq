@@ -78,7 +78,7 @@ export default function UpgradePage() {
       });
       const data = await res.json();
       if (data.url) {
-        window.location.href = data.url;
+        window.location.assign(data.url);
       } else {
         trackEvent('upgrade_checkout_failed', { target_tier: tier, reason: data.error || 'unknown' });
         alert(data.error || 'Failed to create checkout');
@@ -97,7 +97,7 @@ export default function UpgradePage() {
       const res = await fetch('/api/stripe/portal', { method: 'POST' });
       const data = await res.json();
       if (data.url) {
-        window.location.href = data.url;
+        window.location.assign(data.url);
       }
     } catch {
       alert('Failed to open billing portal');

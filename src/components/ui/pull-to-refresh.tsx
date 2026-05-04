@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 
@@ -23,7 +23,7 @@ export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
   const isDraggingRef = useRef(false);
   const isRefreshingRef = useRef(false);
   const onRefreshRef = useRef(onRefresh);
-  onRefreshRef.current = onRefresh;
+  useLayoutEffect(() => { onRefreshRef.current = onRefresh; });
   const reducedMotion = useReducedMotion();
 
   const [indicatorState, setIndicatorState] = useState<IndicatorState>('hidden');
