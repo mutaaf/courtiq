@@ -60,7 +60,7 @@ interface PlayerPickerProps {
   sessionId?: string | null;
   preselectPlayerId?: string | null;
   onClose: () => void;
-  onSaved: (playerName: string) => void;
+  onDone: (savedCount: number) => void;
 }
 
 function PlayerPicker({
@@ -70,10 +70,11 @@ function PlayerPicker({
   sessionId,
   preselectPlayerId,
   onClose,
-  onSaved,
+  onDone,
 }: PlayerPickerProps) {
   const queryClient = useQueryClient();
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [savedCount, setSavedCount] = useState(0);
   const [players, setPlayers] = useState<Player[] | null>(null);
   const [loadError, setLoadError] = useState(false);
 
@@ -123,12 +124,13 @@ function PlayerPicker({
         });
 
         if (navigator.vibrate) navigator.vibrate([60, 30, 60]);
-        onSaved(player.name.split(' ')[0]);
+        setSavedCount((n) => n + 1);
+        setSavingId(null);
       } catch {
         setSavingId(null);
       }
     },
-    [savingId, teamId, coachId, sessionId, template, queryClient, onSaved]
+    [savingId, teamId, coachId, sessionId, template, queryClient]
   );
 
   const sentimentStyle =
@@ -167,7 +169,7 @@ function PlayerPicker({
             </span>
           </div>
           <button
-            onClick={onClose}
+            onClick={() => savedCount > 0 ? onDone(savedCount) : onClose()}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
             aria-label="Close player picker"
           >
@@ -176,11 +178,11 @@ function PlayerPicker({
         </div>
 
         <p className="px-5 pb-3 text-xs font-medium text-zinc-500 uppercase tracking-wider">
-          Select player
+          {savedCount > 0 ? `${savedCount} saved — tap another or tap Done` : 'Select player'}
         </p>
 
         {/* Player list */}
-        <div className="max-h-[55vh] overflow-y-auto pb-6 px-3">
+        <div className="max-h-[55vh] overflow-y-auto pb-2 px-3">
           {loadError && (
             <p className="px-2 py-4 text-center text-sm text-red-400">Failed to load players.</p>
           )}
@@ -237,6 +239,18 @@ function PlayerPicker({
             );
           })}
         </div>
+
+        {savedCount > 0 && (
+          <div className="px-3 pb-4 pt-2">
+            <button
+              onClick={() => onDone(savedCount)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-sm font-semibold text-white hover:bg-emerald-500 active:scale-[0.98] touch-manipulation transition-all"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Done · {savedCount} saved
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -282,9 +296,9 @@ export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId }
     setSuccessMsg(null);
   }, [successTimer]);
 
-  const handleSaved = useCallback((playerFirstName: string) => {
+  const handleDone = useCallback((count: number) => {
     setSelectedTemplate(null);
-    const msg = `Saved for ${playerFirstName}`;
+    const msg = count === 1 ? '1 observation saved' : `${count} observations saved`;
     setSuccessMsg(msg);
     const timer = setTimeout(() => setSuccessMsg(null), 3000);
     setSuccessTimer(timer);
@@ -361,7 +375,7 @@ export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId }
           sessionId={sessionId}
           preselectPlayerId={preselectPlayerId}
           onClose={handleClose}
-          onSaved={handleSaved}
+          onDone={handleDone}
         />
       )}
 

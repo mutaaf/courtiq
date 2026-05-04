@@ -51,6 +51,7 @@ export function QuickCaptureWidget() {
   const [roster, setRoster] = useState<{ id: string; name: string }[]>([]);
   const [rosterLoading, setRosterLoading] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templateSavedCount, setTemplateSavedCount] = useState(0);
 
   const trapRef = useFocusTrap<HTMLDivElement>({
     enabled: isOpen,
@@ -101,6 +102,7 @@ export function QuickCaptureWidget() {
     setTemplateStep('pick');
     setSelectedTemplate(null);
     setTemplateSentiment('positive');
+    setTemplateSavedCount(0);
   }, []);
 
   const close = useCallback(() => {
@@ -334,12 +336,8 @@ export function QuickCaptureWidget() {
         queryClient.invalidateQueries({ queryKey: ['session-obs-count', sessionId] });
       }
 
-      setTemplateStep('saved');
-      // Auto-reset so coach can log another immediately
-      setTimeout(() => {
-        setTemplateStep('pick');
-        setSelectedTemplate(null);
-      }, 1400);
+      setTemplateSavedCount((n) => n + 1);
+      // Stay on player step so coach can save the same observation for more players
     } catch {
       // fall back to pick so coach can retry
       setTemplateStep('pick');
@@ -627,7 +625,13 @@ export function QuickCaptureWidget() {
                           : 'bg-amber-900/40 text-amber-300'
                       )}>
                         <span className="text-lg">{selectedTemplate.emoji}</span>
-                        <span>{selectedTemplate.text}</span>
+                        <span className="flex-1">{selectedTemplate.text}</span>
+                        {templateSavedCount > 0 && (
+                          <span className="flex items-center gap-1 rounded-full bg-emerald-600/30 px-2 py-0.5 text-xs font-medium text-emerald-400">
+                            <CheckCircle2 className="h-3 w-3" />
+                            {templateSavedCount}
+                          </span>
+                        )}
                       </div>
                     )}
 
@@ -664,25 +668,54 @@ export function QuickCaptureWidget() {
                       </div>
                     )}
 
-                    <button
-                      type="button"
-                      onClick={() => { setTemplateStep('pick'); setSelectedTemplate(null); }}
-                      className="self-start text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
-                    >
-                      ← Back
-                    </button>
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => { setTemplateStep('pick'); setSelectedTemplate(null); setTemplateSavedCount(0); }}
+                        className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                      >
+                        ← Back
+                      </button>
+                      {templateSavedCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setTemplateStep('saved')}
+                          className="flex items-center gap-1.5 rounded-full border border-emerald-600/40 bg-emerald-600/20 px-3 py-1.5 text-xs font-medium text-emerald-400 active:scale-95 touch-manipulation"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Done · {templateSavedCount}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
 
-                {/* Step 3: saved confirmation */}
+                {/* Step 3: done confirmation */}
                 {templateStep === 'saved' && (
                   <div className="flex flex-col items-center gap-4 py-4">
                     <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20">
                       <CheckCircle2 className="h-7 w-7 text-emerald-400" />
                     </div>
                     <div className="text-center">
-                      <p className="text-sm font-semibold text-zinc-100">Saved!</p>
-                      <p className="mt-1 text-xs text-zinc-500">Ready to log another…</p>
+                      <p className="text-sm font-semibold text-zinc-100">
+                        {templateSavedCount} observation{templateSavedCount !== 1 ? 's' : ''} saved!
+                      </p>
+                    </div>
+                    <div className="flex w-full gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setTemplateStep('player')}
+                        className="flex-1 rounded-xl bg-zinc-800 py-2.5 text-xs font-medium text-zinc-300 hover:bg-zinc-700 transition-colors active:scale-[0.97] touch-manipulation"
+                      >
+                        Another player
+                      </button>
+                      <button
+                        type="button"
+                        onClick={resetTemplateState}
+                        className="flex-1 rounded-xl bg-zinc-800 py-2.5 text-xs font-medium text-zinc-300 hover:bg-zinc-700 transition-colors active:scale-[0.97] touch-manipulation"
+                      >
+                        New template
+                      </button>
                     </div>
                   </div>
                 )}
