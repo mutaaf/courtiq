@@ -281,6 +281,17 @@ export const gameRecapSchema = z.object({
 
 export type GameRecap = z.infer<typeof gameRecapSchema>;
 
+export const playerOfMatchSchema = z.object({
+  player_name: z.string(),
+  session_label: z.string(),
+  headline: z.string().min(5),
+  achievement: z.string().min(10),
+  key_moment: z.string().min(10),
+  coach_message: z.string().min(5),
+});
+
+export type PlayerOfMatch = z.infer<typeof playerOfMatchSchema>;
+
 export const weeklyStarSchema = z.object({
   player_name: z.string(),
   week_label: z.string(),
@@ -388,6 +399,15 @@ export const huddleScriptSchema = z.object({
 });
 
 export type HuddleScript = z.infer<typeof huddleScriptSchema>;
+
+export const teamTalkSchema = z.object({
+  team_talk: z.string().min(30),
+  focus_words: z.array(z.string().min(2).max(20)).min(2).max(3),
+  energy_level: z.enum(['high', 'focused', 'calm']),
+  chant: z.string().min(5).max(60),
+});
+
+export type TeamTalk = z.infer<typeof teamTalkSchema>;
 
 export const teamPersonalitySchema = z.object({
   team_type: z.string().min(3).max(40),          // e.g. "The Grinders"

@@ -43,7 +43,8 @@ export const OBSERVATION_TEMPLATES: ObservationTemplate[] = [
 
 /** Return only templates with the given sentiment, preserving insertion order. */
 export function getTemplatesBySentiment(
-  sentiment: TemplateSentiment
+  sentiment: TemplateSentiment,
+  _sportId?: string
 ): ObservationTemplate[] {
   return OBSERVATION_TEMPLATES.filter((t) => t.sentiment === sentiment);
 }

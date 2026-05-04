@@ -994,4 +994,77 @@ export const PROMPT_REGISTRY = {
       `{ "arc_title": "string", "arc_goal": "string", "primary_focus": ["skill1"], "total_sessions": ${params.numSessions}, "sessions": [{ "session_number": 1, "title": "string", "theme": "string", "duration_minutes": ${params.sessionDurationMinutes}, "session_goal": "string", "warmup": { "name": "string", "duration_minutes": 5, "description": "string" }, "drills": [{ "name": "string", "duration_minutes": 10, "description": "string", "coaching_cues": ["string"], "progression_note": "string" }], "cooldown": { "duration_minutes": 5, "notes": "string" }, "key_coaching_point": "string", "carries_forward": "string" }], "progression_note": "string", "game_day_tip": "string" }`,
     ].filter(Boolean).join('\n'),
   }),
+
+  playerOfMatch: (params: PromptParams & {
+    playerName: string;
+    sessionLabel: string;
+    positiveObservations: Array<{ category: string; text: string }>;
+    allObsCount: number;
+    positiveCount: number;
+    topCategories: string[];
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You write a celebratory "Player of the Match" spotlight for the coach to share with parents immediately after a game.',
+      '',
+      'Rules:',
+      '- Tone is immediate, enthusiastic, warm — like a post-game shoutout in the team WhatsApp group.',
+      '- Base everything on the observations provided. Do not invent skills not mentioned.',
+      '- The headline is 5–8 words max, catchy, no player name (it will be added separately).',
+      '- The achievement (2–3 sentences) describes exactly what made this game special.',
+      '- The key_moment must quote or directly paraphrase ONE specific observation from the list.',
+      '- The coach_message is a single warm sentence the coach would actually say to this player.',
+      '- Use age-appropriate, encouraging language suitable for youth sports.',
+    ].join('\n'),
+    user: [
+      `Team: ${params.teamName} (${params.sportName}, ${params.ageGroup})`,
+      `Session: ${params.sessionLabel}`,
+      `Player: ${params.playerName}`,
+      `Total observations this game: ${params.allObsCount} (${params.positiveCount} positive)`,
+      `Top skill areas: ${params.topCategories.join(', ')}`,
+      '',
+      'Observations that earned the spotlight:',
+      params.positiveObservations.map((o) => `- [${o.category}] ${o.text}`).join('\n'),
+      '',
+      'Write the Player of the Match card as JSON:',
+      '{ "player_name": "string", "session_label": "string (copy from Session above)", "headline": "string (5-8 words, no player name)", "achievement": "string (2-3 sentences, warm and specific)", "key_moment": "string (1-2 sentences, directly quoting one observation)", "coach_message": "string (1 sentence, personal and warm)" }',
+    ].filter(Boolean).join('\n'),
+  }),
+
+  teamTalk: (params: PromptParams & {
+    sessionType: string;
+    sessionLabel: string;
+    opponent?: string;
+    topStrengths: string[];
+    topChallenges: string[];
+    weeklyFocusLabel?: string;
+    recentSessionCount: number;
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You write short, energising opening team talks for volunteer coaches to read aloud at the START of a practice or game (before any play begins).',
+      '',
+      'Rules:',
+      '- team_talk: the full script the coach reads aloud — 3–4 short sentences. Structure: (1) attention-grabber, (2) 1–2 concrete focus points tied to today\'s session type and team data, (3) motivational close. Keep it under 70 words so it takes 20 seconds to read.',
+      '- focus_words: 2–3 single-word themes (e.g. "Defense", "Communication", "Hustle") that visually reinforce the talk. Derive them from the focus points.',
+      '- energy_level: "high" for games/tournaments (competitive urgency), "focused" for practices where technique matters, "calm" for first sessions or training (relaxed, patient).',
+      '- chant: a short team chant the coach leads at the end (e.g. "1-2-3 ROCKETS!"). Use the team name.',
+      '- Tone: warm, direct, age-appropriate (6–18). No clichés. One clear message the players will remember.',
+      '- For games: mention the opponent if provided. Channel competitive energy.',
+      '- For practices: ground in a specific skill or theme (not generic "work hard").',
+    ].join('\n'),
+    user: [
+      `Session: ${params.sessionLabel} (${params.sessionType})`,
+      `Team: ${params.teamName || 'your team'} · ${params.ageGroup || 'youth'} ${params.sportName || 'basketball'}`,
+      params.opponent ? `Opponent today: ${params.opponent}` : '',
+      params.weeklyFocusLabel ? `Weekly focus theme: ${params.weeklyFocusLabel}` : '',
+      '',
+      `Recent team data (${params.recentSessionCount} sessions):`,
+      `- Strengths: ${params.topStrengths.join(', ') || 'effort and teamwork'}`,
+      `- Areas to improve: ${params.topChallenges.join(', ') || 'fundamentals'}`,
+      '',
+      'Generate the opening team talk JSON:',
+      '{ "team_talk": "full 3-4 sentence script under 70 words", "focus_words": ["Word1", "Word2"], "energy_level": "high|focused|calm", "chant": "1-2-3 TEAMNAME!" }',
+    ].filter(Boolean).join('\n'),
+  }),
 } as const;

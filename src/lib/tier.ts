@@ -44,3 +44,15 @@ export function canAccess(tier: Tier, feature: string): boolean {
 export function getTierLimit(tier: Tier) {
   return TIER_LIMITS[tier];
 }
+
+const AUDIO_LIMITS: Record<Tier, { maxMinutesPerUpload: number; maxLongSessionsPerMonth: number }> = {
+  free:         { maxMinutesPerUpload: 10, maxLongSessionsPerMonth: 0 },
+  coach:        { maxMinutesPerUpload: 30, maxLongSessionsPerMonth: 5 },
+  pro_coach:    { maxMinutesPerUpload: 90, maxLongSessionsPerMonth: 999 },
+  organization: { maxMinutesPerUpload: 90, maxLongSessionsPerMonth: 999 },
+};
+
+export function getAudioLimit(tier: Tier) {
+  const limit = AUDIO_LIMITS[tier];
+  return { ...limit, longSessionThresholdSec: 600 };
+}

@@ -42,6 +42,8 @@ interface AICallOptions {
   orgId?: string;
   /** Previous conversation turns to pass as context for multi-turn interactions. */
   conversationHistory?: ConversationMessage[];
+  /** Optional large context block eligible for Anthropic prompt caching. */
+  cacheableContext?: string;
 }
 
 interface AICallResult {

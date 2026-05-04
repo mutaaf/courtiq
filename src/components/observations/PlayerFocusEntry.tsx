@@ -157,7 +157,7 @@ export function PlayerFocusEntry({
   const templatesForSentiment = useMemo<ObservationTemplate[]>(() => {
     if (sentiment === 'neutral') return []; // Neutral is freeform — encourages typing.
     const tone = sentiment as TemplateSentiment;
-    return getTemplatesBySentiment(tone, sportId);
+    return getTemplatesBySentiment(tone, sportId ?? undefined);
   }, [sentiment, sportId]);
 
   const invalidateAfterSave = useCallback(() => {
