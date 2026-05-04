@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
@@ -114,6 +114,43 @@ function fmt(secs: number) {
 
 function totalDuration(queue: QueueItem[]) {
   return queue.reduce((sum, d) => sum + d.durationSecs, 0);
+}
+
+function buildQuickParentUpdate(notes: CapturedNote[], coachFirstName: string, teamName: string): string {
+  const positive = notes.filter((n) => n.sentiment === 'positive').length;
+  const needsWork = notes.filter((n) => n.sentiment === 'needs-work').length;
+  const playerCount = new Set(notes.filter((n) => n.playerId).map((n) => n.playerId!)).size;
+
+  const catCounts: Record<string, number> = {};
+  for (const n of notes) {
+    if (n.category && n.category !== 'general') {
+      catCounts[n.category] = (catCounts[n.category] || 0) + 1;
+    }
+  }
+  const topCats = Object.entries(catCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([cat]) => cat.charAt(0).toUpperCase() + cat.slice(1).replace(/_/g, ' '));
+
+  const lines: string[] = [];
+  lines.push(`📋 Practice update from Coach ${coachFirstName}!`);
+  lines.push('');
+  if (playerCount > 0) {
+    lines.push(
+      `Great session! ${positive > 0 ? `${positive} great moment${positive !== 1 ? 's' : ''} captured` : `${notes.length} observation${notes.length !== 1 ? 's' : ''} captured`} across ${playerCount} player${playerCount !== 1 ? 's' : ''}.`,
+    );
+  } else {
+    lines.push(`Great practice today! ${notes.length} coaching observation${notes.length !== 1 ? 's' : ''} captured.`);
+  }
+  if (topCats.length > 0) {
+    lines.push(`We focused on: ${topCats.join(' & ')}.`);
+  }
+  if (needsWork > 0) {
+    lines.push('Keep practising at home to stay sharp!');
+  }
+  lines.push('');
+  lines.push(`— Coach ${coachFirstName}, ${teamName}`);
+  return lines.join('\n');
 }
 
 // ─── Break Screen (observation capture) ─────────────────────────────────────
@@ -453,6 +490,11 @@ function DoneScreen({
   sessionId,
   isRecovered,
   onStartFresh,
+  presentPlayers,
+  onAddNote,
+  saveSuccess,
+  coachName,
+  teamName,
 }: {
   drillsRun: QueueItem[];
   notes: CapturedNote[];
@@ -462,9 +504,18 @@ function DoneScreen({
   sessionId: string;
   isRecovered?: boolean;
   onStartFresh?: () => void;
+  presentPlayers?: { id: string; name: string }[];
+  onAddNote?: (playerId: string, playerName: string, sentiment: Sentiment, note: string) => void;
+  saveSuccess?: boolean;
+  coachName?: string;
+  teamName?: string;
 }) {
   const [rating, setRating] = useState<number>(0);
   const [ratingSaved, setRatingSaved] = useState(false);
+  const [expandedPlayer, setExpandedPlayer] = useState<{ id: string; name: string } | null>(null);
+  const [quickSentiment, setQuickSentiment] = useState<Sentiment>('positive');
+  const [quickNote, setQuickNote] = useState('');
+  const [parentMsgShared, setParentMsgShared] = useState(false);
 
   async function handleRate(n: number) {
     setRating(n);
@@ -629,6 +680,135 @@ function DoneScreen({
           )}
         </div>
 
+        {/* Unobserved players strip — tappable chips open an inline quick-note form */}
+        {(() => {
+          if (!presentPlayers || presentPlayers.length === 0) return null;
+          const observedIds = new Set(notes.filter((n) => n.playerId).map((n) => n.playerId!));
+          const unobserved = presentPlayers.filter((p) => !observedIds.has(p.id));
+          if (unobserved.length === 0) return null;
+
+          function handleChipTap(p: { id: string; name: string }) {
+            if (!onAddNote) return;
+            if (expandedPlayer?.id === p.id) {
+              setExpandedPlayer(null);
+            } else {
+              setExpandedPlayer(p);
+              setQuickSentiment('positive');
+              setQuickNote('');
+            }
+          }
+
+          function handleQuickAdd() {
+            if (!expandedPlayer || !onAddNote) return;
+            const fallback = quickSentiment === 'positive' ? 'Participated in practice' : 'Needs follow-up next session';
+            onAddNote(expandedPlayer.id, expandedPlayer.name, quickSentiment, quickNote.trim() || fallback);
+            setExpandedPlayer(null);
+            setQuickNote('');
+            setQuickSentiment('positive');
+          }
+
+          return (
+            <div className="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-3 text-left">
+              <p className="text-xs font-semibold text-amber-300 flex items-center gap-1.5">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {unobserved.length} player{unobserved.length !== 1 ? 's' : ''} not yet observed
+                {onAddNote && (
+                  <span className="ml-auto text-[10px] font-normal text-amber-400/60">
+                    tap a name to add a quick note
+                  </span>
+                )}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {unobserved.map((p) => (
+                  onAddNote ? (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => handleChipTap(p)}
+                      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium transition-colors touch-manipulation active:scale-95 ${
+                        expandedPlayer?.id === p.id
+                          ? 'bg-amber-500/40 border-amber-400 text-amber-100'
+                          : 'bg-amber-500/20 border-amber-500/30 text-amber-200 hover:bg-amber-500/30'
+                      }`}
+                    >
+                      {p.name.split(' ')[0]}
+                    </button>
+                  ) : (
+                    <span
+                      key={p.id}
+                      className="inline-flex items-center rounded-full bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 text-xs font-medium text-amber-200"
+                    >
+                      {p.name.split(' ')[0]}
+                    </span>
+                  )
+                ))}
+              </div>
+
+              {/* Inline quick-note form — appears when a player chip is tapped */}
+              {expandedPlayer && onAddNote && (
+                <div className="rounded-lg border border-amber-500/40 bg-zinc-900/80 p-3 space-y-2.5">
+                  <p className="text-xs font-semibold text-zinc-200">
+                    Quick note for <span className="text-amber-300">{expandedPlayer.name.split(' ')[0]}</span>
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setQuickSentiment('positive')}
+                      className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-colors touch-manipulation ${
+                        quickSentiment === 'positive'
+                          ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50'
+                          : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600'
+                      }`}
+                    >
+                      👍 Positive
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setQuickSentiment('needs-work')}
+                      className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-colors touch-manipulation ${
+                        quickSentiment === 'needs-work'
+                          ? 'bg-red-500/25 text-red-300 border border-red-500/40'
+                          : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600'
+                      }`}
+                    >
+                      👎 Needs Work
+                    </button>
+                  </div>
+                  <textarea
+                    value={quickNote}
+                    onChange={(e) => setQuickNote(e.target.value)}
+                    placeholder={quickSentiment === 'positive' ? 'e.g. Hustled all practice (optional)' : 'e.g. Follow up on footwork (optional)'}
+                    rows={2}
+                    className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-500 resize-none focus:outline-none focus:border-amber-500/60"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleQuickAdd}
+                      className="flex-1 rounded-lg bg-amber-500 py-2 text-xs font-semibold text-white hover:bg-amber-600 transition-colors touch-manipulation active:scale-[0.98]"
+                    >
+                      Add Note
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setExpandedPlayer(null); setQuickNote(''); }}
+                      className="px-4 rounded-lg bg-zinc-800 py-2 text-xs text-zinc-400 hover:bg-zinc-700 transition-colors touch-manipulation"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!onAddNote && (
+                <p className="text-[10px] text-amber-400/60">
+                  Focus on these players next session to maintain even coverage.
+                </p>
+              )}
+            </div>
+          );
+        })()}
+
         {saveError && (
           <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 rounded-lg px-4 py-3 w-full">
             <AlertCircle className="h-4 w-4 shrink-0" />
@@ -636,27 +816,85 @@ function DoneScreen({
           </div>
         )}
 
-        <div className="flex flex-col gap-3 w-full">
-          {notes.length > 0 && (
-            <Button
-              onClick={onSave}
-              disabled={isSaving}
-              className="h-12 bg-orange-500 hover:bg-orange-600 text-white font-semibold w-full"
+        {saveSuccess && coachName && teamName ? (
+          /* ── Post-save success state ── */
+          <div className="w-full space-y-3">
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 px-4 py-3">
+              <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+              <p className="text-sm font-semibold text-emerald-300">
+                {notes.length} observation{notes.length !== 1 ? 's' : ''} saved!
+              </p>
+            </div>
+
+            {/* Quick parent update card — pre-built message, zero AI, instant display */}
+            <div className="w-full rounded-xl border border-teal-500/30 bg-teal-500/10 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-teal-400 shrink-0" />
+                <p className="text-sm font-semibold text-teal-300">Quick parent update ready</p>
+              </div>
+              <p className="text-xs text-teal-400/70 leading-relaxed whitespace-pre-line line-clamp-4">
+                {buildQuickParentUpdate(notes, coachName.split(' ')[0], teamName)}
+              </p>
+              <button
+                type="button"
+                onClick={async () => {
+                  const msg = buildQuickParentUpdate(notes, coachName.split(' ')[0], teamName);
+                  if (typeof navigator !== 'undefined' && navigator.share) {
+                    try { await navigator.share({ text: msg }); } catch { /* dismissed */ }
+                  } else {
+                    try { await navigator.clipboard.writeText(msg); } catch { /* ignore */ }
+                  }
+                  setParentMsgShared(true);
+                  setTimeout(() => setParentMsgShared(false), 2500);
+                }}
+                className="w-full flex items-center justify-center gap-2 rounded-lg bg-teal-500 hover:bg-teal-600 active:scale-[0.98] px-4 py-2.5 text-sm font-semibold text-white transition-colors touch-manipulation"
+              >
+                {parentMsgShared ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    {typeof navigator !== 'undefined' && !navigator.share ? 'Copied!' : 'Sent!'}
+                  </>
+                ) : (
+                  <>
+                    <MessageSquare className="h-4 w-4" />
+                    Send to parent group chat
+                  </>
+                )}
+              </button>
+            </div>
+
+            <Link
+              href={`/sessions/${sessionId}?fromPractice=1&obsCount=${notes.length}&playerCount=${new Set(notes.filter((n) => n.playerId).map((n) => n.playerId!)).size}`}
+              className="w-full"
             >
-              {isSaving ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Save className="h-4 w-4 mr-2" />
-              )}
-              {isSaving ? 'Saving…' : `Save ${notes.length} Observation${notes.length !== 1 ? 's' : ''}`}
-            </Button>
-          )}
-          <Link href={`/sessions/${sessionId}`} className="w-full">
-            <Button variant="outline" className="w-full h-12">
-              Back to Session
-            </Button>
-          </Link>
-        </div>
+              <Button className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-semibold">
+                View Session &amp; AI Debrief →
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 w-full">
+            {notes.length > 0 && (
+              <Button
+                onClick={onSave}
+                disabled={isSaving}
+                className="h-12 bg-orange-500 hover:bg-orange-600 text-white font-semibold w-full"
+              >
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                {isSaving ? 'Saving…' : `Save ${notes.length} Observation${notes.length !== 1 ? 's' : ''}`}
+              </Button>
+            )}
+            <Link href={`/sessions/${sessionId}`} className="w-full">
+              <Button variant="outline" className="w-full h-12">
+                Back to Session
+              </Button>
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -670,7 +908,6 @@ export default function PracticeTimerPage({
   params: Promise<{ sessionId: string }>;
 }) {
   const { sessionId } = use(params);
-  const router = useRouter();
   const searchParams = useSearchParams();
   const planId = searchParams.get('planId');
   const templateIdParam = searchParams.get('templateId');
@@ -1180,9 +1417,8 @@ export default function PracticeTimerPage({
         localStorage.removeItem(QUEUE_KEY);
       } catch { /* ignore */ }
       setSaveSuccess(true);
-      // Navigate back with practice-complete context so the session page can show next-step guidance
-      const uniquePlayerCount = new Set(notes.filter(n => n.playerId).map(n => n.playerId!)).size;
-      setTimeout(() => router.push(`/sessions/${sessionId}?fromPractice=1&obsCount=${notes.length}&playerCount=${uniquePlayerCount}`), 1200);
+      setIsSaving(false);
+      // Coach sees success state with parent update card; navigates via "View Session & AI Debrief" button.
     } catch (err: any) {
       setSaveError(err.message || 'Failed to save observations');
       setIsSaving(false);
@@ -1333,6 +1569,24 @@ export default function PracticeTimerPage({
         sessionId={sessionId}
         isRecovered={isRecovered}
         onStartFresh={handleStartFresh}
+        presentPlayers={presentPlayers}
+        onAddNote={(playerId, playerName, sentiment, note) => {
+          setNotes((prev) => [
+            ...prev,
+            {
+              drillName: 'Post-Practice',
+              note,
+              playerId,
+              playerName,
+              sentiment,
+              category: 'general',
+              timestamp: new Date(),
+            },
+          ]);
+        }}
+        saveSuccess={saveSuccess}
+        coachName={coach?.full_name ?? undefined}
+        teamName={activeTeam?.name ?? undefined}
       />
     );
   }
