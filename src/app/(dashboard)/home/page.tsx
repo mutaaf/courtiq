@@ -41,6 +41,7 @@ import { TeamSkillTrendsCard } from '@/components/home/team-skill-trends-card';
 import { WeeklyFocusCard } from '@/components/home/weekly-focus-card';
 import { FreemiumNudge } from '@/components/ui/freemium-nudge';
 import { SeasonalPromo } from '@/components/onboarding/seasonal-promo';
+import { PlayerBreakthroughCard } from '@/components/home/player-breakthrough-card';
 
 // ─── Today's Session Card ────────────────────────────────────────────────────
 
@@ -768,6 +769,14 @@ export default function HomePage() {
 
       {/* Team Wins Feed — recent badges + achieved goals */}
       {activeTeam && <TeamWinsCard teamId={activeTeam.id} />}
+
+      {/* Player Breakthrough — celebrates when a player flips from needs-work to improving */}
+      {activeTeam && stats && stats.observations >= 5 && (
+        <PlayerBreakthroughCard
+          teamId={activeTeam.id}
+          coachName={coach?.full_name ?? undefined}
+        />
+      )}
 
       {/* Parent Reactions — love notes from parents */}
       {activeTeam && <ParentReactionsCard teamId={activeTeam.id} />}
