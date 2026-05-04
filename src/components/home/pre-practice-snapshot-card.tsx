@@ -7,15 +7,9 @@ import { formatSkillLabel } from '@/lib/skill-trend-utils';
 import { Eye, Target } from 'lucide-react';
 import Link from 'next/link';
 
-interface RosterPlayer {
-  id: string;
-  name: string;
-}
-
 interface PrePracticeSnapshotCardProps {
   teamId: string;
   sessionId?: string;
-  rosterPlayers: RosterPlayer[];
 }
 
 // Maps observation category to drill library filter category
@@ -35,7 +29,6 @@ const CATEGORY_TO_DRILL: Record<string, string> = {
 export function PrePracticeSnapshotCard({
   teamId,
   sessionId,
-  rosterPlayers,
 }: PrePracticeSnapshotCardProps) {
   const since14d = useMemo(
     () => new Date(Date.now() - 14 * 86_400_000).toISOString(),
@@ -54,6 +47,18 @@ export function PrePracticeSnapshotCard({
         },
       }).then((r) => r ?? []),
     staleTime: 5 * 60_000,
+    enabled: !!teamId,
+  });
+
+  const { data: rosterPlayers = [] } = useQuery({
+    queryKey: ['pre-practice-roster', teamId],
+    queryFn: () =>
+      query<{ id: string; name: string }[]>({
+        table: 'players',
+        select: 'id, name',
+        filters: { team_id: teamId, is_active: true },
+      }).then((r) => r ?? []),
+    staleTime: 10 * 60_000,
     enabled: !!teamId,
   });
 

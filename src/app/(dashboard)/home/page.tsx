@@ -42,6 +42,8 @@ import { WeeklyFocusCard } from '@/components/home/weekly-focus-card';
 import { FreemiumNudge } from '@/components/ui/freemium-nudge';
 import { SeasonalPromo } from '@/components/onboarding/seasonal-promo';
 import { PlayerBreakthroughCard } from '@/components/home/player-breakthrough-card';
+import { StrugglingPlayerCard } from '@/components/home/struggling-player-card';
+import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot-card';
 
 // ─── Today's Session Card ────────────────────────────────────────────────────
 
@@ -659,6 +661,14 @@ export default function HomePage() {
         </Link>
       </div>
 
+      {/* Pre-Practice Quick Brief — top skill gap + neglected players */}
+      {!practiceActive && activeTeam && stats && stats.observations >= 5 && (
+        <PrePracticeSnapshotCard
+          teamId={activeTeam.id}
+          sessionId={todaySessions[0]?.id}
+        />
+      )}
+
       {/* Last session summary — shown when no today session and practice not active */}
       {!practiceActive && todaySessions.length === 0 && lastSession && (
         <LastSessionCard session={lastSession} />
@@ -776,6 +786,11 @@ export default function HomePage() {
           teamId={activeTeam.id}
           coachName={coach?.full_name ?? undefined}
         />
+      )}
+
+      {/* Struggling Player Alert — flags players with repeated needs-work in a skill */}
+      {activeTeam && stats && stats.observations >= 5 && (
+        <StrugglingPlayerCard teamId={activeTeam.id} />
       )}
 
       {/* Parent Reactions — love notes from parents */}
