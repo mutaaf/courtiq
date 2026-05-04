@@ -475,6 +475,51 @@ export default function PlayerDetailPage({
     }
   }, [existingShare, shareUrl]);
 
+  // Portal preview data — lightweight queries that fire only when the Share tab is open
+  const { data: portalBadgeCount = 0 } = useQuery({
+    queryKey: [...queryKeys.achievements.player(playerId), 'count'],
+    queryFn: async () => {
+      const data = await query<{ id: string }[]>({
+        table: 'player_achievements',
+        select: 'id',
+        filters: { player_id: playerId },
+      });
+      return data?.length ?? 0;
+    },
+    enabled: !!playerId && activeTab === 'share',
+    staleTime: 5 * 60_000,
+  });
+
+  const { data: portalPlans = [] } = useQuery({
+    queryKey: ['portal-plans', playerId],
+    queryFn: async () => {
+      const data = await query<{ type: string; created_at: string }[]>({
+        table: 'plans',
+        select: 'type, created_at',
+        filters: { player_id: playerId },
+        order: { column: 'created_at', ascending: false },
+        limit: 20,
+      });
+      return data || [];
+    },
+    enabled: !!playerId && activeTab === 'share',
+    staleTime: 5 * 60_000,
+  });
+
+  const { data: portalGoalCount = 0 } = useQuery({
+    queryKey: [...queryKeys.goals.player(playerId), 'active-count'],
+    queryFn: async () => {
+      const data = await query<{ id: string }[]>({
+        table: 'player_goals',
+        select: 'id',
+        filters: { player_id: playerId, status: 'active' },
+      });
+      return data?.length ?? 0;
+    },
+    enabled: !!playerId && activeTab === 'share',
+    staleTime: 5 * 60_000,
+  });
+
   // Attendance stats for this player
   const { data: attendanceStat } = useQuery<PlayerAttendanceStat>({
     queryKey: ['attendance-stats-player', playerId],
@@ -2364,6 +2409,164 @@ export default function PlayerDetailPage({
               <span>{shareLinkError}</span>
             </div>
           )}
+
+          {/* Portal preview — show coaches what parents will see and drive content generation */}
+          {(() => {
+            const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+            const recentObsCount = observations.filter(
+              (o) => new Date(o.created_at) >= thirtyDaysAgo
+            ).length;
+            const improvingSkillsCount = obsCategoryStats.filter(
+              (s) => s.ratio >= 0.5 && s.total >= 2
+            ).length;
+            const hasSkillChallenge = portalPlans.some(
+              (p) => p.type === 'skill_challenge' &&
+                new Date(p.created_at) >= thirtyDaysAgo
+            );
+            const hasWeeklyStar = portalPlans.some(
+              (p) => p.type === 'weekly_star' &&
+                new Date(p.created_at) >= thirtyDaysAgo
+            );
+
+            const items = [
+              {
+                label: 'Observations',
+                present: recentObsCount > 0,
+                detail: recentObsCount > 0 ? `${recentObsCount} in the last 30 days` : 'None yet this month',
+                icon: <MessageSquare className="h-4 w-4" />,
+                cta: { label: 'Capture one now', href: `/capture?playerId=${playerId}` },
+              },
+              {
+                label: 'Improving skills',
+                present: improvingSkillsCount > 0,
+                detail: improvingSkillsCount > 0
+                  ? `${improvingSkillsCount} skill${improvingSkillsCount !== 1 ? 's' : ''} trending up`
+                  : 'Add positive observations to show progress',
+                icon: <TrendingUp className="h-4 w-4" />,
+                cta: { label: 'Capture positive obs', href: `/capture?playerId=${playerId}` },
+              },
+              {
+                label: 'Achievement badges',
+                present: portalBadgeCount > 0,
+                detail: portalBadgeCount > 0
+                  ? `${portalBadgeCount} badge${portalBadgeCount !== 1 ? 's' : ''} earned`
+                  : 'No badges yet',
+                icon: <Trophy className="h-4 w-4" />,
+                cta: null as null | { label: string; href?: string; onClick?: () => void },
+                tabCta: { label: 'Check milestones', tab: 'overview' as Tab },
+              },
+              {
+                label: 'Practice at Home',
+                present: hasSkillChallenge,
+                detail: hasSkillChallenge
+                  ? 'Skill challenge ready for parents'
+                  : 'Parents love having homework for their kid',
+                icon: <Zap className="h-4 w-4" />,
+                cta: null as null | { label: string; href?: string; onClick?: () => void },
+                tabCta: { label: 'Generate challenge', tab: 'challenges' as Tab },
+              },
+              {
+                label: 'Development goals',
+                present: portalGoalCount > 0,
+                detail: portalGoalCount > 0
+                  ? `${portalGoalCount} active goal${portalGoalCount !== 1 ? 's' : ''} set`
+                  : 'Goals show parents you have a plan',
+                icon: <Flag className="h-4 w-4" />,
+                cta: null as null | { label: string; href?: string; onClick?: () => void },
+                tabCta: { label: 'Set a goal', tab: 'goals' as Tab },
+              },
+              {
+                label: 'Weekly Star highlight',
+                present: hasWeeklyStar,
+                detail: hasWeeklyStar
+                  ? 'Star spotlight visible to parents'
+                  : 'A personal spotlight creates a wow moment',
+                icon: <Star className="h-4 w-4" />,
+                cta: { label: 'Generate star', href: '/plans' },
+                tabCta: undefined as undefined | { label: string; tab: Tab },
+              },
+            ];
+
+            const presentCount = items.filter((i) => i.present).length;
+            const pct = Math.round((presentCount / items.length) * 100);
+            const barColor =
+              pct >= 80 ? 'bg-emerald-500' : pct >= 50 ? 'bg-orange-500' : 'bg-zinc-600';
+
+            return (
+              <Card className="border-zinc-800">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Share2 className="h-4 w-4 text-zinc-400" />
+                      <span className="text-sm font-semibold text-zinc-200">
+                        What parents will see
+                      </span>
+                    </div>
+                    <span className="text-xs font-medium text-zinc-400">
+                      {presentCount}/{items.length} items
+                    </span>
+                  </div>
+
+                  {/* Completeness bar */}
+                  <div className="h-1.5 w-full rounded-full bg-zinc-800">
+                    <div
+                      className={`h-1.5 rounded-full transition-all ${barColor}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    {items.map((item) => (
+                      <div key={item.label} className="flex items-start gap-2.5">
+                        <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${item.present ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-600'}`}>
+                          {item.present
+                            ? <CheckCircle2 className="h-3.5 w-3.5" />
+                            : item.icon
+                          }
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-xs font-medium ${item.present ? 'text-zinc-300' : 'text-zinc-500'}`}>
+                              {item.label}
+                            </span>
+                            <span className={`text-[11px] ${item.present ? 'text-zinc-500' : 'text-zinc-600'}`}>
+                              · {item.detail}
+                            </span>
+                          </div>
+                          {!item.present && (
+                            <div className="mt-0.5">
+                              {item.cta && (
+                                <Link
+                                  href={item.cta.href!}
+                                  className="text-[11px] font-medium text-orange-400 hover:text-orange-300 transition-colors"
+                                >
+                                  {item.cta.label} →
+                                </Link>
+                              )}
+                              {!item.cta && item.tabCta && (
+                                <button
+                                  onClick={() => setActiveTab(item.tabCta!.tab)}
+                                  className="text-[11px] font-medium text-orange-400 hover:text-orange-300 transition-colors"
+                                >
+                                  {item.tabCta.label} →
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {pct === 100 && (
+                    <p className="text-[11px] text-emerald-400 text-center pt-1">
+                      ✓ This report is fully loaded — parents will love it!
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {shareUrl ? (
             <Card>
