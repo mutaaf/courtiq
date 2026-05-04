@@ -62,6 +62,27 @@ const RECENT_OBS = [
   { text: 'Excellent communication calling out defensive assignments on every half-court set.',                            category: 'Defense',  date: 'Apr 10' },
 ];
 
+const SEASON_GOALS = [
+  {
+    skill: 'Defense',
+    goal_text: 'Earn a "Lockdown Defender" moment — hold an opponent to zero points in one-on-one defense for a full practice drill set.',
+    target_date: 'May 30, 2025',
+    status: 'active',
+  },
+  {
+    skill: 'Shooting',
+    goal_text: 'Reach Practicing level in Shooting by making 6 of 10 mid-range shots consistently before the end of the season.',
+    target_date: null,
+    status: 'active',
+  },
+  {
+    skill: 'Dribbling',
+    goal_text: 'Hit Game Ready level in Dribbling — maintain ball control under full-court pressure for an entire scrimmage.',
+    target_date: 'Apr 15, 2025',
+    status: 'achieved',
+  },
+];
+
 const HOME_CHALLENGE = {
   title: 'Figure-8 Ball Handling Challenge',
   minutes: 5,
@@ -351,6 +372,59 @@ export default function DemoReportPage() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* ─── Season Goals ─── */}
+        <div className="mx-4 mt-4 rounded-2xl bg-gradient-to-br from-sky-50 to-indigo-50 border border-sky-200 p-5 shadow-sm">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-lg">🎯</span>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-sky-700">Season Goals</h3>
+          </div>
+          <p className="mb-4 text-sm text-gray-600 leading-relaxed">
+            Here&apos;s what Coach {TEAM.coach.split(' ')[0]} is working toward with {PLAYER.firstName} this season.
+          </p>
+          <div className="space-y-3">
+            {SEASON_GOALS.map((goal, i) => {
+              const isAchieved = goal.status === 'achieved';
+              const skillLabel = goal.skill.charAt(0).toUpperCase() + goal.skill.slice(1);
+              return (
+                <div
+                  key={i}
+                  className={`rounded-xl border p-4 ${isAchieved ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-sky-200'}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl shrink-0 leading-none mt-0.5" aria-hidden="true">
+                      {isAchieved ? '✅' : '🏃'}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${isAchieved ? 'bg-emerald-100 text-emerald-700' : 'bg-sky-100 text-sky-700'}`}>
+                          {skillLabel}
+                        </span>
+                        {isAchieved && (
+                          <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                            Goal Achieved! 🎉
+                          </span>
+                        )}
+                      </div>
+                      <p className={`text-sm font-medium leading-snug ${isAchieved ? 'text-emerald-800' : 'text-gray-800'}`}>
+                        {goal.goal_text}
+                      </p>
+                      {goal.target_date && !isAchieved && (
+                        <p className="mt-1 text-[11px] text-sky-600">Target: {goal.target_date}</p>
+                      )}
+                      {isAchieved && (
+                        <p className="mt-1 text-[11px] text-emerald-600">{PLAYER.firstName} nailed it! 💪</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-4 text-[11px] text-sky-600 leading-relaxed text-center">
+            Encourage {PLAYER.firstName} to keep working on these goals at home!
+          </p>
         </div>
 
         {/* ─── Skill Progress ─── */}

@@ -324,6 +324,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     achievements,
     latestSessionMessage,
     skillChallenge,
+    playerGoals,
   } = data;
 
   const playerName = player?.nickname || player?.name || 'your player';
@@ -723,6 +724,84 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* ─── Season Goals ─── */}
+        {Array.isArray(playerGoals) && playerGoals.length > 0 && (
+          <div className="mx-4 mt-4 rounded-2xl bg-gradient-to-br from-sky-50 to-indigo-50 border border-sky-200 p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-lg">🎯</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-sky-700">
+                Season Goals
+              </h3>
+            </div>
+            <p className="mb-4 text-sm text-gray-600 leading-relaxed">
+              Here&apos;s what Coach {coachName?.split(' ')[0] || 'your coach'} is working toward with {firstName} this season.
+            </p>
+            <div className="space-y-3">
+              {playerGoals.map((goal: { id: string; skill: string; goal_text: string; target_level: string | null; target_date: string | null; status: string }) => {
+                const isAchieved = goal.status === 'achieved';
+                const skillLabel = goal.skill
+                  ? goal.skill.charAt(0).toUpperCase() + goal.skill.slice(1).replace(/_/g, ' ')
+                  : 'Skill';
+                const targetDate = goal.target_date
+                  ? new Date(goal.target_date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                  : null;
+                return (
+                  <div
+                    key={goal.id}
+                    className={`rounded-xl border p-4 ${
+                      isAchieved
+                        ? 'bg-emerald-50 border-emerald-200'
+                        : 'bg-white border-sky-200'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="text-xl shrink-0 leading-none mt-0.5" aria-hidden="true">
+                        {isAchieved ? '✅' : '🏃'}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                            isAchieved
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-sky-100 text-sky-700'
+                          }`}>
+                            {skillLabel}
+                          </span>
+                          {isAchieved && (
+                            <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                              Goal Achieved! 🎉
+                            </span>
+                          )}
+                        </div>
+                        <p className={`text-sm font-medium leading-snug ${
+                          isAchieved ? 'text-emerald-800' : 'text-gray-800'
+                        }`}>
+                          {goal.goal_text}
+                        </p>
+                        {targetDate && !isAchieved && (
+                          <p className="mt-1 text-[11px] text-sky-600">
+                            Target: {targetDate}
+                          </p>
+                        )}
+                        {isAchieved && (
+                          <p className="mt-1 text-[11px] text-emerald-600">
+                            {firstName} nailed it! 💪
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {playerGoals.some((g: { status: string }) => g.status === 'active') && (
+              <p className="mt-4 text-[11px] text-sky-600 leading-relaxed text-center">
+                Encourage {firstName} to keep working on {playerGoals.filter((g: { status: string }) => g.status === 'active').length === 1 ? 'this goal' : 'these goals'} at home!
+              </p>
+            )}
           </div>
         )}
 

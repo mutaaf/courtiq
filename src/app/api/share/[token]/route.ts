@@ -234,6 +234,24 @@ export async function GET(
       .limit(1);
     reportData.skillChallenge = skillChallengePlans?.[0]?.content_structured || null;
 
+    // Player development goals — active and achieved goals give parents concrete
+    // targets to celebrate and encourage at home. Archived/stalled goals are hidden.
+    const { data: playerGoals } = await supabase
+      .from('player_goals')
+      .select('id, skill, goal_text, target_level, target_date, status')
+      .eq('player_id', share.player_id)
+      .in('status', ['active', 'achieved'])
+      .order('status', { ascending: true }) // achieved first
+      .order('created_at', { ascending: false });
+    reportData.playerGoals = (playerGoals ?? []).map((g: any) => ({
+      id: g.id,
+      skill: g.skill,
+      goal_text: g.goal_text,
+      target_level: g.target_level ?? null,
+      target_date: g.target_date ?? null,
+      status: g.status,
+    }));
+
     // Active team announcements (visible to parents)
     const now = new Date().toISOString();
     const { data: announcements } = await supabase
