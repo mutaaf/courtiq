@@ -32,6 +32,7 @@ import {
   X,
   ClipboardList,
   Users,
+  Send,
 } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
@@ -155,12 +156,18 @@ type EditDraft = { text: string; sentiment: Sentiment; category: string };
 function ObservationCard({
   obs,
   playerName,
+  parentPhone,
+  coachFirstName,
+  teamName,
   onToggleHighlight,
   onEdit,
   onDelete,
 }: {
   obs: Observation & { players?: { name: string } | null };
   playerName: string;
+  parentPhone?: string | null;
+  coachFirstName?: string;
+  teamName?: string;
   onToggleHighlight: (id: string, next: boolean) => void;
   onEdit: (id: string, updates: EditDraft) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -170,6 +177,7 @@ function ObservationCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [shared, setShared] = useState(false);
   const [draft, setDraft] = useState<EditDraft>({
     text: obs.text,
     sentiment: obs.sentiment,
@@ -190,6 +198,23 @@ function ObservationCard({
   };
 
   const cancelEdit = () => setEditing(false);
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const coach = coachFirstName || 'Coach';
+    const team = teamName || 'your team';
+    const msg = `Hi! Just wanted to share a great moment — ${playerName} had a positive observation at practice: "${obs.text}" 🙌 — ${coach}, ${team}`;
+    const digits = parentPhone?.replace(/\D/g, '') ?? '';
+    if (digits) {
+      window.open(`https://wa.me/${digits}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+    } else if (typeof navigator !== 'undefined' && navigator.share) {
+      try { await navigator.share({ text: msg }); } catch { /* dismissed */ }
+    } else {
+      try { await navigator.clipboard.writeText(msg); } catch { /* ignore */ }
+    }
+    setShared(true);
+    setTimeout(() => setShared(false), 2000);
+  };
 
   const saveEdit = async () => {
     if (!draft.text.trim()) return;
@@ -371,6 +396,26 @@ function ObservationCard({
                   </Link>
                 )}
 
+                {/* Send to parent — only for positive, player-tagged observations */}
+                {obs.sentiment === 'positive' && obs.player_id && playerName !== 'Team' && (
+                  <button
+                    onClick={handleShare}
+                    className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors touch-manipulation active:scale-95 ${
+                      shared
+                        ? 'bg-emerald-500/20 text-emerald-400'
+                        : 'text-teal-500 hover:text-teal-400 hover:bg-teal-500/10'
+                    }`}
+                    aria-label={`Share observation about ${playerName} with parent`}
+                    title={parentPhone ? 'Send via WhatsApp' : 'Share with parent'}
+                  >
+                    {shared ? (
+                      <><Check className="h-3 w-3" />Sent!</>
+                    ) : (
+                      <><Send className="h-3 w-3" />Send to parent</>
+                    )}
+                  </button>
+                )}
+
                 {/* Edit button */}
                 <button
                   onClick={startEdit}
@@ -422,7 +467,7 @@ function ObservationCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ObservationsPage() {
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, coach } = useActiveTeam();
   const qc = useQueryClient();
 
   // Filter state
@@ -437,14 +482,14 @@ export default function ObservationsPage() {
   // Reset to page 1 whenever a filter changes
   const resetPage = useCallback(() => setPage(1), []);
 
-  // Fetch players for filter dropdown
+  // Fetch players for filter dropdown + parent phone for share feature
   const { data: players } = useQuery({
     queryKey: ['players', activeTeam?.id || ''],
     queryFn: async () => {
       if (!activeTeam) return [];
-      return query<Player[]>({
+      return query<(Player & { parent_phone: string | null })[]>({
         table: 'players',
-        select: 'id, name',
+        select: 'id, name, parent_phone',
         filters: { team_id: activeTeam.id, is_active: true },
         order: { column: 'name', ascending: true },
       }) ?? [];
@@ -561,12 +606,22 @@ export default function ObservationsPage() {
     return [...cats].sort();
   }, [observations]);
 
-  // Player name lookup map
+  // Player name + phone lookup maps
   const playerNameMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const p of players || []) map.set(p.id, p.name);
     return map;
   }, [players]);
+
+  const playerPhoneMap = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const p of (players || []) as (Player & { parent_phone: string | null })[]) {
+      map.set(p.id, p.parent_phone);
+    }
+    return map;
+  }, [players]);
+
+  const coachFirstName = coach?.full_name?.split(' ')[0] ?? undefined;
 
   // Highlights count for the toggle badge
   const highlightCount = useMemo(() => countHighlighted(observations || []), [observations]);
@@ -763,6 +818,9 @@ export default function ObservationsPage() {
                     key={obs.id}
                     obs={obs}
                     playerName={playerName}
+                    parentPhone={obs.player_id ? playerPhoneMap.get(obs.player_id) : null}
+                    coachFirstName={coachFirstName}
+                    teamName={activeTeam?.name}
                     onToggleHighlight={handleToggleHighlight}
                     onEdit={handleEditObservation}
                     onDelete={handleDeleteObservation}

@@ -39,6 +39,8 @@ import {
   Target,
   StickyNote,
   Camera,
+  Send,
+  Check,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
@@ -221,6 +223,7 @@ export default function PlayerDetailPage({
 
   // Observation highlights filter
   const [obsHighlightsOnly, setObsHighlightsOnly] = useState(false);
+  const [sharedObsId, setSharedObsId] = useState<string | null>(null);
 
   const { data: player, isLoading: playerLoading } = useQuery({
     queryKey: queryKeys.players.detail(playerId),
@@ -345,6 +348,23 @@ export default function PlayerDetailPage({
         prev ? prev.map((o) => o.id === obsId ? { ...o, is_highlighted: !next } : o) : prev,
       );
     }
+  }
+
+  async function handleShareObservation(obsText: string, obsId: string) {
+    if (!player) return;
+    const coachFirst = coach?.full_name?.split(' ')[0] ?? 'Coach';
+    const team = activeTeam?.name ?? 'the team';
+    const msg = `Hi! Just wanted to share a great moment — ${player.name} had a positive observation at practice: "${obsText}" 🙌 — ${coachFirst}, ${team}`;
+    const digits = player.parent_phone?.replace(/\D/g, '') ?? '';
+    if (digits) {
+      window.open(`https://wa.me/${digits}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+    } else if (typeof navigator !== 'undefined' && navigator.share) {
+      try { await navigator.share({ text: msg }); } catch { /* dismissed */ }
+    } else {
+      try { await navigator.clipboard.writeText(msg); } catch { /* ignore */ }
+    }
+    setSharedObsId(obsId);
+    setTimeout(() => setSharedObsId(null), 2000);
   }
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -1108,6 +1128,27 @@ export default function PlayerDetailPage({
                     <p className="mt-1 text-xs italic text-zinc-600">
                       Original: &ldquo;{obs.raw_text}&rdquo;
                     </p>
+                  )}
+                  {/* Send positive observation to parent */}
+                  {obs.sentiment === 'positive' && (
+                    <div className="mt-2 pt-2 border-t border-zinc-800/60">
+                      <button
+                        onClick={() => handleShareObservation(obs.text, obs.id)}
+                        className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors touch-manipulation active:scale-95 ${
+                          sharedObsId === obs.id
+                            ? 'bg-emerald-500/20 text-emerald-400'
+                            : 'text-teal-500 hover:text-teal-400 hover:bg-teal-500/10'
+                        }`}
+                        aria-label="Share this observation with parent"
+                        title={player.parent_phone ? 'Send via WhatsApp' : 'Share with parent'}
+                      >
+                        {sharedObsId === obs.id ? (
+                          <><Check className="h-3 w-3" />Sent!</>
+                        ) : (
+                          <><Send className="h-3 w-3" />Send to parent{player.parent_phone ? '' : ' (copy)'}</>
+                        )}
+                      </button>
+                    </div>
                   )}
                 </CardContent>
               </Card>
