@@ -59,6 +59,8 @@ import {
   Megaphone,
   Pencil,
   Mail,
+  Award,
+  Volume2,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
@@ -88,6 +90,12 @@ import {
   hasNextSessionHint,
 } from '@/lib/huddle-script-utils';
 import type { HuddleScript } from '@/lib/huddle-script-utils';
+import {
+  buildMatchShareText,
+  isMatchSessionType,
+} from '@/lib/player-of-match-utils';
+import type { PlayerOfMatch } from '@/lib/ai/schemas';
+import type { TeamTalk } from '@/lib/ai/schemas';
 import { matchMessageToPlayer, countPlayersWithPhone, type ParentEmailPlayer } from '@/lib/parent-email-utils';
 import { buildWhatsAppUrl } from '@/lib/birthday-utils';
 import {
@@ -1978,6 +1986,367 @@ function PracticeReminderCard({
   );
 }
 
+// ─── Player of the Match ──────────────────────────────────────────────────────
+
+function PlayerOfMatchCard({
+  sessionId,
+  teamId,
+  teamName,
+  coachName,
+}: {
+  sessionId: string;
+  teamId: string;
+  teamName: string;
+  coachName: string;
+}) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<PlayerOfMatch | null>(null);
+  const [expanded, setExpanded] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  async function handleGenerate() {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/ai/player-of-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, teamId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to select Player of the Match');
+      }
+      const data = await res.json();
+      setResult(data.playerOfMatch);
+      setExpanded(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function handleShare() {
+    if (!result) return;
+    const text = buildMatchShareText(result, teamName, coachName);
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: `Player of the Match — ${result.player_name}`, text });
+      } else {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch { /* user cancelled */ }
+  }
+
+  return (
+    <Card className={result ? 'border-yellow-500/30' : 'border-zinc-800'}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Award className="h-5 w-5 text-yellow-400" />
+            Player of the Match
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            {result && (
+              <>
+                <button
+                  onClick={handleShare}
+                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+                  aria-label="Share Player of the Match"
+                >
+                  {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Share2 className="h-3 w-3" />}
+                  {copied ? 'Copied!' : 'Share'}
+                </button>
+                <button
+                  onClick={handleGenerate}
+                  disabled={isGenerating}
+                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors disabled:opacity-40"
+                  aria-label="Regenerate Player of the Match"
+                >
+                  {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                  Refresh
+                </button>
+                <button
+                  onClick={() => setExpanded((v) => !v)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+                  aria-label={expanded ? 'Collapse' : 'Expand'}
+                  aria-expanded={expanded}
+                >
+                  {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!result && !isGenerating && (
+          <div className="flex flex-col items-center justify-center py-6 text-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-yellow-500/10">
+              <Award className="h-7 w-7 text-yellow-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-zinc-200">Celebrate your standout player</p>
+              <p className="text-xs text-zinc-500 mt-1 max-w-xs mx-auto">
+                AI picks the Player of the Match from your observations and writes a shareable card for parents — a wow moment every game.
+              </p>
+            </div>
+            <Button
+              onClick={handleGenerate}
+              className="bg-yellow-600 hover:bg-yellow-700 text-white"
+            >
+              <Award className="h-4 w-4" />
+              Pick Player of the Match
+            </Button>
+            {error && <p className="text-xs text-red-400">{error}</p>}
+          </div>
+        )}
+
+        {isGenerating && !result && (
+          <div className="flex flex-col items-center justify-center py-8 gap-3">
+            <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
+            <p className="text-sm text-zinc-400">Analysing player performances…</p>
+          </div>
+        )}
+
+        {result && expanded && (
+          <div className="space-y-4">
+            {/* Hero */}
+            <div className="rounded-2xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 to-yellow-500/5 p-5 text-center space-y-2">
+              <div className="text-3xl">🏅</div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-yellow-500">
+                {result.session_label}
+              </p>
+              <h2 className="text-2xl font-bold text-yellow-200">{result.player_name}</h2>
+              <p className="text-sm font-medium text-yellow-300/80 italic">&ldquo;{result.headline}&rdquo;</p>
+            </div>
+
+            {/* Achievement */}
+            <div className="flex items-start gap-3 rounded-xl bg-zinc-800/50 border border-zinc-700 p-4">
+              <Star className="h-4 w-4 text-yellow-400 mt-0.5 shrink-0" />
+              <p className="text-sm text-zinc-200 leading-relaxed">{result.achievement}</p>
+            </div>
+
+            {/* Key moment */}
+            {result.key_moment && (
+              <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4">
+                <p className="text-xs font-medium text-yellow-400 mb-1 uppercase tracking-wide">Key Moment</p>
+                <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{result.key_moment}&rdquo;</p>
+              </div>
+            )}
+
+            {/* Coach message */}
+            <div className="flex items-start gap-2 rounded-xl bg-zinc-800/30 border border-zinc-700 p-4">
+              <MessageSquare className="h-4 w-4 text-zinc-400 mt-0.5 shrink-0" />
+              <p className="text-sm text-zinc-300 leading-relaxed">{result.coach_message}</p>
+            </div>
+
+            {/* Share CTA */}
+            <Button
+              onClick={handleShare}
+              className="w-full bg-yellow-600 hover:bg-yellow-700 text-white touch-manipulation"
+            >
+              <Share2 className="h-4 w-4" />
+              {copied ? 'Copied to clipboard!' : 'Share with Parents'}
+            </Button>
+
+            {error && <p className="text-xs text-red-400 text-center">{error}</p>}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Team Talk ────────────────────────────────────────────────────────────────
+
+function TeamTalkCard({
+  sessionId,
+  teamId,
+}: {
+  sessionId: string;
+  teamId: string;
+}) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<TeamTalk | null>(null);
+  const [expanded, setExpanded] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  async function handleGenerate() {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      // Read weekly focus from localStorage if available
+      let weeklyFocusLabel: string | undefined;
+      try {
+        const raw = localStorage.getItem('weekly-focus');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.label) weeklyFocusLabel = parsed.label;
+        }
+      } catch { /* ignore */ }
+
+      const res = await fetch('/api/ai/team-talk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, teamId, weeklyFocusLabel }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate team talk');
+      }
+      const data = await res.json();
+      setResult(data.teamTalk);
+      setExpanded(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function handleCopy() {
+    if (!result) return;
+    const text = [
+      '📣 Team Talk',
+      '',
+      result.team_talk,
+      '',
+      result.chant ? `🗣 "${result.chant}"` : '',
+    ].filter(Boolean).join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  }
+
+  const energyColors: Record<string, string> = {
+    high: 'border-orange-500/30 bg-orange-500/10 text-orange-300',
+    focused: 'border-blue-500/30 bg-blue-500/10 text-blue-300',
+    calm: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+  };
+
+  return (
+    <Card className={result ? 'border-orange-500/20' : 'border-zinc-800'}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Mic className="h-5 w-5 text-orange-400" />
+            Opening Team Talk
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            {result && (
+              <>
+                <button
+                  onClick={handleCopy}
+                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+                  aria-label="Copy team talk script"
+                >
+                  {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+                <button
+                  onClick={handleGenerate}
+                  disabled={isGenerating}
+                  className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors disabled:opacity-40"
+                  aria-label="Regenerate team talk"
+                >
+                  {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                  Refresh
+                </button>
+                <button
+                  onClick={() => setExpanded((v) => !v)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors"
+                  aria-label={expanded ? 'Collapse' : 'Expand'}
+                  aria-expanded={expanded}
+                >
+                  {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!result && !isGenerating && (
+          <div className="flex flex-col items-center justify-center py-6 text-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-500/10">
+              <Volume2 className="h-7 w-7 text-orange-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-zinc-200">Get your opening team talk</p>
+              <p className="text-xs text-zinc-500 mt-1 max-w-xs mx-auto">
+                AI writes a 20-second motivational script based on your team&apos;s strengths — read it out loud before kickoff.
+              </p>
+            </div>
+            <Button
+              onClick={handleGenerate}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              <Mic className="h-4 w-4" />
+              Generate Team Talk
+            </Button>
+            {error && <p className="text-xs text-red-400">{error}</p>}
+          </div>
+        )}
+
+        {isGenerating && !result && (
+          <div className="flex flex-col items-center justify-center py-8 gap-3">
+            <Loader2 className="h-6 w-6 animate-spin text-orange-400" />
+            <p className="text-sm text-zinc-400">Writing your team talk…</p>
+          </div>
+        )}
+
+        {result && expanded && (
+          <div className="space-y-4">
+            {/* Energy + focus words */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`text-xs font-medium rounded-full border px-2.5 py-1 capitalize ${energyColors[result.energy_level] ?? energyColors.focused}`}>
+                {result.energy_level} energy
+              </span>
+              {result.focus_words.map((word, i) => (
+                <span key={i} className="rounded-full bg-orange-500/10 border border-orange-500/30 px-2.5 py-1 text-xs font-bold text-orange-300 uppercase tracking-wide">
+                  {word}
+                </span>
+              ))}
+            </div>
+
+            {/* The script */}
+            <div className="rounded-xl border border-orange-500/20 bg-gradient-to-br from-orange-500/5 to-transparent p-5">
+              <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-3">Read this out loud 👇</p>
+              <p className="text-sm text-zinc-100 leading-relaxed">{result.team_talk}</p>
+            </div>
+
+            {/* Chant */}
+            {result.chant && (
+              <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 text-center">
+                <p className="text-xs font-semibold uppercase tracking-widest text-orange-500 mb-2">Team Chant</p>
+                <p className="text-base font-bold text-orange-200">{result.chant}</p>
+              </div>
+            )}
+
+            <Button
+              onClick={handleCopy}
+              variant="outline"
+              className="w-full border-orange-500/30 text-orange-300 hover:bg-orange-500/10 touch-manipulation"
+            >
+              {copied ? <><Check className="h-4 w-4" />Copied!</> : <><Copy className="h-4 w-4" />Copy Script</>}
+            </Button>
+
+            {error && <p className="text-xs text-red-400 text-center">{error}</p>}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Pre-Session Briefing ─────────────────────────────────────────────────────
 
 function PreSessionBriefingCard({
@@ -2585,7 +2954,7 @@ export default function SessionDetailPage() {
   const params = useParams();
   const sessionId = params.sessionId as string;
   const searchParams = useSearchParams();
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, coach } = useActiveTeam();
   const queryClient = useQueryClient();
 
   // Practice Complete banner — shown when arriving from the practice timer
@@ -3118,6 +3487,14 @@ export default function SessionDetailPage() {
         />
       )}
 
+      {/* Opening Team Talk — AI-written motivational script for any session */}
+      {activeTeam && (
+        <TeamTalkCard
+          sessionId={sessionId}
+          teamId={activeTeam.id}
+        />
+      )}
+
       {/* Observations */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -3254,6 +3631,16 @@ export default function SessionDetailPage() {
         <GameRecapCard
           sessionId={sessionId}
           teamId={activeTeam.id}
+        />
+      )}
+
+      {/* Player of the Match — game/scrimmage/tournament only */}
+      {activeTeam && isMatchSessionType(session.type) && (
+        <PlayerOfMatchCard
+          sessionId={sessionId}
+          teamId={activeTeam.id}
+          teamName={activeTeam.name}
+          coachName={coach?.full_name || 'Coach'}
         />
       )}
 

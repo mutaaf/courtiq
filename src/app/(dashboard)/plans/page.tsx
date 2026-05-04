@@ -53,6 +53,8 @@ import {
   Megaphone,
   Lock,
   Fingerprint,
+  Mic,
+  Award,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { PrintButton } from '@/components/ui/print-button';
@@ -87,6 +89,8 @@ const PLAN_TYPE_CONFIG: Record<
   huddle_script: { label: 'Huddle Script', icon: Megaphone, color: 'text-lime-400' },
   team_personality: { label: 'Team Personality', icon: Fingerprint, color: 'text-violet-400' },
   practice_arc: { label: 'Practice Series', icon: Zap, color: 'text-sky-400' },
+  player_of_match: { label: 'Player of the Match', icon: Award, color: 'text-yellow-400' },
+  team_talk: { label: 'Team Talk', icon: Mic, color: 'text-orange-400' },
 };
 
 const SUGGESTION_CHIPS = [
@@ -2548,6 +2552,160 @@ export default function PlansPage() {
     ) {
       return (
         <TeamGroupMessageRenderer data={structured as any} />
+      );
+    }
+
+    // Player of the Match renderer
+    if (
+      typeof structured.player_name === 'string' &&
+      typeof structured.headline === 'string' &&
+      typeof structured.achievement === 'string' &&
+      typeof structured.coach_message === 'string' &&
+      typeof structured.key_moment === 'string'
+    ) {
+      const potm = structured as any;
+      return (
+        <div className="space-y-5">
+          {/* Hero card */}
+          <div className="rounded-2xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 to-yellow-500/5 p-5 text-center space-y-2">
+            <div className="text-3xl mb-1">🏅</div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-yellow-500">{potm.session_label || 'Player of the Match'}</p>
+            <h2 className="text-2xl font-bold text-yellow-200">{potm.player_name}</h2>
+            <p className="text-sm font-medium text-yellow-300/80 italic">&ldquo;{potm.headline}&rdquo;</p>
+          </div>
+
+          {/* Achievement */}
+          <div className="flex items-start gap-3 rounded-xl bg-zinc-800/50 border border-zinc-700 p-4">
+            <Award className="h-5 w-5 text-yellow-400 mt-0.5 shrink-0" />
+            <p className="text-sm text-zinc-200 leading-relaxed">{potm.achievement}</p>
+          </div>
+
+          {/* Key moment */}
+          {potm.key_moment && (
+            <div className="flex items-start gap-3 rounded-xl bg-yellow-500/5 border border-yellow-500/20 p-4">
+              <Star className="h-4 w-4 text-yellow-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs font-medium text-yellow-400 mb-0.5 uppercase tracking-wide">Key Moment</p>
+                <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{potm.key_moment}&rdquo;</p>
+              </div>
+            </div>
+          )}
+
+          {/* Coach message */}
+          <div className="flex items-start gap-3 rounded-xl bg-zinc-800/30 border border-zinc-700 p-4">
+            <MessageSquare className="h-4 w-4 text-zinc-400 mt-0.5 shrink-0" />
+            <p className="text-sm text-zinc-300 leading-relaxed">{potm.coach_message}</p>
+          </div>
+
+          {/* Share */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full border-yellow-500/30 text-yellow-300 hover:bg-yellow-500/10"
+            onClick={async () => {
+              const text = [
+                `🏅 Player of the Match`,
+                potm.session_label ? potm.session_label : '',
+                '',
+                `⭐ ${potm.player_name}: ${potm.headline}`,
+                '',
+                potm.achievement,
+                potm.key_moment ? `\n💬 "${potm.key_moment}"` : '',
+                '',
+                `— ${potm.coach_message}`,
+                '',
+                'Powered by SportsIQ',
+              ].filter(Boolean).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+              try {
+                if (navigator.share) {
+                  await navigator.share({ title: `Player of the Match — ${potm.player_name}`, text });
+                } else {
+                  await navigator.clipboard.writeText(text);
+                }
+              } catch { /* user cancelled */ }
+            }}
+            aria-label="Share Player of the Match"
+          >
+            <Share2 className="h-4 w-4 mr-1.5" /> Share with Parents
+          </Button>
+        </div>
+      );
+    }
+
+    // Team Talk renderer
+    if (
+      typeof structured.team_talk === 'string' &&
+      Array.isArray(structured.focus_words) &&
+      typeof structured.chant === 'string'
+    ) {
+      const talk = structured as any;
+      const energyColors: Record<string, string> = {
+        high: 'bg-orange-500/10 border-orange-500/30 text-orange-300',
+        focused: 'bg-blue-500/10 border-blue-500/30 text-blue-300',
+        calm: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
+      };
+      const energyBadge = energyColors[talk.energy_level] ?? energyColors.focused;
+      return (
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="rounded-2xl border border-orange-500/20 bg-gradient-to-br from-orange-500/10 to-orange-500/5 p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Mic className="h-5 w-5 text-orange-400" />
+                <span className="text-sm font-semibold text-orange-200">Opening Team Talk</span>
+              </div>
+              <span className={`text-xs font-medium rounded-full border px-2.5 py-1 capitalize ${energyBadge}`}>
+                {talk.energy_level || 'focused'}
+              </span>
+            </div>
+            {/* Focus words */}
+            {(talk.focus_words as string[]).length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {(talk.focus_words as string[]).map((word: string, i: number) => (
+                  <span key={i} className="rounded-full bg-orange-500/15 border border-orange-500/30 px-3 py-1 text-xs font-bold text-orange-300 uppercase tracking-wide">
+                    {word}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* The talk script */}
+          <div className="rounded-xl border border-zinc-700 bg-zinc-900/50 p-5">
+            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-3">Coach&apos;s Script</p>
+            <p className="text-sm text-zinc-100 leading-relaxed">{talk.team_talk}</p>
+          </div>
+
+          {/* Chant */}
+          {talk.chant && (
+            <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 text-center">
+              <p className="text-xs font-semibold uppercase tracking-widest text-orange-500 mb-2">Team Chant</p>
+              <p className="text-base font-bold text-orange-200">{talk.chant}</p>
+            </div>
+          )}
+
+          {/* Copy button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full border-orange-500/30 text-orange-300 hover:bg-orange-500/10"
+            onClick={async () => {
+              const text = [
+                `📣 Team Talk`,
+                '',
+                talk.team_talk,
+                '',
+                talk.chant ? `🗣 "${talk.chant}"` : '',
+              ].filter(Boolean).join('\n');
+              try {
+                await navigator.clipboard.writeText(text);
+              } catch { /* ignore */ }
+            }}
+            aria-label="Copy team talk script"
+          >
+            <Copy className="h-4 w-4 mr-1.5" /> Copy Script
+          </Button>
+        </div>
       );
     }
 
