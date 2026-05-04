@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ParentShareFamilyCTA } from '@/components/share/parent-share-family-cta';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mock data — realistic season data for demo player "Marcus Johnson"
@@ -561,6 +562,20 @@ export default function DemoReportPage() {
           </p>
           <p className="mt-3 text-sm font-medium text-gray-800">&mdash; Coach {TEAM.coach}</p>
           <p className="text-xs text-gray-400">{TEAM.name} &middot; {TEAM.season}</p>
+        </div>
+
+        {/* ─── Share with Family ─── */}
+        <div className="mx-4 mt-4">
+          <ParentShareFamilyCTA
+            playerFirstName={PLAYER.firstName}
+            coachName={TEAM.coach}
+            teamName={TEAM.name}
+            improvingSkillNames={SKILLS_ON_RISE}
+            recentObsCount={SEASON_STATS.recentObs}
+            totalObsCount={SEASON_STATS.totalObs}
+            shareToken="demo"
+            featuredQuote={SESSION_MESSAGE.highlight}
+          />
         </div>
 
         {/* ─── Viral CTA ─── */}
