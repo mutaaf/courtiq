@@ -369,8 +369,8 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
 
   // Extract next challenge from development card or report card
   let nextChallenge: string | null = null;
-  if (developmentCard?.focus_areas?.[0]) {
-    const area = developmentCard.focus_areas[0];
+  if (developmentCard?.growth_areas?.[0]) {
+    const area = developmentCard.growth_areas[0];
     nextChallenge = typeof area === 'string' ? area : area.name || area.skill || String(area);
   } else if (reportCard?.areas_for_improvement?.[0]) {
     const area = reportCard.areas_for_improvement[0];

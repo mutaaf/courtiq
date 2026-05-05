@@ -194,6 +194,11 @@ export default function PlayerDetailPage({
   const [reportCardError, setReportCardError] = useState<string | null>(null);
   const [reportCardData, setReportCardData] = useState<any>(null);
 
+  // Development card state
+  const [devCardLoading, setDevCardLoading] = useState(false);
+  const [devCardError, setDevCardError] = useState<string | null>(null);
+  const [devCardData, setDevCardData] = useState<any>(null);
+
   // Share link state
   const [shareLinkLoading, setShareLinkLoading] = useState(false);
   const [shareLinkError, setShareLinkError] = useState<string | null>(null);
@@ -284,6 +289,25 @@ export default function PlayerDetailPage({
     },
     enabled: activeTab === 'self-assessment',
     ...CACHE_PROFILES.roster,
+  });
+
+  // Auto-load latest development card when the report-card tab is open
+  useQuery({
+    queryKey: ['player-dev-card', playerId],
+    queryFn: async () => {
+      const data = await query<Plan[]>({
+        table: 'plans',
+        select: 'content_structured, created_at',
+        filters: { player_id: playerId, type: 'development_card' },
+        order: { column: 'created_at', ascending: false },
+        limit: 1,
+      });
+      const card = data?.[0]?.content_structured ?? null;
+      if (card) setDevCardData(card);
+      return card;
+    },
+    enabled: activeTab === 'report-card' && !devCardData,
+    staleTime: 5 * 60_000,
   });
 
   // Existing share token — auto-loads so the coach never loses their share link
@@ -394,6 +418,29 @@ export default function PlayerDetailPage({
       setReportCardError(err instanceof Error ? err.message : 'Generation failed');
     } finally {
       setReportCardLoading(false);
+    }
+  }
+
+  async function handleGenerateDevCard() {
+    if (!activeTeam || !player) return;
+    setDevCardLoading(true);
+    setDevCardError(null);
+    try {
+      const res = await fetch('/api/ai/development-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id, playerId: player.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate development card');
+      }
+      const data = await res.json();
+      setDevCardData(data.content);
+    } catch (err) {
+      setDevCardError(err instanceof Error ? err.message : 'Generation failed');
+    } finally {
+      setDevCardLoading(false);
     }
   }
 
@@ -763,6 +810,91 @@ export default function PlayerDetailPage({
               </div>
             </div>
           ))}
+      </div>
+    );
+  }
+
+  function renderDevelopmentCardContent(dc: any) {
+    if (!dc) return null;
+    return (
+      <div className="space-y-5">
+        {dc.strengths && dc.strengths.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald-400 mb-2">Strengths</h3>
+            <ul className="space-y-1.5">
+              {dc.strengths.map((s: string, i: number) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
+                  <CheckCircle2 className="h-4 w-4 mt-0.5 text-emerald-500 shrink-0" />
+                  {s}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {dc.growth_areas && dc.growth_areas.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-orange-400 mb-2">Growth Areas</h3>
+            <ul className="space-y-1.5">
+              {dc.growth_areas.map((g: string, i: number) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
+                  <Target className="h-4 w-4 mt-0.5 text-orange-500 shrink-0" />
+                  {g}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {dc.goals && dc.goals.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-blue-400 mb-2">Development Goals</h3>
+            <div className="space-y-3">
+              {dc.goals.map((g: any, i: number) => (
+                <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium text-zinc-200">{g.skill}</span>
+                    {g.target_level && (
+                      <Badge variant="secondary" className="shrink-0">{g.current_level} → {g.target_level}</Badge>
+                    )}
+                  </div>
+                  {g.action_steps && g.action_steps.length > 0 && (
+                    <ul className="space-y-1 pl-1">
+                      {g.action_steps.map((step: string, j: number) => (
+                        <li key={j} className="text-xs text-zinc-400 flex items-start gap-1.5">
+                          <span className="mt-0.5 text-zinc-600 shrink-0">{j + 1}.</span>
+                          {step}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {dc.recommended_drills && dc.recommended_drills.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-purple-400 mb-2">Recommended Drills</h3>
+            <div className="space-y-2">
+              {dc.recommended_drills.map((d: any, i: number) => (
+                <div key={i} className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-3">
+                  <p className="text-sm font-medium text-zinc-200">{d.name}</p>
+                  <p className="text-xs text-zinc-400 mt-0.5">{d.description}</p>
+                  {d.focus && <p className="text-xs text-purple-400 mt-1">Focus: {d.focus}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {dc.coach_note && (
+          <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-purple-400 mb-2">Coach&apos;s Note</h3>
+            <p className="text-sm text-zinc-300 italic leading-relaxed">{dc.coach_note}</p>
+          </div>
+        )}
       </div>
     );
   }
@@ -1216,6 +1348,75 @@ export default function PlayerDetailPage({
                     </>
                   ) : (
                     'Generate Report Card'
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Development Card */}
+        <div className="space-y-4 mt-2">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-blue-400" />
+            <h2 className="text-sm font-semibold text-zinc-300">Development Card</h2>
+          </div>
+
+          {devCardError && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{devCardError}</span>
+            </div>
+          )}
+
+          {devCardData ? (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                <CardTitle className="text-base">
+                  Development Card — {player.name}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {renderDevelopmentCardContent(devCardData)}
+                <div className="mt-6 pt-4 border-t border-zinc-800">
+                  <Button
+                    onClick={handleGenerateDevCard}
+                    disabled={devCardLoading}
+                    variant="outline"
+                    size="sm"
+                  >
+                    {devCardLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Regenerating...
+                      </>
+                    ) : (
+                      'Regenerate Development Card'
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center p-8 text-center">
+                <TrendingUp className="mb-3 h-10 w-10 text-zinc-700" />
+                <h3 className="font-semibold text-zinc-300">Development Card</h3>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Generate a personalised development plan with goals, growth areas, and recommended drills for {player.name}.
+                </p>
+                <Button
+                  className="mt-4"
+                  onClick={handleGenerateDevCard}
+                  disabled={devCardLoading || !activeTeam}
+                >
+                  {devCardLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    'Generate Development Card'
                   )}
                 </Button>
               </CardContent>
