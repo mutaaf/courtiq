@@ -22,6 +22,7 @@ import {
   Timer,
   History,
   Star,
+  Share2,
 } from 'lucide-react';
 import type { Session, Plan } from '@/types/database';
 import { useAppStore } from '@/lib/store';
@@ -46,15 +47,72 @@ import { PlayerBreakthroughCard } from '@/components/home/player-breakthrough-ca
 import { StrugglingPlayerCard } from '@/components/home/struggling-player-card';
 import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot-card';
 
+// ─── Shared reminder helpers ──────────────────────────────────────────────────
+
+const SESSION_REMINDER_EMOJI: Record<string, string> = {
+  practice: '🏃',
+  game: '🏆',
+  scrimmage: '⚡',
+  tournament: '🏅',
+  training: '💪',
+};
+
+function buildReminderMsg(
+  session: Pick<Session, 'type' | 'date' | 'start_time' | 'location' | 'opponent'>,
+  coachName?: string | null,
+  teamName?: string | null,
+): string {
+  function fmtT(t: string | null) {
+    if (!t) return '';
+    const [h, m] = t.split(':').map(Number);
+    return ` ${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+  }
+  const LABEL: Record<string, string> = {
+    practice: 'Practice', game: 'Game', scrimmage: 'Scrimmage',
+    tournament: 'Tournament', training: 'Training',
+  };
+  const emoji = SESSION_REMINDER_EMOJI[session.type] ?? '📋';
+  const today = new Date().toISOString().split('T')[0];
+  const d = new Date((session.date ?? today) + 'T12:00:00');
+  const dayLabel = session.date === today
+    ? 'today'
+    : d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  let msg = `${emoji} ${LABEL[session.type] ?? session.type} ${dayLabel}${fmtT(session.start_time)}`;
+  if (session.opponent) msg += ` vs ${session.opponent}`;
+  if (session.location) msg += `\n📍 ${session.location}`;
+  const sig = [coachName && `— ${coachName}`, teamName].filter(Boolean).join(', ');
+  if (sig) msg += `\n${sig}`;
+  return msg;
+}
+
+async function shareReminder(msg: string, onSuccess: () => void) {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      await navigator.share({ text: msg });
+    } else {
+      await navigator.clipboard.writeText(msg);
+    }
+    onSuccess();
+  } catch {
+    // user cancelled or browser denied
+  }
+}
+
 // ─── Today's Session Card ────────────────────────────────────────────────────
 
 function TodaySessionCard({
   session,
   restrictedPlayers,
+  coachName,
+  teamName,
 }: {
   session: Session;
   restrictedPlayers: Array<{ name: string; status: string }>;
+  coachName?: string | null;
+  teamName?: string | null;
 }) {
+  const [reminded, setReminded] = useState(false);
+
   const TYPE_LABEL: Record<string, string> = {
     practice: 'Practice',
     game: 'Game',
@@ -135,13 +193,37 @@ function TodaySessionCard({
           </Button>
         </Link>
       </div>
+
+      {/* Remind parents — one-tap WhatsApp/share message with session details */}
+      <button
+        onClick={() =>
+          shareReminder(buildReminderMsg(session, coachName, teamName), () => {
+            setReminded(true);
+            setTimeout(() => setReminded(false), 2500);
+          })
+        }
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-teal-500/20 bg-teal-500/5 px-4 py-2.5 text-sm font-medium text-teal-400 hover:bg-teal-500/10 hover:text-teal-300 transition-colors touch-manipulation active:scale-[0.98]"
+      >
+        <Share2 className="h-3.5 w-3.5 shrink-0" />
+        {reminded ? 'Message ready to send ✓' : 'Remind Parents'}
+      </button>
     </div>
   );
 }
 
 // ─── Upcoming Sessions Card ─────────────────────────────────────────────────
 
-function UpcomingSessionsCard({ sessions }: { sessions: Session[] }) {
+function UpcomingSessionsCard({
+  sessions,
+  coachName,
+  teamName,
+}: {
+  sessions: Session[];
+  coachName?: string | null;
+  teamName?: string | null;
+}) {
+  const [sharedId, setSharedId] = useState<string | null>(null);
+
   if (sessions.length === 0) return null;
 
   const TYPE_DOT: Record<string, string> = {
@@ -188,24 +270,43 @@ function UpcomingSessionsCard({ sessions }: { sessions: Session[] }) {
       <CardContent className="px-2 pb-3">
         {sessions.map((s) => {
           const time = fmtTime(s.start_time);
+          const isShared = sharedId === s.id;
           return (
-            <Link key={s.id} href={`/sessions/${s.id}`}>
-              <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-zinc-800/50 active:bg-zinc-800 transition-colors touch-manipulation">
-                <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${TYPE_DOT[s.type] ?? 'bg-zinc-400'}`} />
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-zinc-200">
-                    {TYPE_LABEL[s.type] ?? s.type}
+            <div key={s.id} className="flex items-center gap-1">
+              <Link href={`/sessions/${s.id}`} className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-zinc-800/50 active:bg-zinc-800 transition-colors touch-manipulation">
+                  <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${TYPE_DOT[s.type] ?? 'bg-zinc-400'}`} />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-zinc-200">
+                      {TYPE_LABEL[s.type] ?? s.type}
+                    </span>
+                    {s.opponent && (
+                      <span className="text-sm text-zinc-400"> vs {s.opponent}</span>
+                    )}
+                  </div>
+                  <span className="shrink-0 text-xs text-zinc-500">
+                    {formatDate(s.date)}{time && ` · ${time}`}
                   </span>
-                  {s.opponent && (
-                    <span className="text-sm text-zinc-400"> vs {s.opponent}</span>
-                  )}
+                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" />
                 </div>
-                <span className="shrink-0 text-xs text-zinc-500">
-                  {formatDate(s.date)}{time && ` · ${time}`}
-                </span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" />
-              </div>
-            </Link>
+              </Link>
+              <button
+                onClick={() =>
+                  shareReminder(buildReminderMsg(s, coachName, teamName), () => {
+                    setSharedId(s.id);
+                    setTimeout(() => setSharedId(null), 2500);
+                  })
+                }
+                aria-label="Remind parents about this session"
+                className={`shrink-0 rounded-lg p-2 transition-colors touch-manipulation ${
+                  isShared
+                    ? 'text-teal-400 bg-teal-500/10'
+                    : 'text-zinc-600 hover:text-teal-400 hover:bg-teal-500/10'
+                }`}
+              >
+                <Share2 className="h-4 w-4" />
+              </button>
+            </div>
           );
         })}
         <Link href="/sessions/new">
@@ -669,6 +770,8 @@ export default function HomePage() {
         <TodaySessionCard
           session={todaySessions[0]}
           restrictedPlayers={restrictedPlayersToday}
+          coachName={coach?.full_name ?? null}
+          teamName={activeTeam.name}
         />
       ) : (
         <div className="space-y-2">
@@ -875,7 +978,13 @@ export default function HomePage() {
       {activeTeam && <ParentReactionsCard teamId={activeTeam.id} />}
 
       {/* Upcoming sessions this week */}
-      {upcomingSessions.length > 0 && <UpcomingSessionsCard sessions={upcomingSessions} />}
+      {upcomingSessions.length > 0 && (
+        <UpcomingSessionsCard
+          sessions={upcomingSessions}
+          coachName={coach?.full_name ?? null}
+          teamName={activeTeam.name}
+        />
+      )}
 
     </div>
 
