@@ -43,6 +43,7 @@ import {
   Star,
   Repeat2,
   Shuffle,
+  Target,
   Volume2,
   VolumeX,
 } from 'lucide-react';
@@ -1534,6 +1535,30 @@ export default function PracticeTimerPage({
       d.category.toLowerCase().includes(drillSearch.toLowerCase())
   );
 
+  // ── Skill-gap drill suggestions for the empty queue screen ───────────────
+  // Uses already-fetched needsWorkObs + drills — no extra API call.
+  const suggestedDrills = useMemo(() => {
+    if (!drills.length || !needsWorkObs.length) return [] as Drill[];
+    const counts: Record<string, number> = {};
+    for (const obs of needsWorkObs) {
+      if (obs.category) counts[obs.category] = (counts[obs.category] ?? 0) + 1;
+    }
+    const topGaps = Object.entries(counts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 2)
+      .map(([cat]) => cat.toLowerCase());
+    if (!topGaps.length) return [] as Drill[];
+    const queuedIds = new Set(queue.map((q) => q.drillId).filter(Boolean));
+    return drills
+      .filter((d) => topGaps.includes(d.category.toLowerCase()) && !queuedIds.has(d.id))
+      .sort((a, b) => {
+        const ai = topGaps.indexOf(a.category.toLowerCase());
+        const bi = topGaps.indexOf(b.category.toLowerCase());
+        return ai - bi;
+      })
+      .slice(0, 3);
+  }, [drills, needsWorkObs, queue]);
+
   // ── Practice templates ───────────────────────────────────────────────────
   const availableTemplates = rankTemplates(
     getTemplatesForSport(activeTeam?.sport_id || ''),
@@ -1975,9 +2000,44 @@ export default function PracticeTimerPage({
         </div>
 
         {queue.length === 0 ? (
-          <div className="flex flex-col items-center justify-center border border-dashed border-zinc-800 rounded-xl py-10 gap-2 text-center">
-            <Dumbbell className="h-8 w-8 text-zinc-700" />
-            <p className="text-sm text-zinc-500">Add drills to get started</p>
+          <div className="space-y-3">
+            {suggestedDrills.length > 0 && (
+              <>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                  Suggested for today · based on your team&apos;s skill gaps
+                </p>
+                <div className="flex flex-col gap-2">
+                  {suggestedDrills.map((drill) => (
+                    <button
+                      key={drill.id}
+                      onClick={() => addFromLibrary(drill)}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3 text-left hover:border-orange-500/30 hover:bg-zinc-800/60 transition-colors group touch-manipulation active:scale-[0.98]"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 group-hover:bg-orange-500/20 transition-colors">
+                          <Target className="h-4 w-4 text-orange-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-zinc-200 truncate">{drill.name}</p>
+                          <p className="text-xs text-zinc-500">
+                            {drill.category} · {drill.duration_minutes ?? 10} min
+                          </p>
+                        </div>
+                      </div>
+                      <Plus className="h-4 w-4 text-zinc-600 group-hover:text-orange-400 shrink-0 transition-colors" />
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            <div className="flex flex-col items-center justify-center border border-dashed border-zinc-800 rounded-xl py-8 gap-2 text-center">
+              <Dumbbell className="h-8 w-8 text-zinc-700" />
+              <p className="text-sm text-zinc-500">
+                {suggestedDrills.length > 0
+                  ? 'Or pick any drill from the library below'
+                  : 'Add drills to get started'}
+              </p>
+            </div>
           </div>
         ) : (
           <div className="space-y-2">
