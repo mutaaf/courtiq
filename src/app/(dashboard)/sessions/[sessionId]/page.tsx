@@ -3422,6 +3422,51 @@ export default function SessionDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Jump-to nav — horizontal scroll chips for quick access to key sections */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
+        <span className="shrink-0 text-[11px] font-medium text-zinc-600 mr-0.5">Jump to:</span>
+        <button
+          onClick={() => document.getElementById('ai-debrief-section')?.scrollIntoView({ behavior: 'smooth' })}
+          className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-orange-500/50 hover:text-orange-400 transition-colors touch-manipulation active:scale-95"
+        >
+          🤖 AI Debrief
+        </button>
+        <button
+          onClick={() => document.getElementById('player-messages-section')?.scrollIntoView({ behavior: 'smooth' })}
+          className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-teal-500/50 hover:text-teal-400 transition-colors touch-manipulation active:scale-95"
+        >
+          💬 Parent Updates
+        </button>
+        {(session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
+          <>
+            <button
+              onClick={() => document.getElementById('game-recap-section')?.scrollIntoView({ behavior: 'smooth' })}
+              className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-rose-500/50 hover:text-rose-400 transition-colors touch-manipulation active:scale-95"
+            >
+              🎮 Game Recap
+            </button>
+            <button
+              onClick={() => document.getElementById('player-of-match-section')?.scrollIntoView({ behavior: 'smooth' })}
+              className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-yellow-500/50 hover:text-yellow-400 transition-colors touch-manipulation active:scale-95"
+            >
+              🏅 Player of Match
+            </button>
+          </>
+        )}
+        <button
+          onClick={() => document.getElementById('coach-reflection-section')?.scrollIntoView({ behavior: 'smooth' })}
+          className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-purple-500/50 hover:text-purple-400 transition-colors touch-manipulation active:scale-95"
+        >
+          📝 Reflection
+        </button>
+        <button
+          onClick={() => document.getElementById('team-group-message-section')?.scrollIntoView({ behavior: 'smooth' })}
+          className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-emerald-500/50 hover:text-emerald-400 transition-colors touch-manipulation active:scale-95"
+        >
+          📣 Group Chat
+        </button>
+      </div>
+
       {/* Practice Complete Banner — shown when arriving from practice timer */}
       {showPracticeComplete && (
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 relative">
@@ -3628,29 +3673,35 @@ export default function SessionDetailPage() {
 
       {/* Game Recap — game/scrimmage/tournament only */}
       {activeTeam && (session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
-        <GameRecapCard
-          sessionId={sessionId}
-          teamId={activeTeam.id}
-        />
+        <div id="game-recap-section">
+          <GameRecapCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+          />
+        </div>
       )}
 
       {/* Player of the Match — game/scrimmage/tournament only */}
       {activeTeam && isMatchSessionType(session.type) && (
-        <PlayerOfMatchCard
-          sessionId={sessionId}
-          teamId={activeTeam.id}
-          teamName={activeTeam.name}
-          coachName={coach?.full_name || 'Coach'}
-        />
+        <div id="player-of-match-section">
+          <PlayerOfMatchCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+            teamName={activeTeam.name}
+            coachName={coach?.full_name || 'Coach'}
+          />
+        </div>
       )}
 
       {/* Coach Reflection Journal — all session types */}
-      {activeTeam && (
-        <CoachReflectionCard
-          sessionId={sessionId}
-          teamId={activeTeam.id}
-        />
-      )}
+      <div id="coach-reflection-section">
+        {activeTeam && (
+          <CoachReflectionCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+          />
+        )}
+      </div>
 
       {/* Player Session Messages — quick send-ready notes for players/parents */}
       <div id="player-messages-section">
@@ -3664,13 +3715,15 @@ export default function SessionDetailPage() {
       </div>
 
       {/* Team Group Message — one-tap WhatsApp/SMS for the parent group chat */}
-      {activeTeam && (
-        <TeamGroupMessageCard
-          sessionId={sessionId}
-          teamId={activeTeam.id}
-          observationCount={observations?.length || 0}
-        />
-      )}
+      <div id="team-group-message-section">
+        {activeTeam && (
+          <TeamGroupMessageCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+            observationCount={observations?.length || 0}
+          />
+        )}
+      </div>
 
       {/* Huddle Script — 30-second end-of-practice script to read to the team */}
       {activeTeam && (
