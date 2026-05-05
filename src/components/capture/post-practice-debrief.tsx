@@ -18,6 +18,8 @@ import {
   Sparkles,
   ClipboardList,
   Eye,
+  MessageSquare,
+  Send,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import Link from 'next/link';
@@ -79,6 +81,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
   const [saving, setSaving] = useState(false);
   const [savedSummary, setSavedSummary] = useState<SavedSummary | null>(null);
   const [sessionObservedIds, setSessionObservedIds] = useState<Set<string>>(new Set());
+  const [parentMsgShared, setParentMsgShared] = useState(false);
 
   useEffect(() => {
     if (!activeTeam?.id) return;
@@ -220,6 +223,49 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
       useAppStore.getState().setPracticeStartedAt(null);
     }
     onClose();
+  }
+
+  function buildDebriefParentUpdate(): string {
+    const coachFirst = coach?.full_name?.split(' ')[0] ?? 'Coach';
+    const teamName = activeTeam?.name ?? 'the team';
+    const summary = savedSummary ?? { obsCount: 0, playerCount: 0 };
+
+    const topPositiveCats = positives
+      .map((t) => t.category)
+      .filter((c, i, arr) => arr.indexOf(c) === i)
+      .slice(0, 2)
+      .map((c) => c.charAt(0).toUpperCase() + c.slice(1).replace(/_/g, ' '));
+
+    const lines: string[] = [];
+    lines.push(`📋 Practice update from Coach ${coachFirst}!`);
+    lines.push('');
+    if (summary.playerCount > 0) {
+      lines.push(
+        `Great session! ${summary.obsCount > 0 ? `${summary.obsCount} coaching moment${summary.obsCount !== 1 ? 's' : ''} captured` : 'Lots of great moments'} across ${summary.playerCount} player${summary.playerCount !== 1 ? 's' : ''}.`,
+      );
+    } else {
+      lines.push('Great practice today! The team put in serious work.');
+    }
+    if (topPositiveCats.length > 0) {
+      lines.push(`Highlights today: ${topPositiveCats.join(' & ')}.`);
+    }
+    if (needsWork.length > 0) {
+      lines.push('Keep practising at home to stay sharp!');
+    }
+    lines.push('');
+    lines.push(`— Coach ${coachFirst}, ${teamName}`);
+    return lines.join('\n');
+  }
+
+  async function handleShareParentUpdate() {
+    const msg = buildDebriefParentUpdate();
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try { await navigator.share({ text: msg }); } catch { /* dismissed */ }
+    } else {
+      await navigator.clipboard.writeText(msg);
+    }
+    setParentMsgShared(true);
+    setTimeout(() => setParentMsgShared(false), 2500);
   }
 
   return (
@@ -440,6 +486,34 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                     {' '}AI debrief is generating in the background.
                   </p>
                 </div>
+              </div>
+
+              {/* Quick parent update — pre-built WhatsApp/SMS message, zero AI */}
+              <div className="rounded-xl border border-teal-500/30 bg-teal-500/10 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-teal-400 shrink-0" />
+                  <p className="text-sm font-semibold text-teal-300">Quick parent update ready</p>
+                </div>
+                <p className="text-xs text-teal-400/70 leading-relaxed whitespace-pre-line line-clamp-4">
+                  {buildDebriefParentUpdate()}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleShareParentUpdate}
+                  className="w-full flex items-center justify-center gap-2 rounded-lg bg-teal-500 hover:bg-teal-600 active:scale-[0.98] px-4 py-2.5 text-sm font-semibold text-white transition-colors touch-manipulation"
+                >
+                  {parentMsgShared ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      {typeof navigator !== 'undefined' && !navigator.share ? 'Copied!' : 'Sent!'}
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      Send to parent group chat
+                    </>
+                  )}
+                </button>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
