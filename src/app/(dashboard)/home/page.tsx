@@ -3,6 +3,7 @@
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { query, mutate } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,7 +23,7 @@ import {
   History,
   Star,
 } from 'lucide-react';
-import type { Session } from '@/types/database';
+import type { Session, Plan } from '@/types/database';
 import { useAppStore } from '@/lib/store';
 import { PostPracticeDebrief } from '@/components/capture/post-practice-debrief';
 import Image from 'next/image';
@@ -294,6 +295,7 @@ function LastSessionCard({ session }: {
 
 export default function HomePage() {
   const { activeTeam, coach, aiPlatformAvailable } = useActiveTeam();
+  const router = useRouter();
   const [showDebrief, setShowDebrief] = useState(false);
 
   const hasAIKeys = (() => {
@@ -332,6 +334,33 @@ export default function HomePage() {
       }
     } catch (err) {
       console.warn('Failed to start practice session:', err);
+    }
+  }
+
+  async function startPracticeWithPlan(planId: string) {
+    if (!activeTeam || !coach) return;
+    try {
+      const session = await mutate<{ id: string }>({
+        table: 'sessions',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          type: 'practice',
+          date: new Date().toISOString().split('T')[0],
+          notes: 'Auto-created practice session',
+        },
+        select: 'id',
+      });
+      const id = Array.isArray(session) ? (session as any)[0]?.id : session?.id;
+      if (id) {
+        setPracticeActive(true);
+        setPracticeSessionId(id);
+        setPracticeStartedAt(new Date().toISOString());
+        router.push(`/sessions/${id}/timer?planId=${planId}`);
+      }
+    } catch (err) {
+      console.warn('Failed to start practice with plan:', err);
     }
   }
 
@@ -470,6 +499,37 @@ export default function HomePage() {
     enabled: !!activeTeam && !practiceActive,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Most recent practice plan (last 7 days) — powers the "Run last plan" CTA
+  const { data: recentPracticePlan } = useQuery({
+    queryKey: ['home-recent-practice-plan', activeTeam?.id],
+    queryFn: async () => {
+      if (!activeTeam) return null;
+      const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
+      const plans = await query<Pick<Plan, 'id' | 'title' | 'content_structured'>[]>({
+        table: 'plans',
+        select: 'id, title, content_structured',
+        filters: {
+          team_id: activeTeam.id,
+          type: 'practice',
+          created_at: { op: 'gte', value: sevenDaysAgo },
+        },
+        order: { column: 'created_at', ascending: false },
+        limit: 1,
+      });
+      return plans?.[0] ?? null;
+    },
+    enabled: !!activeTeam && !practiceActive,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { planDrillCount, planDurationMin } = useMemo(() => {
+    const cs = recentPracticePlan?.content_structured as any;
+    return {
+      planDrillCount: Array.isArray(cs?.drills) ? cs.drills.length : 0,
+      planDurationMin: typeof cs?.duration_minutes === 'number' ? cs.duration_minutes : 0,
+    };
+  }, [recentPracticePlan]);
 
   // Live observation count for the active practice session
   const { data: sessionObsStats } = useQuery({
@@ -611,20 +671,38 @@ export default function HomePage() {
           restrictedPlayers={restrictedPlayersToday}
         />
       ) : (
-        <button
-          onClick={startPractice}
-          className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 p-5 text-left text-white shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all touch-manipulation"
-        >
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/20">
-              <Play className="h-7 w-7" />
+        <div className="space-y-2">
+          <button
+            onClick={startPractice}
+            className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 p-5 text-left text-white shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all touch-manipulation"
+          >
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/20">
+                <Play className="h-7 w-7" />
+              </div>
+              <div>
+                <p className="text-lg font-bold">Start Practice</p>
+                <p className="text-sm text-emerald-100">Tap when you arrive at the gym</p>
+              </div>
             </div>
-            <div>
-              <p className="text-lg font-bold">Start Practice</p>
-              <p className="text-sm text-emerald-100">Tap when you arrive at the gym</p>
-            </div>
-          </div>
-        </button>
+          </button>
+          {recentPracticePlan && (
+            <button
+              onClick={() => startPracticeWithPlan(recentPracticePlan.id)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-2.5 text-sm text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 transition-colors touch-manipulation active:scale-[0.98]"
+            >
+              <Play className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate min-w-0">
+                {recentPracticePlan.title
+                  ? `Run "${recentPracticePlan.title}"`
+                  : 'Run last practice plan'}
+                {planDrillCount > 0 && ` · ${planDrillCount} drill${planDrillCount !== 1 ? 's' : ''}`}
+                {planDurationMin > 0 && ` · ${planDurationMin} min`}
+              </span>
+              <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+            </button>
+          )}
+        </div>
       )}
 
       {/* Quick actions */}
