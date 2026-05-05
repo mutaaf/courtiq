@@ -91,7 +91,7 @@ export function DashboardShell({ coach, children }: Props) {
   const [miniStep, setMiniStep] = useState<MiniStep>('template');
   const [miniSentiment, setMiniSentiment] = useState<'positive' | 'needs-work'>('positive');
   const [selectedTemplate, setSelectedTemplate] = useState<ObservationTemplate | null>(null);
-  const [practiceRoster, setPracticeRoster] = useState<{ id: string; name: string }[]>([]);
+  const [practiceRoster, setPracticeRoster] = useState<{ id: string; name: string; jersey_number: number | null }[]>([]);
   const [savingQuick, setSavingQuick] = useState(false);
 
   // Identify the signed-in coach to PostHog so events tie to a person
@@ -137,9 +137,9 @@ export function DashboardShell({ coach, children }: Props) {
   // Load roster when mini-dropdown opens so the player picker is ready
   useEffect(() => {
     if (!showPracticeMini || !activeTeam?.id) return;
-    query<{ id: string; name: string }[]>({
+    query<{ id: string; name: string; jersey_number: number | null }[]>({
       table: 'players',
-      select: 'id, name',
+      select: 'id, name, jersey_number',
       filters: { team_id: activeTeam.id, is_active: true },
     }).then((data) => setPracticeRoster(data || []));
   }, [showPracticeMini, activeTeam?.id]);
@@ -482,6 +482,9 @@ export function DashboardShell({ coach, children }: Props) {
                       disabled={savingQuick}
                       className="rounded-full bg-zinc-800 border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:border-orange-500/50 hover:text-orange-300 active:scale-95 touch-manipulation disabled:opacity-50"
                     >
+                      {p.jersey_number != null && (
+                        <span className="mr-1 font-bold text-zinc-500">#{p.jersey_number}</span>
+                      )}
                       {p.name.split(' ')[0]}
                     </button>
                   ))

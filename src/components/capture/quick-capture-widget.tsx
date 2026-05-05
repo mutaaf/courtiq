@@ -48,7 +48,7 @@ export function QuickCaptureWidget() {
   const [templateStep, setTemplateStep] = useState<TemplateStep>('pick');
   const [templateSentiment, setTemplateSentiment] = useState<'positive' | 'needs-work'>('positive');
   const [selectedTemplate, setSelectedTemplate] = useState<ObservationTemplate | null>(null);
-  const [roster, setRoster] = useState<{ id: string; name: string }[]>([]);
+  const [roster, setRoster] = useState<{ id: string; name: string; jersey_number: number | null }[]>([]);
   const [rosterLoading, setRosterLoading] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
 
@@ -64,9 +64,9 @@ export function QuickCaptureWidget() {
   useEffect(() => {
     if (!isOpen || activeTab !== 'templates' || !activeTeam?.id || roster.length > 0) return;
     setRosterLoading(true);
-    query<{ id: string; name: string }[]>({
+    query<{ id: string; name: string; jersey_number: number | null }[]>({
       table: 'players',
-      select: 'id, name',
+      select: 'id, name, jersey_number',
       filters: { team_id: activeTeam.id, is_active: true },
     }).then((data) => {
       setRoster(data || []);
@@ -656,7 +656,7 @@ export function QuickCaptureWidget() {
                             )}
                           >
                             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500/20 text-xs font-bold text-orange-400">
-                              {player.name.charAt(0).toUpperCase()}
+                              {player.jersey_number != null ? `#${player.jersey_number}` : player.name.charAt(0).toUpperCase()}
                             </span>
                             <span className="truncate">{player.name.split(' ')[0]}</span>
                           </button>
