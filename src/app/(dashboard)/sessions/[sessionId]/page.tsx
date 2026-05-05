@@ -3032,7 +3032,7 @@ export default function SessionDetailPage() {
     queryFn: async () => {
       const data = await query<Player[]>({
         table: 'players',
-        select: 'id, name, jersey_number',
+        select: 'id, name, jersey_number, parent_phone',
         filters: { team_id: activeTeam!.id, is_active: true },
         order: { column: 'name', ascending: true },
       });
@@ -3184,6 +3184,36 @@ export default function SessionDetailPage() {
       return b.obs.length - a.obs.length;
     });
   }, [observations, rosterPlayers]);
+
+  const parentPhoneMap = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const p of rosterPlayers) m.set(p.id, (p as any).parent_phone ?? null);
+    return m;
+  }, [rosterPlayers]);
+
+  const [obsActionState, setObsActionState] = useState<Record<string, 'copy' | 'share'>>({});
+
+  const handleObsCopy = async (obsId: string, text: string) => {
+    try { await navigator.clipboard.writeText(text); } catch { /* ignore */ }
+    setObsActionState(s => ({ ...s, [obsId]: 'copy' }));
+    setTimeout(() => setObsActionState(s => { const n = { ...s }; delete n[obsId]; return n; }), 2000);
+  };
+
+  const handleObsShare = async (obsId: string, playerName: string, text: string, phone: string | null) => {
+    const coachFirst = coach?.full_name?.split(' ')[0] ?? 'Coach';
+    const teamName = activeTeam?.name ?? 'your team';
+    const msg = `Hi! Just wanted to share a great moment — ${playerName} had a positive observation at practice: "${text}" 🙌 — ${coachFirst}, ${teamName}`;
+    const digits = phone?.replace(/\D/g, '') ?? '';
+    if (digits) {
+      window.open(`https://wa.me/${digits}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+    } else if (typeof navigator !== 'undefined' && navigator.share) {
+      try { await navigator.share({ text: msg }); } catch { /* dismissed */ }
+    } else {
+      try { await navigator.clipboard.writeText(msg); } catch { /* ignore */ }
+    }
+    setObsActionState(s => ({ ...s, [obsId]: 'share' }));
+    setTimeout(() => setObsActionState(s => { const n = { ...s }; delete n[obsId]; return n; }), 2000);
+  };
 
   const isLoading = sessionLoading || obsLoading;
 
@@ -3619,6 +3649,10 @@ export default function SessionDetailPage() {
                   {group.obs.map((obs: any) => {
                     const sentimentConfig = SENTIMENT_CONFIG[obs.sentiment as Sentiment];
                     const SentimentIcon = sentimentConfig?.icon || MinusCircle;
+                    const isPositive = obs.sentiment === 'positive';
+                    const playerPhone = obs.player_id ? parentPhoneMap.get(obs.player_id) ?? null : null;
+                    const canSendToParent = isPositive && obs.player_id && obs.player_id !== '__none__';
+                    const actionState = obsActionState[obs.id];
                     return (
                       <Card key={obs.id}>
                         <CardContent className="p-3">
@@ -3636,6 +3670,34 @@ export default function SessionDetailPage() {
                                 </Badge>
                               </div>
                               <p className="text-sm text-zinc-300">{obs.text}</p>
+                              <div className="flex items-center gap-2 mt-2">
+                                <button
+                                  onClick={() => handleObsCopy(obs.id, obs.text)}
+                                  className="flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
+                                  aria-label="Copy observation text"
+                                >
+                                  {actionState === 'copy' ? (
+                                    <Check className="h-3 w-3 text-emerald-400" />
+                                  ) : (
+                                    <Copy className="h-3 w-3" />
+                                  )}
+                                  {actionState === 'copy' ? 'Copied!' : 'Copy'}
+                                </button>
+                                {canSendToParent && (
+                                  <button
+                                    onClick={() => handleObsShare(obs.id, obs.players?.name ?? 'Player', obs.text, playerPhone)}
+                                    className="flex items-center gap-1 text-[10px] text-teal-500 hover:text-teal-300 transition-colors"
+                                    aria-label="Send observation to parent"
+                                  >
+                                    {actionState === 'share' ? (
+                                      <Check className="h-3 w-3 text-emerald-400" />
+                                    ) : (
+                                      <Share2 className="h-3 w-3" />
+                                    )}
+                                    {actionState === 'share' ? 'Sent!' : 'Send to parent'}
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </CardContent>
