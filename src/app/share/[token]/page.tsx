@@ -11,6 +11,14 @@ import {
   sortSkillsByImprovingFirst,
 } from '@/lib/skill-journey-utils';
 import type { SkillProgress, ShareObservation } from '@/lib/skill-journey-utils';
+import {
+  buildGrowthStreakData,
+  hasEnoughDataForGrowthStreak,
+  getStreakEmoji,
+  getStreakLabel,
+  isHotStreak as isGrowthHotStreak,
+  formatStreakCount,
+} from '@/lib/player-growth-streak-utils';
 
 // ---------------------------------------------------------------------------
 // Skill Radar Chart — pure SVG, server-component safe, light-mode
@@ -359,6 +367,14 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
   const showJourney = hasEnoughDataForJourney(safeObs, safeSkills) || (totalObservationCount ?? 0) >= 3;
   const progressMessage = buildProgressMessage(firstName, improvingSkills, totalObservationCount ?? 0);
 
+  // Growth streak — computed from session-bucketed observation activity
+  const growthObs = safeObs.map((o) => ({
+    session_id: o.session_id ?? null,
+    sentiment: o.sentiment,
+    created_at: o.created_at,
+  }));
+  const growthStreak = hasEnoughDataForGrowthStreak(growthObs) ? buildGrowthStreakData(growthObs) : null;
+
   // Extract celebratable items from report card
   const celebrations: string[] = [];
   if (reportCard?.strengths) {
@@ -574,6 +590,57 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
               <p className="mt-3 text-center text-xs text-gray-500">
                 Most practised: <span className="font-semibold text-gray-700">{formatCategoryLabel(seasonStats.mostActiveCategory)}</span>
               </p>
+            )}
+          </div>
+        )}
+
+        {/* ─── Growth Streak ─── */}
+        {growthStreak && growthStreak.hasAnyPositive && (
+          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-lg" aria-hidden="true">
+                {getStreakEmoji(growthStreak.currentStreak) || '⭐'}
+              </span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                {isGrowthHotStreak(growthStreak) ? 'Hot Streak!' : 'Practice Streak'}
+              </h3>
+            </div>
+
+            {growthStreak.currentStreak > 0 ? (
+              <>
+                <p className="text-2xl font-bold text-orange-500">
+                  {formatStreakCount(growthStreak.currentStreak)} in a row!
+                </p>
+                <p className="mt-1 text-sm text-gray-600">
+                  {firstName} has received positive coaching feedback in{' '}
+                  {growthStreak.currentStreak === 1
+                    ? 'their most recent practice'
+                    : `their last ${formatStreakCount(growthStreak.currentStreak)}`}
+                  . {getStreakLabel(growthStreak.currentStreak)}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-600">
+                {firstName} has had positive coaching feedback in{' '}
+                {growthStreak.positiveSessionCount} of{' '}
+                {growthStreak.totalObservedSessions} observed sessions.
+                {growthStreak.longestStreak > 1 && (
+                  <> Best streak: {formatStreakCount(growthStreak.longestStreak)} in a row.</>
+                )}
+              </p>
+            )}
+
+            {growthStreak.currentStreak > 0 && (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="rounded-xl bg-gray-50 p-3 text-center">
+                  <p className="text-lg font-bold text-emerald-600">{growthStreak.positiveSessionCount}</p>
+                  <p className="text-[11px] text-gray-500">positive sessions</p>
+                </div>
+                <div className="rounded-xl bg-gray-50 p-3 text-center">
+                  <p className="text-lg font-bold text-orange-500">{growthStreak.longestStreak}</p>
+                  <p className="text-[11px] text-gray-500">best streak ever</p>
+                </div>
+              </div>
             )}
           </div>
         )}

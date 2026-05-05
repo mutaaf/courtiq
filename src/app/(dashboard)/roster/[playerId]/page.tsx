@@ -63,6 +63,18 @@ import {
   isHotStreak,
   type PlayerMomentum,
 } from '@/lib/momentum-utils';
+import {
+  buildGrowthStreakData,
+  hasEnoughDataForGrowthStreak,
+  getStreakEmoji,
+  getStreakLabel,
+  getStreakBadgeClasses,
+  getStreakTextColor,
+  getStreakSummaryLine,
+  buildParentMessage,
+  isHotStreak as isGrowthHotStreak,
+  formatStreakCount,
+} from '@/lib/player-growth-streak-utils';
 
 type Tab = 'overview' | 'observations' | 'report-card' | 'media' | 'share' | 'challenges' | 'storyline' | 'self-assessment' | 'goals' | 'notes';
 
@@ -77,6 +89,118 @@ const sentimentLabel: Record<Sentiment, string> = {
   'needs-work': 'Needs Work',
   neutral: 'Neutral',
 };
+
+// ─── GrowthStreakWidget ───────────────────────────────────────────────────────
+
+function GrowthStreakWidget({
+  observations,
+  playerName,
+}: {
+  observations: Observation[];
+  playerName: string;
+}) {
+  const [shared, setShared] = useState(false);
+
+  const growthObs = observations.map((o) => ({
+    session_id: o.session_id ?? null,
+    sentiment: o.sentiment,
+    created_at: o.created_at,
+  }));
+
+  if (!hasEnoughDataForGrowthStreak(growthObs)) return null;
+
+  const streak = buildGrowthStreakData(growthObs);
+  if (!streak.hasAnyPositive) return null;
+
+  const emoji = getStreakEmoji(streak.currentStreak);
+  const label = getStreakLabel(streak.currentStreak);
+  const badgeClasses = getStreakBadgeClasses(streak.currentStreak);
+  const textColor = getStreakTextColor(streak.currentStreak);
+  const summaryLine = getStreakSummaryLine(streak);
+
+  async function handleShare() {
+    const msg = buildParentMessage(streak, playerName);
+    if (navigator.share) {
+      try {
+        await navigator.share({ text: msg });
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      } catch {
+        /* dismissed */
+      }
+    } else {
+      await navigator.clipboard.writeText(msg);
+      setShared(true);
+      setTimeout(() => setShared(false), 2000);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <span className="text-xl leading-none">{emoji || '⭐'}</span>
+          Growth Streak
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Current streak */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className={`text-3xl font-bold tabular-nums leading-none ${textColor}`}>
+              {streak.currentStreak > 0 ? formatStreakCount(streak.currentStreak) : '—'}
+            </p>
+            <p className="mt-1 text-xs text-zinc-500">{summaryLine}</p>
+          </div>
+          {streak.currentStreak > 0 && (
+            <span className={`rounded-full px-3 py-1 text-sm font-medium ${badgeClasses}`}>
+              {label}
+            </span>
+          )}
+        </div>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-2 gap-3 rounded-lg bg-zinc-900/50 p-3 text-center text-sm">
+          <div>
+            <p className="font-semibold text-zinc-200">{streak.positiveSessionCount}</p>
+            <p className="text-xs text-zinc-500">positive sessions</p>
+          </div>
+          <div>
+            <p className="font-semibold text-zinc-200">{streak.longestStreak}</p>
+            <p className="text-xs text-zinc-500">best streak</p>
+          </div>
+        </div>
+
+        {/* Hot streak callout */}
+        {isGrowthHotStreak(streak) && (
+          <p className="text-xs text-orange-400 font-medium">
+            🔥 Share this win with the parent — {playerName.split(' ')[0]} is on a roll!
+          </p>
+        )}
+
+        {/* Share button */}
+        <button
+          type="button"
+          onClick={handleShare}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-teal-700/40 bg-teal-900/20 px-4 py-2 text-sm font-medium text-teal-300 transition-colors hover:bg-teal-900/40 active:scale-[0.98] touch-manipulation"
+          aria-label="Share growth streak with parent"
+        >
+          {shared ? (
+            <>
+              <Check className="h-4 w-4" />
+              Message ready!
+            </>
+          ) : (
+            <>
+              <Send className="h-4 w-4" />
+              Send to parent
+            </>
+          )}
+        </button>
+      </CardContent>
+    </Card>
+  );
+}
 
 // ─── MomentumCard ─────────────────────────────────────────────────────────────
 
@@ -1322,6 +1446,11 @@ export default function PlayerDetailPage({
           {/* Momentum Score */}
           {activeTeam && (
             <MomentumCard playerId={playerId} teamId={activeTeam.id} />
+          )}
+
+          {/* Growth Streak */}
+          {player && (
+            <GrowthStreakWidget observations={observations} playerName={player.name} />
           )}
 
           {/* Achievement Badges */}

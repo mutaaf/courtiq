@@ -130,16 +130,17 @@ export async function GET(
     const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
     const { data: allRecentObs, count: totalObsCount } = await supabase
       .from('observations')
-      .select('category, created_at, sentiment', { count: 'exact' })
+      .select('category, created_at, sentiment, session_id', { count: 'exact' })
       .eq('player_id', share.player_id)
       .gte('created_at', ninetyDaysAgo)
       .order('created_at', { ascending: false });
     reportData.totalObservationCount = totalObsCount ?? 0;
-    // Include category+date data for skill activity computation on the client
+    // Include category+date+session data for skill activity and growth streak computation
     reportData.recentObservationActivity = (allRecentObs ?? []).map((o: any) => ({
       category: o.category,
       sentiment: o.sentiment,
       created_at: o.created_at,
+      session_id: o.session_id ?? null,
     }));
 
     if (share.include_goals) {
