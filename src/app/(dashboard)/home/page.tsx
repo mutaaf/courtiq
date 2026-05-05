@@ -5,6 +5,8 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { query, mutate } from '@/lib/api';
+import { useElapsedTime } from '@/hooks/use-elapsed-time';
+import { shouldShowWrapUpNudge } from '@/lib/elapsed-time-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -411,6 +413,10 @@ export default function HomePage() {
   const practiceSessionId = useAppStore((s) => s.practiceSessionId);
   const setPracticeSessionId = useAppStore((s) => s.setPracticeSessionId);
   const setPracticeStartedAt = useAppStore((s) => s.setPracticeStartedAt);
+  const practiceStartedAt = useAppStore((s) => s.practiceStartedAt);
+
+  const elapsedTime = useElapsedTime(practiceActive ? practiceStartedAt : null);
+  const showWrapUpNudge = practiceActive && shouldShowWrapUpNudge(practiceStartedAt);
 
   async function startPractice() {
     if (!activeTeam || !coach) return;
@@ -730,7 +736,14 @@ export default function HomePage() {
                 <Square className="h-7 w-7" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-lg font-bold">End Practice</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-lg font-bold">End Practice</p>
+                  {elapsedTime && (
+                    <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tabular-nums">
+                      ⏱ {elapsedTime}
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-red-100">
                   {sessionObsStats && sessionObsStats.count > 0
                     ? `${sessionObsStats.count} obs · ${sessionObsStats.players} player${sessionObsStats.players !== 1 ? 's' : ''} covered`
@@ -744,6 +757,15 @@ export default function HomePage() {
               )}
             </div>
           </button>
+
+          {/* Wrap-up nudge — appears after 40 min to prompt cool-down */}
+          {showWrapUpNudge && (
+            <div className="flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+              <span aria-hidden="true">⏰</span>
+              <span>{elapsedTime} in — time to start cool-down?</span>
+            </div>
+          )}
+
           {/* Practice quick actions */}
           <div className="grid grid-cols-2 gap-3">
             <Link href={practiceSessionId ? `/capture?sessionId=${practiceSessionId}` : '/capture'}>
