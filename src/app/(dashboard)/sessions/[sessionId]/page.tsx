@@ -107,6 +107,7 @@ import {
   getHealthBarColor,
   type SnapshotObs,
 } from '@/lib/session-snapshot-utils';
+import { OBSERVATION_TEMPLATES, getTemplatesBySentiment } from '@/lib/observation-templates';
 
 const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   practice: 'Practice',
@@ -309,10 +310,12 @@ function SessionCoverageTracker({
   rosterPlayers,
   observations,
   sessionId,
+  onQuickObserve,
 }: {
   rosterPlayers: Player[];
   observations: any[];
   sessionId: string;
+  onQuickObserve?: (player: Player) => void;
 }) {
   const [showObserved, setShowObserved] = useState(false);
   const observedIds = new Set(
@@ -387,15 +390,26 @@ function SessionCoverageTracker({
             <p className="text-xs text-zinc-500">Tap a player to add an observation:</p>
             <div className="flex flex-wrap gap-1.5">
               {unobserved.map((player) => (
-                <Link
-                  key={player.id}
-                  href={`/capture?sessionId=${sessionId}&playerId=${player.id}`}
-                >
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium border border-orange-500/50 text-orange-300 bg-orange-500/10 hover:bg-orange-500/20 active:scale-95 transition-all touch-manipulation">
+                onQuickObserve ? (
+                  <button
+                    key={player.id}
+                    onClick={() => onQuickObserve(player)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium border border-orange-500/50 text-orange-300 bg-orange-500/10 hover:bg-orange-500/20 active:scale-95 transition-all touch-manipulation"
+                  >
                     <Plus className="h-3 w-3" />
                     {player.name}
-                  </span>
-                </Link>
+                  </button>
+                ) : (
+                  <Link
+                    key={player.id}
+                    href={`/capture?sessionId=${sessionId}&playerId=${player.id}`}
+                  >
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium border border-orange-500/50 text-orange-300 bg-orange-500/10 hover:bg-orange-500/20 active:scale-95 transition-all touch-manipulation">
+                      <Plus className="h-3 w-3" />
+                      {player.name}
+                    </span>
+                  </Link>
+                )
               ))}
             </div>
           </div>
@@ -2981,6 +2995,14 @@ export default function SessionDetailPage() {
   const [resultScore, setResultScore] = useState('');
   const [resultSaved, setResultSaved] = useState(false);
 
+  // Quick Observe bottom sheet — log a missed player without leaving the page
+  const [qoPlayer, setQoPlayer] = useState<Player | null>(null);
+  const [qoSentiment, setQoSentiment] = useState<'positive' | 'needs-work'>('positive');
+  const [qoTemplate, setQoTemplate] = useState<string | null>(null);
+  const [qoText, setQoText] = useState('');
+  const [qoSaving, setQoSaving] = useState(false);
+  const [qoSaved, setQoSaved] = useState(false);
+
   const { data: session, isLoading: sessionLoading } = useQuery({
     queryKey: ['session', sessionId],
     queryFn: async () => {
@@ -3148,6 +3170,45 @@ export default function SessionDetailPage() {
     resultMutation.mutate(buildResultString(resultPendingOutcome, resultScore));
   }
 
+  async function handleQuickObsSave() {
+    if (!activeTeam || !qoPlayer) return;
+    const template = OBSERVATION_TEMPLATES.find((t) => t.id === qoTemplate);
+    const text = qoText.trim() || template?.text || '';
+    if (!text) return;
+    setQoSaving(true);
+    try {
+      await mutate({
+        table: 'observations',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          org_id: activeTeam.org_id,
+          player_name: qoPlayer.name,
+          player_id: qoPlayer.id,
+          session_id: sessionId,
+          text,
+          sentiment: qoSentiment,
+          category: template?.category || 'general',
+          source: 'template',
+        },
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.observations.session(sessionId) });
+      queryClient.invalidateQueries({ queryKey: ['session-obs-count', sessionId] });
+      setQoSaved(true);
+      setTimeout(() => {
+        setQoSaved(false);
+        setQoPlayer(null);
+        setQoTemplate(null);
+        setQoText('');
+        setQoSentiment('positive');
+      }, 1400);
+    } catch {
+      // silent — save button stays enabled for retry
+    } finally {
+      setQoSaving(false);
+    }
+  }
+
   function formatDate(dateStr: string) {
     return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
       weekday: 'long',
@@ -3241,6 +3302,7 @@ export default function SessionDetailPage() {
   const savedDebrief = session.coach_debrief_extracts as SessionDebriefResult | null;
 
   return (
+    <>
     <div className="p-4 lg:p-8 space-y-6 pb-8 max-w-3xl mx-auto">
       {/* Header — title row, then actions row that wraps on mobile */}
       <div className="space-y-3">
@@ -3593,6 +3655,12 @@ export default function SessionDetailPage() {
             rosterPlayers={rosterPlayers}
             observations={observations || []}
             sessionId={sessionId}
+            onQuickObserve={(player) => {
+              setQoPlayer(player);
+              setQoSentiment('positive');
+              setQoTemplate(null);
+              setQoText('');
+            }}
           />
         )}
 
@@ -4016,5 +4084,110 @@ export default function SessionDetailPage() {
         </CardContent>
       </Card>
     </div>
+
+    {/* ─── Quick Observe Bottom Sheet ──────────────────────────────────────── */}
+    {qoPlayer && (
+      <>
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 z-40 bg-black/60"
+          onClick={() => { if (!qoSaving) { setQoPlayer(null); setQoTemplate(null); setQoText(''); setQoSentiment('positive'); } }}
+          aria-hidden="true"
+        />
+        {/* Sheet */}
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Quick observation for ${qoPlayer.name}`}
+          className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-zinc-900 border-t border-zinc-800 p-4 pb-8 space-y-4"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-zinc-500 font-medium">Quick Observation</p>
+              <p className="text-sm font-semibold text-zinc-100">{qoPlayer.name}</p>
+            </div>
+            <button
+              aria-label="Close quick observe"
+              onClick={() => { if (!qoSaving) { setQoPlayer(null); setQoTemplate(null); setQoText(''); setQoSentiment('positive'); } }}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Sentiment toggle */}
+          <div className="flex gap-2">
+            {(['positive', 'needs-work'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => { setQoSentiment(s); setQoTemplate(null); }}
+                className={`flex-1 rounded-xl py-2.5 text-sm font-medium transition-all touch-manipulation active:scale-[0.97] ${
+                  qoSentiment === s
+                    ? s === 'positive'
+                      ? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-300'
+                      : 'bg-amber-500/20 border border-amber-500/50 text-amber-300'
+                    : 'bg-zinc-800 border border-zinc-700 text-zinc-400'
+                }`}
+              >
+                {s === 'positive' ? '👍 Positive' : '👎 Needs Work'}
+              </button>
+            ))}
+          </div>
+
+          {/* Template chips */}
+          <div className="flex flex-wrap gap-2">
+            {getTemplatesBySentiment(qoSentiment).slice(0, 8).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => { setQoTemplate(qoTemplate === t.id ? null : t.id); setQoText(''); }}
+                className={`rounded-xl px-3 py-2 text-xs font-medium transition-all touch-manipulation active:scale-[0.97] ${
+                  qoTemplate === t.id
+                    ? qoSentiment === 'positive'
+                      ? 'bg-emerald-500/25 border border-emerald-500/60 text-emerald-200'
+                      : 'bg-amber-500/25 border border-amber-500/60 text-amber-200'
+                    : 'bg-zinc-800 border border-zinc-700 text-zinc-300'
+                }`}
+              >
+                {t.text}
+              </button>
+            ))}
+          </div>
+
+          {/* Optional free-text note */}
+          <Textarea
+            placeholder="Add a specific note (optional)…"
+            value={qoText}
+            onChange={(e) => { setQoText(e.target.value); if (e.target.value) setQoTemplate(null); }}
+            rows={2}
+            className="text-sm resize-none"
+          />
+
+          {/* Save button */}
+          <Button
+            onClick={handleQuickObsSave}
+            disabled={qoSaving || qoSaved || (!qoTemplate && !qoText.trim())}
+            className={`w-full h-12 text-base font-semibold transition-all ${
+              qoSaved ? 'bg-emerald-500 hover:bg-emerald-500' : ''
+            }`}
+          >
+            {qoSaved ? (
+              <>
+                <Check className="h-5 w-5" />
+                Saved!
+              </>
+            ) : qoSaving ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Saving…
+              </>
+            ) : (
+              'Save Observation'
+            )}
+          </Button>
+        </div>
+      </>
+    )}
+    </>
   );
 }
