@@ -2966,9 +2966,11 @@ export default function SessionDetailPage() {
 
   const [debrief, setDebrief] = useState('');
   const [debriefInitialized, setDebriefInitialized] = useState(false);
+  const [debriefAutosaved, setDebriefAutosaved] = useState(false);
   const [mediaUploading, setMediaUploading] = useState(false);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const mediaInputRef = useRef<HTMLInputElement>(null);
+  const debriefAutoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [observerLinkGenerating, setObserverLinkGenerating] = useState(false);
   const [observerLinkCopied, setObserverLinkCopied] = useState(false);
@@ -3900,34 +3902,55 @@ export default function SessionDetailPage() {
 
       {/* Coach Debrief */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Coach Notes</CardTitle>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Coach Notes</CardTitle>
+            <span className="text-xs">
+              {debriefMutation.isPending && (
+                <span className="flex items-center gap-1 text-zinc-500">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Saving…
+                </span>
+              )}
+              {debriefMutation.isError && !debriefMutation.isPending && (
+                <span className="text-red-400">Failed to save</span>
+              )}
+              {debriefAutosaved && !debriefMutation.isPending && !debriefMutation.isError && (
+                <span className="flex items-center gap-1 text-emerald-500">
+                  <Check className="h-3 w-3" />
+                  Autosaved
+                </span>
+              )}
+            </span>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-2">
           <Textarea
             placeholder="Post-session notes: what went well, what to work on, player highlights..."
             value={debrief}
-            onChange={(e) => setDebrief(e.target.value)}
+            onChange={(e) => {
+              const newValue = e.target.value;
+              setDebrief(newValue);
+              setDebriefAutosaved(false);
+              if (debriefAutoSaveTimer.current) clearTimeout(debriefAutoSaveTimer.current);
+              debriefAutoSaveTimer.current = setTimeout(() => {
+                debriefMutation.mutate(newValue, {
+                  onSuccess: () => setDebriefAutosaved(true),
+                });
+              }, 1500);
+            }}
+            onBlur={() => {
+              if (debriefAutoSaveTimer.current) {
+                clearTimeout(debriefAutoSaveTimer.current);
+                debriefAutoSaveTimer.current = null;
+              }
+              debriefMutation.mutate(debrief, {
+                onSuccess: () => setDebriefAutosaved(true),
+              });
+            }}
             rows={5}
           />
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-zinc-500">
-              {debriefMutation.isSuccess && 'Saved'}
-              {debriefMutation.isError && 'Failed to save'}
-            </p>
-            <Button
-              size="sm"
-              onClick={() => debriefMutation.mutate(debrief)}
-              disabled={debriefMutation.isPending}
-            >
-              {debriefMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              Save Notes
-            </Button>
-          </div>
+          <p className="text-xs text-zinc-500">Auto-saves as you type.</p>
         </CardContent>
       </Card>
     </div>
