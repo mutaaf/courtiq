@@ -177,6 +177,154 @@ function MomentumCard({ playerId, teamId }: { playerId: string; teamId: string }
   );
 }
 
+// ─── Player Progress Trend Chart ─────────────────────────────────────────────
+
+function PlayerObsTrendChart({ observations }: { observations: Observation[] }) {
+  const WEEKS = 8;
+  const now = new Date();
+
+  // Build rolling weekly buckets oldest→newest
+  const buckets = Array.from({ length: WEEKS }, (_, i) => {
+    const weeksAgo = WEEKS - 1 - i;
+    const end = new Date(now);
+    end.setDate(end.getDate() - weeksAgo * 7);
+    const start = new Date(end);
+    start.setDate(start.getDate() - 7);
+    return { weekIdx: i, weeksAgo, start, end, positive: 0, scored: 0 };
+  });
+
+  for (const obs of observations) {
+    if (obs.sentiment === 'neutral') continue;
+    const d = new Date(obs.created_at);
+    for (const b of buckets) {
+      if (d >= b.start && d < b.end) {
+        b.scored++;
+        if (obs.sentiment === 'positive') b.positive++;
+        break;
+      }
+    }
+  }
+
+  const data = buckets
+    .filter((b) => b.scored > 0)
+    .map((b) => ({
+      weekIdx: b.weekIdx,
+      ratio: Math.round((b.positive / b.scored) * 100),
+      total: b.scored,
+      label: b.weeksAgo === 0 ? 'This week' : `${b.weeksAgo * 7}d ago`,
+    }));
+
+  if (data.length < 2) return null;
+
+  // Compare most-recent half vs older half for trend direction
+  const mid = Math.ceil(data.length / 2);
+  const avgRecent = data.slice(mid).reduce((s, d) => s + d.ratio, 0) / Math.max(1, data.length - mid);
+  const avgOlder = data.slice(0, mid).reduce((s, d) => s + d.ratio, 0) / mid;
+  const delta = avgRecent - avgOlder;
+  const trend: 'improving' | 'declining' | 'steady' =
+    delta > 8 ? 'improving' : delta < -8 ? 'declining' : 'steady';
+
+  // SVG dimensions
+  const W = 480; const H = 88;
+  const padL = 30; const padR = 12; const padT = 10; const padB = 22;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+  const n = data.length;
+
+  const pts = data.map((d, i) => ({
+    x: padL + (n === 1 ? innerW / 2 : (i / (n - 1)) * innerW),
+    y: padT + innerH - (d.ratio / 100) * innerH,
+    ratio: d.ratio,
+    label: d.label,
+    total: d.total,
+  }));
+
+  // Smooth bezier path
+  let pathD = '';
+  if (pts.length >= 2) {
+    pathD = `M ${pts[0].x},${pts[0].y}`;
+    for (let i = 1; i < pts.length; i++) {
+      const prev = pts[i - 1];
+      const curr = pts[i];
+      const cpx = (prev.x + curr.x) / 2;
+      pathD += ` C ${cpx},${prev.y} ${cpx},${curr.y} ${curr.x},${curr.y}`;
+    }
+  }
+
+  const dotColor = (r: number) =>
+    r >= 70 ? '#10b981' : r >= 40 ? '#f59e0b' : '#ef4444';
+
+  const trendConfig = {
+    improving: { label: '↑ Improving', bg: 'bg-emerald-500/20', text: 'text-emerald-400' },
+    declining: { label: '↓ Needs Attention', bg: 'bg-red-500/20', text: 'text-red-400' },
+    steady: { label: '→ Steady', bg: 'bg-zinc-800', text: 'text-zinc-400' },
+  };
+  const tc = trendConfig[trend];
+
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
+        <CardTitle className="text-base flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-orange-400" />
+          Progress Trend
+        </CardTitle>
+        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${tc.bg} ${tc.text}`}>
+          {tc.label}
+        </span>
+      </CardHeader>
+      <CardContent>
+        <p className="text-xs text-zinc-500 mb-3">
+          % positive observations per week · last {WEEKS} weeks
+        </p>
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          className="w-full overflow-visible"
+          style={{ height: H }}
+          aria-label="Player observation trend over time"
+        >
+          {/* Grid lines */}
+          {[0, 50, 100].map((pct) => {
+            const y = padT + innerH - (pct / 100) * innerH;
+            return (
+              <g key={pct}>
+                <line x1={padL} x2={padL + innerW} y1={y} y2={y}
+                  stroke="#27272a" strokeWidth={1}
+                  strokeDasharray={pct === 0 ? undefined : '4 3'} />
+                <text x={padL - 4} y={y + 4} textAnchor="end"
+                  fill="#52525b" fontSize={8}>{pct}%</text>
+              </g>
+            );
+          })}
+          {/* Area fill */}
+          {pts.length >= 2 && (
+            <path
+              d={`${pathD} L ${pts[pts.length - 1].x},${padT + innerH} L ${pts[0].x},${padT + innerH} Z`}
+              fill="#f97316" fillOpacity={0.08}
+            />
+          )}
+          {/* Line */}
+          <path d={pathD} fill="none" stroke="#f97316" strokeWidth={2} strokeLinecap="round" />
+          {/* Dots */}
+          {pts.map((p, i) => (
+            <g key={i}>
+              <title>{p.label}: {p.ratio}% positive ({p.total} obs)</title>
+              <circle cx={p.x} cy={p.y} r={5} fill={dotColor(p.ratio)} />
+              <circle cx={p.x} cy={p.y} r={2.5} fill="#18181b" />
+            </g>
+          ))}
+          {/* X-axis: first and last label */}
+          <text x={pts[0].x} y={H - 3} textAnchor="start" fill="#52525b" fontSize={8}>
+            {pts[0].label}
+          </text>
+          <text x={pts[pts.length - 1].x} y={H - 3} textAnchor="end" fill="#52525b" fontSize={8}>
+            {pts[pts.length - 1].label}
+          </text>
+        </svg>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function PlayerDetailPage({
@@ -1019,6 +1167,9 @@ export default function PlayerDetailPage({
               )}
             </CardContent>
           </Card>
+
+          {/* Progress Trend — week-over-week positive ratio (min 2 weeks of data) */}
+          <PlayerObsTrendChart observations={observations} />
 
           {/* Attendance Summary */}
           {attendanceStat && attendanceStat.totalSessions > 0 && (
