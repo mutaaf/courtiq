@@ -37,6 +37,10 @@ export async function updateSession(request: NextRequest) {
     '/api/share/',
     '/observe/',
     '/api/observe/',
+    '/parents/',
+    '/api/parents/join',
+    '/org/',
+    '/api/org/',
     '/api/health',
     '/api/debug',
     '/api/auth/',
@@ -48,6 +52,8 @@ export async function updateSession(request: NextRequest) {
     '/onboarding',
     '/demo',
     '/offline',
+    '/terms',
+    '/privacy',
   ];
   if (pathname === '/' || publicPaths.some((p) => pathname.startsWith(p))) {
     return supabaseResponse;
