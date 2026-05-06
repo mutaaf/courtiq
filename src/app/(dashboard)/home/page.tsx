@@ -1076,6 +1076,17 @@ export default function HomePage() {
         <DailyFocusCard teamId={activeTeam.id} />
       )}
 
+      {/* Practice Mode hint — shows instead of the analytics section when a session is live */}
+      {practiceActive && (
+        <div className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm text-zinc-500">
+          <span aria-hidden="true" className="text-base">🎯</span>
+          <span>Focus mode — your insights will be here after practice.</span>
+        </div>
+      )}
+
+      {/* Analytics & intelligence cards — hidden while practice is active so coaches stay focused on the court */}
+      {!practiceActive && (<>
+
       {/* Drill of the Day — deterministic drill targeting the team's top skill gap */}
       {!isLoadingStats && stats && stats.observations >= 5 && (
         <DrillOfDayCard teamId={activeTeam.id} sportId={activeTeam.sport_id} />
@@ -1207,6 +1218,8 @@ export default function HomePage() {
           teamName={activeTeam.name}
         />
       )}
+
+      </>)} {/* end practice-mode focus guard */}
 
     </div>
 
