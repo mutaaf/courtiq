@@ -53,6 +53,74 @@ import { PlayerBreakthroughCard } from '@/components/home/player-breakthrough-ca
 import { StrugglingPlayerCard } from '@/components/home/struggling-player-card';
 import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot-card';
 
+// ─── Live Coverage Grid ────────────────────────────────────────────────────────
+
+function LiveCoverageGrid({
+  players,
+  observedIds,
+  sessionId,
+}: {
+  players: Array<{ id: string; name: string; jersey_number: number | null }>;
+  observedIds: string[];
+  sessionId: string;
+}) {
+  const observedSet = new Set(observedIds);
+  const observedCount = players.filter((p) => observedSet.has(p.id)).length;
+  const allCovered = observedCount === players.length;
+
+  function getLabel(p: { name: string; jersey_number: number | null }) {
+    if (p.jersey_number != null) return `#${p.jersey_number}`;
+    const parts = p.name.trim().split(/\s+/);
+    return parts.length >= 2
+      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      : p.name.slice(0, 2).toUpperCase();
+  }
+
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3 space-y-2.5">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Coverage</p>
+        <span
+          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+            allCovered
+              ? 'bg-emerald-500/20 text-emerald-300'
+              : 'bg-amber-500/20 text-amber-300'
+          }`}
+        >
+          {allCovered ? '✓ All covered' : `${observedCount}/${players.length}`}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {players.map((p) => {
+          const observed = observedSet.has(p.id);
+          const captureHref = `/capture?sessionId=${sessionId}&playerId=${p.id}&player=${encodeURIComponent(p.name)}`;
+          return observed ? (
+            <span
+              key={p.id}
+              className="flex h-9 min-w-[2.25rem] items-center justify-center rounded-lg bg-emerald-500/15 px-1.5 text-xs font-bold text-emerald-400 select-none"
+              title={`${p.name} ✓ observed`}
+            >
+              {getLabel(p)}
+            </span>
+          ) : (
+            <Link
+              key={p.id}
+              href={captureHref}
+              className="flex h-9 min-w-[2.25rem] items-center justify-center rounded-lg bg-orange-500/15 px-1.5 text-xs font-bold text-orange-400 hover:bg-orange-500/25 transition-colors touch-manipulation active:scale-[0.94]"
+              title={`Observe ${p.name}`}
+            >
+              {getLabel(p)}
+            </Link>
+          );
+        })}
+      </div>
+      {!allCovered && (
+        <p className="text-[10px] text-zinc-600">Tap an orange chip to observe that player</p>
+      )}
+    </div>
+  );
+}
+
 // ─── Shared reminder helpers ──────────────────────────────────────────────────
 
 const SESSION_REMINDER_EMOJI: Record<string, string> = {
@@ -711,18 +779,18 @@ export default function HomePage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Roster for availability warnings
+  // Roster for availability warnings + live coverage grid during practice
   const { data: rosterPlayers = [] } = useQuery({
     queryKey: ['home-roster', activeTeam?.id],
     queryFn: async () => {
       if (!activeTeam) return [];
-      return query<{ id: string; name: string }[]>({
+      return query<{ id: string; name: string; jersey_number: number | null }[]>({
         table: 'players',
-        select: 'id, name',
+        select: 'id, name, jersey_number',
         filters: { team_id: activeTeam.id, is_active: true },
       });
     },
-    enabled: !!activeTeam && todaySessions.length > 0,
+    enabled: !!activeTeam && (todaySessions.length > 0 || practiceActive),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -831,7 +899,7 @@ export default function HomePage() {
     };
   }, [recentPracticePlan]);
 
-  // Live observation count for the active practice session
+  // Live observation count + observed player IDs for the active practice session
   const { data: sessionObsStats } = useQuery({
     queryKey: ['session-obs-count', practiceSessionId],
     queryFn: async () => {
@@ -842,8 +910,8 @@ export default function HomePage() {
         filters: { session_id: practiceSessionId },
       });
       if (!obs) return null;
-      const players = new Set(obs.filter((o) => o.player_id).map((o) => o.player_id)).size;
-      return { count: obs.length, players };
+      const observedIds = [...new Set(obs.filter((o) => o.player_id).map((o) => o.player_id as string))];
+      return { count: obs.length, players: observedIds.length, observedIds };
     },
     enabled: !!practiceSessionId && practiceActive,
     refetchInterval: 30_000,
@@ -980,6 +1048,15 @@ export default function HomePage() {
               </Link>
             )}
           </div>
+
+          {/* Live Player Coverage Grid — who's been observed this session */}
+          {rosterPlayers.length > 0 && (
+            <LiveCoverageGrid
+              players={rosterPlayers}
+              observedIds={sessionObsStats?.observedIds ?? []}
+              sessionId={practiceSessionId ?? ''}
+            />
+          )}
         </div>
       ) : todaySessions.length > 0 ? (
         <TodaySessionCard
