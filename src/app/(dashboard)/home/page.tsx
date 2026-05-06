@@ -1121,30 +1121,36 @@ export default function HomePage() {
           </>
         ) : (
           <>
-            <Card>
-              <CardContent className="p-3 sm:p-4 text-center">
-                <p className="text-2xl sm:text-3xl font-bold text-orange-500">
-                  {stats?.players ?? 0}
-                </p>
-                <p className="text-xs text-zinc-400 mt-1">Players</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-3 sm:p-4 text-center">
-                <p className="text-2xl sm:text-3xl font-bold text-blue-500">
-                  {stats?.observations ?? 0}
-                </p>
-                <p className="text-xs text-zinc-400 mt-1">Observations</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-3 sm:p-4 text-center">
-                <p className="text-2xl sm:text-3xl font-bold text-emerald-500">
-                  {stats?.sessions ?? 0}
-                </p>
-                <p className="text-xs text-zinc-400 mt-1">Sessions</p>
-              </CardContent>
-            </Card>
+            <Link href="/roster">
+              <Card className="cursor-pointer transition-colors hover:border-orange-500/40 active:scale-[0.97] touch-manipulation">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <p className="text-2xl sm:text-3xl font-bold text-orange-500">
+                    {stats?.players ?? 0}
+                  </p>
+                  <p className="text-xs text-zinc-400 mt-1">Players</p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/observations">
+              <Card className="cursor-pointer transition-colors hover:border-blue-500/40 active:scale-[0.97] touch-manipulation">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <p className="text-2xl sm:text-3xl font-bold text-blue-500">
+                    {stats?.observations ?? 0}
+                  </p>
+                  <p className="text-xs text-zinc-400 mt-1">Observations</p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/sessions">
+              <Card className="cursor-pointer transition-colors hover:border-emerald-500/40 active:scale-[0.97] touch-manipulation">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <p className="text-2xl sm:text-3xl font-bold text-emerald-500">
+                    {stats?.sessions ?? 0}
+                  </p>
+                  <p className="text-xs text-zinc-400 mt-1">Sessions</p>
+                </CardContent>
+              </Card>
+            </Link>
           </>
         )}
       </div>
