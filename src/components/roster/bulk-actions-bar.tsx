@@ -19,7 +19,7 @@ type ActionState = 'idle' | 'loading' | 'success' | 'error';
 export function BulkActionsBar({ selectedPlayers, teamId, coachId, onClear }: BulkActionsBarProps) {
   const [obsModal, setObsModal] = useState(false);
   const [obsText, setObsText] = useState('');
-  const [obsSentiment, setObsSentiment] = useState<'positive' | 'neutral' | 'needs_work'>('neutral');
+  const [obsSentiment, setObsSentiment] = useState<'positive' | 'neutral' | 'needs-work'>('neutral');
   const [obsCategory, setObsCategory] = useState('general');
   const [obsState, setObsState] = useState<ActionState>('idle');
   const [obsMessage, setObsMessage] = useState('');
@@ -195,22 +195,25 @@ export function BulkActionsBar({ selectedPlayers, teamId, coachId, onClear }: Bu
                 className="flex-1 h-10 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
               >
                 <option value="general">General</option>
+                <option value="shooting">Shooting</option>
                 <option value="defense">Defense</option>
-                <option value="offense">Offense</option>
-                <option value="physical">Physical</option>
-                <option value="mental">Mental</option>
+                <option value="dribbling">Ball Handling</option>
+                <option value="passing">Passing</option>
+                <option value="hustle">Hustle</option>
+                <option value="awareness">Court Vision</option>
                 <option value="teamwork">Teamwork</option>
-                <option value="skill">Skill</option>
+                <option value="footwork">Footwork</option>
+                <option value="leadership">Leadership</option>
               </select>
               <select
                 aria-label="Observation sentiment"
                 value={obsSentiment}
-                onChange={(e) => setObsSentiment(e.target.value as any)}
+                onChange={(e) => setObsSentiment(e.target.value as 'positive' | 'neutral' | 'needs-work')}
                 className="flex-1 h-10 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
               >
                 <option value="positive">Positive</option>
                 <option value="neutral">Neutral</option>
-                <option value="needs_work">Needs Work</option>
+                <option value="needs-work">Needs Work</option>
               </select>
             </div>
 
