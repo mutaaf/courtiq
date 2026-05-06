@@ -22,6 +22,7 @@ export default function FirstCapturePage() {
   const voice = useVoiceInput();
   const [phase, setPhase] = useState<Phase>('idle');
   const [observations, setObservations] = useState<Observation[]>([]);
+  const [teamId, setTeamId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
   const startedAtRef = useRef<number | null>(null);
@@ -41,14 +42,27 @@ export default function FirstCapturePage() {
     trackEvent('onboarding_first_capture_viewed');
   }, []);
 
-  async function complete() {
+  async function complete(obsToSave?: Observation[]) {
     setFinishing(true);
+    // Save observations captured during onboarding so the dashboard has real data
+    const obs = obsToSave ?? observations;
+    if (obs.length > 0 && teamId) {
+      try {
+        await fetch('/api/auth/save-onboarding-observations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ teamId, observations: obs }),
+        });
+      } catch {
+        // Best-effort — don't block navigation on save failure
+      }
+    }
     try {
       await fetch('/api/auth/complete-onboarding', { method: 'POST' });
     } catch {}
     trackEvent('onboarding_completed', {
       via: 'first_capture',
-      had_observation: observations.length > 0,
+      had_observation: obs.length > 0,
     });
     router.push('/home');
     router.refresh();
@@ -79,9 +93,9 @@ export default function FirstCapturePage() {
       // Find the coach's first team for the segmentation context.
       const teamRes = await fetch('/api/auth/me-team').catch(() => null);
       const teamData = teamRes && teamRes.ok ? await teamRes.json() : null;
-      const teamId: string | null = teamData?.teamId ?? null;
+      const resolvedTeamId: string | null = teamData?.teamId ?? null;
 
-      if (!teamId) {
+      if (!resolvedTeamId) {
         // No team yet — this shouldn't happen if /onboarding/setup ran. Skip
         // gracefully into the dashboard so the coach isn't blocked.
         setError(null);
@@ -89,10 +103,13 @@ export default function FirstCapturePage() {
         return;
       }
 
+      // Store teamId so complete() can save the observations
+      setTeamId(resolvedTeamId);
+
       const res = await fetch('/api/ai/segment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript, teamId }),
+        body: JSON.stringify({ transcript, teamId: resolvedTeamId }),
       });
 
       if (!res.ok) {
@@ -144,7 +161,7 @@ export default function FirstCapturePage() {
           {phase === 'success' ? (
             <SuccessView
               observations={observations}
-              onContinue={complete}
+              onContinue={() => complete(observations)}
               loading={finishing}
             />
           ) : (
@@ -268,8 +285,8 @@ function SuccessView({
       </div>
       <h1 className="mt-4 text-2xl font-bold text-zinc-100">You just made an observation.</h1>
       <p className="mt-2 text-sm text-zinc-400 max-w-sm">
-        That&apos;s the entire workflow. Do this during practice and the rest of SportsIQ
-        builds on top of it — plans, reports, parent updates.
+        These are saved to your team&apos;s record. Do this at every practice and SportsIQ
+        builds plans, reports, and parent updates from your notes automatically.
       </p>
 
       <div className="mt-6 w-full space-y-2 text-left">
@@ -310,9 +327,17 @@ function SuccessView({
         disabled={loading}
         className="mt-6 w-full"
       >
-        {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-        You&apos;re all set
-        <ChevronRight className="h-4 w-4" />
+        {loading ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Saving observations…
+          </>
+        ) : (
+          <>
+            Save &amp; go to dashboard
+            <ChevronRight className="h-4 w-4" />
+          </>
+        )}
       </Button>
     </>
   );
