@@ -3520,6 +3520,12 @@ export default function SessionDetailPage() {
       <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
         <span className="shrink-0 text-[11px] font-medium text-zinc-600 mr-0.5">Jump to:</span>
         <button
+          onClick={() => document.getElementById('team-talk-section')?.scrollIntoView({ behavior: 'smooth' })}
+          className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-orange-500/50 hover:text-orange-400 transition-colors touch-manipulation active:scale-95"
+        >
+          🎙 Team Talk
+        </button>
+        <button
           onClick={() => document.getElementById('ai-debrief-section')?.scrollIntoView({ behavior: 'smooth' })}
           className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-orange-500/50 hover:text-orange-400 transition-colors touch-manipulation active:scale-95"
         >
@@ -3559,6 +3565,14 @@ export default function SessionDetailPage() {
         >
           📣 Group Chat
         </button>
+        {(session.type === 'practice' || session.type === 'training') && (
+          <button
+            onClick={() => document.getElementById('huddle-script-section')?.scrollIntoView({ behavior: 'smooth' })}
+            className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-lime-500/50 hover:text-lime-400 transition-colors touch-manipulation active:scale-95"
+          >
+            🟢 Huddle Script
+          </button>
+        )}
       </div>
 
       {/* Practice Complete Banner — shown when arriving from practice timer */}
@@ -3628,10 +3642,12 @@ export default function SessionDetailPage() {
 
       {/* Opening Team Talk — AI-written motivational script for any session */}
       {activeTeam && (
-        <TeamTalkCard
-          sessionId={sessionId}
-          teamId={activeTeam.id}
-        />
+        <div id="team-talk-section">
+          <TeamTalkCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+          />
+        </div>
       )}
 
       {/* Observations */}
@@ -3859,11 +3875,13 @@ export default function SessionDetailPage() {
 
       {/* Huddle Script — 30-second end-of-practice script to read to the team */}
       {activeTeam && (
-        <HuddleScriptCard
-          sessionId={sessionId}
-          teamId={activeTeam.id}
-          observationCount={observations?.length || 0}
-        />
+        <div id="huddle-script-section">
+          <HuddleScriptCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+            observationCount={observations?.length || 0}
+          />
+        </div>
       )}
 
       {/* Media Upload Section */}
