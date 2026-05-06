@@ -9,8 +9,12 @@ import {
   buildProgressMessage,
   hasEnoughDataForJourney,
   sortSkillsByImprovingFirst,
+  buildWeeklyProgress,
+  hasEnoughDataForWeeklyProgress,
+  isProgressTrending,
+  getWeeklyProgressMax,
 } from '@/lib/skill-journey-utils';
-import type { SkillProgress, ShareObservation } from '@/lib/skill-journey-utils';
+import type { SkillProgress, ShareObservation, WeeklyProgressPoint } from '@/lib/skill-journey-utils';
 import {
   buildGrowthStreakData,
   hasEnoughDataForGrowthStreak,
@@ -172,6 +176,89 @@ function SkillRadarChart({ skills }: { skills: any[] }) {
         );
       })}
     </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Weekly Progress Chart — pure SVG sparkline, server-component safe, light-mode
+// ---------------------------------------------------------------------------
+
+function WeeklyProgressChart({ points, isTrending }: { points: WeeklyProgressPoint[]; isTrending: boolean }) {
+  const BAR_W = 22;
+  const GAP = 5;
+  const CHART_H = 52;
+  const maxVal = getWeeklyProgressMax(points);
+  const totalW = points.length * (BAR_W + GAP) - GAP;
+
+  return (
+    <div>
+      <svg
+        viewBox={`0 0 ${totalW} ${CHART_H}`}
+        width={totalW}
+        height={CHART_H}
+        aria-hidden="true"
+        className="overflow-visible"
+      >
+        {points.map((p, i) => {
+          const x = i * (BAR_W + GAP);
+          const isLatest = i === points.length - 1;
+
+          if (p.positiveCount === 0) {
+            // Tiny grey nub to show the axis exists
+            return (
+              <rect
+                key={i}
+                x={x}
+                y={CHART_H - 3}
+                width={BAR_W}
+                height={3}
+                rx={1.5}
+                fill={isLatest ? '#fdba74' : '#e5e7eb'}
+              />
+            );
+          }
+
+          const barH = Math.max(6, Math.round((p.positiveCount / maxVal) * CHART_H));
+          const y = CHART_H - barH;
+
+          return (
+            <rect
+              key={i}
+              x={x}
+              y={y}
+              width={BAR_W}
+              height={barH}
+              rx={3}
+              fill={isLatest ? '#f97316' : '#fed7aa'}
+            />
+          );
+        })}
+      </svg>
+
+      {/* Week labels */}
+      <div
+        className="flex mt-1"
+        style={{ width: totalW, gap: GAP }}
+      >
+        {points.map((p, i) => (
+          <span
+            key={i}
+            className={`text-center text-[9px] leading-none ${
+              i === points.length - 1 ? 'text-orange-500 font-semibold' : 'text-gray-400'
+            }`}
+            style={{ width: BAR_W, flexShrink: 0 }}
+          >
+            {p.weekLabel}
+          </span>
+        ))}
+      </div>
+
+      {isTrending && (
+        <p className="mt-2 text-xs text-emerald-600 font-medium flex items-center gap-1">
+          <span>↑</span> Positive moments trending up lately!
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -366,6 +453,11 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
   const sortedSkills = sortSkillsByImprovingFirst(safeSkills);
   const showJourney = hasEnoughDataForJourney(safeObs, safeSkills) || (totalObservationCount ?? 0) >= 3;
   const progressMessage = buildProgressMessage(firstName, improvingSkills, totalObservationCount ?? 0);
+
+  // Weekly progress chart — 8-week positive observation sparkline
+  const weeklyPoints = buildWeeklyProgress(safeObs);
+  const showWeeklyProgress = hasEnoughDataForWeeklyProgress(weeklyPoints);
+  const weeklyIsTrending = showWeeklyProgress && isProgressTrending(weeklyPoints);
 
   // Growth streak — computed from session-bucketed observation activity
   const growthObs = safeObs.map((o) => ({
@@ -591,6 +683,24 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
                 Most practised: <span className="font-semibold text-gray-700">{formatCategoryLabel(seasonStats.mostActiveCategory)}</span>
               </p>
             )}
+          </div>
+        )}
+
+        {/* ─── Weekly Progress Chart ─── */}
+        {showWeeklyProgress && (
+          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-lg" aria-hidden="true">📊</span>
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  Positive Moments — Last 8 Weeks
+                </h3>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+              Each bar shows how many positive coaching observations {firstName} received that week.
+            </p>
+            <WeeklyProgressChart points={weeklyPoints} isTrending={weeklyIsTrending} />
           </div>
         )}
 
