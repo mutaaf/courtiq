@@ -25,8 +25,11 @@ import {
   History,
   Star,
   Share2,
+  X,
+  Trophy,
 } from 'lucide-react';
 import type { Session, Plan } from '@/types/database';
+import { buildResultString } from '@/lib/season-record-utils';
 import { useAppStore } from '@/lib/store';
 import { PostPracticeDebrief } from '@/components/capture/post-practice-debrief';
 import Image from 'next/image';
@@ -322,6 +325,149 @@ function UpcomingSessionsCard({
   );
 }
 
+// ─── Log Game Result Card ──────────────────────────────────────────────────────
+
+interface UnrecordedGameSession {
+  id: string;
+  type: string;
+  date: string;
+  opponent: string | null;
+}
+
+function LogGameResultCard({
+  session,
+  onSave,
+  onDismiss,
+}: {
+  session: UnrecordedGameSession;
+  onSave: (sessionId: string, result: string) => Promise<void>;
+  onDismiss: () => void;
+}) {
+  const [outcome, setOutcome] = useState<'win' | 'loss' | 'tie' | null>(null);
+  const [score, setScore] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const GAME_EMOJI: Record<string, string> = { game: '🏀', scrimmage: '⚡', tournament: '🏆' };
+  const GAME_LABEL: Record<string, string> = { game: 'Game', scrimmage: 'Scrimmage', tournament: 'Tournament' };
+  const emoji = GAME_EMOJI[session.type] ?? '🏆';
+  const label = GAME_LABEL[session.type] ?? session.type;
+
+  const daysDiff = Math.round(
+    (Date.now() - new Date(session.date + 'T12:00:00').getTime()) / 86_400_000,
+  );
+  const whenLabel = daysDiff === 0 ? 'today' : daysDiff === 1 ? 'yesterday' : `${daysDiff} days ago`;
+
+  async function handleSave() {
+    if (!outcome) return;
+    setSaving(true);
+    try {
+      await onSave(session.id, buildResultString(outcome, score));
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (saved) {
+    return (
+      <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 flex items-center gap-3">
+        <span className="text-2xl">{outcome === 'win' ? '🏆' : outcome === 'tie' ? '🤝' : '💪'}</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-emerald-300">
+            {outcome === 'win'
+              ? 'Win recorded! Great work, Coach!'
+              : outcome === 'loss'
+                ? 'Noted. Use the AI debrief to plan your bounce-back.'
+                : 'Tie recorded.'}
+          </p>
+          <p className="text-xs text-zinc-500 mt-0.5">Season record updated.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-xl">
+            {emoji}
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-1">
+              <Trophy className="h-3 w-3" />
+              Log Result
+            </p>
+            <p className="text-sm font-medium text-zinc-200">
+              {label}{session.opponent ? ` vs ${session.opponent}` : ''}{' '}
+              <span className="text-zinc-500 font-normal">· {whenLabel}</span>
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={onDismiss}
+          className="shrink-0 rounded-lg p-1.5 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800 transition-colors touch-manipulation"
+          aria-label="Dismiss"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <p className="text-xs text-zinc-400">How did the {label.toLowerCase()} go? Tap to log the result.</p>
+
+      <div className="grid grid-cols-3 gap-2">
+        {(
+          [
+            { value: 'win', letter: 'W', sublabel: 'Win', selected: 'border-emerald-500 bg-emerald-500/20 text-emerald-300', base: 'text-zinc-400' },
+            { value: 'loss', letter: 'L', sublabel: 'Loss', selected: 'border-red-500 bg-red-500/20 text-red-300', base: 'text-zinc-400' },
+            { value: 'tie', letter: 'T', sublabel: 'Tie', selected: 'border-zinc-400 bg-zinc-400/20 text-zinc-200', base: 'text-zinc-400' },
+          ] as const
+        ).map(({ value, letter, sublabel, selected, base }) => (
+          <button
+            key={value}
+            onClick={() => setOutcome(value)}
+            className={`flex flex-col items-center justify-center rounded-xl border py-3 touch-manipulation transition-all active:scale-[0.96] ${
+              outcome === value
+                ? selected
+                : `border-zinc-700 bg-zinc-800/50 ${base} hover:border-zinc-500 hover:text-zinc-200`
+            }`}
+          >
+            <span className="text-2xl font-black leading-none">{letter}</span>
+            <span className="text-[10px] font-medium mt-1 opacity-70">{sublabel}</span>
+          </button>
+        ))}
+      </div>
+
+      {outcome && (
+        <div className="space-y-2">
+          <input
+            type="text"
+            placeholder="Score (optional) — e.g. 42-38"
+            value={score}
+            onChange={(e) => setScore(e.target.value)}
+            className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:border-orange-500/50 focus:outline-none focus:ring-1 focus:ring-orange-500/30"
+          />
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full"
+            size="sm"
+          >
+            {saving
+              ? 'Saving…'
+              : outcome === 'win'
+                ? 'Save Win 🏆'
+                : outcome === 'loss'
+                  ? 'Save Loss'
+                  : 'Save Tie 🤝'}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Last Session Card ─────────────────────────────────────────────────────────
 
 const SESSION_EMOJI: Record<string, string> = {
@@ -607,6 +753,45 @@ export default function HomePage() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Recent game session with no result logged — powers the "Log Game Result" card
+  const { data: recentUnrecordedGame, refetch: refetchUnrecordedGame } = useQuery({
+    queryKey: ['home-unrecorded-game', activeTeam?.id],
+    queryFn: async () => {
+      if (!activeTeam) return null;
+      const twoDaysAgo = new Date(Date.now() - 48 * 3_600_000).toISOString().split('T')[0];
+      const sessions = await query<UnrecordedGameSession[]>({
+        table: 'sessions',
+        select: 'id, type, date, opponent',
+        filters: {
+          team_id: activeTeam.id,
+          type: { op: 'in', value: ['game', 'scrimmage', 'tournament'] },
+          result: null,
+          date: { op: 'gte', value: twoDaysAgo },
+        },
+        order: { column: 'date', ascending: false },
+        limit: 1,
+      });
+      return sessions?.[0] ?? null;
+    },
+    enabled: !!activeTeam && !practiceActive,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const [dismissedGameId, setDismissedGameId] = useState<string | null>(null);
+
+  async function handleSaveGameResult(sessionId: string, result: string) {
+    await mutate({
+      table: 'sessions',
+      operation: 'update',
+      filters: { id: sessionId },
+      data: { result },
+    });
+    setTimeout(() => {
+      setDismissedGameId(sessionId);
+      refetchUnrecordedGame();
+    }, 2000);
+  }
+
   // Most recent practice plan (last 7 days) — powers the "Run last plan" CTA
   const { data: recentPracticePlan } = useQuery({
     queryKey: ['home-recent-practice-plan', activeTeam?.id],
@@ -828,6 +1013,15 @@ export default function HomePage() {
             </button>
           )}
         </div>
+      )}
+
+      {/* Log Game Result — surfaces when a game/scrimmage/tournament session has no result logged */}
+      {recentUnrecordedGame && recentUnrecordedGame.id !== dismissedGameId && (
+        <LogGameResultCard
+          session={recentUnrecordedGame}
+          onSave={handleSaveGameResult}
+          onDismiss={() => setDismissedGameId(recentUnrecordedGame.id)}
+        />
       )}
 
       {/* Quick actions */}
