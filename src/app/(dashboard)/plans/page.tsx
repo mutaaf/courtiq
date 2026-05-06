@@ -55,6 +55,7 @@ import {
   Fingerprint,
   Mic,
   Award,
+  Search,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { PrintButton } from '@/components/ui/print-button';
@@ -442,8 +443,9 @@ export default function PlansPage() {
   const [arcEvent, setArcEvent] = useState('');
   const [arcFocus, setArcFocus] = useState('');
 
-  // Plan type filter
+  // Plan type filter + search
   const [planTypeFilter, setPlanTypeFilter] = useState<string | null>(null);
+  const [planSearch, setPlanSearch] = useState('');
 
   // Run Practice modal state
   const [showRunModal, setShowRunModal] = useState(false);
@@ -495,9 +497,19 @@ export default function PlansPage() {
 
   const filteredPlans = useMemo(() => {
     if (!plans) return [];
-    if (!planTypeFilter) return plans;
-    return plans.filter((p) => p.type === planTypeFilter);
-  }, [plans, planTypeFilter]);
+    let result = plans;
+    if (planTypeFilter) {
+      result = result.filter((p) => p.type === planTypeFilter);
+    }
+    const q = planSearch.trim().toLowerCase();
+    if (q) {
+      result = result.filter((p) => {
+        const title = (p.title || PLAN_TYPE_CONFIG[p.type]?.label || '').toLowerCase();
+        return title.includes(q);
+      });
+    }
+    return result;
+  }, [plans, planTypeFilter, planSearch]);
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const { data: todaySessions = [] } = useQuery({
@@ -3716,20 +3728,44 @@ export default function PlansPage() {
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">
             Previous Plans
-            {planTypeFilter && filteredPlans.length > 0 && (
+            {(planTypeFilter || planSearch.trim()) && filteredPlans.length > 0 && (
               <span className="ml-1.5 text-zinc-500 normal-case font-normal">({filteredPlans.length})</span>
             )}
           </h2>
-          {planTypeFilter && (
+          {(planTypeFilter || planSearch.trim()) && (
             <button
-              onClick={() => setPlanTypeFilter(null)}
+              onClick={() => { setPlanTypeFilter(null); setPlanSearch(''); }}
               className="text-xs text-orange-400 hover:text-orange-300 font-medium transition-colors"
-              aria-label="Clear plan type filter"
+              aria-label="Clear filters"
             >
-              Clear filter
+              Clear all
             </button>
           )}
         </div>
+
+        {/* Search input — shown when there are enough plans to warrant searching */}
+        {!isLoading && (plans?.length ?? 0) > 5 && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 pointer-events-none" aria-hidden />
+            <input
+              type="search"
+              value={planSearch}
+              onChange={(e) => setPlanSearch(e.target.value)}
+              placeholder="Search plans by name…"
+              aria-label="Search plans"
+              className="w-full rounded-lg bg-zinc-900 border border-zinc-800 pl-9 pr-8 py-2 text-sm text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
+            />
+            {planSearch && (
+              <button
+                onClick={() => setPlanSearch('')}
+                aria-label="Clear search"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Type filter chips — only shown when there are 2+ plan types */}
         {!isLoading && planTypeOptions.length >= 2 && (
@@ -3779,10 +3815,12 @@ export default function PlansPage() {
           <Card className="border-dashed border-zinc-700">
             <CardContent className="flex flex-col items-center justify-center py-10">
               <p className="text-zinc-500 text-sm text-center">
-                No {planTypeFilter && PLAN_TYPE_CONFIG[planTypeFilter] ? PLAN_TYPE_CONFIG[planTypeFilter].label : ''} plans yet.
+                {planSearch.trim()
+                  ? `No plans matching "${planSearch.trim()}".`
+                  : `No ${planTypeFilter && PLAN_TYPE_CONFIG[planTypeFilter] ? PLAN_TYPE_CONFIG[planTypeFilter].label : ''} plans yet.`}
               </p>
               <button
-                onClick={() => setPlanTypeFilter(null)}
+                onClick={() => { setPlanTypeFilter(null); setPlanSearch(''); }}
                 className="mt-2 text-xs text-orange-400 hover:text-orange-300 font-medium transition-colors"
               >
                 Show all plans
