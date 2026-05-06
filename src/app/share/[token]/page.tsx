@@ -1,6 +1,7 @@
 import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { ParentViralCTA } from '@/components/share/parent-viral-cta';
 import { ParentReactionForm } from '@/components/share/parent-reaction-form';
+import { PortalFamilyShare } from '@/components/share/portal-family-share';
 import { Megaphone, MessageCircle } from 'lucide-react';
 import {
   buildSeasonStats,
@@ -552,6 +553,16 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
               )}
             </p>
           </div>
+        </div>
+
+        {/* ─── Share with Family ─── */}
+        <div className="mx-4 mt-3">
+          <PortalFamilyShare
+            playerName={firstName}
+            teamName={teamName}
+            coachName={coachName}
+            shareToken={token}
+          />
         </div>
 
         {/* ─── Coach's Latest Session Update ─── */}
