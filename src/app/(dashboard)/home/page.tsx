@@ -27,6 +27,7 @@ import {
   Share2,
   X,
   Trophy,
+  BarChart2,
 } from 'lucide-react';
 import type { Session, Plan } from '@/types/database';
 import { buildResultString } from '@/lib/season-record-utils';
@@ -184,14 +185,21 @@ function TodaySessionCard({
             Open Session
           </Button>
         </Link>
-        {session.type === 'practice' && (
+        {session.type === 'practice' || session.type === 'training' ? (
           <Link href={`/sessions/${session.id}/timer`}>
             <Button size="sm" variant="outline" className="shrink-0 gap-1.5">
               <Timer className="h-4 w-4" />
               Timer
             </Button>
           </Link>
-        )}
+        ) : ['game', 'scrimmage', 'tournament'].includes(session.type) ? (
+          <Link href={`/sessions/${session.id}/game-tracker`}>
+            <Button size="sm" variant="outline" className="shrink-0 gap-1.5 border-blue-500/40 text-blue-400 hover:bg-blue-500/10 hover:text-blue-300">
+              <BarChart2 className="h-4 w-4" />
+              Stats
+            </Button>
+          </Link>
+        ) : null}
         <Link href={`/capture?sessionId=${session.id}`}>
           <Button size="sm" variant="outline" className="shrink-0" aria-label="Capture observation">
             <Mic className="h-4 w-4" />

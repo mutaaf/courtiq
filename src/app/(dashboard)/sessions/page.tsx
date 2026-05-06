@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { CACHE_PROFILES } from '@/lib/query/config';
@@ -10,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2, Star } from 'lucide-react';
+import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2, Star, Timer, BarChart2 } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { RecurringSessionsPanel } from '@/components/sessions/recurring-sessions-panel';
@@ -63,6 +64,7 @@ const RESULT_BUTTONS: { outcome: ResultValue; label: string; classes: string }[]
 export default function SessionsPage() {
   const { activeTeam } = useActiveTeam();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [typeFilter, setTypeFilter] = useState<SessionType | 'all'>('all');
   // Optimistic result overrides keyed by session ID
   const [localResults, setLocalResults] = useState<Record<string, string>>({});
@@ -307,6 +309,27 @@ export default function SessionsPage() {
                               />
                             ))}
                           </div>
+                        )}
+                        {/* Quick-action shortcut — stopPropagation prevents outer card Link from also firing */}
+                        {(session.type === 'practice' || session.type === 'training') && (
+                          <button
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/sessions/${session.id}/timer`); }}
+                            className="flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[11px] font-medium text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 transition-colors touch-manipulation"
+                            aria-label="Open practice timer"
+                          >
+                            <Timer className="h-3 w-3" />
+                            Timer
+                          </button>
+                        )}
+                        {isGame && (
+                          <button
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/sessions/${session.id}/game-tracker`); }}
+                            className="flex items-center gap-1 rounded-md border border-blue-500/30 bg-blue-500/5 px-2 py-0.5 text-[11px] font-medium text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 transition-colors touch-manipulation"
+                            aria-label="Open game stats tracker"
+                          >
+                            <BarChart2 className="h-3 w-3" />
+                            Stats
+                          </button>
                         )}
                       </div>
                     </div>
