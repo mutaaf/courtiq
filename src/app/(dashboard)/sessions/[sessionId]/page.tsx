@@ -4155,7 +4155,7 @@ export default function SessionDetailPage() {
 
           {/* Template chips */}
           <div className="flex flex-wrap gap-2">
-            {getTemplatesBySentiment(qoSentiment).slice(0, 8).map((t) => (
+            {getTemplatesBySentiment(qoSentiment, activeTeam?.sport_id ?? undefined).slice(0, 8).map((t) => (
               <button
                 key={t.id}
                 onClick={() => { setQoTemplate(qoTemplate === t.id ? null : t.id); setQoText(''); }}

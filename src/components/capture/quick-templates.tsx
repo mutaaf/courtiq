@@ -32,6 +32,7 @@ interface QuickTemplatesProps {
   coachId: string;
   sessionId?: string | null;
   preselectPlayerId?: string | null;
+  sportId?: string | null;
 }
 
 // ── Sentiment tab ──────────────────────────────────────────────────────────────
@@ -268,13 +269,13 @@ function SuccessToast({ message, onDismiss }: { message: string; onDismiss: () =
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId }: QuickTemplatesProps) {
+export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId, sportId }: QuickTemplatesProps) {
   const [activeTab, setActiveTab] = useState<TemplateSentiment>('positive');
   const [selectedTemplate, setSelectedTemplate] = useState<ObservationTemplate | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [successTimer, setSuccessTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
-  const templates = getTemplatesBySentiment(activeTab);
+  const templates = getTemplatesBySentiment(activeTab, sportId ?? undefined);
 
   const handleTemplateClick = useCallback((template: ObservationTemplate) => {
     setSelectedTemplate(template);

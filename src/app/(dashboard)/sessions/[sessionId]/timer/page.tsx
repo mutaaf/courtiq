@@ -59,7 +59,7 @@ import {
   type TemplateDrill,
 } from '@/lib/practice-templates';
 import { isFavorited } from '@/lib/drill-favorites-utils';
-import { OBSERVATION_TEMPLATES } from '@/lib/observation-templates';
+import { getTemplatesBySentiment, type TemplateSentiment } from '@/lib/observation-templates';
 import {
   getPlayerFocusForCategory,
   hasEnoughObsForFocus,
@@ -166,6 +166,7 @@ function BreakScreen({
   onSkip,
   capturedPlayerIds,
   lastObsByPlayer = {},
+  sportId,
 }: {
   drillJustFinished: string;
   drillCategory?: string;
@@ -175,6 +176,7 @@ function BreakScreen({
   onSkip: () => void;
   capturedPlayerIds?: Set<string>;
   lastObsByPlayer?: Record<string, LastObsInfo>;
+  sportId?: string;
 }) {
   const [note, setNote] = useState('');
   const [selectedPlayer, setSelectedPlayer] = useState<string>('');
@@ -211,7 +213,7 @@ function BreakScreen({
   };
 
   const visibleTemplates = (() => {
-    const bySentiment = OBSERVATION_TEMPLATES.filter((t) => t.sentiment === sentiment);
+    const bySentiment = getTemplatesBySentiment(sentiment as TemplateSentiment, sportId);
     if (!drillCategory) return bySentiment.slice(0, 5);
     const cat = drillCategory.toLowerCase();
     const match = bySentiment.find((t) => t.category.toLowerCase() === cat);
@@ -1650,6 +1652,7 @@ export default function PracticeTimerPage({
         onSkip={handleBreakSkip}
         capturedPlayerIds={capturedPlayerIds}
         lastObsByPlayer={lastObsByPlayer}
+        sportId={activeTeam?.sport_id ?? undefined}
       />
     );
   }

@@ -676,7 +676,7 @@ export default function PlayerDetailPage({
 
   // Quick Observe — templates ordered by player's most-observed categories first
   const qoTemplates = useMemo(() => {
-    const templates = getTemplatesBySentiment(qoSentiment);
+    const templates = getTemplatesBySentiment(qoSentiment, activeTeam?.sport_id ?? undefined);
     const topCats = sortedCategories.slice(0, 4).map(([c]) => c);
     return [
       ...templates.filter((t) => topCats.includes(t.category)),

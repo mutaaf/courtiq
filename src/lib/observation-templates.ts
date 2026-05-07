@@ -41,12 +41,52 @@ export const OBSERVATION_TEMPLATES: ObservationTemplate[] = [
   { id: 'nw-conditioning', text: 'Conditioning concerns',     sentiment: 'needs-work',  category: 'conditioning', emoji: '💪' },
 ];
 
-/** Return only templates with the given sentiment, preserving insertion order. */
+/**
+ * Sport-specific text overrides keyed by sport slug → template id → text.
+ * Only the template text changes; id, category, sentiment, and emoji stay stable
+ * so observations saved with sport-specific wording are still categorised correctly.
+ */
+const SPORT_TEXT_OVERRIDES: Record<string, Partial<Record<string, string>>> = {
+  soccer: {
+    'pos-shooting':  'Great shot on goal',
+    'pos-dribbling': 'Strong ball control',
+    'pos-awareness': 'Smart field vision',
+    'nw-shooting':   'Shot technique needs work',
+    'nw-dribbling':  'Ball control struggles',
+    'nw-awareness':  'Field awareness lacking',
+  },
+  flagfootball: {
+    'pos-shooting':  'Great throw accuracy',
+    'pos-dribbling': 'Good ball-carry technique',
+    'pos-awareness': 'Smart route/coverage read',
+    'nw-shooting':   'Throwing mechanics off',
+    'nw-dribbling':  'Ball security struggles',
+    'nw-awareness':  'Coverage reading lacking',
+  },
+  volleyball: {
+    'pos-shooting':  'Great spike/serve technique',
+    'pos-dribbling': 'Good ball control',
+    'pos-awareness': 'Smart court positioning',
+    'nw-shooting':   'Spike/serve needs work',
+    'nw-dribbling':  'Ball-control struggles',
+    'nw-awareness':  'Positioning/rotation off',
+  },
+};
+
+/**
+ * Return templates with the given sentiment, optionally localised to a sport.
+ * Pass `sportId` (e.g. `activeTeam.sport_id`) to get sport-appropriate language.
+ */
 export function getTemplatesBySentiment(
   sentiment: TemplateSentiment,
-  _sportId?: string
+  sportId?: string
 ): ObservationTemplate[] {
-  return OBSERVATION_TEMPLATES.filter((t) => t.sentiment === sentiment);
+  const base = OBSERVATION_TEMPLATES.filter((t) => t.sentiment === sentiment);
+  const overrides = sportId ? SPORT_TEXT_OVERRIDES[sportId.toLowerCase()] : undefined;
+  if (!overrides) return base;
+  return base.map((t) =>
+    overrides[t.id] ? { ...t, text: overrides[t.id]! } : t
+  );
 }
 
 /** Look up a single template by its stable id. Returns undefined if not found. */
