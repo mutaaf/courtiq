@@ -648,9 +648,11 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         {featuredHighlight && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-lg">{'\u2728'}</span>
+              <span className="text-lg" aria-hidden="true">
+                {featuredHighlight.is_highlighted ? '\u2b50' : '\u2728'}
+              </span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                This Week&apos;s Highlight
+                {featuredHighlight.is_highlighted ? "Coach's Pick" : 'Recent Highlight'}
               </h3>
             </div>
             <p className="text-base leading-relaxed text-gray-800 italic">
@@ -1065,27 +1067,31 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         )}
 
         {/* ─── Recent Highlights (additional) ─── */}
-        {highlights && highlights.length > 1 && (
-          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
-            <div className="mb-3 flex items-center gap-2">
-              <span className="text-lg">{'\u{1F4DD}'}</span>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                Recent Observations
-              </h3>
+        {highlights && highlights.length > 1 && (() => {
+          const additionalObs = highlights.slice(1, 6);
+          const hasStarred = additionalObs.some((o: any) => o.is_highlighted);
+          return (
+            <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="text-lg" aria-hidden="true">{hasStarred ? '⭐' : '📝'}</span>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  {hasStarred ? "More Coaching Highlights" : "Recent Observations"}
+                </h3>
+              </div>
+              <div className="space-y-3">
+                {additionalObs.map((obs: any, i: number) => (
+                  <div key={i} className={`border-l-2 pl-3 ${obs.is_highlighted ? 'border-amber-300' : 'border-gray-200'}`}>
+                    <p className="text-sm text-gray-700">{obs.text}</p>
+                    <p className="mt-0.5 text-xs text-gray-400">
+                      {obs.category && <>{obs.category} &middot; </>}
+                      {new Date(obs.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="space-y-3">
-              {highlights.slice(1, 6).map((obs: any, i: number) => (
-                <div key={i} className="border-l-2 border-gray-200 pl-3">
-                  <p className="text-sm text-gray-700">{obs.text}</p>
-                  <p className="mt-0.5 text-xs text-gray-400">
-                    {obs.category && <>{obs.category} &middot; </>}
-                    {new Date(obs.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ─── Coach's Note ─── */}
         {(customMessage || reportCard?.coach_message) && (

@@ -111,13 +111,15 @@ export async function GET(
     if (share.include_highlights || share.include_observations) {
       const { data: observations } = await supabase
         .from('observations')
-        .select('category, sentiment, text, created_at')
+        .select('category, sentiment, text, created_at, is_highlighted')
         .eq('player_id', share.player_id)
         .eq('sentiment', 'positive')
+        // Starred observations bubble to the top so the coach's curated pick
+        // becomes the featured highlight and leads the list on the parent portal.
+        .order('is_highlighted', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(20);
       reportData.highlights = observations || [];
-      // Pick the most recent positive observation as the featured highlight
       if (observations && observations.length > 0) {
         reportData.featuredHighlight = observations[0];
       }
