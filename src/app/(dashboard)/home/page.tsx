@@ -28,6 +28,7 @@ import {
   X,
   Trophy,
   BarChart2,
+  MessageSquare,
 } from 'lucide-react';
 import type { Session, Plan } from '@/types/database';
 import { buildResultString } from '@/lib/season-record-utils';
@@ -579,39 +580,62 @@ function LastSessionCard({ session }: {
 
   return (
     <Card className="border-zinc-800">
-      <CardContent className="flex items-center gap-3 p-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-lg">
-          {emoji}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
-            Last session · {dateLabel}
-          </p>
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-semibold text-zinc-200">{label}</p>
-            {hasRating && (
-              <div className="flex items-center gap-0.5" title={`Rated ${rating}/5`}>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`h-3 w-3 ${i < rating! ? 'text-amber-400 fill-amber-400' : 'text-zinc-700'}`}
-                  />
-                ))}
-              </div>
-            )}
+      <CardContent className="p-4 space-y-3">
+        {/* Session info row */}
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-lg">
+            {emoji}
           </div>
-          <p className="text-xs text-zinc-500 mt-0.5">
-            {obsCount > 0
-              ? `${obsCount} observation${obsCount !== 1 ? 's' : ''} captured`
-              : 'No observations — tap to add'}
-          </p>
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+              Last session · {dateLabel}
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-semibold text-zinc-200">{label}</p>
+              {hasRating && (
+                <div className="flex items-center gap-0.5" title={`Rated ${rating}/5`}>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`h-3 w-3 ${i < rating! ? 'text-amber-400 fill-amber-400' : 'text-zinc-700'}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              {obsCount > 0
+                ? `${obsCount} observation${obsCount !== 1 ? 's' : ''} captured`
+                : 'No observations — tap to add'}
+            </p>
+          </div>
+          <Link href={`/sessions/${session.id}`} className="shrink-0">
+            <Button size="sm" variant="outline" className="gap-1">
+              <History className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">View</span>
+            </Button>
+          </Link>
         </div>
-        <Link href={`/sessions/${session.id}`} className="shrink-0">
-          <Button size="sm" variant="outline" className="gap-1.5">
-            <History className="h-3.5 w-3.5" />
-            View
-          </Button>
-        </Link>
+
+        {/* Quick-action CTAs — shown when there are observations to act on */}
+        {obsCount > 0 && (
+          <div className="flex gap-2">
+            <Link
+              href={`/sessions/${session.id}#player-messages-section`}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-teal-500/25 bg-teal-500/8 px-3 py-2 text-xs font-medium text-teal-300 hover:bg-teal-500/15 transition-colors touch-manipulation active:scale-[0.97]"
+            >
+              <MessageSquare className="h-3.5 w-3.5 shrink-0" />
+              Parent Updates
+            </Link>
+            <Link
+              href={`/sessions/${session.id}#ai-debrief-section`}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-blue-500/25 bg-blue-500/8 px-3 py-2 text-xs font-medium text-blue-300 hover:bg-blue-500/15 transition-colors touch-manipulation active:scale-[0.97]"
+            >
+              <Sparkles className="h-3.5 w-3.5 shrink-0" />
+              AI Debrief
+            </Link>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
