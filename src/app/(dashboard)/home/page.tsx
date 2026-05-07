@@ -54,6 +54,7 @@ import { PlayerBreakthroughCard } from '@/components/home/player-breakthrough-ca
 import { PlayerOnARollCard } from '@/components/home/player-on-a-roll-card';
 import { StrugglingPlayerCard } from '@/components/home/struggling-player-card';
 import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot-card';
+import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
 
 // ─── Live Coverage Grid ────────────────────────────────────────────────────────
 
@@ -1323,6 +1324,16 @@ export default function HomePage() {
 
       {/* Team Wins Feed — recent badges + achieved goals */}
       {activeTeam && <TeamWinsCard teamId={activeTeam.id} />}
+
+      {/* Weekly Wrap — one-tap parent group chat update from this week's data */}
+      {activeTeam && stats && stats.observations >= 5 && coach && (
+        <WeeklyWrapCard
+          teamId={activeTeam.id}
+          teamName={activeTeam.name}
+          coachName={coach.full_name}
+          totalPlayerCount={stats.players}
+        />
+      )}
 
       {/* Player Breakthrough — celebrates when a player flips from needs-work to improving */}
       {activeTeam && stats && stats.observations >= 5 && (
