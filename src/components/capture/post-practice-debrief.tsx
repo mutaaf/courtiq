@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import Link from 'next/link';
+import { getRatingLabel, getRatingColor, type QualityRating } from '@/lib/session-quality-utils';
 
 interface Props {
   sessionId: string;
@@ -82,6 +83,8 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
   const [savedSummary, setSavedSummary] = useState<SavedSummary | null>(null);
   const [sessionObservedIds, setSessionObservedIds] = useState<Set<string>>(new Set());
   const [parentMsgShared, setParentMsgShared] = useState(false);
+  const [qualityRating, setQualityRating] = useState<QualityRating | null>(null);
+  const [ratingSaved, setRatingSaved] = useState(false);
 
   useEffect(() => {
     if (!activeTeam?.id) return;
@@ -279,6 +282,17 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
     }
     setParentMsgShared(true);
     setTimeout(() => setParentMsgShared(false), 2500);
+  }
+
+  async function handleQualityRating(rating: QualityRating) {
+    setQualityRating(rating);
+    setRatingSaved(false);
+    try {
+      await mutate({ table: 'sessions', operation: 'update', data: { quality_rating: rating }, filters: { id: sessionId } });
+      setRatingSaved(true);
+    } catch {
+      // silent — rating is best-effort, never blocks the done screen
+    }
   }
 
   return (
@@ -499,6 +513,34 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                     {' '}AI debrief is generating in the background.
                   </p>
                 </div>
+              </div>
+
+              {/* Quality rating — 1–5 stars, saves silently, feeds analytics */}
+              <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 px-4 py-3.5 space-y-2.5">
+                <p className="text-center text-sm font-medium text-zinc-300">How did practice go?</p>
+                <div className="flex justify-center gap-2">
+                  {([1, 2, 3, 4, 5] as QualityRating[]).map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => handleQualityRating(n)}
+                      aria-label={`Rate practice ${n} star${n !== 1 ? 's' : ''}`}
+                      className="p-1.5 touch-manipulation active:scale-90 transition-transform"
+                    >
+                      <Star
+                        className={`h-7 w-7 transition-colors ${
+                          qualityRating !== null && n <= qualityRating
+                            ? 'fill-amber-400 text-amber-400'
+                            : 'text-zinc-600 hover:text-amber-400'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+                {qualityRating !== null && (
+                  <p className={`text-center text-sm font-semibold ${getRatingColor(qualityRating)}`}>
+                    {getRatingLabel(qualityRating)}{ratingSaved ? ' ✓' : ''}
+                  </p>
+                )}
               </div>
 
               {/* Quick parent update — pre-built WhatsApp/SMS message, zero AI */}
