@@ -236,6 +236,10 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
       .slice(0, 2)
       .map((c) => c.charAt(0).toUpperCase() + c.slice(1).replace(/_/g, ' '));
 
+    const standoutFirstNames = selectedPlayers
+      .map((id) => players.find((p) => p.id === id)?.name?.split(' ')[0])
+      .filter((n): n is string => !!n);
+
     const lines: string[] = [];
     lines.push(`📋 Practice update from Coach ${coachFirst}!`);
     lines.push('');
@@ -248,6 +252,15 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
     }
     if (topPositiveCats.length > 0) {
       lines.push(`Highlights today: ${topPositiveCats.join(' & ')}.`);
+    }
+    if (standoutFirstNames.length >= 5) {
+      lines.push(`Great team effort from everyone today! 🌟`);
+    } else if (standoutFirstNames.length >= 2) {
+      const last = standoutFirstNames[standoutFirstNames.length - 1];
+      const rest = standoutFirstNames.slice(0, -1).join(', ');
+      lines.push(`Special shoutout to ${rest} and ${last} for an outstanding effort today! 🌟`);
+    } else if (standoutFirstNames.length === 1) {
+      lines.push(`Special shoutout to ${standoutFirstNames[0]} for an outstanding effort today! 🌟`);
     }
     if (needsWork.length > 0) {
       lines.push('Keep practising at home to stay sharp!');
@@ -494,7 +507,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                   <MessageSquare className="h-4 w-4 text-teal-400 shrink-0" />
                   <p className="text-sm font-semibold text-teal-300">Quick parent update ready</p>
                 </div>
-                <p className="text-xs text-teal-400/70 leading-relaxed whitespace-pre-line line-clamp-4">
+                <p className="text-xs text-teal-400/70 leading-relaxed whitespace-pre-line line-clamp-6">
                   {buildDebriefParentUpdate()}
                 </p>
                 <button
