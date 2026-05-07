@@ -20,3 +20,15 @@ export function shouldShowWrapUpNudge(startIso: string | null, thresholdMin = 40
   if (!startIso) return false;
   return getElapsedMinutes(startIso, nowMs) >= thresholdMin;
 }
+
+// True when the coach has been in practice for thresholdMin or more with no observations captured.
+// Used to surface a gentle "don't forget to observe!" nudge on the home dashboard.
+export function shouldShowCaptureNudge(
+  startIso: string | null,
+  obsCount: number,
+  thresholdMin = 15,
+  nowMs: number = Date.now(),
+): boolean {
+  if (!startIso || obsCount > 0) return false;
+  return getElapsedMinutes(startIso, nowMs) >= thresholdMin;
+}

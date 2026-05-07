@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { query, mutate } from '@/lib/api';
 import { useElapsedTime } from '@/hooks/use-elapsed-time';
-import { shouldShowWrapUpNudge } from '@/lib/elapsed-time-utils';
+import { shouldShowWrapUpNudge, shouldShowCaptureNudge, getElapsedMinutes } from '@/lib/elapsed-time-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -639,6 +639,7 @@ export default function HomePage() {
 
   const elapsedTime = useElapsedTime(practiceActive ? practiceStartedAt : null);
   const showWrapUpNudge = practiceActive && shouldShowWrapUpNudge(practiceStartedAt);
+  const elapsedMinutes = getElapsedMinutes(practiceActive ? practiceStartedAt : null);
 
   async function startPractice() {
     if (!activeTeam || !coach) return;
@@ -918,6 +919,12 @@ export default function HomePage() {
     staleTime: 20_000,
   });
 
+  // Nudge when 15+ minutes into practice with zero observations captured
+  const showCaptureNudge = shouldShowCaptureNudge(
+    practiceActive ? practiceStartedAt : null,
+    sessionObsStats?.count ?? 0,
+  );
+
   // ── No team state ─────────────────────────────────────────────────────────
   if (!activeTeam) {
     return (
@@ -1025,6 +1032,19 @@ export default function HomePage() {
               <span aria-hidden="true">⏰</span>
               <span>{elapsedTime} in — time to start cool-down?</span>
             </div>
+          )}
+
+          {/* Capture nudge — no observations after 15 min; reminds coach to log something */}
+          {showCaptureNudge && (
+            <Link href={practiceSessionId ? `/capture?sessionId=${practiceSessionId}` : '/capture'}>
+              <div className="flex items-center gap-3 rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm font-medium text-orange-300 hover:bg-orange-500/15 transition-colors touch-manipulation active:scale-[0.98]">
+                <Mic className="h-4 w-4 shrink-0 text-orange-400 animate-pulse" />
+                <span className="flex-1">
+                  {elapsedMinutes} min in — no observations yet
+                </span>
+                <span className="shrink-0 text-xs text-orange-500 font-semibold">Capture →</span>
+              </div>
+            </Link>
           )}
 
           {/* Practice quick actions */}

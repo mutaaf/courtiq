@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatElapsed, getElapsedMinutes, shouldShowWrapUpNudge } from '@/lib/elapsed-time-utils';
+import { formatElapsed, getElapsedMinutes, shouldShowWrapUpNudge, shouldShowCaptureNudge } from '@/lib/elapsed-time-utils';
 
 const now = new Date('2026-05-05T15:00:00Z').getTime();
 
@@ -79,5 +79,40 @@ describe('shouldShowWrapUpNudge', () => {
   it('respects custom threshold', () => {
     expect(shouldShowWrapUpNudge(agoMs(29), 30, now)).toBe(false);
     expect(shouldShowWrapUpNudge(agoMs(30), 30, now)).toBe(true);
+  });
+});
+
+describe('shouldShowCaptureNudge', () => {
+  it('returns false for null start', () => {
+    expect(shouldShowCaptureNudge(null, 0, 15, now)).toBe(false);
+  });
+
+  it('returns false when observations already exist', () => {
+    expect(shouldShowCaptureNudge(agoMs(20), 1, 15, now)).toBe(false);
+    expect(shouldShowCaptureNudge(agoMs(20), 5, 15, now)).toBe(false);
+  });
+
+  it('returns false before threshold even with no observations', () => {
+    expect(shouldShowCaptureNudge(agoMs(14), 0, 15, now)).toBe(false);
+    expect(shouldShowCaptureNudge(agoMs(0), 0, 15, now)).toBe(false);
+  });
+
+  it('returns true at exactly the threshold with no observations', () => {
+    expect(shouldShowCaptureNudge(agoMs(15), 0, 15, now)).toBe(true);
+  });
+
+  it('returns true past threshold with no observations', () => {
+    expect(shouldShowCaptureNudge(agoMs(25), 0, 15, now)).toBe(true);
+    expect(shouldShowCaptureNudge(agoMs(45), 0, 15, now)).toBe(true);
+  });
+
+  it('respects custom threshold', () => {
+    expect(shouldShowCaptureNudge(agoMs(9), 0, 10, now)).toBe(false);
+    expect(shouldShowCaptureNudge(agoMs(10), 0, 10, now)).toBe(true);
+  });
+
+  it('returns false once obs count becomes positive, even past threshold', () => {
+    expect(shouldShowCaptureNudge(agoMs(30), 0, 15, now)).toBe(true);
+    expect(shouldShowCaptureNudge(agoMs(30), 1, 15, now)).toBe(false);
   });
 });
