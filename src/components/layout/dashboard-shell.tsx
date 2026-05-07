@@ -93,6 +93,8 @@ export function DashboardShell({ coach, children }: Props) {
   const [selectedTemplate, setSelectedTemplate] = useState<ObservationTemplate | null>(null);
   const [practiceRoster, setPracticeRoster] = useState<{ id: string; name: string; jersey_number: number | null }[]>([]);
   const [savingQuick, setSavingQuick] = useState(false);
+  // Track which players have already been observed in the current session
+  const [sessionObservedIds, setSessionObservedIds] = useState<Set<string>>(new Set());
 
   // Identify the signed-in coach to PostHog so events tie to a person
   useEffect(() => {
@@ -134,7 +136,12 @@ export function DashboardShell({ coach, children }: Props) {
     return () => clearInterval(nudgeInterval);
   }, [practiceActive]);
 
-  // Load roster when mini-dropdown opens so the player picker is ready
+  // Clear observed-IDs when the session changes (new practice started)
+  useEffect(() => {
+    setSessionObservedIds(new Set());
+  }, [practiceSessionId]);
+
+  // Load roster + session observation coverage when mini-dropdown opens
   useEffect(() => {
     if (!showPracticeMini || !activeTeam?.id) return;
     query<{ id: string; name: string; jersey_number: number | null }[]>({
@@ -142,7 +149,20 @@ export function DashboardShell({ coach, children }: Props) {
       select: 'id, name, jersey_number',
       filters: { team_id: activeTeam.id, is_active: true },
     }).then((data) => setPracticeRoster(data || []));
-  }, [showPracticeMini, activeTeam?.id]);
+
+    if (!practiceSessionId) return;
+    query<{ player_id: string | null }[]>({
+      table: 'observations',
+      select: 'player_id',
+      filters: { session_id: practiceSessionId },
+      limit: 200,
+    }).then((rows) => {
+      const ids = new Set(
+        (rows ?? []).map((r) => r.player_id).filter(Boolean) as string[]
+      );
+      setSessionObservedIds(ids);
+    });
+  }, [showPracticeMini, activeTeam?.id, practiceSessionId]);
 
   // Reset mini-dropdown state when it closes
   useEffect(() => {
@@ -170,6 +190,7 @@ export function DashboardShell({ coach, children }: Props) {
           source: 'template',
         },
       });
+      setSessionObservedIds((prev) => new Set([...prev, playerId]));
       setMiniStep('saved');
       // Auto-reset so coach can log another observation immediately
       setTimeout(() => {
@@ -469,26 +490,49 @@ export function DashboardShell({ coach, children }: Props) {
               </>
             )}
 
-            {/* Step 2: Player picker */}
+            {/* Step 2: Player picker — unobserved players first */}
             {miniStep === 'player' && (
+              <div className="space-y-2">
+              {sessionObservedIds.size > 0 && (
+                <p className="text-[10px] text-emerald-500">{sessionObservedIds.size} observed this session ✓</p>
+              )}
               <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
                 {practiceRoster.length === 0 ? (
                   <p className="w-full py-3 text-center text-xs text-zinc-500">Loading players…</p>
                 ) : (
-                  practiceRoster.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => saveQuickObservation(p.id)}
-                      disabled={savingQuick}
-                      className="rounded-full bg-zinc-800 border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:border-orange-500/50 hover:text-orange-300 active:scale-95 touch-manipulation disabled:opacity-50"
-                    >
-                      {p.jersey_number != null && (
-                        <span className="mr-1 font-bold text-zinc-500">#{p.jersey_number}</span>
-                      )}
-                      {p.name.split(' ')[0]}
-                    </button>
-                  ))
+                  [...practiceRoster]
+                    .sort((a, b) => {
+                      const aObs = sessionObservedIds.has(a.id);
+                      const bObs = sessionObservedIds.has(b.id);
+                      if (aObs !== bObs) return aObs ? 1 : -1;
+                      return 0;
+                    })
+                    .map((p) => {
+                      const alreadyObserved = sessionObservedIds.has(p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => saveQuickObservation(p.id)}
+                          disabled={savingQuick}
+                          className={cn(
+                            'rounded-full border px-3 py-1.5 text-xs active:scale-95 touch-manipulation disabled:opacity-50 transition-colors',
+                            alreadyObserved
+                              ? 'bg-emerald-950/40 border-emerald-700/40 text-emerald-400/70 hover:border-emerald-600/60 hover:text-emerald-300'
+                              : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-orange-500/50 hover:text-orange-300'
+                          )}
+                        >
+                          {alreadyObserved && (
+                            <span className="mr-1 text-emerald-500">✓</span>
+                          )}
+                          {p.jersey_number != null && (
+                            <span className="mr-1 font-bold text-zinc-500">#{p.jersey_number}</span>
+                          )}
+                          {p.name.split(' ')[0]}
+                        </button>
+                      );
+                    })
                 )}
+              </div>
               </div>
             )}
 
