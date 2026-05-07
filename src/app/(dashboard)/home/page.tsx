@@ -50,6 +50,7 @@ import { WeeklyFocusCard } from '@/components/home/weekly-focus-card';
 import { FreemiumNudge } from '@/components/ui/freemium-nudge';
 import { SeasonalPromo } from '@/components/onboarding/seasonal-promo';
 import { PlayerBreakthroughCard } from '@/components/home/player-breakthrough-card';
+import { PlayerOnARollCard } from '@/components/home/player-on-a-roll-card';
 import { StrugglingPlayerCard } from '@/components/home/struggling-player-card';
 import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot-card';
 
@@ -1305,6 +1306,11 @@ export default function HomePage() {
           teamId={activeTeam.id}
           coachName={coach?.full_name ?? undefined}
         />
+      )}
+
+      {/* Player on a Roll — celebrates a player with positive coaching in 3+ consecutive sessions */}
+      {activeTeam && stats && stats.observations >= 5 && (
+        <PlayerOnARollCard teamId={activeTeam.id} />
       )}
 
       {/* Struggling Player Alert — flags players with repeated needs-work in a skill */}
