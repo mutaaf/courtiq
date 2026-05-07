@@ -1114,7 +1114,7 @@ export default function CapturePage() {
               coachId={coach.id}
               sessionId={urlSessionId}
               preselectPlayerId={urlPlayerId}
-              sportId={activeTeam.sport_id}
+              sportId={(activeTeam as any).sport_slug || undefined}
             />
           </>
         )}

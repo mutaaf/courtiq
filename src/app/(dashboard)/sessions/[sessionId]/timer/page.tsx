@@ -1582,8 +1582,8 @@ export default function PracticeTimerPage({
 
   // ── Practice templates ───────────────────────────────────────────────────
   const availableTemplates = rankTemplates(
-    getTemplatesForSport(activeTeam?.sport_id || ''),
-    activeTeam?.sport_id || '',
+    getTemplatesForSport((activeTeam as any)?.sport_slug || ''),
+    (activeTeam as any)?.sport_slug || '',
     activeTeam?.age_group || ''
   );
 
@@ -1652,7 +1652,7 @@ export default function PracticeTimerPage({
         onSkip={handleBreakSkip}
         capturedPlayerIds={capturedPlayerIds}
         lastObsByPlayer={lastObsByPlayer}
-        sportId={activeTeam?.sport_id ?? undefined}
+        sportId={(activeTeam as any)?.sport_slug ?? undefined}
       />
     );
   }

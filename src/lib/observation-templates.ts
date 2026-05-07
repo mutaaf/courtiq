@@ -55,7 +55,7 @@ const SPORT_TEXT_OVERRIDES: Record<string, Partial<Record<string, string>>> = {
     'nw-dribbling':  'Ball control struggles',
     'nw-awareness':  'Field awareness lacking',
   },
-  flagfootball: {
+  flag_football: {
     'pos-shooting':  'Great throw accuracy',
     'pos-dribbling': 'Good ball-carry technique',
     'pos-awareness': 'Smart route/coverage read',

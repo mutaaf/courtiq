@@ -329,6 +329,255 @@ const SOCCER_U12: PracticeTemplate = {
   ],
 };
 
+// ─── Volleyball Templates ─────────────────────────────────────────────────────
+
+const VOLLEYBALL_U8: PracticeTemplate = {
+  id: 'vball-u8-30',
+  name: 'Volleyball Basics',
+  sport: 'volleyball',
+  ageLabel: 'Ages 6–8',
+  totalMins: 30,
+  description: 'Ball control and fun rally games for young players learning volleyball.',
+  tags: ['beginner', 'fundamentals', 'short'],
+  drills: [
+    {
+      name: 'Balloon Keep-Up',
+      durationMins: 5,
+      cues: [
+        'Keep the balloon in the air — both hands together',
+        'Move your feet to get under it',
+        'Call "mine!" so teammates know you have it',
+        'Count how many times the team can keep it up!',
+      ],
+      description: 'Players keep a balloon in the air using open palms. Introduces court movement.',
+    },
+    {
+      name: 'Underhand Serve Practice',
+      durationMins: 8,
+      cues: [
+        'Hold the ball in one hand, swing the other arm like a pendulum',
+        'Hit the bottom of the ball — send it up and over',
+        'Step forward with the opposite foot as you swing',
+        'Celebrate every ball that clears the net!',
+      ],
+      description: 'Each player with a ball practices underhand serves over the net from close range.',
+    },
+    {
+      name: 'Bump Pass Intro',
+      durationMins: 7,
+      cues: [
+        'Flat arms together like a shelf — let the ball land on your forearms',
+        'Bend your knees and get low before the ball arrives',
+        'Push through the ball with your legs, not your arms',
+        'Eyes on the ball all the way to your arms',
+      ],
+      description: 'Pairs toss underhand to partner who practices the bump (forearm) pass back.',
+    },
+    {
+      name: 'Catch & Toss Scrimmage',
+      durationMins: 10,
+      cues: [
+        'Catch the ball cleanly, then toss it over the net — no slapping!',
+        'Move as a team: one person catches, one is ready to receive',
+        'Every person touches the ball before it goes over',
+        'Cheer for both teams — this is about learning!',
+      ],
+      description: '2v2 or 3v3 over a lowered net. Players catch the ball, then toss it over.',
+    },
+  ],
+};
+
+const VOLLEYBALL_U12: PracticeTemplate = {
+  id: 'vball-u12-45',
+  name: 'Serve, Pass, Set',
+  sport: 'volleyball',
+  ageLabel: 'Ages 9–12',
+  totalMins: 45,
+  description: 'Serving accuracy, passing consistency, setting fundamentals, and team rally play.',
+  tags: ['intermediate', 'balanced', 'medium'],
+  drills: [
+    {
+      name: 'Dynamic Warm-Up',
+      durationMins: 5,
+      cues: [
+        'High knees, arm circles, lateral shuffles — volleyball is explosive',
+        'Wrist circles: volleyball puts stress on wrists and forearms',
+        'Practice calling "mine!" — communication starts in warm-up',
+      ],
+      description: 'Jog, skip, shuffle, and arm swings. Emphasise footwork and ready position.',
+    },
+    {
+      name: 'Serving Accuracy',
+      durationMins: 8,
+      cues: [
+        'Pick a target zone before you serve — aim, don\'t just hit',
+        'Toss the ball consistently: same height every time',
+        'Float serve: contact the center of the ball with a stiff wrist',
+        'Follow through toward your target, not straight up',
+      ],
+      description: 'Players serve crosscourt, aiming at cones placed in two target zones.',
+    },
+    {
+      name: 'Pepper Drill (Bump-Set-Hit)',
+      durationMins: 8,
+      cues: [
+        'Bump to your partner\'s hands, not over their head',
+        'Set: fingers spread wide, contact the ball above your forehead',
+        'Hit: approach, plant, and swing — don\'t just push it',
+        'Keep rallying — the goal is control, not power',
+      ],
+      description: 'Pairs rally: bump to partner, partner sets back, repeat. Build to 10 consecutive.',
+    },
+    {
+      name: 'Passing Platform Reps',
+      durationMins: 9,
+      cues: [
+        'Pass out of system? Don\'t panic — just get it playable',
+        'Angle your platform toward the setter\'s position, not straight up',
+        'Stay low in ready position between every rep',
+        'Talk to your setter: "Got it!", "Yours!", "Ours!"',
+      ],
+      description: 'Coach tosses from the net, player passes to target setter position on 3. Rotate.',
+    },
+    {
+      name: '3v3 Rally Scrimmage',
+      durationMins: 15,
+      cues: [
+        'Three contacts before it goes over: pass, set, attack or tip',
+        'Rotate after every sideout — everyone plays all positions',
+        'Communicate: call the ball early and loudly',
+        'Coach: narrate great passing decisions out loud',
+      ],
+      description: '3v3 on a shortened court. Three-hit rule enforced. Rotate teams every 5 points.',
+    },
+  ],
+};
+
+// ─── Flag Football Templates ──────────────────────────────────────────────────
+
+const FLAG_FOOTBALL_U8: PracticeTemplate = {
+  id: 'flagfb-u8-30',
+  name: 'Flag Football Fundamentals',
+  sport: 'flag_football',
+  ageLabel: 'Ages 6–8',
+  totalMins: 30,
+  description: 'Flag pulling, basic routes, and catching for young players new to the game.',
+  tags: ['beginner', 'fundamentals', 'short'],
+  drills: [
+    {
+      name: 'Flag Tag Warm-Up',
+      durationMins: 5,
+      cues: [
+        'Grab the flag gently — no tackling, no grabbing the body',
+        'Keep your flags tucked in, not hanging loose',
+        'Use your hips and change direction to protect your flags',
+        'Celebrate every pulled flag — this is THE skill in flag football!',
+      ],
+      description: 'Everyone has flags. Players try to pull each other\'s flags while protecting their own.',
+    },
+    {
+      name: 'Catching Basics',
+      durationMins: 7,
+      cues: [
+        'Thumbs together for a low ball, pinkies together for a high ball',
+        'Eyes on the ball all the way into your hands',
+        'Catch first, then tuck it — secure the ball before you run',
+        'Call "ready!" so the QB knows when to throw',
+      ],
+      description: 'QB (coach) throws soft lob passes. Players practice hand positioning and securing the catch.',
+    },
+    {
+      name: 'Go Route + Run',
+      durationMins: 8,
+      cues: [
+        'Run straight and fast — don\'t slow down for the ball',
+        'Look back over the shoulder where the ball will be thrown',
+        'Catch it, then try to get a flag pull away from defenders',
+        'Encourage every catch — build confidence!',
+      ],
+      description: 'One receiver at a time runs a straight "go" route. Coach throws ahead of the runner.',
+    },
+    {
+      name: '3v3 Flag Football Game',
+      durationMins: 10,
+      cues: [
+        'QB has 5 seconds to throw — count out loud together',
+        'If your flag is pulled, stop immediately and place the ball down',
+        'Offense: spread out so defenders can\'t cover everyone',
+        'Score = 6 points, extra point = 1 (run in) or 2 (throw)',
+      ],
+      description: '3v3 on a short field. Coach referees flag pulls and celebrates big plays.',
+    },
+  ],
+};
+
+const FLAG_FOOTBALL_U12: PracticeTemplate = {
+  id: 'flagfb-u12-45',
+  name: 'Routes & Defense',
+  sport: 'flag_football',
+  ageLabel: 'Ages 9–12',
+  totalMins: 45,
+  description: 'Route running, QB mechanics, man coverage, and 4v4 team play.',
+  tags: ['intermediate', 'tactical', 'medium'],
+  drills: [
+    {
+      name: 'Flag Pull Warm-Up',
+      durationMins: 5,
+      cues: [
+        'Stay low and balanced — pivot on your back foot to change direction',
+        'Eyes on the hips, not the ball — the hips tell you where they\'re going',
+        'Don\'t lunge: stay patient and wait for the cut',
+        'After the pull, immediately reset your flags for the next rep',
+      ],
+      description: 'Pairs: runner tries to avoid, defender tries to pull one flag. Rotate roles.',
+    },
+    {
+      name: 'Route Running Tree',
+      durationMins: 8,
+      cues: [
+        'Sell the fake: run the same way for the first 3 steps on every route',
+        'Cut at a sharp angle — round routes are easy to defend',
+        'Hand goes up as a target as soon as you break open',
+        'Run the correct depth: 5-yard curl, 10-yard out, not 3 or 15',
+      ],
+      description: 'Coach calls routes (go, curl, slant, out). Players run full speed, no ball. Add QB after reps.',
+    },
+    {
+      name: 'QB Throwing Mechanics',
+      durationMins: 8,
+      cues: [
+        'Grip: fingers across the laces, not around the nose of the ball',
+        'Step toward your target when you throw',
+        'Release point is high and over your shoulder — no side-arm',
+        'Follow through: your thumb points to the ground after the throw',
+      ],
+      description: 'QBs (rotating) throw stationary targets at 5, 10, and 15 yards while receivers run routes.',
+    },
+    {
+      name: 'Man Coverage Drill',
+      durationMins: 9,
+      cues: [
+        'Press coverage: stay within 1 yard of your receiver at the line',
+        'Mirror their footwork: if they go left, you go left',
+        'Don\'t look at the QB — watch the receiver\'s belt buckle',
+        'When the ball is in the air, turn and find it — contest every catch',
+      ],
+      description: '1-on-1: receiver runs a route, defender mirrors. Add QB throwing live after foundation reps.',
+    },
+    {
+      name: '4v4 Scrimmage',
+      durationMins: 15,
+      cues: [
+        'QB: go through reads — first look, second look, escape',
+        'No-rush on QB (or 5-second count): forces real route timing',
+        'Defense: call your coverage before the snap',
+        'Coach: highlight great decisions, not just touchdowns',
+      ],
+      description: '4v4 on a 30-yard field. 4 downs to score, then possession switches. Rotate QBs.',
+    },
+  ],
+};
+
 // ─── Generic Template ────────────────────────────────────────────────────────
 
 const FIRST_PRACTICE: PracticeTemplate = {
@@ -395,6 +644,10 @@ export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
   BASKETBALL_U16,
   SOCCER_U8,
   SOCCER_U12,
+  VOLLEYBALL_U8,
+  VOLLEYBALL_U12,
+  FLAG_FOOTBALL_U8,
+  FLAG_FOOTBALL_U12,
 ];
 
 // ─── Utility Functions ───────────────────────────────────────────────────────
@@ -428,7 +681,7 @@ export function matchesAgeGroup(template: PracticeTemplate, ageGroup: string): b
 
   if (id.includes('u8')) return ageNum <= 8;
   if (id.includes('u12')) return ageNum >= 9 && ageNum <= 12;
-  if (id.includes('u16')) return ageNum >= 13;
+  if (id.includes('u16') || id.includes('u18')) return ageNum >= 13;
   return true;
 }
 

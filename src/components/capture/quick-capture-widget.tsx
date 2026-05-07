@@ -370,8 +370,8 @@ export function QuickCaptureWidget() {
 
   const isBusy = widgetState === 'recording' || widgetState === 'processing' || savingTemplate;
 
-  const positiveTemplates = getTemplatesBySentiment('positive', activeTeam?.sport_id ?? undefined);
-  const needsWorkTemplates = getTemplatesBySentiment('needs-work', activeTeam?.sport_id ?? undefined);
+  const positiveTemplates = getTemplatesBySentiment('positive', (activeTeam as any)?.sport_slug ?? undefined);
+  const needsWorkTemplates = getTemplatesBySentiment('needs-work', (activeTeam as any)?.sport_slug ?? undefined);
   const shownTemplates = templateSentiment === 'positive' ? positiveTemplates : needsWorkTemplates;
 
   return (

@@ -105,6 +105,22 @@ describe('getTemplatesForSport', () => {
     const result = getTemplatesForSport('basketball');
     expect(result.some((t) => t.sport === 'soccer')).toBe(false);
   });
+
+  it('returns volleyball templates for volleyball', () => {
+    const result = getTemplatesForSport('volleyball');
+    expect(result.some((t) => t.sport === 'volleyball')).toBe(true);
+  });
+
+  it('returns flag_football templates for flag_football', () => {
+    const result = getTemplatesForSport('flag_football');
+    expect(result.some((t) => t.sport === 'flag_football')).toBe(true);
+  });
+
+  it('includes generic templates alongside sport-specific ones for volleyball', () => {
+    const result = getTemplatesForSport('volleyball');
+    expect(result.some((t) => t.sport === '')).toBe(true);
+    expect(result.some((t) => t.sport === 'volleyball')).toBe(true);
+  });
 });
 
 // ─── getTemplateById ─────────────────────────────────────────────────────────
