@@ -149,7 +149,8 @@ export function buildMatchSessionLabel(
   opponent?: string | null,
   date?: string | null
 ): string {
-  const dateStr = date ? new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+  // Parse date-only strings as local midnight (not UTC) to avoid off-by-one in western timezones
+  const dateStr = date ? new Date(date.includes('T') ? date : `${date}T00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
   if (opponent) {
     const typeLabel = type === 'tournament' ? 'Tournament' : type === 'scrimmage' ? 'Scrimmage' : 'Game';
     return dateStr ? `${typeLabel} vs. ${opponent} · ${dateStr}` : `${typeLabel} vs. ${opponent}`;

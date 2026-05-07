@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   countTotalObs,
   countPositiveWrapObs,
@@ -91,7 +91,16 @@ describe('getWrapDismissKey', () => {
 });
 
 describe('isWrapDismissed / dismissWrap', () => {
-  beforeEach(() => localStorage.clear());
+  let store: Record<string, string> = {};
+  beforeEach(() => {
+    store = {};
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store[key] ?? null,
+      setItem: (key: string, value: string) => { store[key] = value; },
+      removeItem: (key: string) => { delete store[key]; },
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
 
   it('returns false when not dismissed', () => {
     expect(isWrapDismissed('team-1')).toBe(false);
