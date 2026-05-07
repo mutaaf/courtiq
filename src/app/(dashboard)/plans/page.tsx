@@ -434,6 +434,7 @@ export default function PlansPage() {
   // Weekly Star state
   const [generatingWeeklyStar, setGeneratingWeeklyStar] = useState(false);
   const [weeklyStarCopied, setWeeklyStarCopied] = useState(false);
+  const [weeklyStarEmailNotice, setWeeklyStarEmailNotice] = useState<string | null>(null);
 
   // Practice Arc state
   const [showArcForm, setShowArcForm] = useState(false);
@@ -732,6 +733,7 @@ export default function PlansPage() {
   const generateWeeklyStar = async () => {
     if (!activeTeam) return;
     setGeneratingWeeklyStar(true);
+    setWeeklyStarEmailNotice(null);
     setError(null);
     try {
       const res = await fetch('/api/ai/weekly-star', {
@@ -746,6 +748,9 @@ export default function PlansPage() {
       const data = await res.json();
       qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
       setSelectedPlan(data.plan);
+      if (data.emailSent && data.parentEmailMasked) {
+        setWeeklyStarEmailNotice(`Congrats email sent to ${data.parentEmailMasked}`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Weekly star generation failed');
     } finally {
@@ -3174,6 +3179,14 @@ export default function PlansPage() {
               </div>
               <Sparkles className="h-4 w-4 text-amber-500/50 shrink-0" />
             </button>
+
+            {/* Email confirmation — shown after Weekly Star generates with parent email */}
+            {weeklyStarEmailNotice && (
+              <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
+                <span aria-hidden="true">✉️</span>
+                <span>{weeklyStarEmailNotice}</span>
+              </div>
+            )}
 
             {/* Season Summary — whole team */}
             <button
