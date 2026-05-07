@@ -421,6 +421,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     latestSessionMessage,
     skillChallenge,
     playerGoals,
+    attendanceStats,
   } = data;
 
   const playerName = player?.nickname || player?.name || 'your player';
@@ -484,6 +485,24 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
   } else if (reportCard?.areas_for_improvement?.[0]) {
     const area = reportCard.areas_for_improvement[0];
     nextChallenge = typeof area === 'string' ? area : area.skill || area.description || area.name || String(area);
+  }
+
+  // Attendance helpers — only rendered when the coach has been tracking attendance
+  function getAttendanceLabel(pct: number): string {
+    if (pct >= 90) return '🌟 Excellent attendance!';
+    if (pct >= 75) return '👍 Great attendance!';
+    if (pct >= 60) return '📈 Good attendance';
+    return '💪 Keep showing up!';
+  }
+  function getAttendanceBarColor(pct: number): string {
+    if (pct >= 75) return 'bg-emerald-400';
+    if (pct >= 60) return 'bg-amber-400';
+    return 'bg-red-400';
+  }
+  function getAttendanceDotColor(status: string): string {
+    if (status === 'present') return 'bg-emerald-500';
+    if (status === 'excused') return 'bg-amber-400';
+    return 'bg-gray-300';
   }
 
   // Get the first recommended drill for home practice
@@ -694,6 +713,65 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             {seasonStats.mostActiveCategory && (
               <p className="mt-3 text-center text-xs text-gray-500">
                 Most practised: <span className="font-semibold text-gray-700">{formatCategoryLabel(seasonStats.mostActiveCategory)}</span>
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ─── Practice Attendance ─── */}
+        {attendanceStats && attendanceStats.totalSessions >= 2 && (
+          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg" aria-hidden="true">📅</span>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  Practice Attendance
+                </h3>
+              </div>
+              <span className="text-xs font-semibold text-gray-500">
+                {attendanceStats.pct}%
+              </span>
+            </div>
+
+            <div className="flex items-baseline gap-2 mb-3">
+              <span className="text-2xl font-bold text-gray-800">
+                {attendanceStats.present}
+              </span>
+              <span className="text-sm text-gray-500">
+                of {attendanceStats.totalSessions} practices
+              </span>
+            </div>
+
+            {/* Progress bar */}
+            <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden mb-2">
+              <div
+                className={`h-full rounded-full transition-all ${getAttendanceBarColor(attendanceStats.pct)}`}
+                style={{ width: `${attendanceStats.pct}%` }}
+              />
+            </div>
+
+            <p className="text-xs text-gray-600 font-medium mb-3">
+              {getAttendanceLabel(attendanceStats.pct)}
+            </p>
+
+            {/* Recent session dots */}
+            {attendanceStats.recentSessions && attendanceStats.recentSessions.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-gray-400 mr-0.5">Recent:</span>
+                {(attendanceStats.recentSessions as { status: string; date: string; type: string }[]).map((s, i) => (
+                  <span
+                    key={i}
+                    className={`h-2.5 w-2.5 rounded-full ${getAttendanceDotColor(s.status)}`}
+                    title={`${s.date}: ${s.status}`}
+                  />
+                ))}
+                <span className="ml-1 text-[10px] text-gray-400">← newest</span>
+              </div>
+            )}
+
+            {attendanceStats.excused > 0 && (
+              <p className="mt-2 text-[11px] text-gray-400">
+                {attendanceStats.excused} excused absence{attendanceStats.excused !== 1 ? 's' : ''}
               </p>
             )}
           </div>

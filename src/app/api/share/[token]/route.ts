@@ -255,6 +255,38 @@ export async function GET(
       status: g.status,
     }));
 
+    // Attendance stats — lets parents see their child's commitment to the team.
+    // Only shown when the coach has been tracking attendance (at least 1 record).
+    {
+      const { data: attRows } = await supabase
+        .from('session_attendance')
+        .select('status, sessions(date, type)')
+        .eq('player_id', share.player_id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (attRows && attRows.length > 0) {
+        const records = attRows.map((r: any) => ({
+          status: r.status as string,
+          date: r.sessions?.date ?? '',
+          type: r.sessions?.type ?? 'practice',
+        }));
+        const present = records.filter((r) => r.status === 'present').length;
+        const excused = records.filter((r) => r.status === 'excused').length;
+        const total = records.length;
+        const pct = total > 0 ? Math.round((present / total) * 100) : 0;
+        // Most-recent 8 sessions for the sparkline
+        const recentSessions = records.slice(0, 8).map((r) => ({
+          date: r.date,
+          type: r.type,
+          status: r.status,
+        }));
+        reportData.attendanceStats = { present, excused, absent: total - present - excused, totalSessions: total, pct, recentSessions };
+      } else {
+        reportData.attendanceStats = null;
+      }
+    }
+
     // Active team announcements (visible to parents)
     const now = new Date().toISOString();
     const { data: announcements } = await supabase
