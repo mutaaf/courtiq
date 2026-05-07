@@ -2807,6 +2807,14 @@ function AIDebriefCard({
                           )}
                         </div>
                         <p className="text-xs text-zinc-300 mt-0.5">{area.detail}</p>
+                        <Link
+                          href={`/drills?category=${encodeURIComponent(area.skill_area)}`}
+                          className={`mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium transition-colors ${area.is_recurring ? 'text-red-400/70 hover:text-red-300' : 'text-amber-400/70 hover:text-amber-300'}`}
+                        >
+                          <Dumbbell className="h-3 w-3" />
+                          Find drills
+                          <ArrowRight className="h-3 w-3" />
+                        </Link>
                       </div>
                     </div>
                   ))}
@@ -2834,9 +2842,21 @@ function AIDebriefCard({
                         <span className="text-xs font-semibold text-blue-300">{item.focus}</span>
                       </div>
                       <p className="text-xs text-zinc-400 pl-7">{item.rationale}</p>
-                      <div className="flex items-center gap-1.5 pl-7">
-                        <Dumbbell className="h-3 w-3 text-zinc-600 shrink-0" />
-                        <p className="text-[11px] text-zinc-500 italic">{item.suggested_drill}</p>
+                      <div className="flex items-center justify-between pl-7 gap-2">
+                        <Link
+                          href={`/drills?search=${encodeURIComponent(item.suggested_drill)}`}
+                          className="flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 transition-colors group min-w-0"
+                        >
+                          <Dumbbell className="h-3 w-3 shrink-0" />
+                          <span className="italic truncate">{item.suggested_drill}</span>
+                          <ArrowRight className="h-3 w-3 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity" />
+                        </Link>
+                        <Link
+                          href={`/drills?category=${encodeURIComponent(item.focus)}`}
+                          className="text-[10px] text-zinc-500 hover:text-blue-400 transition-colors whitespace-nowrap shrink-0"
+                        >
+                          More {item.focus} drills
+                        </Link>
                       </div>
                     </div>
                   ))}
@@ -2858,12 +2878,14 @@ function AIDebriefCard({
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {debrief.recurring_focus_areas.map((area, i) => (
-                    <span
+                    <Link
                       key={i}
-                      className="inline-flex items-center rounded-full border border-red-500/25 bg-red-500/10 px-2.5 py-0.5 text-[11px] font-medium text-red-400 capitalize"
+                      href={`/drills?category=${encodeURIComponent(area)}`}
+                      className="inline-flex items-center gap-1 rounded-full border border-red-500/25 bg-red-500/10 px-2.5 py-0.5 text-[11px] font-medium text-red-400 capitalize hover:bg-red-500/20 hover:border-red-500/40 transition-colors active:scale-95"
                     >
                       {area}
-                    </span>
+                      <ArrowRight className="h-2.5 w-2.5 opacity-60" />
+                    </Link>
                   ))}
                 </div>
               </div>
