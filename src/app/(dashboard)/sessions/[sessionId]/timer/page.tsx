@@ -500,6 +500,11 @@ function DoneScreen({
   saveSuccess,
   coachName,
   teamName,
+  arcPlanId,
+  arcSession,
+  arcTotalSessions,
+  arcTitle,
+  arcNextSessionTitle,
 }: {
   drillsRun: QueueItem[];
   notes: CapturedNote[];
@@ -514,6 +519,11 @@ function DoneScreen({
   saveSuccess?: boolean;
   coachName?: string;
   teamName?: string;
+  arcPlanId?: string;
+  arcSession?: number;
+  arcTotalSessions?: number;
+  arcTitle?: string;
+  arcNextSessionTitle?: string;
 }) {
   const [rating, setRating] = useState<number>(0);
   const [ratingSaved, setRatingSaved] = useState(false);
@@ -868,6 +878,37 @@ function DoneScreen({
               </button>
             </div>
 
+            {/* Practice Arc progress — shown when this session was part of an arc */}
+            {arcPlanId && arcSession && arcTotalSessions ? (
+              <div className="w-full rounded-xl border border-sky-500/25 bg-sky-500/8 p-4 space-y-2 text-left">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-sky-400 shrink-0" />
+                  <p className="text-sm font-semibold text-sky-300 truncate">{arcTitle || 'Practice Series'}</p>
+                  <span className="ml-auto shrink-0 text-xs font-medium text-sky-400 bg-sky-500/20 rounded-full px-2 py-0.5">
+                    ✓ {arcSession}/{arcTotalSessions}
+                  </span>
+                </div>
+                {arcSession < arcTotalSessions ? (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+                      <ChevronRight className="h-3.5 w-3.5 text-sky-500 shrink-0" />
+                      <span>Next: {arcNextSessionTitle || `Session ${arcSession + 1}`}</span>
+                    </div>
+                    <Link
+                      href="/plans"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-sky-300 hover:text-sky-200 transition-colors"
+                    >
+                      Load Session {arcSession + 1} from Plans →
+                    </Link>
+                  </div>
+                ) : (
+                  <p className="text-xs text-emerald-400 font-medium">
+                    🎉 All {arcTotalSessions} sessions complete!
+                  </p>
+                )}
+              </div>
+            ) : null}
+
             <Link
               href={`/sessions/${sessionId}?fromPractice=1&obsCount=${notes.length}&playerCount=${new Set(notes.filter((n) => n.playerId).map((n) => n.playerId!)).size}`}
               className="w-full"
@@ -982,6 +1023,10 @@ export default function PracticeTimerPage({
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [loadedTemplateName, setLoadedTemplateName] = useState<string | null>(null);
   const [lastPracticeQueue, setLastPracticeQueue] = useState<QueueItem[] | null>(null);
+
+  const [arcTotalSessions, setArcTotalSessions] = useState<number>(0);
+  const [arcTitle, setArcTitle] = useState<string>('');
+  const [arcNextSessionTitle, setArcNextSessionTitle] = useState<string>('');
 
   const [audioEnabled, setAudioEnabled] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
@@ -1265,6 +1310,9 @@ export default function PracticeTimerPage({
         if (items.length > 0) {
           setQueue(items);
           setLoadedPlanTitle(`${s.arc_title || 'Practice Series'} — Session ${sessionIdx + 1}`);
+          setArcTotalSessions(sessions.length);
+          setArcTitle(s.arc_title || 'Practice Series');
+          setArcNextSessionTitle(sessions[sessionIdx + 1]?.title || '');
         }
       })
       .catch(() => { /* silently ignore */ })
@@ -1530,6 +1578,29 @@ export default function PracticeTimerPage({
         localStorage.removeItem(NOTES_KEY);
         localStorage.removeItem(QUEUE_KEY);
       } catch { /* ignore */ }
+
+      // Persist arc progress so the home dashboard can nudge "Continue Series"
+      if (arcPlanId && arcSessionParam && arcTotalSessions > 0) {
+        const arcSessionNum = parseInt(arcSessionParam, 10);
+        if (!isNaN(arcSessionNum)) {
+          try {
+            const arcKey = `arc-progress-${activeTeam.id}`;
+            if (arcSessionNum < arcTotalSessions) {
+              localStorage.setItem(arcKey, JSON.stringify({
+                planId: arcPlanId,
+                arcTitle,
+                nextSession: arcSessionNum + 1,
+                totalSessions: arcTotalSessions,
+                nextSessionTitle: arcNextSessionTitle,
+                savedAt: new Date().toISOString(),
+              }));
+            } else {
+              localStorage.removeItem(arcKey);
+            }
+          } catch { /* ignore */ }
+        }
+      }
+
       setSaveSuccess(true);
       setIsSaving(false);
       // Coach sees success state with parent update card; navigates via "View Session & AI Debrief" button.
@@ -1731,6 +1802,11 @@ export default function PracticeTimerPage({
         saveSuccess={saveSuccess}
         coachName={coach?.full_name ?? undefined}
         teamName={activeTeam?.name ?? undefined}
+        arcPlanId={arcPlanId ?? undefined}
+        arcSession={arcSessionParam ? parseInt(arcSessionParam, 10) : undefined}
+        arcTotalSessions={arcTotalSessions || undefined}
+        arcTitle={arcTitle || undefined}
+        arcNextSessionTitle={arcNextSessionTitle || undefined}
       />
     );
   }

@@ -55,6 +55,7 @@ import { PlayerOnARollCard } from '@/components/home/player-on-a-roll-card';
 import { StrugglingPlayerCard } from '@/components/home/struggling-player-card';
 import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot-card';
 import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
+import { ContinueArcCard } from '@/components/home/continue-arc-card';
 
 // ─── Live Coverage Grid ────────────────────────────────────────────────────────
 
@@ -1195,6 +1196,11 @@ export default function HomePage() {
           teamId={activeTeam.id}
           sessionId={todaySessions[0]?.id}
         />
+      )}
+
+      {/* Continue Practice Arc — shown when coach has a pending arc session to run next */}
+      {!practiceActive && (
+        <ContinueArcCard teamId={activeTeam.id} />
       )}
 
       {/* Last session summary — shown when no today session and practice not active */}

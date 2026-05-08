@@ -63,7 +63,8 @@ describe('PlayerCard', () => {
     });
 
     it('renders the player position badge', () => {
-      const player = buildPlayer({ position: 'PG' });
+      // Use a fixed name so avatar initials (MT) never collide with position text (PG)
+      const player = buildPlayer({ position: 'PG', name: 'Marcus Thompson' });
       render(<PlayerCard player={player} />);
       expect(screen.getByText('PG')).toBeInTheDocument();
     });
