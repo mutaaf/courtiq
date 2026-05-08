@@ -1183,6 +1183,24 @@ export default function PracticeTimerPage({
     [notes, recentObs]
   );
 
+  // Per-player observation count for this session — drives Quick Note sort order
+  const sessionObsCountByPlayer = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const n of notes) {
+      if (n.playerId) counts[n.playerId] = (counts[n.playerId] ?? 0) + 1;
+    }
+    return counts;
+  }, [notes]);
+
+  // Sorted player list for Quick Note overlay: unobserved players first
+  const sortedForQuickNote = useMemo(
+    () =>
+      [...presentPlayers].sort(
+        (a, b) => (sessionObsCountByPlayer[a.id] ?? 0) - (sessionObsCountByPlayer[b.id] ?? 0)
+      ),
+    [presentPlayers, sessionObsCountByPlayer]
+  );
+
   // ── Load plan queue from planId search param ─────────────────────────────
   // ── Load last practice queue from localStorage ───────────────────────────
   useEffect(() => {
@@ -2043,14 +2061,18 @@ export default function PracticeTimerPage({
               )}
 
               <div className="space-y-2">
-                {presentPlayers.map((p) => {
+                {sortedForQuickNote.map((p) => {
                   const firstName = p.name.split(' ')[0];
                   const label = p.jersey_number ? `#${p.jersey_number} ${firstName}` : firstName;
                   const savedPos = midDrillSaved.has(`${p.id}-positive`);
                   const savedNeg = midDrillSaved.has(`${p.id}-needs-work`);
+                  const sessionCount = sessionObsCountByPlayer[p.id] ?? 0;
                   return (
-                    <div key={p.id} className="flex items-center gap-2 rounded-xl bg-zinc-800 px-3 py-2.5">
-                      <span className="flex-1 text-sm font-medium text-zinc-100 truncate">{label}</span>
+                    <div key={p.id} className={`flex items-center gap-2 rounded-xl px-3 py-2.5 ${sessionCount === 0 ? 'bg-zinc-800 border border-zinc-700/40' : 'bg-zinc-800/60'}`}>
+                      <span className={`flex-1 text-sm font-medium truncate ${sessionCount === 0 ? 'text-zinc-100' : 'text-zinc-400'}`}>{label}</span>
+                      {sessionCount > 0 && (
+                        <span className="text-[10px] font-medium text-zinc-600 tabular-nums shrink-0">{sessionCount}×</span>
+                      )}
                       <button
                         onClick={() => handleMidDrillNote(p.id, p.name, 'positive')}
                         className={`flex h-9 w-9 items-center justify-center rounded-lg text-base transition-all active:scale-95 touch-manipulation ${
