@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -1137,14 +1137,18 @@ function PlayerSessionMessagesCard({
   sessionId,
   teamId,
   observationCount,
+  initialData,
 }: {
   sessionId: string;
   teamId: string;
   observationCount: number;
+  initialData?: PlayerSessionMessagesResult | null;
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [messages, setMessages] = useState<PlayerSessionMessagesResult | null>(null);
+  const [messages, setMessages] = useState<PlayerSessionMessagesResult | null>(initialData ?? null);
+
+  useEffect(() => { if (initialData) setMessages(initialData); }, [initialData]);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [sharedIdx, setSharedIdx] = useState<number | null>(null);
   const [emailSending, setEmailSending] = useState(false);
@@ -1501,17 +1505,26 @@ function TeamGroupMessageCard({
   sessionId,
   teamId,
   observationCount,
+  initialData,
 }: {
   sessionId: string;
   teamId: string;
   observationCount: number;
+  initialData?: TeamGroupMessageResult | null;
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<TeamGroupMessageResult | null>(null);
+  const [result, setResult] = useState<TeamGroupMessageResult | null>(initialData ?? null);
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState(false);
-  const [editedMessage, setEditedMessage] = useState('');
+  const [editedMessage, setEditedMessage] = useState(initialData?.message ?? '');
+
+  useEffect(() => {
+    if (initialData) {
+      setResult(initialData);
+      setEditedMessage(initialData.message);
+    }
+  }, [initialData]);
 
   async function handleGenerate() {
     setIsGenerating(true);
@@ -2586,16 +2599,20 @@ function AIDebriefCard({
   observationCount,
   savedDebrief,
   onDebriefSaved,
+  batchDebrief,
 }: {
   sessionId: string;
   teamId: string;
   observationCount: number;
   savedDebrief: SessionDebriefResult | null;
   onDebriefSaved: () => void;
+  batchDebrief?: SessionDebriefResult | null;
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [localDebrief, setLocalDebrief] = useState<SessionDebriefResult | null>(savedDebrief);
+
+  useEffect(() => { if (batchDebrief) setLocalDebrief(batchDebrief); }, [batchDebrief]);
 
   // Practice plan creation state
   const [isPlanGenerating, setIsPlanGenerating] = useState(false);
@@ -2999,6 +3016,29 @@ export default function SessionDetailPage() {
   const fromPracticePlayerCount = parseInt(searchParams?.get('playerCount') || '0', 10);
   const [practiceBannerDismissed, setPracticeBannerDismissed] = useState(false);
   const showPracticeComplete = fromPractice && !practiceBannerDismissed;
+
+  // Batch AI generation — "Generate All Summaries" fires debrief + player messages + group chat in parallel
+  const [isBatchGenerating, setIsBatchGenerating] = useState(false);
+  const [batchProgress, setBatchProgress] = useState(0);
+  const [batchMessages, setBatchMessages] = useState<PlayerSessionMessagesResult | null>(null);
+  const [batchGroupMsg, setBatchGroupMsg] = useState<TeamGroupMessageResult | null>(null);
+  const [batchAiDebrief, setBatchAiDebrief] = useState<SessionDebriefResult | null>(null);
+
+  async function handleBatchGenerate() {
+    if (!activeTeam) return;
+    setIsBatchGenerating(true);
+    setBatchProgress(0);
+    const tid = activeTeam.id;
+    await Promise.allSettled([
+      fetch('/api/ai/session-debrief', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId, teamId: tid }) })
+        .then((r) => r.json()).then((d) => { if (d.debrief) setBatchAiDebrief(d.debrief); }).finally(() => setBatchProgress((p) => p + 1)),
+      fetch('/api/ai/player-session-messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId, teamId: tid }) })
+        .then((r) => r.json()).then((d) => { if (d.messages) setBatchMessages(d.messages); }).finally(() => setBatchProgress((p) => p + 1)),
+      fetch('/api/ai/team-group-message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId, teamId: tid }) })
+        .then((r) => r.json()).then((d) => { if (d.groupMessage) setBatchGroupMsg(d.groupMessage); }).finally(() => setBatchProgress((p) => p + 1)),
+    ]);
+    setIsBatchGenerating(false);
+  }
 
   const [debrief, setDebrief] = useState('');
   const [debriefInitialized, setDebriefInitialized] = useState(false);
@@ -3617,8 +3657,49 @@ export default function SessionDetailPage() {
                 {fromPracticeObsCount > 0
                   ? `${fromPracticeObsCount} observation${fromPracticeObsCount !== 1 ? 's' : ''} saved${fromPracticePlayerCount > 0 ? ` for ${fromPracticePlayerCount} player${fromPracticePlayerCount !== 1 ? 's' : ''}` : ''}.`
                   : 'Session recorded.'}
-                {' '}What would you like to do next?
               </p>
+
+              {/* Generate All — fires AI Debrief + Player Messages + Group Chat in parallel */}
+              {batchProgress < 3 && fromPracticeObsCount > 0 && (
+                <div className="mt-3">
+                  {isBatchGenerating ? (
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1.5">
+                        {[0, 1, 2].map((i) => (
+                          <div
+                            key={i}
+                            className={`h-2 w-2 rounded-full transition-all duration-300 ${i < batchProgress ? 'bg-emerald-400' : 'bg-zinc-600 animate-pulse'}`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-xs text-zinc-400">
+                        Generating {batchProgress}/3 summaries…
+                      </span>
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={handleBatchGenerate}
+                      className="h-8 bg-orange-600 hover:bg-orange-500 text-white text-xs gap-1.5"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Generate All Summaries
+                    </Button>
+                  )}
+                  <p className="text-[11px] text-zinc-500 mt-1.5">
+                    AI Debrief · Player Messages · Group Chat — all at once
+                  </p>
+                </div>
+              )}
+
+              {/* Ready state — all 3 done */}
+              {batchProgress >= 3 && !isBatchGenerating && (
+                <div className="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <p className="text-xs text-emerald-300 font-medium">All summaries ready — scroll down to review &amp; send</p>
+                </div>
+              )}
+
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button
                   size="sm"
@@ -3629,7 +3710,7 @@ export default function SessionDetailPage() {
                   className="h-8 bg-teal-600 hover:bg-teal-500 text-white text-xs gap-1.5"
                 >
                   <Send className="h-3.5 w-3.5" />
-                  Send Parent Updates
+                  Parent Updates
                 </Button>
                 <Button
                   size="sm"
@@ -3828,6 +3909,7 @@ export default function SessionDetailPage() {
             onDebriefSaved={() =>
               queryClient.invalidateQueries({ queryKey: ['session', sessionId] })
             }
+            batchDebrief={batchAiDebrief}
           />
         )}
       </div>
@@ -3880,6 +3962,7 @@ export default function SessionDetailPage() {
             sessionId={sessionId}
             teamId={activeTeam.id}
             observationCount={observations?.length || 0}
+            initialData={batchMessages}
           />
         )}
       </div>
@@ -3891,6 +3974,7 @@ export default function SessionDetailPage() {
             sessionId={sessionId}
             teamId={activeTeam.id}
             observationCount={observations?.length || 0}
+            initialData={batchGroupMsg}
           />
         )}
       </div>
