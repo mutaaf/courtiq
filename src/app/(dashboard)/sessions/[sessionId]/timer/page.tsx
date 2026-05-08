@@ -916,6 +916,8 @@ export default function PracticeTimerPage({
   const searchParams = useSearchParams();
   const planId = searchParams.get('planId');
   const templateIdParam = searchParams.get('templateId');
+  const arcPlanId = searchParams.get('arcPlanId');
+  const arcSessionParam = searchParams.get('arcSession');
   const { activeTeam, coach } = useActiveTeam();
 
   // ── Persistence keys ─────────────────────────────────────────────────────
@@ -1212,6 +1214,63 @@ export default function PracticeTimerPage({
       .finally(() => setPlanLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId]);
+
+  // ── Load arc session from ?arcPlanId + ?arcSession URL params ──────────────
+  useEffect(() => {
+    if (!arcPlanId || !arcSessionParam || queue.length > 0 || isRecovered) return;
+    const sessionIdx = parseInt(arcSessionParam, 10) - 1; // 1-indexed → 0-indexed
+    if (isNaN(sessionIdx) || sessionIdx < 0) return;
+    setPlanLoading(true);
+    query<Plan>({
+      table: 'plans',
+      select: '*',
+      filters: { id: arcPlanId },
+      single: true,
+    })
+      .then((plan) => {
+        if (!plan?.content_structured) return;
+        const s = plan.content_structured as any;
+        const sessions = Array.isArray(s.sessions) ? s.sessions : [];
+        const arcSession = sessions[sessionIdx];
+        if (!arcSession) return;
+        const items: QueueItem[] = [];
+        if (arcSession.warmup?.name) {
+          items.push({
+            id: `warmup-${Date.now()}`,
+            name: arcSession.warmup.name,
+            durationSecs: Math.max(60, (arcSession.warmup.duration_minutes ?? 5) * 60),
+            cues: [],
+            description: arcSession.warmup.description || '',
+          });
+        }
+        (arcSession.drills || []).forEach((d: any, i: number) => {
+          items.push({
+            id: `arc-${sessionIdx}-${i}-${Date.now()}`,
+            name: d.name,
+            durationSecs: Math.max(60, (d.duration_minutes ?? 10) * 60),
+            cues: Array.isArray(d.coaching_cues) ? d.coaching_cues : [],
+            description: d.description || '',
+            category: d.skill_category || undefined,
+          });
+        });
+        if (arcSession.cooldown?.duration_minutes) {
+          items.push({
+            id: `cooldown-${Date.now()}`,
+            name: 'Cool Down',
+            durationSecs: Math.max(60, arcSession.cooldown.duration_minutes * 60),
+            cues: [],
+            description: arcSession.cooldown.notes || '',
+          });
+        }
+        if (items.length > 0) {
+          setQueue(items);
+          setLoadedPlanTitle(`${s.arc_title || 'Practice Series'} — Session ${sessionIdx + 1}`);
+        }
+      })
+      .catch(() => { /* silently ignore */ })
+      .finally(() => setPlanLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arcPlanId, arcSessionParam]);
 
   // ── Auto-load template from templateId URL param (from FirstPracticeLauncher) ──
   useEffect(() => {

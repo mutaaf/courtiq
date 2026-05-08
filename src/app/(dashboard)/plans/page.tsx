@@ -452,6 +452,9 @@ export default function PlansPage() {
   const [showRunModal, setShowRunModal] = useState(false);
   const [creatingSession, setCreatingSession] = useState(false);
 
+  // Practice Arc session runner state
+  const [runningArcSession, setRunningArcSession] = useState<{ planId: string; sessionNum: number } | null>(null);
+
   const { data: plans, isLoading, refetch: refetchPlans } = useQuery({
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
     queryFn: async () => {
@@ -944,6 +947,31 @@ export default function PlansPage() {
     }
   }
 
+  async function handleRunArcSession(planId: string, sessionNumber: number) {
+    if (!activeTeam || !coach) return;
+    setRunningArcSession({ planId, sessionNum: sessionNumber });
+    try {
+      const newSession = await mutate({
+        table: 'sessions',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          type: 'practice',
+          date: new Date().toISOString().slice(0, 10),
+        },
+      });
+      const sessionId = (newSession as any)?.[0]?.id || (newSession as any)?.id;
+      if (sessionId) {
+        router.push(`/sessions/${sessionId}/timer?arcPlanId=${planId}&arcSession=${sessionNumber}`);
+      }
+    } catch {
+      // ignore — user stays on page
+    } finally {
+      setRunningArcSession(null);
+    }
+  }
+
   function renderObjectFields(obj: any) {
     if (!obj || typeof obj !== 'object') return String(obj ?? '');
     return (
@@ -1089,6 +1117,19 @@ export default function PlansPage() {
                       <p className="text-xs text-zinc-500 italic">Next: {session.carries_forward}</p>
                     </div>
                   )}
+
+                  {/* Run this session in Practice Timer */}
+                  <button
+                    onClick={() => handleRunArcSession(plan.id, n)}
+                    disabled={runningArcSession?.planId === plan.id && runningArcSession?.sessionNum === n}
+                    className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/50 px-4 py-2.5 text-sm font-medium text-zinc-300 hover:border-zinc-600 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation active:scale-[0.98]"
+                  >
+                    {runningArcSession?.planId === plan.id && runningArcSession?.sessionNum === n ? (
+                      <><Loader2 className="h-4 w-4 animate-spin shrink-0" />Starting…</>
+                    ) : (
+                      <><Timer className="h-4 w-4 shrink-0" />Run Session {n} in Practice Timer</>
+                    )}
+                  </button>
                 </div>
               );
             })}
