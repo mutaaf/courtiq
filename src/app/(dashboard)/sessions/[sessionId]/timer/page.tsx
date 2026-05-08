@@ -46,6 +46,7 @@ import {
   Target,
   Volume2,
   VolumeX,
+  Zap,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Drill, Player, Session, Plan } from '@/types/database';
@@ -968,6 +969,8 @@ export default function PracticeTimerPage({
   const [loadedPlanTitle, setLoadedPlanTitle] = useState<string | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [showSwapSheet, setShowSwapSheet] = useState(false);
+  const [showMidDrillCapture, setShowMidDrillCapture] = useState(false);
+  const [midDrillSaved, setMidDrillSaved] = useState<Set<string>>(new Set());
 
   // Setup state
   const [drillSearch, setDrillSearch] = useState('');
@@ -1307,6 +1310,14 @@ export default function PracticeTimerPage({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, currentIdx]);
 
+  // Close mid-drill capture overlay whenever the mode changes away from running
+  useEffect(() => {
+    if (mode !== 'running') {
+      setShowMidDrillCapture(false);
+      setMidDrillSaved(new Set());
+    }
+  }, [mode, currentIdx]);
+
   // Auto-persist captured notes so they survive accidental app closes
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1369,6 +1380,25 @@ export default function PracticeTimerPage({
       },
     ]);
     advanceToNextDrill();
+  };
+
+  const handleMidDrillNote = (playerId: string | undefined, playerName: string, sentiment: Sentiment) => {
+    const drill = queue[currentIdx];
+    setNotes((prev) => [
+      ...prev,
+      {
+        drillName: drill?.name || 'Mid-drill',
+        drillId: drill?.drillId,
+        note: '',
+        playerId: playerId || undefined,
+        playerName,
+        sentiment,
+        category: drill?.category || 'general',
+        timestamp: new Date(),
+      },
+    ]);
+    const key = `${playerId ?? 'team'}-${sentiment}`;
+    setMidDrillSaved((prev) => new Set([...prev, key]));
   };
 
   const handleBreakSkip = () => {
@@ -1780,16 +1810,20 @@ export default function PracticeTimerPage({
 
         {/* Controls */}
         <div className="p-6 flex gap-4 justify-center items-center">
-          {swapAlternatives.length > 0 && (
-            <button
-              onClick={() => setShowSwapSheet(true)}
-              className="flex flex-col items-center gap-1 text-zinc-500 hover:text-zinc-300 transition-colors"
-              aria-label="Swap this drill for an alternative"
-            >
-              <Shuffle className="h-5 w-5" />
-              <span className="text-xs">Swap</span>
-            </button>
-          )}
+          {/* Left: Swap (if alternatives exist) or spacer */}
+          <div className="flex flex-col items-center gap-1 w-12">
+            {swapAlternatives.length > 0 ? (
+              <button
+                onClick={() => setShowSwapSheet(true)}
+                className="flex flex-col items-center gap-1 text-zinc-500 hover:text-zinc-300 transition-colors"
+                aria-label="Swap this drill for an alternative"
+              >
+                <Shuffle className="h-5 w-5" />
+                <span className="text-xs">Swap</span>
+              </button>
+            ) : <div />}
+          </div>
+
           <Button
             onClick={handlePauseResume}
             size="lg"
@@ -1801,9 +1835,121 @@ export default function PracticeTimerPage({
           >
             {isPaused ? <Play className="h-6 w-6" /> : <Pause className="h-6 w-6" />}
           </Button>
-          {/* spacer to balance the Swap button */}
-          {swapAlternatives.length > 0 && <div className="w-9" />}
+
+          {/* Right: Quick Note button */}
+          <button
+            onClick={() => { setShowMidDrillCapture(true); setMidDrillSaved(new Set()); }}
+            className="relative flex flex-col items-center gap-1 text-zinc-500 hover:text-orange-400 transition-colors w-12"
+            aria-label="Quick observation — tap a player while timer runs"
+          >
+            <Zap className="h-5 w-5" />
+            <span className="text-xs">Note</span>
+            {notes.length > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 text-[9px] font-bold text-white">
+                {notes.length > 9 ? '9+' : notes.length}
+              </span>
+            )}
+          </button>
         </div>
+
+        {/* Mid-drill quick observation overlay — timer keeps running */}
+        {showMidDrillCapture && (
+          <div className="fixed inset-0 z-50 flex items-end" role="dialog" aria-modal="true" aria-label="Quick observation">
+            <div className="absolute inset-0 bg-black/70" onClick={() => setShowMidDrillCapture(false)} />
+            <div className="relative w-full bg-zinc-900 rounded-t-2xl border-t border-zinc-800 p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-zinc-100 flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-orange-400" />
+                    Quick Note
+                  </h3>
+                  <p className="text-xs text-zinc-500 mt-0.5">Timer keeps running — tap 👍 or 👎 to save instantly</p>
+                </div>
+                <button
+                  onClick={() => setShowMidDrillCapture(false)}
+                  className="text-zinc-500 hover:text-zinc-300 transition-colors p-1"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {midDrillSaved.size > 0 && (
+                <p className="text-xs text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  {midDrillSaved.size} saved this drill
+                </p>
+              )}
+
+              <div className="space-y-2">
+                {presentPlayers.map((p) => {
+                  const firstName = p.name.split(' ')[0];
+                  const label = p.jersey_number ? `#${p.jersey_number} ${firstName}` : firstName;
+                  const savedPos = midDrillSaved.has(`${p.id}-positive`);
+                  const savedNeg = midDrillSaved.has(`${p.id}-needs-work`);
+                  return (
+                    <div key={p.id} className="flex items-center gap-2 rounded-xl bg-zinc-800 px-3 py-2.5">
+                      <span className="flex-1 text-sm font-medium text-zinc-100 truncate">{label}</span>
+                      <button
+                        onClick={() => handleMidDrillNote(p.id, p.name, 'positive')}
+                        className={`flex h-9 w-9 items-center justify-center rounded-lg text-base transition-all active:scale-95 touch-manipulation ${
+                          savedPos
+                            ? 'bg-emerald-500/40 text-emerald-300 ring-1 ring-emerald-500/60'
+                            : 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/30'
+                        }`}
+                        aria-label={`${firstName} positive`}
+                      >
+                        👍
+                      </button>
+                      <button
+                        onClick={() => handleMidDrillNote(p.id, p.name, 'needs-work')}
+                        className={`flex h-9 w-9 items-center justify-center rounded-lg text-base transition-all active:scale-95 touch-manipulation ${
+                          savedNeg
+                            ? 'bg-amber-500/40 text-amber-300 ring-1 ring-amber-500/60'
+                            : 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/30'
+                        }`}
+                        aria-label={`${firstName} needs work`}
+                      >
+                        👎
+                      </button>
+                    </div>
+                  );
+                })}
+
+                {/* Team/general row */}
+                <div className="flex items-center gap-2 rounded-xl bg-zinc-800/60 border border-zinc-700/50 px-3 py-2.5">
+                  <span className="flex-1 text-sm text-zinc-400 truncate">Team / General</span>
+                  <button
+                    onClick={() => handleMidDrillNote(undefined, 'Team', 'positive')}
+                    className={`flex h-9 w-9 items-center justify-center rounded-lg text-base transition-all active:scale-95 touch-manipulation ${
+                      midDrillSaved.has('team-positive')
+                        ? 'bg-emerald-500/40 text-emerald-300 ring-1 ring-emerald-500/60'
+                        : 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/30'
+                    }`}
+                    aria-label="Team positive"
+                  >
+                    👍
+                  </button>
+                  <button
+                    onClick={() => handleMidDrillNote(undefined, 'Team', 'needs-work')}
+                    className={`flex h-9 w-9 items-center justify-center rounded-lg text-base transition-all active:scale-95 touch-manipulation ${
+                      midDrillSaved.has('team-needs-work')
+                        ? 'bg-amber-500/40 text-amber-300 ring-1 ring-amber-500/60'
+                        : 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/30'
+                    }`}
+                    aria-label="Team needs work"
+                  >
+                    👎
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-xs text-zinc-600 text-center pb-1">
+                Current drill: {queue[currentIdx]?.name} · {fmt(timeLeft)} remaining
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Swap Drill bottom sheet */}
         {showSwapSheet && (
