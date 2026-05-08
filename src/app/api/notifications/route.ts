@@ -3,11 +3,12 @@ import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/serv
 import { isBirthdayToday, getAgeThisBirthday } from '@/lib/birthday-utils';
 
 export type NotificationType =
-  | 'unobserved_player'   // player not observed in 14+ days
-  | 'goal_deadline'       // active goal due within 7 days (or overdue)
-  | 'session_today'       // session scheduled today with no observations
-  | 'achievement_earned'  // badge awarded in last 48 hours
-  | 'birthday_today';     // player birthday is today
+  | 'unobserved_player'      // player not observed in 14+ days
+  | 'goal_deadline'          // active goal due within 7 days (or overdue)
+  | 'session_today'          // session scheduled today with no observations
+  | 'achievement_earned'     // badge awarded in last 48 hours
+  | 'birthday_today'         // player birthday is today
+  | 'parent_report_viewed';  // parent opened a share report in last 48 hours
 
 export type NotificationPriority = 'high' | 'medium' | 'low';
 
@@ -78,7 +79,7 @@ export async function GET(request: Request) {
   const fortyEightHoursAgo = new Date(now - 48 * 60 * 60 * 1000).toISOString();
 
   // Fetch all data in parallel for minimal latency
-  const [playersRes, obsRes, goalsRes, sessionsRes, achievementsRes] = await Promise.all([
+  const [playersRes, obsRes, goalsRes, sessionsRes, achievementsRes, sharesRes] = await Promise.all([
     admin
       .from('players')
       .select('id, name, date_of_birth')
@@ -108,6 +109,15 @@ export async function GET(request: Request) {
       .gte('earned_at', fortyEightHoursAgo)
       .order('earned_at', { ascending: false })
       .limit(10),
+    admin
+      .from('parent_shares')
+      .select('id, player_id, view_count, last_viewed_at')
+      .eq('team_id', teamId)
+      .eq('is_active', true)
+      .gte('last_viewed_at', fortyEightHoursAgo)
+      .gte('view_count', 1)
+      .order('last_viewed_at', { ascending: false })
+      .limit(5),
   ]);
 
   const players = playersRes.data ?? [];
@@ -115,6 +125,7 @@ export async function GET(request: Request) {
   const goals = goalsRes.data ?? [];
   const sessions = sessionsRes.data ?? [];
   const achievements = achievementsRes.data ?? [];
+  const recentShares = sharesRes.data ?? [];
 
   // Build a player name lookup
   const playerMap: Record<string, string> = {};
@@ -193,7 +204,22 @@ export async function GET(request: Request) {
     });
   }
 
-  // ── 5. Player birthdays today ────────────────────────────────────────────────
+  // ── 5. Parent viewed report in last 48 hours ──────────────────────────────────
+  for (const share of recentShares) {
+    const playerName = playerMap[(share as any).player_id] ?? 'A player';
+    const viewedAt = (share as any).last_viewed_at as string;
+    notifications.push({
+      id: buildNotificationId('parent_report_viewed', (share as any).id),
+      type: 'parent_report_viewed',
+      title: `${playerName}'s family opened their report! 👀`,
+      body: "Great time to add fresh observations or send an update.",
+      href: `/roster/${(share as any).player_id}`,
+      priority: 'low',
+      timestamp: viewedAt,
+    });
+  }
+
+  // ── 6. Player birthdays today ────────────────────────────────────────────────
   const todayDate = new Date();
   for (const player of players) {
     const dob = (player as any).date_of_birth as string | null;
