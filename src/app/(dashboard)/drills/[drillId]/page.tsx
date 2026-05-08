@@ -1,6 +1,6 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery } from '@tanstack/react-query';
 import { query } from '@/lib/api';
@@ -25,9 +25,11 @@ import {
   CalendarClock,
   ThumbsUp,
   ThumbsDown,
+  Zap,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Drill, Observation, Player } from '@/types/database';
+import { useAppStore } from '@/lib/store';
 import {
   buildDrillUsageSummary,
   buildUsageSummaryLabel,
@@ -90,6 +92,35 @@ export default function DrillDetailPage({
     enabled: !!activeTeam,
     staleTime: 5 * 60 * 1000,
   });
+
+  const { practiceActive, practiceSessionId } = useAppStore((state) => ({
+    practiceActive: state.practiceActive,
+    practiceSessionId: state.practiceSessionId,
+  }));
+
+  const [addedToTimer, setAddedToTimer] = useState(false);
+
+  function handleAddToTimer() {
+    if (!practiceSessionId || !drill) return;
+    const key = `practice-timer-queue-v1-${practiceSessionId}`;
+    try {
+      const raw = localStorage.getItem(key);
+      const existing: { id: string; name: string; durationSecs: number; cues: string[]; drillId?: string; skill_category?: string }[] = raw ? JSON.parse(raw) : [];
+      existing.push({
+        id: `drill-${drill.id}-${Date.now()}`,
+        name: drill.name,
+        durationSecs: (drill.duration_minutes ?? 5) * 60,
+        cues: drill.teaching_cues ?? [],
+        drillId: drill.id,
+        skill_category: drill.category,
+      });
+      localStorage.setItem(key, JSON.stringify(existing));
+      setAddedToTimer(true);
+      setTimeout(() => setAddedToTimer(false), 2500);
+    } catch {
+      // Silently ignore — coach can still add via the timer picker
+    }
+  }
 
   if (isLoading) {
     return (
@@ -286,7 +317,7 @@ export default function DrillDetailPage({
         </Card>
       )}
 
-      {/* ── Drill History ─────────────────────────────────────────────────────── */}
+      {/* ── Drill History ─────────────────────────────────────────────── */}
       {(() => {
         const usage = buildDrillUsageSummary(drillObs);
         const recent = getRecentObservations(drillObs, 5);
@@ -378,14 +409,46 @@ export default function DrillDetailPage({
         );
       })()}
 
-      {/* CTA — generate a practice plan using this drill */}
+      {/* CTA — add to live timer or generate a practice plan */}
       <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-0 right-0 lg:static lg:bottom-auto lg:pt-2 p-4 lg:p-0 bg-zinc-950/95 lg:bg-transparent backdrop-blur-sm lg:backdrop-blur-none border-t border-zinc-800 lg:border-0">
-        <Link href={`/plans?drill=${encodeURIComponent(drill.name)}`} className="block">
-          <Button className="w-full h-12 lg:h-10 text-base lg:text-sm gap-2">
-            <Dumbbell className="h-5 w-5 lg:h-4 lg:w-4" />
-            Use in a Practice Plan
-          </Button>
-        </Link>
+        {practiceActive && practiceSessionId ? (
+          <div className="flex flex-col gap-2">
+            {addedToTimer ? (
+              <div className="w-full h-12 lg:h-10 flex items-center justify-center gap-3 rounded-lg bg-emerald-700 border border-emerald-500/40 px-4">
+                <CheckCircle2 className="h-5 w-5 lg:h-4 lg:w-4 text-emerald-300 shrink-0" />
+                <span className="text-emerald-200 font-semibold text-sm">Added to practice!</span>
+                <Link
+                  href={`/sessions/${practiceSessionId}/timer`}
+                  className="ml-auto text-xs font-medium text-emerald-100 underline hover:text-white transition-colors"
+                >
+                  Open Timer →
+                </Link>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleAddToTimer}
+                className="w-full h-12 lg:h-10 flex items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-semibold text-base lg:text-sm transition-colors touch-manipulation"
+              >
+                <Zap className="h-5 w-5 lg:h-4 lg:w-4" />
+                Add to Current Practice
+              </button>
+            )}
+            <Link href={`/plans?drill=${encodeURIComponent(drill.name)}`} className="block">
+              <Button variant="outline" className="w-full h-10 text-sm gap-2">
+                <Dumbbell className="h-4 w-4" />
+                Use in a Practice Plan
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <Link href={`/plans?drill=${encodeURIComponent(drill.name)}`} className="block">
+            <Button className="w-full h-12 lg:h-10 text-base lg:text-sm gap-2">
+              <Dumbbell className="h-5 w-5 lg:h-4 lg:w-4" />
+              Use in a Practice Plan
+            </Button>
+          </Link>
+        )}
       </div>
     </div>
   );
