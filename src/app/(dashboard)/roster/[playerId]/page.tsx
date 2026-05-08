@@ -726,6 +726,10 @@ export default function PlayerDetailPage({
     { id: 'overview', label: 'Overview', icon: <BarChart3 className="h-4 w-4" /> },
     { id: 'observations', label: 'Observations', icon: <Eye className="h-4 w-4" /> },
     { id: 'report-card', label: 'Report Card', icon: <FileText className="h-4 w-4" /> },
+    { id: 'challenges', label: 'Challenges', icon: <Zap className="h-4 w-4" /> },
+    { id: 'storyline', label: 'Storyline', icon: <BookOpen className="h-4 w-4" /> },
+    { id: 'self-assessment', label: 'Self-Check', icon: <ClipboardCheck className="h-4 w-4" /> },
+    { id: 'media', label: 'Media', icon: <Camera className="h-4 w-4" /> },
     { id: 'share', label: 'Share', icon: <Share2 className="h-4 w-4" /> },
   ];
 
