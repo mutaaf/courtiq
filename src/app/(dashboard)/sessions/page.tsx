@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2, Star, Timer, BarChart2 } from 'lucide-react';
+import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2, Star, Timer, BarChart2, Search, X } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { RecurringSessionsPanel } from '@/components/sessions/recurring-sessions-panel';
@@ -66,6 +66,7 @@ export default function SessionsPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const [typeFilter, setTypeFilter] = useState<SessionType | 'all'>('all');
+  const [searchText, setSearchText] = useState('');
   // Optimistic result overrides keyed by session ID
   const [localResults, setLocalResults] = useState<Record<string, string>>({});
   // Tracks which session + outcome is currently being saved
@@ -90,6 +91,22 @@ export default function SessionsPage() {
     enabled: !!activeTeam,
     ...CACHE_PROFILES.sessions,
   });
+
+  const filteredSessions = useMemo(() => {
+    if (!sessions) return [];
+    const q = searchText.trim().toLowerCase();
+    if (!q) return sessions;
+    return sessions.filter((s: any) => {
+      const typeLabel = SESSION_TYPE_CONFIG[s.type as SessionType]?.label ?? '';
+      const dateStr = s.date ? new Date(s.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : '';
+      return (
+        (s.opponent ?? '').toLowerCase().includes(q) ||
+        (s.location ?? '').toLowerCase().includes(q) ||
+        typeLabel.toLowerCase().includes(q) ||
+        dateStr.toLowerCase().includes(q)
+      );
+    });
+  }, [sessions, searchText]);
 
   async function handleQuickResult(e: React.MouseEvent, sessionId: string, outcome: ResultValue) {
     e.preventDefault();
@@ -145,7 +162,9 @@ export default function SessionsPage() {
         <div>
           <h1 className="text-2xl font-bold">Sessions</h1>
           <p className="text-zinc-400 text-sm">
-            {sessions?.length || 0} session{sessions?.length !== 1 ? 's' : ''} recorded
+            {searchText.trim()
+              ? `${filteredSessions.length} of ${sessions?.length || 0} session${(sessions?.length || 0) !== 1 ? 's' : ''}`
+              : `${sessions?.length || 0} session${(sessions?.length || 0) !== 1 ? 's' : ''} recorded`}
           </p>
         </div>
         <Link href="/sessions/new">
@@ -155,6 +174,29 @@ export default function SessionsPage() {
           </Button>
         </Link>
       </div>
+
+      {/* Search — only shown when there are enough sessions to warrant it */}
+      {(sessions?.length ?? 0) > 5 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 pointer-events-none" />
+          <input
+            type="search"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder="Search by opponent, location, or type…"
+            className="w-full rounded-xl border border-zinc-800 bg-zinc-900 pl-9 pr-9 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-orange-500/50 focus:outline-none focus:ring-1 focus:ring-orange-500/30 transition-colors"
+          />
+          {searchText && (
+            <button
+              onClick={() => setSearchText('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Type filter */}
       <div className="flex flex-wrap gap-2">
@@ -209,9 +251,23 @@ export default function SessionsPage() {
             </div>
           </CardContent>
         </Card>
+      ) : filteredSessions.length === 0 ? (
+        <Card className="border-dashed border-zinc-700">
+          <CardContent className="flex flex-col items-center justify-center py-10">
+            <p className="text-zinc-500 text-sm text-center">
+              No sessions match &ldquo;{searchText.trim()}&rdquo;.
+            </p>
+            <button
+              onClick={() => setSearchText('')}
+              className="mt-2 text-xs text-orange-400 hover:text-orange-300 font-medium transition-colors"
+            >
+              Clear search
+            </button>
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-3">
-          {sessions?.map((session: any) => {
+          {filteredSessions.map((session: any) => {
             const typeConfig = SESSION_TYPE_CONFIG[session.type as SessionType];
             const obsCount = session.observations?.[0]?.count || 0;
             // Use optimistic override if present, otherwise DB value
