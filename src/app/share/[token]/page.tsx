@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { ParentViralCTA } from '@/components/share/parent-viral-cta';
 import { ParentReactionForm } from '@/components/share/parent-reaction-form';
@@ -393,6 +394,51 @@ function ErrorPage({ isExpired, needsPin }: { isExpired: boolean; needsPin: bool
 // ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
+
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
+  const { token } = await params;
+  const data = await getShareData(token);
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://youthsportsiq.com';
+  const pageUrl = `${baseUrl}/share/${token}`;
+
+  if (!data || data.error) {
+    return {
+      title: 'Player Progress Report — SportsIQ',
+      description: 'View your player\'s coaching highlights and skill progress.',
+    };
+  }
+
+  const { player, team, coachName, totalObservationCount } = data;
+  const playerName = player?.nickname || player?.name || 'Your Player';
+  const firstName = playerName.split(' ')[0];
+  const teamName = team?.name || 'the team';
+  const coachFirst = coachName ? coachName.split(' ')[0] : 'Coach';
+  const obsNote = totalObservationCount > 0
+    ? ` · ${totalObservationCount} coaching observation${totalObservationCount !== 1 ? 's' : ''}`
+    : '';
+
+  const title = `${playerName}'s Progress Report — ${teamName}`;
+  const description = `Coach ${coachFirst} has shared ${firstName}'s coaching highlights, skill progress, and season achievements${obsNote}. See how ${firstName} is developing this season!`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'website',
+      url: pageUrl,
+      siteName: 'SportsIQ',
+      images: [{ url: `${baseUrl}/opengraph-image`, width: 1200, height: 630, alt: `${playerName}'s Progress Report` }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+    },
+  };
+}
 
 export default async function SharePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;

@@ -1,4 +1,24 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+
+export const metadata: Metadata = {
+  title: "Marcus's Progress Report — YMCA Rockets U12 (Sample)",
+  description:
+    'See what a SportsIQ parent progress report looks like. Coaching highlights, skill radar, season achievements, and at-home challenges — all from one practice session.',
+  openGraph: {
+    title: "Marcus's Progress Report — YMCA Rockets U12",
+    description:
+      'Your kid\'s coach could share reports like this after every practice. Coaching highlights, skill progress, and personalized at-home challenges.',
+    type: 'website',
+    siteName: 'SportsIQ',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: "Marcus's Progress Report — YMCA Rockets U12",
+    description:
+      'See what a SportsIQ parent progress report looks like — skill radar, coaching highlights, and personalized challenges.',
+  },
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mock data — realistic season data for demo player "Marcus Johnson"
