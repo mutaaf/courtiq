@@ -82,7 +82,7 @@ export default function SessionsPage() {
       }
       const data = await query<any[]>({
         table: 'sessions',
-        select: 'id, type, date, start_time, location, opponent, result, curriculum_week, quality_rating, observations:observations(count)',
+        select: 'id, type, date, start_time, location, opponent, result, curriculum_week, quality_rating, coach_notes, observations:observations(count)',
         filters,
         order: { column: 'date', ascending: false },
       });
@@ -103,7 +103,8 @@ export default function SessionsPage() {
         (s.opponent ?? '').toLowerCase().includes(q) ||
         (s.location ?? '').toLowerCase().includes(q) ||
         typeLabel.toLowerCase().includes(q) ||
-        dateStr.toLowerCase().includes(q)
+        dateStr.toLowerCase().includes(q) ||
+        (s.coach_notes ?? '').toLowerCase().includes(q)
       );
     });
   }, [sessions, searchText]);
@@ -183,7 +184,7 @@ export default function SessionsPage() {
             type="search"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            placeholder="Search by opponent, location, or type…"
+            placeholder="Search by opponent, location, type, or your notes…"
             className="w-full rounded-xl border border-zinc-800 bg-zinc-900 pl-9 pr-9 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-orange-500/50 focus:outline-none focus:ring-1 focus:ring-orange-500/30 transition-colors"
           />
           {searchText && (
@@ -323,6 +324,13 @@ export default function SessionsPage() {
                             </span>
                           )}
                         </div>
+
+                        {/* Coach notes preview — 1-line italic teaser */}
+                        {session.coach_notes && session.coach_notes.trim().length > 0 && (
+                          <p className="text-xs italic text-zinc-500 line-clamp-1 pt-0.5">
+                            📝 {session.coach_notes.trim()}
+                          </p>
+                        )}
 
                         {/* Inline quick-result entry: only for game types without a result */}
                         {isGame && !parsedResult && (
