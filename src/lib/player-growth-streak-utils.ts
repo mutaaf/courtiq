@@ -12,7 +12,7 @@
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface GrowthObs {
-  session_id: string | null;
+  session_id?: string | null;
   sentiment: string;
   created_at: string;
 }
