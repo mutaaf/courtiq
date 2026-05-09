@@ -297,6 +297,20 @@ export async function GET(
       .order('created_at', { ascending: false });
     reportData.announcements = announcements ?? [];
 
+    // Next upcoming session — answers "when is the next practice?" for parents
+    // without requiring the coach to separately message them.
+    const todayIso = new Date().toISOString().split('T')[0];
+    const { data: nextSession } = await supabase
+      .from('sessions')
+      .select('id, date, start_time, end_time, type, location, opponent')
+      .eq('team_id', share.team_id)
+      .gte('date', todayIso)
+      .order('date', { ascending: true })
+      .order('start_time', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    reportData.nextSession = nextSession ?? null;
+
     // Increment view count
     await supabase
       .from('parent_shares')
