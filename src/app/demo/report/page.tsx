@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+const DEMO_OG_IMAGE =
+  `${process.env.NEXT_PUBLIC_APP_URL || 'https://youthsportsiq.com'}/api/og/share?` +
+  new URLSearchParams({ name: 'Marcus Johnson', team: 'YMCA Rockets U12', coach: 'Sarah', obs: '47' }).toString();
+
 export const metadata: Metadata = {
   title: "Marcus's Progress Report — YMCA Rockets U12 (Sample)",
   description:
@@ -11,12 +15,14 @@ export const metadata: Metadata = {
       'Your kid\'s coach could share reports like this after every practice. Coaching highlights, skill progress, and personalized at-home challenges.',
     type: 'website',
     siteName: 'SportsIQ',
+    images: [{ url: DEMO_OG_IMAGE, width: 1200, height: 630, alt: "Marcus's Progress Report — Sample" }],
   },
   twitter: {
     card: 'summary_large_image',
     title: "Marcus's Progress Report — YMCA Rockets U12",
     description:
       'See what a SportsIQ parent progress report looks like — skill radar, coaching highlights, and personalized challenges.',
+    images: [DEMO_OG_IMAGE],
   },
 };
 

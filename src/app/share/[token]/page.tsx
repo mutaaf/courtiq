@@ -421,6 +421,14 @@ export async function generateMetadata({ params }: { params: Promise<{ token: st
   const title = `${playerName}'s Progress Report — ${teamName}`;
   const description = `Coach ${coachFirst} has shared ${firstName}'s coaching highlights, skill progress, and season achievements${obsNote}. See how ${firstName} is developing this season!`;
 
+  const ogImageParams = new URLSearchParams({
+    name: playerName,
+    team: teamName,
+    coach: coachFirst,
+    obs: String(totalObservationCount),
+  });
+  const ogImageUrl = `${baseUrl}/api/og/share?${ogImageParams.toString()}`;
+
   return {
     title,
     description,
@@ -430,12 +438,13 @@ export async function generateMetadata({ params }: { params: Promise<{ token: st
       type: 'website',
       url: pageUrl,
       siteName: 'SportsIQ',
-      images: [{ url: `${baseUrl}/opengraph-image`, width: 1200, height: 630, alt: `${playerName}'s Progress Report` }],
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: `${playerName}'s Progress Report` }],
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
+      images: [ogImageUrl],
     },
   };
 }
