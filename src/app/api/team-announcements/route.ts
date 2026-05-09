@@ -1,6 +1,11 @@
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { isValidTitle, isValidBody, MAX_TITLE_LENGTH, MAX_BODY_LENGTH } from '@/lib/announcement-utils';
+import { sendEmail } from '@/lib/email';
+import { announcementAlertEmail } from '@/lib/email/templates';
+import { randomBytes } from 'crypto';
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.youthsportsiq.com';
 
 // ─── GET /api/team-announcements?team_id=xxx ─────────────────────────────────
 // Returns all non-expired announcements for the team (newest first).
@@ -78,11 +83,125 @@ export async function POST(request: Request) {
       .single();
 
     if (error) throw error;
-    return NextResponse.json({ announcement }, { status: 201 });
+
+    // ── Non-blocking: email parents who have an email on file ───────────────
+    let emailsSent = 0;
+    try {
+      emailsSent = await sendAnnouncementEmails({
+        admin,
+        coachId: user.id,
+        teamId: team_id,
+        title: title.trim(),
+        body: bodyText.trim(),
+      });
+    } catch (emailErr) {
+      console.error('[team-announcements] email send error (non-fatal):', emailErr);
+    }
+
+    return NextResponse.json({ announcement, emailsSent }, { status: 201 });
   } catch (err) {
     console.error('[team-announcements POST]', err);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
+}
+
+// ── Helper: fetch players, get/create share tokens, send emails ──────────────
+
+async function sendAnnouncementEmails(args: {
+  admin: Awaited<ReturnType<typeof createServiceSupabase>>;
+  coachId: string;
+  teamId: string;
+  title: string;
+  body: string;
+}): Promise<number> {
+  const { admin, coachId, teamId, title, body } = args;
+
+  // Fetch coach name + team name in parallel
+  const [coachRes, teamRes] = await Promise.all([
+    admin.from('coaches').select('full_name').eq('id', coachId).single(),
+    admin.from('teams').select('name').eq('id', teamId).single(),
+  ]);
+  const coachName = coachRes.data?.full_name ?? 'Your Coach';
+  const teamName  = teamRes.data?.name ?? 'Your Team';
+
+  // Fetch players with parent email
+  const { data: players } = await admin
+    .from('players')
+    .select('id, name, parent_email, parent_name')
+    .eq('team_id', teamId)
+    .eq('is_active', true)
+    .not('parent_email', 'is', null);
+
+  if (!players?.length) return 0;
+
+  const playerIds = players.map((p) => p.id);
+
+  // Fetch existing permanent share tokens in one query
+  const { data: existingTokens } = await admin
+    .from('parent_shares')
+    .select('player_id, share_token')
+    .in('player_id', playerIds)
+    .eq('team_id', teamId)
+    .eq('is_active', true)
+    .is('expires_at', null)
+    .order('created_at', { ascending: false });
+
+  // Build token map (keep first/most-recent token per player)
+  const tokenMap = new Map<string, string>();
+  existingTokens?.forEach((t) => {
+    if (!tokenMap.has(t.player_id)) tokenMap.set(t.player_id, t.share_token);
+  });
+
+  // Create tokens for players who don't have one
+  const needingTokens = players.filter((p) => !tokenMap.has(p.id));
+  if (needingTokens.length > 0) {
+    const newRows = needingTokens.map((p) => ({
+      player_id: p.id,
+      team_id: teamId,
+      coach_id: coachId,
+      share_token: randomBytes(16).toString('hex'),
+      pin: null,
+      include_observations: false,
+      include_development_card: true,
+      include_report_card: true,
+      include_highlights: true,
+      include_goals: true,
+      include_drills: true,
+      include_coach_note: true,
+      include_skill_challenges: true,
+      custom_message: null,
+      is_active: true,
+      expires_at: null,
+    }));
+    const { data: inserted } = await admin
+      .from('parent_shares')
+      .insert(newRows)
+      .select('player_id, share_token');
+    inserted?.forEach((t) => tokenMap.set(t.player_id, t.share_token));
+  }
+
+  // Send emails in parallel — failures don't block each other
+  const emailResults = await Promise.allSettled(
+    players.map(async (player) => {
+      const token = tokenMap.get(player.id);
+      if (!token || !player.parent_email) return { success: false };
+      const shareUrl = `${APP_URL}/share/${token}`;
+      const { subject, html } = announcementAlertEmail({
+        parentName: player.parent_name ?? null,
+        playerName: player.name,
+        coachName,
+        teamName,
+        title,
+        body,
+        shareUrl,
+      });
+      return sendEmail({ to: player.parent_email, subject, html });
+    }),
+  );
+
+  return emailResults.filter(
+    (r) => r.status === 'fulfilled' && (r.value as any)?.success,
+  ).length;
 }
 
 // ─── DELETE /api/team-announcements?id=xxx ────────────────────────────────────

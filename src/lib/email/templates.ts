@@ -362,6 +362,57 @@ export function weeklyStarParentEmail(args: {
   return { subject, html };
 }
 
+// ── 11. Team announcement alert (sent to parents when coach posts an update) ─
+
+export function announcementAlertEmail(args: {
+  parentName: string | null;
+  playerName: string;
+  coachName: string;
+  teamName: string;
+  title: string;
+  body: string;
+  shareUrl: string;
+}): BuiltEmail {
+  const coachFirst = args.coachName.split(' ')[0];
+  const playerFirst = args.playerName.split(' ')[0];
+  const greeting = args.parentName
+    ? `Hi ${args.parentName.split(' ')[0]},`
+    : 'Hi there,';
+  const subject = `📢 ${args.title} — ${args.teamName}`;
+  const html = renderEmail({
+    transactional: true,
+    preview: `Coach ${coachFirst} from ${args.teamName} posted a team update.`,
+    body: [
+      heroSection(
+        '📢 Team Update from Your Coach',
+        `Coach ${escapeHtmlInline(coachFirst)} posted a message for ${escapeHtmlInline(args.teamName)}.`,
+      ),
+      paragraph(`${escapeHtmlInline(greeting)}`),
+      `<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:0 0 20px;">
+        <tr>
+          <td style="background:#fff7ed;border-left:4px solid #f97316;border-radius:0 8px 8px 0;padding:14px 16px;">
+            <p style="margin:0 0 8px;font-size:15px;font-weight:700;color:#0f172a;line-height:1.4;">${escapeHtmlInline(args.title)}</p>
+            <p style="margin:0;font-size:14px;color:#475569;line-height:1.6;">${escapeHtmlInline(args.body)}</p>
+          </td>
+        </tr>
+      </table>`,
+      paragraph(
+        `While you're here, see ${escapeHtmlInline(playerFirst)}'s latest coaching highlights and skill progress in their player portal:`,
+        { html: true },
+      ),
+      ctaButton(
+        `View ${args.playerName}'s progress report →`,
+        args.shareUrl,
+      ),
+      divider(),
+      fineprint(
+        `You received this because your child plays on ${args.teamName}. Updates are sent by Coach ${args.coachName} via SportsIQ.`,
+      ),
+    ].join(''),
+  });
+  return { subject, html };
+}
+
 // ── helpers ────────────────────────────────────────────────────────────────
 
 function escapeQuotes(s: string): string {

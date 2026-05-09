@@ -16,6 +16,7 @@ import {
   ChevronUp,
   Loader2,
   CheckCircle,
+  Mail,
 } from 'lucide-react';
 import {
   expiryToDate,
@@ -39,7 +40,7 @@ const EXPIRY_OPTIONS: { value: AnnouncementExpiry; label: string }[] = [
 interface CreateFormProps {
   teamId: string;
   onClose: () => void;
-  onCreated: () => void;
+  onCreated: (emailsSent: number) => void;
 }
 
 function CreateForm({ teamId, onClose, onCreated }: CreateFormProps) {
@@ -68,7 +69,8 @@ function CreateForm({ teamId, onClose, onCreated }: CreateFormProps) {
         const { error: msg } = await res.json();
         throw new Error(msg || 'Failed to post announcement');
       }
-      onCreated();
+      const data = await res.json();
+      onCreated(data.emailsSent ?? 0);
       onClose();
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
@@ -163,6 +165,7 @@ export function AnnouncementsPanel() {
   const [showForm, setShowForm]       = useState(false);
   const [deletingId, setDeletingId]   = useState<string | null>(null);
   const [justPosted, setJustPosted]   = useState(false);
+  const [emailsSent, setEmailsSent]   = useState(0);
 
   const queryKey = ['team-announcements', activeTeam?.id];
 
@@ -190,10 +193,11 @@ export function AnnouncementsPanel() {
     }
   }
 
-  function handleCreated() {
+  function handleCreated(sent: number) {
     setJustPosted(true);
+    setEmailsSent(sent);
     queryClient.invalidateQueries({ queryKey });
-    setTimeout(() => setJustPosted(false), 2500);
+    setTimeout(() => setJustPosted(false), 4000);
   }
 
   if (!activeTeam) return null;
@@ -235,9 +239,19 @@ export function AnnouncementsPanel() {
         <CardContent className="pt-0 pb-4 space-y-4">
           {/* Success flash */}
           {justPosted && (
-            <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
-              <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0" aria-hidden="true" />
-              <p className="text-xs text-emerald-400">Announcement posted — parents will see it immediately.</p>
+            <div className="flex items-start gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2.5">
+              <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="text-xs text-emerald-400 font-medium">Announcement posted!</p>
+                {emailsSent > 0 ? (
+                  <p className="text-xs text-emerald-500 flex items-center gap-1 mt-0.5">
+                    <Mail className="h-3 w-3" aria-hidden="true" />
+                    {emailsSent} {emailsSent === 1 ? 'parent' : 'parents'} notified by email
+                  </p>
+                ) : (
+                  <p className="text-xs text-zinc-500 mt-0.5">Parents will see it in their portal.</p>
+                )}
+              </div>
             </div>
           )}
 
