@@ -31,7 +31,7 @@ export function QuickCaptureWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<WidgetTab>('voice');
 
-  // ── Voice tab state ──────────────────────────────────────────────────────
+  // ── Voice tab state ───────────────────────────────────────────────────────────────────
   const [widgetState, setWidgetState] = useState<WidgetState>('idle');
   const [liveTranscript, setLiveTranscript] = useState('');
   const [savedCount, setSavedCount] = useState(0);
@@ -44,7 +44,7 @@ export function QuickCaptureWidget() {
   const audioChunksRef = useRef<Blob[]>([]);
   const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Templates tab state ──────────────────────────────────────────────────
+  // ── Templates tab state ─────────────────────────────────────────────────────────────
   const [templateStep, setTemplateStep] = useState<TemplateStep>('pick');
   const [templateSentiment, setTemplateSentiment] = useState<'positive' | 'needs-work'>('positive');
   const [selectedTemplate, setSelectedTemplate] = useState<ObservationTemplate | null>(null);
@@ -134,7 +134,7 @@ export function QuickCaptureWidget() {
     resetTemplateState();
   }, [cleanupMedia, resetVoiceState, resetTemplateState]);
 
-  // ── Voice: start recording ─────────────────────────────────────────────
+  // ── Voice: start recording ────────────────────────────────────────────────────────────────
   const startRecording = useCallback(async () => {
     if (!activeTeam) return;
     resetVoiceState();
@@ -204,7 +204,7 @@ export function QuickCaptureWidget() {
     }
   }, [activeTeam, resetVoiceState]);
 
-  // ── Voice: stop and process ────────────────────────────────────────────
+  // ── Voice: stop and process ────────────────────────────────────────────────────────────
   const stopAndProcess = useCallback(async () => {
     const recorder = mediaRecorderRef.current;
     if (!recorder || recorder.state === 'inactive') return;
@@ -315,13 +315,13 @@ export function QuickCaptureWidget() {
     recorder.stop();
   }, [activeTeam, coach, queryClient, resetVoiceState]);
 
-  // ── Templates: pick a template ────────────────────────────────────────
+  // ── Templates: pick a template ──────────────────────────────────────────────────
   function handlePickTemplate(tpl: ObservationTemplate) {
     setSelectedTemplate(tpl);
     setTemplateStep('player');
   }
 
-  // ── Templates: save observation for chosen player ─────────────────────
+  // ── Templates: save observation for chosen player ─────────────────────────────────
   async function saveTemplateObservation(playerId: string) {
     if (!selectedTemplate || !activeTeam || !coach) return;
     setSavingTemplate(true);
@@ -482,7 +482,7 @@ export function QuickCaptureWidget() {
               </button>
             </div>
 
-            {/* ── Voice Tab ─────────────────────────────────────────────── */}
+            {/* ── Voice Tab ───────────────────────────────────────────────────────── */}
             {activeTab === 'voice' && (
               <>
                 {(widgetState === 'idle' || widgetState === 'recording') && (
@@ -577,7 +577,7 @@ export function QuickCaptureWidget() {
               </>
             )}
 
-            {/* ── Templates Tab ─────────────────────────────────────────── */}
+            {/* ── Templates Tab ───────────────────────────────────────────────────── */}
             {activeTab === 'templates' && (
               <>
                 {/* Step 1: pick template */}
