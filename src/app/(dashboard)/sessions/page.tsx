@@ -82,7 +82,7 @@ export default function SessionsPage() {
       }
       const data = await query<any[]>({
         table: 'sessions',
-        select: 'id, type, date, start_time, location, opponent, result, curriculum_week, quality_rating, coach_notes, observations:observations(count)',
+        select: 'id, type, date, start_time, location, opponent, result, curriculum_week, quality_rating, coach_debrief_text, observations:observations(count)',
         filters,
         order: { column: 'date', ascending: false },
       });
@@ -104,7 +104,7 @@ export default function SessionsPage() {
         (s.location ?? '').toLowerCase().includes(q) ||
         typeLabel.toLowerCase().includes(q) ||
         dateStr.toLowerCase().includes(q) ||
-        (s.coach_notes ?? '').toLowerCase().includes(q)
+        (s.coach_debrief_text ?? '').toLowerCase().includes(q)
       );
     });
   }, [sessions, searchText]);
@@ -326,9 +326,9 @@ export default function SessionsPage() {
                         </div>
 
                         {/* Coach notes preview — 1-line italic teaser */}
-                        {session.coach_notes && session.coach_notes.trim().length > 0 && (
+                        {session.coach_debrief_text && session.coach_debrief_text.trim().length > 0 && (
                           <p className="text-xs italic text-zinc-500 line-clamp-1 pt-0.5">
-                            📝 {session.coach_notes.trim()}
+                            📝 {session.coach_debrief_text.trim()}
                           </p>
                         )}
 
