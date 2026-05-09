@@ -51,6 +51,9 @@ export function QuickCaptureWidget() {
   const [roster, setRoster] = useState<{ id: string; name: string; jersey_number: number | null }[]>([]);
   const [rosterLoading, setRosterLoading] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
+  // Tally mode: count how many times current template was saved, and who was saved last
+  const [tallyCount, setTallyCount] = useState(0);
+  const [lastSavedName, setLastSavedName] = useState<string | null>(null);
   // Players already observed in the current session
   const [sessionObservedIds, setSessionObservedIds] = useState<Set<string>>(new Set());
 
@@ -116,6 +119,8 @@ export function QuickCaptureWidget() {
     setTemplateStep('pick');
     setSelectedTemplate(null);
     setTemplateSentiment('positive');
+    setTallyCount(0);
+    setLastSavedName(null);
   }, []);
 
   const close = useCallback(() => {
@@ -320,6 +325,7 @@ export function QuickCaptureWidget() {
   async function saveTemplateObservation(playerId: string) {
     if (!selectedTemplate || !activeTeam || !coach) return;
     setSavingTemplate(true);
+    const playerFirstName = roster.find((p) => p.id === playerId)?.name.split(' ')[0] ?? null;
     const sessionId = practiceActive && practiceSessionId ? practiceSessionId : null;
     try {
       await mutate({
@@ -343,6 +349,8 @@ export function QuickCaptureWidget() {
       if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
 
       setSessionObservedIds((prev) => new Set([...prev, playerId]));
+      setLastSavedName(playerFirstName);
+      setTallyCount((prev) => prev + 1);
 
       queryClient.invalidateQueries({ queryKey: queryKeys.observations.all(activeTeam.id) });
       queryClient.invalidateQueries({ queryKey: ['home-stats', activeTeam.id] });
@@ -352,11 +360,11 @@ export function QuickCaptureWidget() {
       }
 
       setTemplateStep('saved');
-      // Auto-reset so coach can log another immediately
+      // Tally mode: return to player picker (template stays selected) so coach can
+      // immediately log another player without re-picking the template
       setTimeout(() => {
-        setTemplateStep('pick');
-        setSelectedTemplate(null);
-      }, 1400);
+        setTemplateStep('player');
+      }, 800);
     } catch {
       // fall back to pick so coach can retry
       setTemplateStep('pick');
@@ -627,7 +635,7 @@ export function QuickCaptureWidget() {
                     </div>
 
                     <p className="text-center text-xs text-zinc-600">
-                      Tap a template, then pick the player — saved instantly
+                      Pick a template, then tap each player — same template stays selected
                     </p>
                   </div>
                 )}
@@ -635,7 +643,7 @@ export function QuickCaptureWidget() {
                 {/* Step 2: pick player */}
                 {templateStep === 'player' && (
                   <div className="flex flex-col gap-3">
-                    {/* Selected template preview */}
+                    {/* Selected template preview with tally count */}
                     {selectedTemplate && (
                       <div className={cn(
                         'flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium',
@@ -644,12 +652,24 @@ export function QuickCaptureWidget() {
                           : 'bg-amber-900/40 text-amber-300'
                       )}>
                         <span className="text-lg">{selectedTemplate.emoji}</span>
-                        <span>{selectedTemplate.text}</span>
+                        <span className="flex-1">{selectedTemplate.text}</span>
+                        {tallyCount > 0 && (
+                          <span className={cn(
+                            'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold',
+                            selectedTemplate.sentiment === 'positive'
+                              ? 'bg-emerald-500/30 text-emerald-300'
+                              : 'bg-amber-500/30 text-amber-300'
+                          )}>
+                            ×{tallyCount}
+                          </span>
+                        )}
                       </div>
                     )}
 
                     <div className="flex items-center justify-between">
-                      <p className="text-xs font-medium text-zinc-400">Who was this for?</p>
+                      <p className="text-xs font-medium text-zinc-400">
+                        {tallyCount > 0 ? 'Who else?' : 'Who was this for?'}
+                      </p>
                       {practiceSessionId && sessionObservedIds.size > 0 && (
                         <p className="text-[10px] text-emerald-500">{sessionObservedIds.size} observed ✓</p>
                       )}
@@ -710,23 +730,27 @@ export function QuickCaptureWidget() {
 
                     <button
                       type="button"
-                      onClick={() => { setTemplateStep('pick'); setSelectedTemplate(null); }}
+                      onClick={() => { setTemplateStep('pick'); setSelectedTemplate(null); setTallyCount(0); setLastSavedName(null); }}
                       className="self-start text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
                     >
-                      ← Back
+                      ← Change template
                     </button>
                   </div>
                 )}
 
-                {/* Step 3: saved confirmation */}
+                {/* Step 3: saved confirmation — briefly shown before returning to player picker */}
                 {templateStep === 'saved' && (
-                  <div className="flex flex-col items-center gap-4 py-4">
+                  <div className="flex flex-col items-center gap-3 py-4">
                     <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20">
                       <CheckCircle2 className="h-7 w-7 text-emerald-400" />
                     </div>
                     <div className="text-center">
-                      <p className="text-sm font-semibold text-zinc-100">Saved!</p>
-                      <p className="mt-1 text-xs text-zinc-500">Ready to log another…</p>
+                      <p className="text-sm font-semibold text-zinc-100">
+                        {lastSavedName ? `${lastSavedName} ✓` : 'Saved!'}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {tallyCount > 1 ? `${tallyCount} saved — tap another player` : 'Tap another player to keep going…'}
+                      </p>
                     </div>
                   </div>
                 )}
