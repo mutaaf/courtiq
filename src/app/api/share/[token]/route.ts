@@ -39,12 +39,28 @@ export async function GET(
       return NextResponse.json({ error: 'PIN required', pinRequired: true }, { status: 403 });
     }
 
-    // Get player info (include parent_name for personalized greeting)
-    const { data: player } = await supabase
+    // Get player info — also fetch parent contact fields to determine
+    // whether the "Add your contact" form should appear on the portal.
+    const { data: playerRaw } = await supabase
       .from('players')
-      .select('id, name, nickname, position, jersey_number, photo_url, parent_name')
+      .select('id, name, nickname, position, jersey_number, photo_url, parent_name, parent_phone, parent_email')
       .eq('id', share.player_id)
       .single();
+
+    // Strip actual contact data before passing to the client — expose only
+    // whether contact info exists (used to conditionally show the opt-in form).
+    const hasParentContact = !!(playerRaw?.parent_phone || playerRaw?.parent_email);
+    const player = playerRaw
+      ? {
+          id: playerRaw.id,
+          name: playerRaw.name,
+          nickname: playerRaw.nickname,
+          position: playerRaw.position,
+          jersey_number: playerRaw.jersey_number,
+          photo_url: playerRaw.photo_url,
+          parent_name: playerRaw.parent_name,
+        }
+      : null;
 
     // Get team info
     const { data: team } = await supabase
@@ -84,6 +100,7 @@ export async function GET(
       coachName: coach?.full_name,
       branding,
       customMessage: share.custom_message,
+      hasParentContact,
     };
 
     if (share.include_report_card) {
