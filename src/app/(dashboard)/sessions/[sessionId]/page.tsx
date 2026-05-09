@@ -3338,6 +3338,19 @@ export default function SessionDetailPage() {
     setTimeout(() => setObsActionState(s => { const n = { ...s }; delete n[obsId]; return n; }), 2000);
   };
 
+  const handleToggleHighlight = async (obsId: string, nextHighlighted: boolean) => {
+    queryClient.setQueryData(queryKeys.observations.session(sessionId), (prev: any[]) =>
+      prev ? prev.map((o) => o.id === obsId ? { ...o, is_highlighted: nextHighlighted } : o) : prev,
+    );
+    try {
+      await mutate({ table: 'observations', operation: 'update', data: { is_highlighted: nextHighlighted }, filters: { id: obsId } });
+    } catch {
+      queryClient.setQueryData(queryKeys.observations.session(sessionId), (prev: any[]) =>
+        prev ? prev.map((o) => o.id === obsId ? { ...o, is_highlighted: !nextHighlighted } : o) : prev,
+      );
+    }
+  };
+
   const isLoading = sessionLoading || obsLoading;
 
   if (isLoading) {
@@ -3841,20 +3854,33 @@ export default function SessionDetailPage() {
                     const canSendToParent = isPositive && obs.player_id && obs.player_id !== '__none__';
                     const actionState = obsActionState[obs.id];
                     return (
-                      <Card key={obs.id}>
+                      <Card key={obs.id} className={obs.is_highlighted ? 'border-amber-500/40 bg-amber-500/5' : ''}>
                         <CardContent className="p-3">
                           <div className="flex items-start gap-3">
                             <SentimentIcon
                               className={`h-4 w-4 mt-0.5 shrink-0 ${sentimentConfig?.color || 'text-zinc-400'}`}
                             />
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Badge variant="secondary" className="text-[10px]">
-                                  {obs.category}
-                                </Badge>
-                                <Badge variant="outline" className="text-[10px]">
-                                  {obs.source}
-                                </Badge>
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="secondary" className="text-[10px]">
+                                    {obs.category}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-[10px]">
+                                    {obs.source}
+                                  </Badge>
+                                  {obs.is_highlighted && (
+                                    <span className="text-[10px] font-medium text-amber-400">⭐ Coach&apos;s Pick</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleToggleHighlight(obs.id, !obs.is_highlighted); }}
+                                  className={`flex h-7 w-7 items-center justify-center rounded-full transition-colors touch-manipulation active:scale-95 shrink-0 ${obs.is_highlighted ? 'text-amber-400 hover:text-amber-300' : 'text-zinc-600 hover:text-zinc-400'}`}
+                                  aria-label={obs.is_highlighted ? 'Remove from highlights' : 'Add to highlights'}
+                                  aria-pressed={obs.is_highlighted}
+                                >
+                                  <Star className={`h-3.5 w-3.5 ${obs.is_highlighted ? 'fill-amber-400' : ''}`} />
+                                </button>
                               </div>
                               <p className="text-sm text-zinc-300">{obs.text}</p>
                               <div className="flex items-center gap-2 mt-2">
