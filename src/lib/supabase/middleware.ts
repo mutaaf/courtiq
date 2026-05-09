@@ -47,6 +47,7 @@ export async function updateSession(request: NextRequest) {
     '/api/stripe/webhook',
     '/api/parent-reactions',
     '/api/ai/demo-segment',
+    '/api/og/',
     '/login',
     '/signup',
     '/onboarding',
