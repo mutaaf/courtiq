@@ -56,6 +56,7 @@ function obs(overrides: Partial<ShareObservation> = {}): ShareObservation {
     sentiment: 'positive',
     text: 'Great dribbling',
     created_at: daysAgo(3),
+    session_id: null,
     ...overrides,
   };
 }

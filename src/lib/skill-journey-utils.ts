@@ -15,7 +15,7 @@ export interface ShareObservation {
   sentiment: string;
   text: string;
   created_at: string;
-  session_id?: string | null;
+  session_id: string | null;
 }
 
 export interface SkillTrendSummary {
