@@ -314,7 +314,7 @@ const PROFICIENCY_LEVELS: Record<string, ProficiencyLevel> = {
   },
   got_it: {
     label: 'Got It!',
-    emoji: '\u2B50',
+    emoji: '⭐',
     percent: 75,
     barColor: 'bg-emerald-400',
     bgColor: 'bg-emerald-50',
@@ -461,6 +461,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     skillProgress,
     recommendedDrills,
     announcements,
+    nextSession,
     totalObservationCount,
     recentObservationActivity,
     achievements,
@@ -551,6 +552,56 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     return 'bg-gray-300';
   }
 
+  // Next session helpers — format date and time in a parent-friendly way
+  function formatNextSessionDate(dateStr: string): string {
+    // dateStr is YYYY-MM-DD (local date stored without timezone)
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const sessionDate = new Date(year, month - 1, day);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    const in7Days = new Date(today);
+    in7Days.setDate(today.getDate() + 7);
+
+    if (sessionDate.getTime() === today.getTime()) return 'Today';
+    if (sessionDate.getTime() === tomorrow.getTime()) return 'Tomorrow';
+    if (sessionDate < in7Days) {
+      return sessionDate.toLocaleDateString('en-US', { weekday: 'long' });
+    }
+    return sessionDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  }
+  function formatSessionTime(startTime: string | null, endTime: string | null): string {
+    if (!startTime) return '';
+    const fmt = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      const ampm = h >= 12 ? 'pm' : 'am';
+      const hour = h % 12 || 12;
+      return m === 0 ? `${hour}${ampm}` : `${hour}:${m.toString().padStart(2, '0')}${ampm}`;
+    };
+    return endTime ? `${fmt(startTime)} – ${fmt(endTime)}` : fmt(startTime);
+  }
+  function getSessionTypeLabel(type: string): string {
+    const labels: Record<string, string> = {
+      practice: 'Practice',
+      game: 'Game',
+      scrimmage: 'Scrimmage',
+      tournament: 'Tournament',
+      training: 'Training',
+    };
+    return labels[type] ?? type;
+  }
+  function getSessionTypeEmoji(type: string): string {
+    const emojis: Record<string, string> = {
+      practice: '🏋️',
+      game: '🏆',
+      scrimmage: '⚡',
+      tournament: '🎯',
+      training: '💪',
+    };
+    return emojis[type] ?? '📅';
+  }
+
   // Get the first recommended drill for home practice
   let homePractice: { name: string; description?: string } | null = null;
   if (recommendedDrills?.[0]) {
@@ -597,7 +648,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
               <p className="text-sm text-gray-500">
                 {[player?.position, player?.jersey_number != null ? `#${player.jersey_number}` : null, season]
                   .filter(Boolean)
-                  .join(' \u00B7 ')}
+                  .join(' · ')}
               </p>
             </div>
           </div>
@@ -709,12 +760,48 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           </div>
         )}
 
+        {/* ─── Next Practice ─── */}
+        {nextSession && (
+          <div className="mx-4 mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-4 shadow-sm">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-base" aria-hidden="true">📅</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-sky-700">
+                Next {getSessionTypeLabel(nextSession.type)}
+              </span>
+            </div>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-base font-bold text-gray-900">
+                  {getSessionTypeEmoji(nextSession.type)}{' '}
+                  {formatNextSessionDate(nextSession.date)}
+                  {nextSession.opponent && nextSession.type !== 'practice' && nextSession.type !== 'training' && (
+                    <span className="text-sky-700"> vs {nextSession.opponent}</span>
+                  )}
+                </p>
+                {(nextSession.start_time || nextSession.location) && (
+                  <p className="mt-1 text-sm text-gray-600">
+                    {nextSession.start_time && (
+                      <span>{formatSessionTime(nextSession.start_time, nextSession.end_time)}</span>
+                    )}
+                    {nextSession.start_time && nextSession.location && (
+                      <span className="mx-1.5 text-gray-300">·</span>
+                    )}
+                    {nextSession.location && (
+                      <span>📍 {nextSession.location}</span>
+                    )}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ─── Featured Highlight ─── */}
         {featuredHighlight && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
               <span className="text-lg" aria-hidden="true">
-                {featuredHighlight.is_highlighted ? '\u2b50' : '\u2728'}
+                {featuredHighlight.is_highlighted ? '⭐' : '✨'}
               </span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 {featuredHighlight.is_highlighted ? "Coach's Pick" : 'Recent Highlight'}
@@ -736,7 +823,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         {showJourney && (totalObservationCount > 0 || safeSkills.length > 0) && (
           <div className="mx-4 mt-4 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-100 p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-lg">{'\u{1F4C8}'}</span>
+              <span className="text-lg">{`\u{1F4C8}`}</span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-orange-600">
                 Season at a Glance
               </h3>
@@ -926,7 +1013,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         {improvingSkills.length > 0 && (
           <div className="mx-4 mt-4 rounded-2xl bg-emerald-50 border border-emerald-100 p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-lg">{'\u{1F680}'}</span>
+              <span className="text-lg">{`\u{1F680}`}</span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
                 Skills on the Rise
               </h3>
@@ -1123,7 +1210,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         {sortedSkills.length > 0 && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center gap-2">
-              <span className="text-lg">{'\u{1F4CA}'}</span>
+              <span className="text-lg">{`\u{1F4CA}`}</span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Skill Progress
               </h3>
@@ -1151,7 +1238,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         {celebrations.length > 0 && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-lg">{'\u{1F389}'}</span>
+              <span className="text-lg">{`\u{1F389}`}</span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 What to Celebrate
               </h3>
@@ -1159,7 +1246,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             <ul className="space-y-2">
               {celebrations.map((item, i) => (
                 <li key={i} className="flex items-start gap-2.5 text-sm text-gray-700">
-                  <span className="mt-0.5 shrink-0 text-emerald-500">{'\u2713'}</span>
+                  <span className="mt-0.5 shrink-0 text-emerald-500">{`✓`}</span>
                   {item}
                 </li>
               ))}
@@ -1171,7 +1258,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         {(nextChallenge || homePractice) && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-lg">{'\u{1F3AF}'}</span>
+              <span className="text-lg">{`\u{1F3AF}`}</span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Next Challenge
               </h3>
@@ -1221,7 +1308,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         {(customMessage || reportCard?.coach_message) && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-lg">{'\u{1F4AC}'}</span>
+              <span className="text-lg">{`\u{1F4AC}`}</span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Coach&apos;s Note
               </h3>
@@ -1235,7 +1322,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
               </p>
             )}
             <p className="text-xs text-gray-400">
-              {teamName}{season ? ` \u00B7 ${season}` : ''}
+              {teamName}{season ? ` · ${season}` : ''}
             </p>
           </div>
         )}
