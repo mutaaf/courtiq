@@ -79,6 +79,9 @@ export default function Dashboard() {
 
 ### P1 — This Week
 
+#### ~~3b. Integrate PlayerFocusEntry into roster during live practice~~ ✅ Done
+`PlayerFocusEntry` (fully built, zero import sites) is now wired into the roster page. During a live practice session a banner appears and each player card opens a bottom-sheet with rapid-fire observation entry (voice, templates, undo, keyboard shortcuts). Merged via `feat/practice-focus-mode`.
+
 #### 4. Implement Optimistic Updates for Common Mutations
 **Why**: The app feels slow when every action waits for a server round-trip.
 **Files**: `src/lib/api.ts`, any component calling `mutate()`
@@ -106,7 +109,7 @@ try {
 #### ~~6. Add `robots.txt` and `sitemap.xml`~~ ✅ Done
 **Files**: `public/robots.txt`, `src/app/sitemap.ts`
 
-#### 7. Implement Rate Limiting on AI Endpoints
+#### ~~7. Implement Rate Limiting on AI Endpoints~~ ✅ Done
 **Why**: A single user can exhaust API credits.
 **Pattern** (use Upstash Redis or simple in-memory for now):
 ```ts
