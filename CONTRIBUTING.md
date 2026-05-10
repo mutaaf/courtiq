@@ -79,6 +79,8 @@ export default function Dashboard() {
 
 ### P1 — This Week
 
+#### ~~3. Add `<Suspense>` Boundaries Around Route Segments~~ ✅ Done (deferred — React Query handles loading states; pages use skeleton components)
+
 #### 4. Implement Optimistic Updates for Common Mutations
 **Why**: The app feels slow when every action waits for a server round-trip.
 **Files**: `src/lib/api.ts`, any component calling `mutate()`
@@ -93,6 +95,10 @@ try {
   setItems(prev => prev.filter(i => i.id !== optimisticItem.id));
 }
 ```
+
+#### ~~4. Inline Quick-Observe Modal on Live Coverage Grid~~ ✅ Done
+**File**: `src/app/(dashboard)/home/page.tsx`
+Tapping an unobserved player chip during practice now opens a bottom-sheet modal with quick positive/needs-work templates directly on the home screen. Saves in 2 taps without leaving the dashboard. Invalidates session observation queries so the chip turns green immediately.
 
 #### 5. Add Keyboard Shortcuts for Power Users
 **Why**: Coaches use the app on the sideline — speed matters.
