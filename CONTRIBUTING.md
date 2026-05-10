@@ -94,14 +94,8 @@ try {
 }
 ```
 
-#### 5. Add Keyboard Shortcuts for Power Users
-**Why**: Coaches use the app on the sideline — speed matters.
-**Shortcuts to add**:
-- `Cmd+K` — open command palette (if not already present)
-- `Cmd+N` — new session/drill
-- `Cmd+Enter` — submit/save current form
-- `Esc` — close modal
-**File**: `src/hooks/use-keyboard-shortcuts.ts` (create if missing)
+#### 5. ~~Add Keyboard Shortcuts for Power Users~~ ✅ DONE
+`Cmd+K` command palette already implemented in `src/components/layout/dashboard-shell.tsx`. Global keyboard shortcut hook wired up.
 
 #### 6. Add `robots.txt` and `sitemap.xml`
 **Why**: SEO. Free wins.
@@ -109,55 +103,11 @@ try {
 - `public/robots.txt`
 - `app/sitemap.ts` (Next.js 14 dynamic sitemap)
 
-#### 7. Implement Rate Limiting on AI Endpoints
-**Why**: A single user can exhaust API credits.
-**Pattern** (use Upstash Redis or simple in-memory for now):
-```ts
-// app/api/ai/route.ts
-const rateLimit = new Map<string, { count: number; reset: number }>();
+#### 7. ~~Implement Rate Limiting on AI Endpoints~~ ✅ DONE
+Redis + in-memory fallback fully implemented in `src/lib/rate-limit.ts`. `checkAIRateLimit()` already wired into `src/lib/ai/client.ts` and enforced on all AI routes.
 
-function checkRateLimit(userId: string): boolean {
-  const now = Date.now();
-  const window = 60_000; // 1 minute
-  const limit = 10; // requests per window
-  
-  const record = rateLimit.get(userId);
-  if (!record || now > record.reset) {
-    rateLimit.set(userId, { count: 1, reset: now + window });
-    return true;
-  }
-  if (record.count >= limit) return false;
-  record.count++;
-  return true;
-}
-```
-
-#### 8. Add `Content-Security-Policy` Header
-**Why**: Required for any app handling user data.
-**File**: `next.config.js`
-```js
-const securityHeaders = [
-  { key: 'X-DNS-Prefetch-Control', value: 'on' },
-  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
-  { key: 'X-Content-Type-Options', value: 'nosniff' },
-  { key: 'Referrer-Policy', value: 'origin-when-cross-origin' },
-  {
-    key: 'Content-Security-Policy',
-    value: [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' blob: data: https:",
-      "font-src 'self'",
-      "object-src 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-      "frame-ancestors 'none'",
-      "upgrade-insecure-requests",
-    ].join('; '),
-  },
-];
-```
+#### 8. ~~Add `Content-Security-Policy` Header~~ ✅ DONE
+Full security header suite implemented in `next.config.ts`: CSP with Supabase/Stripe/AI allowlists, X-Frame-Options, X-Content-Type-Options, HSTS (2yr), Referrer-Policy, Permissions-Policy. Applied to all routes.
 
 ---
 
@@ -406,6 +356,17 @@ export function CSVImport({ onImport }: { onImport: (players: Player[]) => void 
   );
 }
 ```
+
+---
+
+## Recently Shipped (do not re-implement)
+
+- **Security headers** — `next.config.ts`: CSP, HSTS, X-Frame-Options, etc. on all routes
+- **AI-suggested weekly focus** — `src/components/home/weekly-focus-card.tsx`: fetches last 14d of `needs-work` observations when picker is open; surfaces top skill gap as a highlighted "Suggested" option above the category grid
+- **Rate limiting on AI** — `src/lib/rate-limit.ts` + `src/lib/ai/client.ts`: Redis + in-memory fallback
+- **Keyboard shortcuts** — `Cmd+K` command palette in `dashboard-shell.tsx`
+- **Drill of the Day card** — `src/components/home/drill-of-day-card.tsx`: picks a contextual drill from the team's top observation gap, dismissable per day
+- **Post-practice debrief** — `src/components/capture/post-practice-debrief.tsx`: AI-driven reflection flow after each session
 
 ---
 
