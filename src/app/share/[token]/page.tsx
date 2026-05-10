@@ -18,6 +18,7 @@ import {
   getWeeklyProgressMax,
 } from '@/lib/skill-journey-utils';
 import type { SkillProgress, ShareObservation, WeeklyProgressPoint } from '@/lib/skill-journey-utils';
+import type { GrowthObs } from '@/lib/player-growth-streak-utils';
 import {
   buildGrowthStreakData,
   hasEnoughDataForGrowthStreak,
@@ -301,7 +302,7 @@ function WeeklyProgressChart({ weeks }: { weeks: WeeklyProgressPoint[] }) {
   return (
     <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" aria-hidden="true">
       {weeks.map((w, i) => {
-        const h = w.count === 0 ? 3 : Math.max(4, (w.count / max) * chartH);
+        const h = w.positiveCount === 0 ? 3 : Math.max(4, (w.positiveCount / max) * chartH);
         const x = 8 + i * (barW + gap);
         const y = chartH - h;
         const isRecent = i === n - 1;
@@ -313,7 +314,7 @@ function WeeklyProgressChart({ weeks }: { weeks: WeeklyProgressPoint[] }) {
             width={barW}
             height={h}
             rx="4"
-            fill={w.count === 0 ? '#e5e7eb' : isRecent ? '#f97316' : '#fed7aa'}
+            fill={w.positiveCount === 0 ? '#e5e7eb' : isRecent ? '#f97316' : '#fed7aa'}
           />
         );
       })}
@@ -443,22 +444,27 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
 
   // ── Season-stats helpers ──────────────────────────────────────────────────
   const obsActivity: ShareObservation[] = recentObservationActivity ?? [];
-  const seasonStats = buildSeasonStats(obsActivity, totalObservationCount ?? 0);
-  const improvingSkills = getImprovingSkills(obsActivity);
+  const seasonStats = buildSeasonStats(obsActivity, skillProgress ?? []);
+  const improvingSkills = getImprovingSkills(skillProgress ?? []);
   const progressMessage = buildProgressMessage(firstName, improvingSkills, totalObservationCount ?? 0);
   const hasJourneyData = hasEnoughDataForJourney(obsActivity, skillProgress ?? []);
 
   // ── Skill progress (sorted improving-first) ───────────────────────────────
-  const sortedSkills: SkillProgress[] = sortSkillsByImprovingFirst(skillProgress ?? [], obsActivity);
+  const sortedSkills: SkillProgress[] = sortSkillsByImprovingFirst(skillProgress ?? []);
 
   // ── Growth streak ─────────────────────────────────────────────────────────
-  const growthStreak = hasEnoughDataForGrowthStreak(obsActivity)
-    ? buildGrowthStreakData(obsActivity)
+  const growthObs: GrowthObs[] = obsActivity.map((o) => ({
+    session_id: o.session_id ?? null,
+    sentiment: o.sentiment,
+    created_at: o.created_at,
+  }));
+  const growthStreak = hasEnoughDataForGrowthStreak(growthObs)
+    ? buildGrowthStreakData(growthObs)
     : null;
 
   // ── Weekly progress chart ─────────────────────────────────────────────────
   const weeklyProgress = buildWeeklyProgress(obsActivity);
-  const showWeeklyChart = hasEnoughDataForWeeklyProgress(obsActivity);
+  const showWeeklyChart = hasEnoughDataForWeeklyProgress(weeklyProgress);
   const weeklyTrending = isProgressTrending(weeklyProgress);
 
   // ── Session type helpers ─────────────────────────────────────────────────
@@ -533,7 +539,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           <PlayerAvatar
             name={playerName}
             photoUrl={player?.photo_url}
-            size="lg"
+            size={64}
           />
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
@@ -680,7 +686,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
               <p className="text-xs text-gray-500">Skills improving</p>
             </div>
             <div className="rounded-xl bg-blue-50 p-3 text-center">
-              <p className="text-xl font-bold text-blue-600">{seasonStats.recentActivityCount}</p>
+              <p className="text-xl font-bold text-blue-600">{seasonStats.recentObsCount}</p>
               <p className="text-xs text-gray-500">This fortnight</p>
             </div>
           </div>
@@ -778,16 +784,12 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
               <>
                 <p className="text-sm text-gray-700">
                   {firstName} has received positive coaching feedback in{' '}
-                  {isGrowthHotStreak(growthStreak.currentStreak) ? (
+                  {isGrowthHotStreak(growthStreak) ? (
                     <strong className="text-orange-600">
                       {formatStreakCount(growthStreak.currentStreak)} in a row!
                     </strong>
                   ) : (
-                    <>
-                      {isGrowthHotStreak(growthStreak.currentStreak)
-                        ? `their last ${formatStreakCount(growthStreak.currentStreak)}`
-                        : `their last ${formatStreakCount(growthStreak.currentStreak)}`}
-                    </>
+                    <>{`their last ${formatStreakCount(growthStreak.currentStreak)}`}</>
                   )}
                 </p>
                 {growthStreak.longestStreak > growthStreak.currentStreak && (
@@ -835,12 +837,12 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
               <p className="text-sm font-semibold text-gray-900">Skills on the Rise</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {improvingSkills.map((skill: string) => (
+              {improvingSkills.map((skill) => (
                 <span
-                  key={skill}
+                  key={skill.skill_id}
                   className="rounded-full bg-emerald-100 px-3 py-1.5 text-sm font-medium text-emerald-800"
                 >
-                  ↑ {skill}
+                  ↑ {skill.skill_name || formatCategoryLabel(skill.category || skill.skill_id)}
                 </span>
               ))}
             </div>
@@ -1200,8 +1202,8 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
       <div className="mx-4 mt-6">
         <ParentReactionForm
           shareToken={token}
-          playerName={firstName}
-          parentName={parentName}
+          playerFirstName={firstName}
+          coachName={coachName}
         />
       </div>
 
