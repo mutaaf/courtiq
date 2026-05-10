@@ -15,6 +15,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useSyncEngine } from '@/hooks/use-sync-engine';
 import { usePrefetchAdjacentPages, usePrefetchOnIntent } from '@/hooks/use-prefetch-navigation';
 import { useArrowKeyNav } from '@/hooks/use-arrow-key-nav';
+import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { PwaInstallPrompt } from '@/components/ui/pwa-install-prompt';
 import { useAppStore } from '@/lib/store';
 import { useActiveTeam } from '@/hooks/use-active-team';
@@ -210,18 +211,10 @@ export function DashboardShell({ coach, children }: Props) {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const openCommandPalette = useCallback(() => setCommandPaletteOpen(true), []);
   const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), []);
+  const toggleCommandPalette = useCallback(() => setCommandPaletteOpen((prev) => !prev), []);
 
-  // Global Cmd+K / Ctrl+K shortcut
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setCommandPaletteOpen((prev) => !prev);
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  // Global keyboard shortcuts: Cmd+K (palette), Cmd+N (new session), Cmd+. (capture)
+  useKeyboardShortcuts({ onCommandPalette: toggleCommandPalette });
 
   // Start background sync engine and wire up online/offline monitoring
   useSyncEngine();
