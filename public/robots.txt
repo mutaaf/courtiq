@@ -1,0 +1,30 @@
+User-agent: *
+Allow: /
+Allow: /demo
+Allow: /privacy
+Allow: /terms
+Allow: /signup
+Allow: /login
+
+# Authenticated app areas — no indexing needed
+Disallow: /home
+Disallow: /capture
+Disallow: /roster
+Disallow: /sessions
+Disallow: /settings
+Disallow: /plans
+Disallow: /analytics
+Disallow: /assistant
+Disallow: /calendar
+Disallow: /curriculum
+Disallow: /drills
+Disallow: /marketplace
+Disallow: /observations
+Disallow: /admin
+Disallow: /api/
+Disallow: /observe/
+Disallow: /org/
+Disallow: /parents/
+Disallow: /onboarding/
+
+Sitemap: https://youthsportsiq.com/sitemap.xml
