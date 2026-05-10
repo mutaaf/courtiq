@@ -118,58 +118,19 @@ try {
 
 #### ~~9. Add Unit Tests for `src/lib/tier.ts`~~ ✅ Done
 **Why**: Tier logic controls billing. Bugs here = revenue loss.
-**File**: `src/lib/tier.test.ts` — 46 tests covering TIER_LIMITS structure, canAccess(), getTierLimit(), and getAudioLimit() for all four tiers.
+**File**: `src/lib/tier.test.ts` — 46 tests covering TIER_LIMITS structure, canAccess(), getTierLimit(), getAudioLimit() across all 4 tiers.
 
 #### ~~10. Add Unit Tests for AI Prompt Templates~~ ✅ Done
 **Why**: Prompt regressions are silent and expensive.
-**File**: `src/lib/ai/prompts.test.ts` — 28 tests covering segmentTranscript (roster names, transcripts, skills, custom instructions), practicePlan (team context, insights, trends, focus skills), gamedaySheet (opponent, team name), and sport preamble propagation.
+**File**: `src/lib/ai/prompts.test.ts` — 28 tests covering segmentTranscript, practicePlan, gamedaySheet, and sport preamble propagation.
 
-#### 11. Implement `useLocalStorage` Hook
+#### ~~11. Implement `useLocalStorage` Hook~~ ✅ Done
 **Why**: Persist UI state (collapsed sidebars, selected filters) across sessions.
-**File**: `src/hooks/use-local-storage.ts`
-```ts
-import { useState, useEffect } from 'react';
+**Files**: `src/hooks/use-local-storage.ts` + `src/hooks/use-local-storage.test.ts` — 10 tests covering primitives, objects, arrays, invalid JSON fallback, quota error resilience, and SSR guard.
 
-export function useLocalStorage<T>(key: string, initialValue: T) {
-  const [value, setValue] = useState<T>(() => {
-    if (typeof window === 'undefined') return initialValue;
-    try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
-    } catch {
-      return initialValue;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(key, JSON.stringify(value));
-    } catch {
-      // Storage full or disabled
-    }
-  }, [key, value]);
-
-  return [value, setValue] as const;
-}
-```
-
-#### 12. Add `useDebounce` Hook
+#### ~~12. Add `useDebounce` Hook~~ ✅ Done
 **Why**: Search inputs fire an API call on every keystroke.
-**File**: `src/hooks/use-debounce.ts`
-```ts
-import { useState, useEffect } from 'react';
-
-export function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-
-  return debouncedValue;
-}
-```
+**Files**: `src/hooks/use-debounce.ts` + `src/hooks/use-debounce.test.ts` — 8 tests covering delay enforcement, timer reset on rapid changes, cleanup on unmount, and edge case of delay=0.
 
 #### 13. Add `aria-label` to All Icon Buttons
 **Why**: Accessibility. Screen readers can't describe icon-only buttons.
