@@ -106,28 +106,8 @@ try {
 #### ~~6. Add `robots.txt` and `sitemap.xml`~~ ✅ Done
 **Files**: `public/robots.txt`, `src/app/sitemap.ts`
 
-#### 7. Implement Rate Limiting on AI Endpoints
-**Why**: A single user can exhaust API credits.
-**Pattern** (use Upstash Redis or simple in-memory for now):
-```ts
-// app/api/ai/route.ts
-const rateLimit = new Map<string, { count: number; reset: number }>();
-
-function checkRateLimit(userId: string): boolean {
-  const now = Date.now();
-  const window = 60_000; // 1 minute
-  const limit = 10; // requests per window
-  
-  const record = rateLimit.get(userId);
-  if (!record || now > record.reset) {
-    rateLimit.set(userId, { count: 1, reset: now + window });
-    return true;
-  }
-  if (record.count >= limit) return false;
-  record.count++;
-  return true;
-}
-```
+#### ~~7. Implement Rate Limiting on AI Endpoints~~ ✅ Done
+**Files**: `src/lib/ai/rate-limit.ts` — sliding-window in-memory limiter with per-endpoint limits. Applied to: segment (20/min), assistant (30/min), plan (10/min), report-card (5/min), session-debrief (10/min). Returns 429 + `Retry-After` header.
 
 #### ~~8. Add `Content-Security-Policy` Header~~ ✅ Done
 **File**: `next.config.ts` — X-Frame-Options, X-Content-Type-Options, Referrer-Policy, X-DNS-Prefetch-Control, Permissions-Policy, and CSP applied to all routes. CSP uses permissive `connect-src https: wss:` to cover Supabase/AI APIs without breakage.
