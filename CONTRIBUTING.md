@@ -126,14 +126,18 @@ try {
 **Why**: Search inputs fire an API call on every keystroke.
 **Files**: `src/hooks/use-debounce.ts` + `src/hooks/use-debounce.test.ts` — 8 tests covering delay enforcement, timer reset on rapid changes, cleanup on unmount, and edge case of delay=0.
 
-#### 13. Add `aria-label` to All Icon Buttons
+#### ~~13. Sport-Aware Post-Practice Debrief Templates~~ ✅ Done
+**Why**: Soccer/volleyball coaches saw basketball-specific terms (Free throws, Shot selection) in the debrief flow.
+**File**: `src/components/capture/post-practice-debrief.tsx` — replaced hardcoded basketball arrays with `SPORT_TEMPLATES` Record covering basketball, soccer, volleyball, flag_football, baseball, softball, lacrosse + generic default. Driven by `activeTeam.sport_slug` (already resolved by `/api/me`). Pattern mirrors `observation-templates.ts` and `practice-templates.ts`.
+
+#### 14. Add `aria-label` to All Icon Buttons
 **Why**: Accessibility. Screen readers can't describe icon-only buttons.
 **Find all violations**:
 ```bash
 grep -r '<button' src/components --include='*.tsx' | grep -v 'aria-label'
 ```
 
-#### 14. Implement Dark Mode Toggle (If Not Present)
+#### 15. Implement Dark Mode Toggle (If Not Present)
 **Why**: The design spec says dark theme, but some users want light mode.
 **File**: `src/components/theme-toggle.tsx`
 ```tsx
@@ -159,7 +163,7 @@ export function ThemeToggle() {
 
 ### P3 — Backlog
 
-#### 15. Add Storybook for UI Components
+#### 16. Add Storybook for UI Components
 **Why**: Visual regression testing + component documentation.
 ```bash
 npx storybook@latest init
@@ -169,7 +173,7 @@ Add stories for:
 - All form inputs
 - All card components
 
-#### 16. Implement WebSocket for Real-Time Score Updates
+#### 17. Implement WebSocket for Real-Time Score Updates
 **Why**: Coaches need live updates during games without polling.
 **Approach**: Supabase Realtime channels
 ```ts
@@ -188,7 +192,7 @@ const channel = supabase
   .subscribe();
 ```
 
-#### 17. Add Export to PDF Feature
+#### 18. Add Export to PDF Feature
 **Why**: Coaches share reports with parents and players.
 **Library**: `@react-pdf/renderer`
 ```bash
@@ -214,7 +218,7 @@ export function SessionReport({ session }) {
 }
 ```
 
-#### 18. Implement Drill Library with Search
+#### 19. Implement Drill Library with Search
 **Why**: Coaches reuse drills across sessions. Manual re-entry wastes time.
 **Schema**:
 ```sql
@@ -234,7 +238,7 @@ create index drills_sport_idx on drills(sport);
 create index drills_tags_idx on drills using gin(tags);
 ```
 
-#### 19. Add Multi-Language Support (i18n)
+#### 20. Add Multi-Language Support (i18n)
 **Why**: Expansion to Spanish-speaking markets (US Hispanic, Latin America).
 **Library**: `next-intl`
 ```bash
@@ -246,7 +250,7 @@ npm install next-intl
 - `src/i18n.ts`
 - Update `next.config.js` with i18n config
 
-#### 20. Implement CSV Import for Roster
+#### 21. Implement CSV Import for Roster
 **Why**: Coaches have existing spreadsheets with 50+ players. Manual entry is a blocker.
 **File**: `src/components/roster/csv-import.tsx`
 ```tsx
