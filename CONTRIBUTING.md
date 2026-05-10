@@ -75,6 +75,10 @@ export default function Dashboard() {
 }
 ```
 
+#### ~~4. Fix Sport-Specific Templates in Post-Practice Debrief~~ ✅ Done
+**Fix**: Hardcoded basketball-only chips ("Great shooting", "Strong rebounding", "Ball handling", "Free throws", "Shot selection") showed for all sports; replaced with `getTemplatesBySentiment(sentiment, sportSlug)` — the same sport-override system used in Quick Capture, Practice Timer, and Quick Templates; soccer/volleyball/flag-football coaches now see their sport's localized terms; added emoji icons; toggle uses stable `t.id` not fragile text comparison.
+**File**: `src/components/capture/post-practice-debrief.tsx`; PR #17
+
 ---
 
 ### P1 — This Week
