@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Target, X, ChevronDown, Dumbbell, Loader2, AlertCircle } from 'lucide-react';
+import { Target, X, ChevronDown, Dumbbell, Loader2, AlertCircle, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useQuery } from '@tanstack/react-query';
+import { query } from '@/lib/api';
 import {
   FOCUS_CATEGORIES,
   getWeeklyFocus,
@@ -12,12 +14,41 @@ import {
   getFocusCategoryConfig,
   getDaysRemaining,
   formatFocusAge,
+  isValidFocusCategory,
   type FocusCategory,
   type WeeklyFocus,
 } from '@/lib/weekly-focus-utils';
 
 interface WeeklyFocusCardProps {
   teamId: string;
+}
+
+// Map obs categories → focus category IDs (obs uses raw strings, focus uses typed IDs)
+const OBS_TO_FOCUS: Record<string, FocusCategory> = {
+  shooting:     'shooting',
+  defense:      'defense',
+  dribbling:    'dribbling',
+  passing:      'passing',
+  hustle:       'hustle',
+  awareness:    'awareness',
+  teamwork:     'teamwork',
+  footwork:     'footwork',
+  conditioning: 'conditioning',
+  leadership:   'leadership',
+};
+
+function computeSuggestedCategory(
+  obs: Array<{ category: string | null; sentiment: string | null }>,
+): FocusCategory | null {
+  const counts = new Map<string, number>();
+  for (const o of obs) {
+    if (o.sentiment !== 'needs-work' || !o.category || o.category === 'general') continue;
+    counts.set(o.category, (counts.get(o.category) ?? 0) + 1);
+  }
+  if (counts.size === 0) return null;
+  const [topCat] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+  const focusId = OBS_TO_FOCUS[topCat];
+  return focusId && isValidFocusCategory(focusId) ? focusId : null;
 }
 
 export function WeeklyFocusCard({ teamId }: WeeklyFocusCardProps) {
@@ -33,6 +64,33 @@ export function WeeklyFocusCard({ teamId }: WeeklyFocusCardProps) {
     setMounted(true);
     setFocus(getWeeklyFocus(teamId));
   }, [teamId]);
+
+  const since14d = useMemo(() => new Date(Date.now() - 14 * 86_400_000).toISOString(), []);
+
+  // Fetch recent observations to compute a data-driven suggestion.
+  // Only runs when the picker is visible (no focus set or actively picking).
+  const showPicker = mounted && (picking || !focus);
+  const { data: recentObs = [] } = useQuery({
+    queryKey: ['weekly-focus-obs', teamId, since14d],
+    queryFn: () =>
+      query<Array<{ category: string | null; sentiment: string | null }>>({
+        table: 'observations',
+        select: 'category, sentiment',
+        filters: {
+          team_id: teamId,
+          sentiment: 'needs-work',
+          created_at: { op: 'gte', value: since14d },
+        },
+        limit: 200,
+      }).then((r) => r ?? []),
+    enabled: showPicker,
+    staleTime: 5 * 60_000,
+  });
+
+  const suggestedCategory = useMemo(
+    () => computeSuggestedCategory(recentObs),
+    [recentObs],
+  );
 
   if (!mounted) return null;
 
@@ -83,7 +141,9 @@ export function WeeklyFocusCard({ teamId }: WeeklyFocusCardProps) {
   const ageLabel = focus ? formatFocusAge(focus) : '';
 
   // ── Picker mode ────────────────────────────────────────────────────────────
-  if (picking || !focus) {
+  if (showPicker) {
+    const suggestedConfig = suggestedCategory ? getFocusCategoryConfig(suggestedCategory) : null;
+
     return (
       <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-4 space-y-3">
         <div className="flex items-center justify-between">
@@ -111,21 +171,50 @@ export function WeeklyFocusCard({ teamId }: WeeklyFocusCardProps) {
           )}
         </div>
 
+        {/* AI suggestion — shown when we have enough data to make a recommendation */}
+        {suggestedConfig && (
+          <button
+            onClick={() => handleSelect(suggestedCategory!)}
+            className="w-full flex items-center gap-3 rounded-xl border border-indigo-500/40 bg-indigo-500/15 px-3 py-3 text-left transition-all hover:border-indigo-500/60 hover:bg-indigo-500/20 active:scale-[0.98] touch-manipulation"
+          >
+            <span className="text-xl leading-none shrink-0">{suggestedConfig.emoji}</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-sm font-semibold text-zinc-100">{suggestedConfig.label}</span>
+                <span className="inline-flex items-center gap-0.5 rounded-full bg-indigo-500/25 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-300 border border-indigo-500/30">
+                  <Sparkles className="h-2.5 w-2.5" />
+                  Suggested
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-500 mt-0.5">Based on your team&apos;s recent needs-work observations</p>
+            </div>
+          </button>
+        )}
+
+        {/* Divider — only shown when there is a suggestion above */}
+        {suggestedConfig && (
+          <p className="text-[10px] text-zinc-600 uppercase tracking-wider text-center">or pick a focus</p>
+        )}
+
         <div className="grid grid-cols-2 gap-2">
-          {FOCUS_CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => handleSelect(cat.id)}
-              className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-all active:scale-95 touch-manipulation ${
-                focus?.category === cat.id
-                  ? 'border-indigo-500/60 bg-indigo-500/20 text-indigo-200'
-                  : 'border-zinc-700/60 bg-zinc-800/40 text-zinc-300 hover:border-indigo-500/40 hover:bg-indigo-500/10'
-              }`}
-            >
-              <span className="text-base leading-none">{cat.emoji}</span>
-              <span>{cat.label}</span>
-            </button>
-          ))}
+          {FOCUS_CATEGORIES.map((cat) => {
+            // Skip the suggested category — it's already featured above
+            if (cat.id === suggestedCategory) return null;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => handleSelect(cat.id)}
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-all active:scale-95 touch-manipulation ${
+                  focus?.category === cat.id
+                    ? 'border-indigo-500/60 bg-indigo-500/20 text-indigo-200'
+                    : 'border-zinc-700/60 bg-zinc-800/40 text-zinc-300 hover:border-indigo-500/40 hover:bg-indigo-500/10'
+                }`}
+              >
+                <span className="text-base leading-none">{cat.emoji}</span>
+                <span>{cat.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {focus && (
@@ -154,7 +243,7 @@ export function WeeklyFocusCard({ teamId }: WeeklyFocusCardProps) {
             This Week's Focus
           </p>
           <p className="text-base font-bold text-zinc-100 leading-snug">
-            {config?.label ?? focus.category}
+            {config?.label ?? focus!.category}
           </p>
           <p className="text-[11px] text-zinc-500 mt-0.5">
             Set {ageLabel} · {daysLeft}d left
