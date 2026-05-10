@@ -1,0 +1,520 @@
+# Contributing to SportsIQ
+
+## For the Innovation Agent
+
+You run every hour. Here's how to be effective.
+
+### Your Workflow
+1. `git pull origin main` — always start fresh
+2. Read `CLAUDE.md` for architecture context
+3. Read this file for your priority queue
+4. Pick an item, implement it, test it, commit it
+5. Move on to the next item
+
+### Commit Format
+```
+feat: add <feature>
+fix: resolve <issue>
+chore: update <thing>
+test: add tests for <feature>
+docs: update <file>
+```
+
+### Before You Commit
+```bash
+npx tsc --noEmit    # 0 errors
+npm run lint         # 0 errors  
+npx vitest run       # all pass
+```
+
+---
+
+## Priority Queue
+
+> Items are ordered by impact × effort. Top items = do these first.
+
+### P0 — Do Immediately
+
+#### 1. Fix TypeScript Errors in Existing Code
+**Why**: The build fails silently in some paths; CI won't catch regressions.
+```bash
+npx tsc --noEmit 2>&1 | head -50
+```
+Fix all errors before adding new features.
+
+#### 2. Add `loading` and `error` States to Every `useEffect` Data Fetch
+**Why**: Users see blank screens on slow connections.
+**Pattern**:
+```tsx
+const [data, setData] = useState<T | null>(null);
+const [loading, setLoading] = useState(true);
+const [error, setError] = useState<string | null>(null);
+
+useEffect(() => {
+  setLoading(true);
+  query('/api/data', { table: 'foo' })
+    .then(setData)
+    .catch(e => setError(e.message))
+    .finally(() => setLoading(false));
+}, []);
+```
+
+#### 3. Add `<Suspense>` Boundaries Around Route Segments
+**Why**: Next.js App Router streaming requires Suspense for partial hydration.
+```tsx
+// app/dashboard/page.tsx
+import { Suspense } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+      <DashboardContent />
+    </Suspense>
+  );
+}
+```
+
+---
+
+### P1 — This Week
+
+#### 4. Implement Optimistic Updates for Common Mutations
+**Why**: The app feels slow when every action waits for a server round-trip.
+**Files**: `src/lib/api.ts`, any component calling `mutate()`
+**Pattern**:
+```tsx
+// Before mutate(), update local state immediately
+setItems(prev => [...prev, optimisticItem]);
+try {
+  await mutate('/api/data/mutate', { ... });
+} catch {
+  // Rollback
+  setItems(prev => prev.filter(i => i.id !== optimisticItem.id));
+}
+```
+
+#### 5. Add Keyboard Shortcuts for Power Users
+**Why**: Coaches use the app on the sideline — speed matters.
+**Shortcuts to add**:
+- `Cmd+K` — open command palette (if not already present)
+- `Cmd+N` — new session/drill
+- `Cmd+Enter` — submit/save current form
+- `Esc` — close modal
+**File**: `src/hooks/use-keyboard-shortcuts.ts` (create if missing)
+
+#### 6. Add `robots.txt` and `sitemap.xml`
+**Why**: SEO. Free wins.
+**Files**:
+- `public/robots.txt`
+- `app/sitemap.ts` (Next.js 14 dynamic sitemap)
+
+#### 7. Implement Rate Limiting on AI Endpoints
+**Why**: A single user can exhaust API credits.
+**Pattern** (use Upstash Redis or simple in-memory for now):
+```ts
+// app/api/ai/route.ts
+const rateLimit = new Map<string, { count: number; reset: number }>();
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const window = 60_000; // 1 minute
+  const limit = 10; // requests per window
+  
+  const record = rateLimit.get(userId);
+  if (!record || now > record.reset) {
+    rateLimit.set(userId, { count: 1, reset: now + window });
+    return true;
+  }
+  if (record.count >= limit) return false;
+  record.count++;
+  return true;
+}
+```
+
+#### 8. Add `Content-Security-Policy` Header
+**Why**: Required for any app handling user data.
+**File**: `next.config.js`
+```js
+const securityHeaders = [
+  { key: 'X-DNS-Prefetch-Control', value: 'on' },
+  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'origin-when-cross-origin' },
+  {
+    key: 'Content-Security-Policy',
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' blob: data: https:",
+      "font-src 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+      "upgrade-insecure-requests",
+    ].join('; '),
+  },
+];
+```
+
+---
+
+### P2 — This Sprint
+
+#### 9. Add Unit Tests for `src/lib/tier.ts`
+**Why**: Tier logic controls billing. Bugs here = revenue loss.
+**File**: `src/lib/tier.test.ts`
+```ts
+import { describe, it, expect } from 'vitest';
+import { getTierLimits, canAccess } from './tier';
+
+describe('getTierLimits', () => {
+  it('returns correct limits for free tier', () => {
+    const limits = getTierLimits('free');
+    expect(limits.maxSessions).toBe(5);
+    // etc.
+  });
+});
+
+describe('canAccess', () => {
+  it('blocks free users from pro features', () => {
+    expect(canAccess('free', 'video_analysis')).toBe(false);
+  });
+  it('allows pro users to access all features', () => {
+    expect(canAccess('pro', 'video_analysis')).toBe(true);
+  });
+});
+```
+
+#### 10. Add Unit Tests for AI Prompt Templates
+**Why**: Prompt regressions are silent and expensive.
+**File**: `src/lib/ai/prompts.test.ts`
+```ts
+import { describe, it, expect } from 'vitest';
+import { buildCoachingPrompt, buildDrillPrompt } from './prompts';
+
+describe('buildCoachingPrompt', () => {
+  it('includes player name in output', () => {
+    const prompt = buildCoachingPrompt({ playerName: 'Alex', sport: 'tennis' });
+    expect(prompt).toContain('Alex');
+    expect(prompt).toContain('tennis');
+  });
+  
+  it('does not exceed token limit', () => {
+    const prompt = buildCoachingPrompt({ playerName: 'Alex', sport: 'tennis' });
+    // Rough estimate: 4 chars per token
+    expect(prompt.length / 4).toBeLessThan(4000);
+  });
+});
+```
+
+#### 11. Implement `useLocalStorage` Hook
+**Why**: Persist UI state (collapsed sidebars, selected filters) across sessions.
+**File**: `src/hooks/use-local-storage.ts`
+```ts
+import { useState, useEffect } from 'react';
+
+export function useLocalStorage<T>(key: string, initialValue: T) {
+  const [value, setValue] = useState<T>(() => {
+    if (typeof window === 'undefined') return initialValue;
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch {
+      return initialValue;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      // Storage full or disabled
+    }
+  }, [key, value]);
+
+  return [value, setValue] as const;
+}
+```
+
+#### 12. Add `useDebounce` Hook
+**Why**: Search inputs fire an API call on every keystroke.
+**File**: `src/hooks/use-debounce.ts`
+```ts
+import { useState, useEffect } from 'react';
+
+export function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+```
+
+#### 13. Add `aria-label` to All Icon Buttons
+**Why**: Accessibility. Screen readers can't describe icon-only buttons.
+**Find all violations**:
+```bash
+grep -r '<button' src/components --include='*.tsx' | grep -v 'aria-label'
+```
+
+#### 14. Implement Dark Mode Toggle (If Not Present)
+**Why**: The design spec says dark theme, but some users want light mode.
+**File**: `src/components/theme-toggle.tsx`
+```tsx
+'use client';
+import { Moon, Sun } from 'lucide-react';
+import { useTheme } from 'next-themes';
+
+export function ThemeToggle() {
+  const { theme, setTheme } = useTheme();
+  return (
+    <button
+      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+      aria-label="Toggle theme"
+      className="p-2 rounded-md hover:bg-zinc-800"
+    >
+      {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+    </button>
+  );
+}
+```
+
+---
+
+### P3 — Backlog
+
+#### 15. Add Storybook for UI Components
+**Why**: Visual regression testing + component documentation.
+```bash
+npx storybook@latest init
+```
+Add stories for:
+- `UpgradeGate`
+- All form inputs
+- All card components
+
+#### 16. Implement WebSocket for Real-Time Score Updates
+**Why**: Coaches need live updates during games without polling.
+**Approach**: Supabase Realtime channels
+```ts
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(url, key);
+
+const channel = supabase
+  .channel('game-scores')
+  .on('postgres_changes', 
+    { event: 'UPDATE', schema: 'public', table: 'games' },
+    (payload) => {
+      console.log('Score updated:', payload.new);
+    }
+  )
+  .subscribe();
+```
+
+#### 17. Add Export to PDF Feature
+**Why**: Coaches share reports with parents and players.
+**Library**: `@react-pdf/renderer`
+```bash
+npm install @react-pdf/renderer
+```
+```tsx
+import { Document, Page, Text, StyleSheet } from '@react-pdf/renderer';
+
+const styles = StyleSheet.create({
+  page: { padding: 30 },
+  title: { fontSize: 24, marginBottom: 10 },
+});
+
+export function SessionReport({ session }) {
+  return (
+    <Document>
+      <Page style={styles.page}>
+        <Text style={styles.title}>{session.title}</Text>
+        <Text>{session.summary}</Text>
+      </Page>
+    </Document>
+  );
+}
+```
+
+#### 18. Implement Drill Library with Search
+**Why**: Coaches reuse drills across sessions. Manual re-entry wastes time.
+**Schema**:
+```sql
+create table drills (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid references organizations(id),
+  name text not null,
+  description text,
+  sport text,
+  tags text[],
+  created_by uuid references auth.users(id),
+  created_at timestamptz default now()
+);
+
+create index drills_org_id_idx on drills(org_id);
+create index drills_sport_idx on drills(sport);
+create index drills_tags_idx on drills using gin(tags);
+```
+
+#### 19. Add Multi-Language Support (i18n)
+**Why**: Expansion to Spanish-speaking markets (US Hispanic, Latin America).
+**Library**: `next-intl`
+```bash
+npm install next-intl
+```
+**Files to create**:
+- `messages/en.json`
+- `messages/es.json`
+- `src/i18n.ts`
+- Update `next.config.js` with i18n config
+
+#### 20. Implement CSV Import for Roster
+**Why**: Coaches have existing spreadsheets with 50+ players. Manual entry is a blocker.
+**File**: `src/components/roster/csv-import.tsx`
+```tsx
+export function CSVImport({ onImport }: { onImport: (players: Player[]) => void }) {
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const text = await file.text();
+    const rows = text.split('\n').slice(1); // skip header
+    const players = rows.map(row => {
+      const [name, email, position, number] = row.split(',');
+      return { name: name.trim(), email: email.trim(), position: position.trim(), number: number.trim() };
+    }).filter(p => p.name);
+    
+    onImport(players);
+  };
+  
+  return (
+    <input 
+      type="file" 
+      accept=".csv"
+      onChange={handleFile}
+      aria-label="Import players from CSV"
+    />
+  );
+}
+```
+
+---
+
+## Architecture Decisions (Read Before Adding Features)
+
+### Why Service Role for All DB Ops?
+RLS policies are complex and hard to test. We bypass them at the API layer and enforce access control in TypeScript. This is intentional.
+
+### Why Multi-Provider AI?
+Anthropic for reasoning, OpenAI for embeddings, Gemini for audio. Each has strengths. `callAI()` handles the routing.
+
+### Why `query()`/`mutate()` Instead of Direct Supabase?
+Single choke point for:
+- Auth token injection
+- Request deduplication
+- Error normalization
+- Future: offline queue, optimistic updates
+
+### Why Tier Checks in Two Places?
+- **Client** (`useTier()` + `<UpgradeGate>`): UX — hide features before the user even tries
+- **Server** (API routes): Security — prevent API abuse regardless of UI
+
+Both are required. Never only one.
+
+### Why No Redux/Zustand?
+Server state lives in React Query (or SWR). UI state is local. We don't have complex client-side state that warrants a global store.
+
+---
+
+## Code Patterns
+
+### API Route Pattern
+```ts
+// app/api/something/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { createServiceSupabase } from '@/lib/supabase/service';
+import { getAuthenticatedUser } from '@/lib/auth';
+
+export async function GET(req: NextRequest) {
+  const user = await getAuthenticatedUser(req);
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const supabase = createServiceSupabase();
+  const { data, error } = await supabase
+    .from('table')
+    .select('*')
+    .eq('user_id', user.id);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ data });
+}
+```
+
+### Component Pattern
+```tsx
+// src/components/feature/feature-card.tsx
+'use client';
+
+import { useState } from 'react';
+import { UpgradeGate } from '@/components/upgrade-gate';
+import { useTier } from '@/hooks/use-tier';
+import { query } from '@/lib/api';
+
+interface FeatureCardProps {
+  sessionId: string;
+}
+
+export function FeatureCard({ sessionId }: FeatureCardProps) {
+  const { tier, canAccess } = useTier();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  if (!canAccess('feature_name')) {
+    return <UpgradeGate feature="Feature Name" requiredTier="pro" />;
+  }
+
+  return (
+    <div className="bg-zinc-900 rounded-lg p-4">
+      {/* content */}
+    </div>
+  );
+}
+```
+
+### AI Call Pattern
+```ts
+import { callAIWithJSON } from '@/lib/ai/client';
+
+const result = await callAIWithJSON({
+  prompt: buildSomePrompt(context),
+  schema: z.object({
+    recommendation: z.string(),
+    confidence: z.number().min(0).max(1),
+    drills: z.array(z.string()),
+  }),
+  userId: user.id,
+  feature: 'coaching_recommendation',
+});
+```
+
+---
+
+## Files You Should NOT Modify
+- `package.json` (don't add dependencies without good reason)
+- `.env.local` (contains secrets)
+- `supabase/config.toml`
+- `.vercel/` directory
