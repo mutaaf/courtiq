@@ -29,6 +29,7 @@ import {
   Trophy,
   BarChart2,
   MessageSquare,
+  Loader2,
 } from 'lucide-react';
 import type { Session, Plan } from '@/types/database';
 import { buildResultString } from '@/lib/season-record-utils';
@@ -654,6 +655,7 @@ export default function HomePage() {
   const { activeTeam, coach, aiPlatformAvailable } = useActiveTeam();
   const router = useRouter();
   const [showDebrief, setShowDebrief] = useState(false);
+  const [startingPractice, setStartingPractice] = useState(false);
 
   const hasAIKeys = (() => {
     if (aiPlatformAvailable) return true;
@@ -674,7 +676,8 @@ export default function HomePage() {
   const elapsedMinutes = getElapsedMinutes(practiceActive ? practiceStartedAt : null);
 
   async function startPractice() {
-    if (!activeTeam || !coach) return;
+    if (!activeTeam || !coach || startingPractice) return;
+    setStartingPractice(true);
     try {
       const session = await mutate<{ id: string }>({
         table: 'sessions',
@@ -696,11 +699,13 @@ export default function HomePage() {
       }
     } catch (err) {
       console.warn('Failed to start practice session:', err);
+      setStartingPractice(false);
     }
   }
 
   async function startPracticeWithPlan(planId: string) {
-    if (!activeTeam || !coach) return;
+    if (!activeTeam || !coach || startingPractice) return;
+    setStartingPractice(true);
     try {
       const session = await mutate<{ id: string }>({
         table: 'sessions',
@@ -723,6 +728,7 @@ export default function HomePage() {
       }
     } catch (err) {
       console.warn('Failed to start practice with plan:', err);
+      setStartingPractice(false);
     }
   }
 
@@ -1121,14 +1127,15 @@ export default function HomePage() {
         <div className="space-y-2">
           <button
             onClick={startPractice}
-            className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 p-5 text-left text-white shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all touch-manipulation"
+            disabled={startingPractice}
+            className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 p-5 text-left text-white shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all touch-manipulation disabled:opacity-75 disabled:active:scale-100"
           >
             <div className="flex items-center gap-4">
               <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/20">
-                <Play className="h-7 w-7" />
+                {startingPractice ? <Loader2 className="h-7 w-7 animate-spin" /> : <Play className="h-7 w-7" />}
               </div>
               <div>
-                <p className="text-lg font-bold">Start Practice</p>
+                <p className="text-lg font-bold">{startingPractice ? 'Starting…' : 'Start Practice'}</p>
                 <p className="text-sm text-emerald-100">Tap when you arrive at the gym</p>
               </div>
             </div>
@@ -1136,7 +1143,8 @@ export default function HomePage() {
           {recentPracticePlan && (
             <button
               onClick={() => startPracticeWithPlan(recentPracticePlan.id)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-2.5 text-sm text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 transition-colors touch-manipulation active:scale-[0.98]"
+              disabled={startingPractice}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-2.5 text-sm text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 transition-colors touch-manipulation active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
             >
               <Play className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate min-w-0">
