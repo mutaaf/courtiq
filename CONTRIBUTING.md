@@ -42,7 +42,13 @@ npx tsc --noEmit 2>&1 | head -50
 ```
 Fix all errors before adding new features.
 
-#### 2. Add `loading` and `error` States to Every `useEffect` Data Fetch
+#### ~~2. Fix duplicate-session race on "Start Practice" button~~ ✅ Done
+**File**: `src/app/(dashboard)/home/page.tsx` — `startingPractice` boolean guards both `startPractice()` and `startPracticeWithPlan()`. Button shows spinner + "Starting…" and is `disabled` during the DB round-trip, preventing double-tap duplicates on slow connections.
+
+#### ~~2b. Add sport-specific observation template text~~ ✅ Done
+**File**: `src/lib/observation-templates.ts` — Added `SPORT_TEXT_OVERRIDES` entries for baseball, softball, and lacrosse. Coaches of those sports now see contextually correct one-tap template wording (batting, fielding, cradling, etc.) instead of basketball defaults.
+
+#### 3. Add `loading` and `error` States to Every `useEffect` Data Fetch
 **Why**: Users see blank screens on slow connections.
 **Pattern**:
 ```tsx
@@ -59,7 +65,7 @@ useEffect(() => {
 }, []);
 ```
 
-#### 3. Add `<Suspense>` Boundaries Around Route Segments
+#### 4. Add `<Suspense>` Boundaries Around Route Segments
 **Why**: Next.js App Router streaming requires Suspense for partial hydration.
 ```tsx
 // app/dashboard/page.tsx
@@ -79,7 +85,7 @@ export default function Dashboard() {
 
 ### P1 — This Week
 
-#### 4. Implement Optimistic Updates for Common Mutations
+#### 5. Implement Optimistic Updates for Common Mutations
 **Why**: The app feels slow when every action waits for a server round-trip.
 **Files**: `src/lib/api.ts`, any component calling `mutate()`
 **Pattern**:
@@ -94,46 +100,46 @@ try {
 }
 ```
 
-#### ~~5. Add Keyboard Shortcuts for Power Users~~ ✅ Done
+#### ~~6. Add Keyboard Shortcuts for Power Users~~ ✅ Done
 **File**: `src/hooks/use-keyboard-shortcuts.ts` — centralised hook wired into dashboard-shell. Shortcuts: Cmd+K (command palette toggle), Cmd+N (new session), Cmd+. (voice capture). All suppressed inside text inputs/textareas.
 
-#### ~~6. Add `robots.txt` and `sitemap.xml`~~ ✅ Done
+#### ~~7. Add `robots.txt` and `sitemap.xml`~~ ✅ Done
 **Files**: `public/robots.txt`, `src/app/sitemap.ts`
 
-#### ~~7. Implement Rate Limiting on AI Endpoints~~ ✅ Done
+#### ~~8. Implement Rate Limiting on AI Endpoints~~ ✅ Done
 **Files**: `src/lib/ai/rate-limit.ts` — sliding-window in-memory limiter with per-endpoint limits. Applied to: segment (20/min), assistant (30/min), plan (10/min), report-card (5/min), session-debrief (10/min). Returns 429 + `Retry-After` header.
 
-#### ~~8. Add `Content-Security-Policy` Header~~ ✅ Done
+#### ~~9. Add `Content-Security-Policy` Header~~ ✅ Done
 **File**: `next.config.ts` — X-Frame-Options, X-Content-Type-Options, Referrer-Policy, X-DNS-Prefetch-Control, Permissions-Policy, and CSP applied to all routes. CSP uses permissive `connect-src https: wss:` to cover Supabase/AI APIs without breakage.
 
 ---
 
 ### P2 — This Sprint
 
-#### ~~9. Add Unit Tests for `src/lib/tier.ts`~~ ✅ Done
+#### ~~10. Add Unit Tests for `src/lib/tier.ts`~~ ✅ Done
 **Why**: Tier logic controls billing. Bugs here = revenue loss.
 **File**: `src/lib/tier.test.ts` — 46 tests covering TIER_LIMITS structure, canAccess(), getTierLimit(), getAudioLimit() across all 4 tiers.
 
-#### ~~10. Add Unit Tests for AI Prompt Templates~~ ✅ Done
+#### ~~11. Add Unit Tests for AI Prompt Templates~~ ✅ Done
 **Why**: Prompt regressions are silent and expensive.
 **File**: `src/lib/ai/prompts.test.ts` — 28 tests covering segmentTranscript, practicePlan, gamedaySheet, and sport preamble propagation.
 
-#### ~~11. Implement `useLocalStorage` Hook~~ ✅ Done
+#### ~~12. Implement `useLocalStorage` Hook~~ ✅ Done
 **Why**: Persist UI state (collapsed sidebars, selected filters) across sessions.
 **Files**: `src/hooks/use-local-storage.ts` + `src/hooks/use-local-storage.test.ts` — 10 tests covering primitives, objects, arrays, invalid JSON fallback, quota error resilience, and SSR guard.
 
-#### ~~12. Add `useDebounce` Hook~~ ✅ Done
+#### ~~13. Add `useDebounce` Hook~~ ✅ Done
 **Why**: Search inputs fire an API call on every keystroke.
 **Files**: `src/hooks/use-debounce.ts` + `src/hooks/use-debounce.test.ts` — 8 tests covering delay enforcement, timer reset on rapid changes, cleanup on unmount, and edge case of delay=0.
 
-#### 13. Add `aria-label` to All Icon Buttons
+#### 14. Add `aria-label` to All Icon Buttons
 **Why**: Accessibility. Screen readers can't describe icon-only buttons.
 **Find all violations**:
 ```bash
 grep -r '<button' src/components --include='*.tsx' | grep -v 'aria-label'
 ```
 
-#### 14. Implement Dark Mode Toggle (If Not Present)
+#### 15. Implement Dark Mode Toggle (If Not Present)
 **Why**: The design spec says dark theme, but some users want light mode.
 **File**: `src/components/theme-toggle.tsx`
 ```tsx
@@ -159,7 +165,7 @@ export function ThemeToggle() {
 
 ### P3 — Backlog
 
-#### 15. Add Storybook for UI Components
+#### 16. Add Storybook for UI Components
 **Why**: Visual regression testing + component documentation.
 ```bash
 npx storybook@latest init
@@ -169,7 +175,7 @@ Add stories for:
 - All form inputs
 - All card components
 
-#### 16. Implement WebSocket for Real-Time Score Updates
+#### 17. Implement WebSocket for Real-Time Score Updates
 **Why**: Coaches need live updates during games without polling.
 **Approach**: Supabase Realtime channels
 ```ts
@@ -188,7 +194,7 @@ const channel = supabase
   .subscribe();
 ```
 
-#### 17. Add Export to PDF Feature
+#### 18. Add Export to PDF Feature
 **Why**: Coaches share reports with parents and players.
 **Library**: `@react-pdf/renderer`
 ```bash
@@ -214,7 +220,7 @@ export function SessionReport({ session }) {
 }
 ```
 
-#### 18. Implement Drill Library with Search
+#### 19. Implement Drill Library with Search
 **Why**: Coaches reuse drills across sessions. Manual re-entry wastes time.
 **Schema**:
 ```sql
@@ -234,7 +240,7 @@ create index drills_sport_idx on drills(sport);
 create index drills_tags_idx on drills using gin(tags);
 ```
 
-#### 19. Add Multi-Language Support (i18n)
+#### 20. Add Multi-Language Support (i18n)
 **Why**: Expansion to Spanish-speaking markets (US Hispanic, Latin America).
 **Library**: `next-intl`
 ```bash
@@ -246,7 +252,7 @@ npm install next-intl
 - `src/i18n.ts`
 - Update `next.config.js` with i18n config
 
-#### 20. Implement CSV Import for Roster
+#### 21. Implement CSV Import for Roster
 **Why**: Coaches have existing spreadsheets with 50+ players. Manual entry is a blocker.
 **File**: `src/components/roster/csv-import.tsx`
 ```tsx
