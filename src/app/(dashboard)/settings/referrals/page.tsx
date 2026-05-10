@@ -104,7 +104,7 @@ export default function ReferralsPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link href="/settings">
-          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0">
+          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" aria-label="Back to settings">
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>

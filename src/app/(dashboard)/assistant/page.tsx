@@ -951,6 +951,7 @@ export default function AssistantPage() {
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || !activeTeam || isLoading || voice.isRecording}
             size="icon"
+            aria-label="Send message"
             className="h-11 w-11 shrink-0 rounded-xl bg-orange-500 hover:bg-orange-600 text-white disabled:bg-zinc-700 disabled:text-zinc-500 disabled:opacity-100"
           >
             {isLoading ? (

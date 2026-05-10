@@ -109,7 +109,7 @@ export default function DataPrivacyPage() {
     <div className="p-4 lg:p-8 space-y-6 pb-36 max-w-2xl mx-auto">
       <div className="flex items-center gap-3">
         <Link href="/settings">
-          <Button variant="ghost" size="icon" className="h-8 w-8">
+          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Back to settings">
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
