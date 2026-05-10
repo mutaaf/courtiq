@@ -94,14 +94,8 @@ try {
 }
 ```
 
-#### 5. Add Keyboard Shortcuts for Power Users
-**Why**: Coaches use the app on the sideline — speed matters.
-**Shortcuts to add**:
-- `Cmd+K` — open command palette (if not already present)
-- `Cmd+N` — new session/drill
-- `Cmd+Enter` — submit/save current form
-- `Esc` — close modal
-**File**: `src/hooks/use-keyboard-shortcuts.ts` (create if missing)
+#### ~~5. Add Keyboard Shortcuts for Power Users~~ ✅ Done
+**File**: `src/hooks/use-keyboard-shortcuts.ts` — centralised hook wired into dashboard-shell. Shortcuts: Cmd+K (command palette toggle), Cmd+N (new session), Cmd+. (voice capture). All suppressed inside text inputs/textareas.
 
 #### ~~6. Add `robots.txt` and `sitemap.xml`~~ ✅ Done
 **Files**: `public/robots.txt`, `src/app/sitemap.ts`
