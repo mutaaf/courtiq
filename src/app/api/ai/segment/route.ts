@@ -3,6 +3,7 @@ import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/serv
 import { callAIWithJSON } from '@/lib/ai/client';
 import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { buildAIContext } from '@/lib/ai/context-builder';
+import { checkRateLimit, rateLimitBody } from '@/lib/ai/rate-limit';
 import { segmentedObservationSchema, type SegmentedObservations } from '@/lib/ai/schemas';
 import { handleAIError } from '@/lib/ai/error';
 
@@ -10,6 +11,14 @@ export async function POST(request: Request) {
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const rl = checkRateLimit(user.id, 'segment');
+  if (!rl.allowed) {
+    return NextResponse.json(rateLimitBody(rl), {
+      status: 429,
+      headers: { 'Retry-After': String(rl.retryAfter) },
+    });
+  }
 
   const body = await request.json();
   const { transcript, teamId, sessionId } = body;

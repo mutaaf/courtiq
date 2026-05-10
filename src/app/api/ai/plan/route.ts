@@ -5,6 +5,7 @@ import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { buildAIContext } from '@/lib/ai/context-builder';
 import { practicePlanSchema, gamedaySheetSchema } from '@/lib/ai/schemas';
 import { handleAIError } from '@/lib/ai/error';
+import { checkRateLimit, rateLimitBody } from '@/lib/ai/rate-limit';
 
 export interface TrendEntry {
   category: string;
@@ -149,6 +150,14 @@ export async function POST(request: Request) {
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const rl = checkRateLimit(user.id, 'plan');
+  if (!rl.allowed) {
+    return NextResponse.json(rateLimitBody(rl), {
+      status: 429,
+      headers: { 'Retry-After': String(rl.retryAfter) },
+    });
+  }
 
   const admin = await createServiceSupabase();
 

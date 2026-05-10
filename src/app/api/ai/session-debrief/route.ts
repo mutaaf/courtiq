@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { callAIWithJSON } from '@/lib/ai/client';
 import { handleAIError } from '@/lib/ai/error';
+import { checkRateLimit, rateLimitBody } from '@/lib/ai/rate-limit';
 
 export interface SessionDebriefResult {
   session_summary: string;
@@ -32,6 +33,14 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const rl = checkRateLimit(user.id, 'session-debrief');
+  if (!rl.allowed) {
+    return NextResponse.json(rateLimitBody(rl), {
+      status: 429,
+      headers: { 'Retry-After': String(rl.retryAfter) },
+    });
+  }
 
   const admin = await createServiceSupabase();
   const body = await request.json();

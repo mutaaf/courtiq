@@ -3,6 +3,7 @@ import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/serv
 import { callAIWithJSON } from '@/lib/ai/client';
 import { buildAIContext } from '@/lib/ai/context-builder';
 import type { ConversationMessage } from '@/lib/ai/client';
+import { checkRateLimit, rateLimitBody } from '@/lib/ai/rate-limit';
 import { handleAIError } from '@/lib/ai/error';
 
 type AssistantResponseType = 'plan' | 'drill' | 'report' | 'analysis' | 'general';
@@ -18,6 +19,14 @@ export async function POST(request: Request) {
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const rl = checkRateLimit(user.id, 'assistant');
+  if (!rl.allowed) {
+    return NextResponse.json(rateLimitBody(rl), {
+      status: 429,
+      headers: { 'Retry-After': String(rl.retryAfter) },
+    });
+  }
 
   const admin = await createServiceSupabase();
 
