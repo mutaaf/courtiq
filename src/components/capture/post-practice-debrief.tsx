@@ -39,27 +39,200 @@ interface SessionObs {
   player_id: string | null;
 }
 
-const POSITIVE_TEMPLATES: Template[] = [
-  { text: 'Great energy',      category: 'hustle'      },
-  { text: 'Strong passing',    category: 'passing'     },
-  { text: 'Good defense',      category: 'defense'     },
-  { text: 'Excellent hustle',  category: 'hustle'      },
-  { text: 'Smart plays',       category: 'awareness'   },
-  { text: 'Team leadership',   category: 'leadership'  },
-  { text: 'Great shooting',    category: 'shooting'    },
-  { text: 'Strong rebounding', category: 'rebounding'  },
-];
+// ─── Sport-aware debrief templates ───────────────────────────────────────────
+// Keyed by sport slug (matches team.sport_slug from /api/me).
+// 'default' is used when sport is unknown / not listed.
 
-const NEEDS_WORK_TEMPLATES: Template[] = [
-  { text: 'Ball handling',         category: 'dribbling' },
-  { text: 'Spacing',               category: 'awareness' },
-  { text: 'Transitions',           category: 'hustle'    },
-  { text: 'Communication',         category: 'teamwork'  },
-  { text: 'Shot selection',        category: 'shooting'  },
-  { text: 'Defensive positioning', category: 'defense'   },
-  { text: 'Footwork',              category: 'footwork'  },
-  { text: 'Free throws',           category: 'shooting'  },
-];
+interface SportTemplates {
+  positive: Template[];
+  needsWork: Template[];
+}
+
+const SPORT_TEMPLATES: Record<string, SportTemplates> = {
+  basketball: {
+    positive: [
+      { text: 'Great energy',      category: 'hustle'      },
+      { text: 'Strong passing',    category: 'passing'     },
+      { text: 'Good defense',      category: 'defense'     },
+      { text: 'Excellent hustle',  category: 'hustle'      },
+      { text: 'Smart plays',       category: 'awareness'   },
+      { text: 'Team leadership',   category: 'leadership'  },
+      { text: 'Great shooting',    category: 'shooting'    },
+      { text: 'Strong rebounding', category: 'rebounding'  },
+    ],
+    needsWork: [
+      { text: 'Ball handling',         category: 'dribbling' },
+      { text: 'Spacing',               category: 'awareness' },
+      { text: 'Transitions',           category: 'hustle'    },
+      { text: 'Communication',         category: 'teamwork'  },
+      { text: 'Shot selection',        category: 'shooting'  },
+      { text: 'Defensive positioning', category: 'defense'   },
+      { text: 'Footwork',              category: 'footwork'  },
+      { text: 'Free throws',           category: 'shooting'  },
+    ],
+  },
+  soccer: {
+    positive: [
+      { text: 'Great energy',       category: 'hustle'     },
+      { text: 'Strong passing',     category: 'passing'    },
+      { text: 'Good defending',     category: 'defense'    },
+      { text: 'Excellent hustle',   category: 'hustle'     },
+      { text: 'Smart positioning',  category: 'awareness'  },
+      { text: 'Team leadership',    category: 'leadership' },
+      { text: 'Great shooting',     category: 'shooting'   },
+      { text: 'Strong first touch', category: 'dribbling'  },
+    ],
+    needsWork: [
+      { text: 'Ball control',          category: 'dribbling' },
+      { text: 'Spacing / width',       category: 'awareness' },
+      { text: 'Pressing triggers',     category: 'hustle'    },
+      { text: 'Communication',         category: 'teamwork'  },
+      { text: 'Shot technique',        category: 'shooting'  },
+      { text: 'Defensive shape',       category: 'defense'   },
+      { text: 'First touch',           category: 'footwork'  },
+      { text: 'Transition defence',    category: 'hustle'    },
+    ],
+  },
+  volleyball: {
+    positive: [
+      { text: 'Great energy',       category: 'hustle'     },
+      { text: 'Strong serving',     category: 'shooting'   },
+      { text: 'Good passing',       category: 'passing'    },
+      { text: 'Excellent hustle',   category: 'hustle'     },
+      { text: 'Smart court vision', category: 'awareness'  },
+      { text: 'Team leadership',    category: 'leadership' },
+      { text: 'Great setting',      category: 'passing'    },
+      { text: 'Strong blocking',    category: 'defense'    },
+    ],
+    needsWork: [
+      { text: 'Serve accuracy',      category: 'shooting'  },
+      { text: 'Court positioning',   category: 'awareness' },
+      { text: 'Communication',       category: 'teamwork'  },
+      { text: 'Passing platform',    category: 'passing'   },
+      { text: 'Setting consistency', category: 'passing'   },
+      { text: 'Defensive coverage',  category: 'defense'   },
+      { text: 'Footwork / movement', category: 'footwork'  },
+      { text: 'Transition',          category: 'hustle'    },
+    ],
+  },
+  flag_football: {
+    positive: [
+      { text: 'Great energy',        category: 'hustle'     },
+      { text: 'Sharp route running', category: 'offense'    },
+      { text: 'Good flag pulling',   category: 'defense'    },
+      { text: 'Excellent hustle',    category: 'hustle'     },
+      { text: 'Smart reads',         category: 'awareness'  },
+      { text: 'Team leadership',     category: 'leadership' },
+      { text: 'Accurate throwing',   category: 'passing'    },
+      { text: 'Sure hands catching', category: 'offense'    },
+    ],
+    needsWork: [
+      { text: 'Route precision',      category: 'offense'   },
+      { text: 'Spacing',              category: 'awareness' },
+      { text: 'Communication',        category: 'teamwork'  },
+      { text: 'Throw mechanics',      category: 'passing'   },
+      { text: 'Flag pulling',         category: 'defense'   },
+      { text: 'Defensive coverage',   category: 'defense'   },
+      { text: 'Footwork',             category: 'footwork'  },
+      { text: 'Transition defence',   category: 'hustle'    },
+    ],
+  },
+  baseball: {
+    positive: [
+      { text: 'Great energy',        category: 'hustle'     },
+      { text: 'Strong throwing',     category: 'passing'    },
+      { text: 'Good fielding',       category: 'defense'    },
+      { text: 'Excellent hustle',    category: 'hustle'     },
+      { text: 'Smart base running',  category: 'awareness'  },
+      { text: 'Team leadership',     category: 'leadership' },
+      { text: 'Great hitting',       category: 'offense'    },
+      { text: 'Strong pitching',     category: 'shooting'   },
+    ],
+    needsWork: [
+      { text: 'Batting mechanics',   category: 'offense'   },
+      { text: 'Field positioning',   category: 'awareness' },
+      { text: 'Communication',       category: 'teamwork'  },
+      { text: 'Throwing accuracy',   category: 'passing'   },
+      { text: 'Base running IQ',     category: 'awareness' },
+      { text: 'Defensive footwork',  category: 'footwork'  },
+      { text: 'Pitching mechanics',  category: 'shooting'  },
+      { text: 'Hustle / effort',     category: 'hustle'    },
+    ],
+  },
+  softball: {
+    positive: [
+      { text: 'Great energy',        category: 'hustle'     },
+      { text: 'Strong throwing',     category: 'passing'    },
+      { text: 'Good fielding',       category: 'defense'    },
+      { text: 'Excellent hustle',    category: 'hustle'     },
+      { text: 'Smart base running',  category: 'awareness'  },
+      { text: 'Team leadership',     category: 'leadership' },
+      { text: 'Great hitting',       category: 'offense'    },
+      { text: 'Solid pitching',      category: 'shooting'   },
+    ],
+    needsWork: [
+      { text: 'Batting mechanics',   category: 'offense'   },
+      { text: 'Field positioning',   category: 'awareness' },
+      { text: 'Communication',       category: 'teamwork'  },
+      { text: 'Throwing accuracy',   category: 'passing'   },
+      { text: 'Base running IQ',     category: 'awareness' },
+      { text: 'Defensive footwork',  category: 'footwork'  },
+      { text: 'Pitching mechanics',  category: 'shooting'  },
+      { text: 'Hustle / effort',     category: 'hustle'    },
+    ],
+  },
+  lacrosse: {
+    positive: [
+      { text: 'Great energy',        category: 'hustle'     },
+      { text: 'Strong passing',      category: 'passing'    },
+      { text: 'Good defense',        category: 'defense'    },
+      { text: 'Excellent hustle',    category: 'hustle'     },
+      { text: 'Smart off-ball',      category: 'awareness'  },
+      { text: 'Team leadership',     category: 'leadership' },
+      { text: 'Great shooting',      category: 'shooting'   },
+      { text: 'Strong cradling',     category: 'dribbling'  },
+    ],
+    needsWork: [
+      { text: 'Stick skills',        category: 'dribbling' },
+      { text: 'Spacing',             category: 'awareness' },
+      { text: 'Communication',       category: 'teamwork'  },
+      { text: 'Shot selection',      category: 'shooting'  },
+      { text: 'Defensive footwork',  category: 'footwork'  },
+      { text: 'Ground balls',        category: 'hustle'    },
+      { text: 'Transition play',     category: 'hustle'    },
+      { text: 'Passing accuracy',    category: 'passing'   },
+    ],
+  },
+  default: {
+    positive: [
+      { text: 'Great energy',        category: 'hustle'     },
+      { text: 'Strong teamwork',     category: 'teamwork'   },
+      { text: 'Good defense',        category: 'defense'    },
+      { text: 'Excellent hustle',    category: 'hustle'     },
+      { text: 'Smart positioning',   category: 'awareness'  },
+      { text: 'Team leadership',     category: 'leadership' },
+      { text: 'Great technique',     category: 'footwork'   },
+      { text: 'Strong effort',       category: 'hustle'     },
+    ],
+    needsWork: [
+      { text: 'Ball skills',         category: 'dribbling' },
+      { text: 'Spacing',             category: 'awareness' },
+      { text: 'Communication',       category: 'teamwork'  },
+      { text: 'Decision making',     category: 'awareness' },
+      { text: 'Shot / finish',       category: 'shooting'  },
+      { text: 'Defensive shape',     category: 'defense'   },
+      { text: 'Footwork',            category: 'footwork'  },
+      { text: 'Effort / hustle',     category: 'hustle'    },
+    ],
+  },
+};
+
+function getDebriefTemplates(sportSlug: string | null | undefined): SportTemplates {
+  if (sportSlug && sportSlug in SPORT_TEMPLATES) {
+    return SPORT_TEMPLATES[sportSlug];
+  }
+  return SPORT_TEMPLATES.default;
+}
 
 type Step = 'standouts' | 'positives' | 'work' | 'notes' | 'done';
 
@@ -72,6 +245,8 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
   const { activeTeam, coach } = useActiveTeam();
   const qc = useQueryClient();
   const setPracticeActive = useAppStore((s) => s.setPracticeActive);
+
+  const sportTemplates = getDebriefTemplates((activeTeam as any)?.sport_slug);
 
   const [step, setStep] = useState<Step>('standouts');
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
@@ -432,7 +607,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                   <p className="text-xs text-zinc-500 mt-1">Tap all that apply</p>
                 </div>
                 <div className="flex flex-wrap gap-2 justify-center">
-                  {POSITIVE_TEMPLATES.map((t) => (
+                  {sportTemplates.positive.map((t) => (
                     <button
                       key={t.text}
                       onClick={() => togglePositive(t)}
@@ -460,7 +635,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                   <p className="text-xs text-zinc-500 mt-1">Tap all that apply</p>
                 </div>
                 <div className="flex flex-wrap gap-2 justify-center">
-                  {NEEDS_WORK_TEMPLATES.map((t) => (
+                  {sportTemplates.needsWork.map((t) => (
                     <button
                       key={t.text}
                       onClick={() => toggleWork(t)}
