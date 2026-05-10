@@ -103,11 +103,11 @@ try {
 - `Esc` — close modal
 **File**: `src/hooks/use-keyboard-shortcuts.ts` (create if missing)
 
-#### 6. Add `robots.txt` and `sitemap.xml`
+#### 6. ~~Add `robots.txt` and `sitemap.xml`~~ [x] DONE
 **Why**: SEO. Free wins.
 **Files**:
-- `public/robots.txt`
-- `app/sitemap.ts` (Next.js 14 dynamic sitemap)
+- `src/app/robots.ts` ✓ (Next.js 14 — disallows all dashboard/API routes, allows public pages)
+- `src/app/sitemap.ts` ✓ (Next.js 14 — landing, signup, login, demo, privacy, terms)
 
 #### 7. Implement Rate Limiting on AI Endpoints
 **Why**: A single user can exhaust API credits.
@@ -132,32 +132,9 @@ function checkRateLimit(userId: string): boolean {
 }
 ```
 
-#### 8. Add `Content-Security-Policy` Header
+#### 8. ~~Add `Content-Security-Policy` Header~~ [x] DONE
 **Why**: Required for any app handling user data.
-**File**: `next.config.js`
-```js
-const securityHeaders = [
-  { key: 'X-DNS-Prefetch-Control', value: 'on' },
-  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
-  { key: 'X-Content-Type-Options', value: 'nosniff' },
-  { key: 'Referrer-Policy', value: 'origin-when-cross-origin' },
-  {
-    key: 'Content-Security-Policy',
-    value: [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' blob: data: https:",
-      "font-src 'self'",
-      "object-src 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-      "frame-ancestors 'none'",
-      "upgrade-insecure-requests",
-    ].join('; '),
-  },
-];
-```
+**File**: `next.config.ts` ✓ — added X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy (microphone: self), and CSP compatible with Next.js App Router + Supabase + Vercel Analytics
 
 ---
 
