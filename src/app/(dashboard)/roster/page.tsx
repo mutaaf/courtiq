@@ -11,7 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlayerCard } from '@/components/roster/player-card';
 import { BulkActionsBar } from '@/components/roster/bulk-actions-bar';
-import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareArrows, CheckSquare, ShieldAlert, Radio, Share2, Check } from 'lucide-react';
+import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareArrows, CheckSquare, ShieldAlert, Radio, Share2, Check, Mic, X, Zap } from 'lucide-react';
+import { PlayerFocusEntry } from '@/components/observations/PlayerFocusEntry';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { ParentEngagementPanel } from '@/components/roster/parent-engagement-panel';
@@ -33,6 +34,8 @@ export default function RosterPage() {
 
   const practiceActive = useAppStore((s) => s.practiceActive);
   const practiceSessionId = useAppStore((s) => s.practiceSessionId);
+
+  const [focusedPlayer, setFocusedPlayer] = useState<Player | null>(null);
 
   // Collect parent contacts
   const [contactLinkGenerating, setContactLinkGenerating] = useState(false);
@@ -218,6 +221,7 @@ export default function RosterPage() {
   }
 
   return (
+    <>
     <PullToRefresh onRefresh={async () => { await Promise.all([refetchPlayers(), refetchObs(), refetchAvailability()]); }}>
     <div className="p-4 lg:p-8 space-y-6 pb-28 lg:pb-8">
       {/* Header */}
@@ -277,6 +281,20 @@ export default function RosterPage() {
           </div>
         </div>
       </div>
+
+      {/* Practice Mode Banner — shown when a session is live */}
+      {practiceActive && !selectMode && (
+        <div className="flex items-center gap-3 rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-500/20">
+            <Radio className="h-4 w-4 text-orange-400 animate-pulse" aria-hidden="true" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-orange-300">Practice is live</p>
+            <p className="text-xs text-zinc-400">Tap any player to log observations instantly</p>
+          </div>
+          <Zap className="h-4 w-4 shrink-0 text-orange-400/60" aria-hidden="true" />
+        </div>
+      )}
 
       {/* Availability Summary Strip — shown when any player is unavailable */}
       {unavailableCount > 0 && (
@@ -468,6 +486,7 @@ export default function RosterPage() {
               availability={availabilityMap[player.id] ?? null}
               teamId={activeTeam.id}
               momentum={momentumMap[player.id] ?? null}
+              onPracticeFocus={practiceActive && !selectMode ? setFocusedPlayer : undefined}
             />
           ))}
         </div>
@@ -485,5 +504,52 @@ export default function RosterPage() {
 
     </div>
     </PullToRefresh>
+
+    {/* Practice Focus Mode — bottom sheet for rapid observation entry */}
+    {focusedPlayer && practiceActive && coach && activeTeam && (
+      <div
+        className="fixed inset-0 z-50 flex items-end bg-black/60 backdrop-blur-sm"
+        onClick={() => setFocusedPlayer(null)}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Log observations for ${focusedPlayer.name}`}
+      >
+        <div
+          className="w-full max-h-[88vh] overflow-y-auto rounded-t-2xl border-t border-zinc-800 bg-zinc-950 pb-safe"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="h-1 w-10 rounded-full bg-zinc-700" />
+          </div>
+          <div className="flex items-center justify-between px-5 pb-2 pt-2">
+            <div className="flex items-center gap-2">
+              <Mic className="h-4 w-4 text-orange-400" aria-hidden="true" />
+              <p className="text-sm font-semibold text-zinc-200">Observing {focusedPlayer.name.split(' ')[0]}</p>
+            </div>
+            <button
+              onClick={() => setFocusedPlayer(null)}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors touch-manipulation"
+              aria-label="Close focus mode"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <PlayerFocusEntry
+            player={focusedPlayer}
+            teamId={activeTeam.id}
+            coachId={coach.id}
+            sessionId={practiceSessionId ?? null}
+            sportId={(activeTeam as any).sport_slug ?? null}
+            onSwitchPlayer={() => {
+              const idx = sorted.findIndex((p) => p.id === focusedPlayer.id);
+              const next = sorted[(idx + 1) % sorted.length];
+              if (next) setFocusedPlayer(next);
+            }}
+            onClose={() => setFocusedPlayer(null)}
+          />
+        </div>
+      </div>
+    )}
+    </>
   );
 }
