@@ -136,7 +136,7 @@ function checkRateLimit(userId: string): boolean {
 
 ### P2 — This Sprint
 
-#### 9. Add Unit Tests for `src/lib/tier.ts`
+#### ~~9. Add Unit Tests for `src/lib/tier.ts`~~ ✅ Done
 **Why**: Tier logic controls billing. Bugs here = revenue loss.
 **File**: `src/lib/tier.test.ts`
 ```ts
@@ -183,7 +183,7 @@ describe('buildCoachingPrompt', () => {
 });
 ```
 
-#### 11. Implement `useLocalStorage` Hook
+#### ~~11. Implement `useLocalStorage` Hook~~ ✅ Done
 **Why**: Persist UI state (collapsed sidebars, selected filters) across sessions.
 **File**: `src/hooks/use-local-storage.ts`
 ```ts
@@ -212,7 +212,7 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
 }
 ```
 
-#### 12. Add `useDebounce` Hook
+#### ~~12. Add `useDebounce` Hook~~ ✅ Done
 **Why**: Search inputs fire an API call on every keystroke.
 **File**: `src/hooks/use-debounce.ts`
 ```ts
