@@ -116,52 +116,13 @@ try {
 
 ### P2 — This Sprint
 
-#### 9. Add Unit Tests for `src/lib/tier.ts`
+#### ~~9. Add Unit Tests for `src/lib/tier.ts`~~ ✅ Done
 **Why**: Tier logic controls billing. Bugs here = revenue loss.
-**File**: `src/lib/tier.test.ts`
-```ts
-import { describe, it, expect } from 'vitest';
-import { getTierLimits, canAccess } from './tier';
+**File**: `src/lib/tier.test.ts` — 46 tests covering TIER_LIMITS structure, canAccess(), getTierLimit(), and getAudioLimit() for all four tiers.
 
-describe('getTierLimits', () => {
-  it('returns correct limits for free tier', () => {
-    const limits = getTierLimits('free');
-    expect(limits.maxSessions).toBe(5);
-    // etc.
-  });
-});
-
-describe('canAccess', () => {
-  it('blocks free users from pro features', () => {
-    expect(canAccess('free', 'video_analysis')).toBe(false);
-  });
-  it('allows pro users to access all features', () => {
-    expect(canAccess('pro', 'video_analysis')).toBe(true);
-  });
-});
-```
-
-#### 10. Add Unit Tests for AI Prompt Templates
+#### ~~10. Add Unit Tests for AI Prompt Templates~~ ✅ Done
 **Why**: Prompt regressions are silent and expensive.
-**File**: `src/lib/ai/prompts.test.ts`
-```ts
-import { describe, it, expect } from 'vitest';
-import { buildCoachingPrompt, buildDrillPrompt } from './prompts';
-
-describe('buildCoachingPrompt', () => {
-  it('includes player name in output', () => {
-    const prompt = buildCoachingPrompt({ playerName: 'Alex', sport: 'tennis' });
-    expect(prompt).toContain('Alex');
-    expect(prompt).toContain('tennis');
-  });
-  
-  it('does not exceed token limit', () => {
-    const prompt = buildCoachingPrompt({ playerName: 'Alex', sport: 'tennis' });
-    // Rough estimate: 4 chars per token
-    expect(prompt.length / 4).toBeLessThan(4000);
-  });
-});
-```
+**File**: `src/lib/ai/prompts.test.ts` — 28 tests covering segmentTranscript (roster names, transcripts, skills, custom instructions), practicePlan (team context, insights, trends, focus skills), gamedaySheet (opponent, team name), and sport preamble propagation.
 
 #### 11. Implement `useLocalStorage` Hook
 **Why**: Persist UI state (collapsed sidebars, selected filters) across sessions.
