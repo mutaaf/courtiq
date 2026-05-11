@@ -6,6 +6,8 @@ import {
 } from '../src/app/api/notifications/route';
 import type { AppNotification, NotificationPriority } from '../src/app/api/notifications/route';
 
+// ─── Helpers ────────────────────────────────────────────────────────────────────
+
 function makeNotification(
   overrides: Partial<AppNotification> = {}
 ): AppNotification {
@@ -20,6 +22,8 @@ function makeNotification(
     ...overrides,
   };
 }
+
+// ─── buildNotificationId ────────────────────────────────────────────────────────────────
 
 describe('buildNotificationId', () => {
   it('combines type and entityId with a colon', () => {
@@ -40,6 +44,8 @@ describe('buildNotificationId', () => {
   });
 });
 
+// ─── priorityOrder ───────────────────────────────────────────────────────────────────
+
 describe('priorityOrder', () => {
   it('returns 0 for high', () => {
     expect(priorityOrder('high')).toBe(0);
@@ -58,6 +64,8 @@ describe('priorityOrder', () => {
     expect(priorityOrder('medium')).toBeLessThan(priorityOrder('low'));
   });
 });
+
+// ─── sortNotifications ────────────────────────────────────────────────────────────────
 
 describe('sortNotifications', () => {
   it('sorts high priority before medium before low', () => {
@@ -116,6 +124,8 @@ describe('sortNotifications', () => {
     ];
     const sorted = sortNotifications(items);
     expect(sorted).toHaveLength(3);
+    // All high priority — order among equals is defined by timestamp (same here), so
+    // we just assert all ids are present.
     expect(sorted.map((n) => n.id).sort()).toEqual(['a', 'b', 'c']);
   });
 
@@ -132,10 +142,13 @@ describe('sortNotifications', () => {
       makeNotification({ id: String(i), priority: p, timestamp: timestamps[i] })
     );
     const sorted = sortNotifications(items);
+    // First two should be high priority, sorted newest-first within high
     expect(sorted[0].priority).toBe('high');
     expect(sorted[1].priority).toBe('high');
     expect(new Date(sorted[0].timestamp) >= new Date(sorted[1].timestamp)).toBe(true);
+    // Then medium
     expect(sorted[2].priority).toBe('medium');
+    // Then low, newest-first
     expect(sorted[3].priority).toBe('low');
     expect(sorted[4].priority).toBe('low');
     expect(new Date(sorted[3].timestamp) >= new Date(sorted[4].timestamp)).toBe(true);
