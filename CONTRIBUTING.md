@@ -79,6 +79,13 @@ export default function Dashboard() {
 
 ### P1 — This Week
 
+#### ~~3b. Fix Practice Session Auto-Linking in Capture~~ ✅ Done
+**Why**: Observations captured via `/capture` without `?sessionId=` were unlinked — silently breaking post-practice AI debrief and player messages.
+**Files**: `src/app/(dashboard)/capture/page.tsx`, `src/app/(dashboard)/home/page.tsx`
+- `effectiveSessionId` = `urlSessionId ?? (practiceActive ? practiceSessionId : null)` — all mutations use it
+- Green "Practice in progress — observations linked automatically" banner when auto-linked
+- Home Quick Actions "Capture" card now includes sessionId in href during active practice
+
 #### 4. Implement Optimistic Updates for Common Mutations
 **Why**: The app feels slow when every action waits for a server round-trip.
 **Files**: `src/lib/api.ts`, any component calling `mutate()`
