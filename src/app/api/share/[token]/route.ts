@@ -39,28 +39,12 @@ export async function GET(
       return NextResponse.json({ error: 'PIN required', pinRequired: true }, { status: 403 });
     }
 
-    // Get player info — also fetch parent contact fields to determine
-    // whether the "Add your contact" form should appear on the portal.
-    const { data: playerRaw } = await supabase
+    // Get player info (include parent_name for personalized greeting)
+    const { data: player } = await supabase
       .from('players')
-      .select('id, name, nickname, position, jersey_number, photo_url, parent_name, parent_phone, parent_email')
+      .select('id, name, nickname, position, jersey_number, photo_url, parent_name')
       .eq('id', share.player_id)
       .single();
-
-    // Strip actual contact data before passing to the client — expose only
-    // whether contact info exists (used to conditionally show the opt-in form).
-    const hasParentContact = !!(playerRaw?.parent_phone || playerRaw?.parent_email);
-    const player = playerRaw
-      ? {
-          id: playerRaw.id,
-          name: playerRaw.name,
-          nickname: playerRaw.nickname,
-          position: playerRaw.position,
-          jersey_number: playerRaw.jersey_number,
-          photo_url: playerRaw.photo_url,
-          parent_name: playerRaw.parent_name,
-        }
-      : null;
 
     // Get team info
     const { data: team } = await supabase
@@ -100,7 +84,6 @@ export async function GET(
       coachName: coach?.full_name,
       branding,
       customMessage: share.custom_message,
-      hasParentContact,
     };
 
     if (share.include_report_card) {
@@ -128,15 +111,13 @@ export async function GET(
     if (share.include_highlights || share.include_observations) {
       const { data: observations } = await supabase
         .from('observations')
-        .select('category, sentiment, text, created_at, is_highlighted')
+        .select('category, sentiment, text, created_at')
         .eq('player_id', share.player_id)
         .eq('sentiment', 'positive')
-        // Starred observations bubble to the top so the coach's curated pick
-        // becomes the featured highlight and leads the list on the parent portal.
-        .order('is_highlighted', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(20);
       reportData.highlights = observations || [];
+      // Pick the most recent positive observation as the featured highlight
       if (observations && observations.length > 0) {
         reportData.featuredHighlight = observations[0];
       }
@@ -272,38 +253,6 @@ export async function GET(
       status: g.status,
     }));
 
-    // Attendance stats — lets parents see their child's commitment to the team.
-    // Only shown when the coach has been tracking attendance (at least 1 record).
-    {
-      const { data: attRows } = await supabase
-        .from('session_attendance')
-        .select('status, sessions(date, type)')
-        .eq('player_id', share.player_id)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (attRows && attRows.length > 0) {
-        const records = attRows.map((r: any) => ({
-          status: r.status as string,
-          date: r.sessions?.date ?? '',
-          type: r.sessions?.type ?? 'practice',
-        }));
-        const present = records.filter((r) => r.status === 'present').length;
-        const excused = records.filter((r) => r.status === 'excused').length;
-        const total = records.length;
-        const pct = total > 0 ? Math.round((present / total) * 100) : 0;
-        // Most-recent 8 sessions for the sparkline
-        const recentSessions = records.slice(0, 8).map((r) => ({
-          date: r.date,
-          type: r.type,
-          status: r.status,
-        }));
-        reportData.attendanceStats = { present, excused, absent: total - present - excused, totalSessions: total, pct, recentSessions };
-      } else {
-        reportData.attendanceStats = null;
-      }
-    }
-
     // Active team announcements (visible to parents)
     const now = new Date().toISOString();
     const { data: announcements } = await supabase
@@ -313,20 +262,6 @@ export async function GET(
       .or(`expires_at.is.null,expires_at.gt.${now}`)
       .order('created_at', { ascending: false });
     reportData.announcements = announcements ?? [];
-
-    // Next upcoming session — answers "when is the next practice?" for parents
-    // without requiring the coach to separately message them.
-    const todayIso = new Date().toISOString().split('T')[0];
-    const { data: nextSession } = await supabase
-      .from('sessions')
-      .select('id, date, start_time, end_time, type, location, opponent')
-      .eq('team_id', share.team_id)
-      .gte('date', todayIso)
-      .order('date', { ascending: true })
-      .order('start_time', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    reportData.nextSession = nextSession ?? null;
 
     // Increment view count
     await supabase

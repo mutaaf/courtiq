@@ -26,8 +26,6 @@ import {
   AlertTriangle,
   Sparkles,
   Calendar,
-  ChevronRight,
-  Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import { findPlayerByName } from '@/lib/player-match';
@@ -77,7 +75,6 @@ export default function ReviewPage() {
   const [aiUpgrade, setAiUpgrade] = useState<{ message: string } | null>(null);
   const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [nextPlayer, setNextPlayer] = useState<{ id: string; name: string } | null | undefined>(undefined);
 
   const isApiKeyError = (msg: string): boolean => {
     const lower = msg.toLowerCase();
@@ -130,31 +127,6 @@ export default function ReviewPage() {
     }
     setLoading(false);
   }, []);
-
-  // After saving, find who still needs an observation this session
-  useEffect(() => {
-    if (savedCount === null || !sessionId || !activeTeam) return;
-    Promise.all([
-      query<{ player_id: string | null }[]>({
-        table: 'observations',
-        select: 'player_id',
-        filters: { session_id: sessionId },
-      }),
-      query<{ id: string; name: string }[]>({
-        table: 'players',
-        select: 'id, name',
-        filters: { team_id: activeTeam.id, is_active: true },
-        order: { column: 'name', ascending: true },
-      }),
-    ])
-      .then(([obsData, rosterData]) => {
-        if (!obsData || !rosterData) return;
-        const observed = new Set(obsData.filter((o) => o.player_id).map((o) => o.player_id as string));
-        const next = rosterData.find((p) => !observed.has(p.id)) ?? null;
-        setNextPlayer(next);
-      })
-      .catch(() => setNextPlayer(null));
-  }, [savedCount, sessionId, activeTeam?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const confirmObservation = (id: string) => {
     setObservations((prev) =>
@@ -469,35 +441,7 @@ export default function ReviewPage() {
             <div className="flex flex-col gap-2.5 pt-1">
               {sessionId ? (
                 <>
-                  {/* Next unobserved player — shown while loading or when found */}
-                  {nextPlayer === undefined ? (
-                    <Button className="w-full" disabled>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Finding next player…
-                    </Button>
-                  ) : nextPlayer ? (
-                    <Button
-                      className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                      onClick={() =>
-                        router.push(
-                          `/capture?sessionId=${sessionId}&playerId=${nextPlayer.id}&player=${encodeURIComponent(nextPlayer.name)}`
-                        )
-                      }
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                      Observe {nextPlayer.name} next
-                    </Button>
-                  ) : (
-                    <Button
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-                      onClick={() => router.push(`/sessions/${sessionId}`)}
-                    >
-                      <Users className="h-4 w-4" />
-                      ✓ All players observed — AI Debrief
-                    </Button>
-                  )}
                   <Button
-                    variant="outline"
                     className="w-full"
                     onClick={() => router.push(`/sessions/${sessionId}`)}
                   >
@@ -505,9 +449,9 @@ export default function ReviewPage() {
                     AI Debrief &amp; Parent Updates
                   </Button>
                   <Button
-                    variant="ghost"
-                    className="w-full text-zinc-400"
-                    onClick={() => router.push(`/capture?sessionId=${sessionId}`)}
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => router.push('/capture')}
                   >
                     <Mic className="h-4 w-4" />
                     Capture More

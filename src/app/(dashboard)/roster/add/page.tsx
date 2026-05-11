@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQueryClient } from '@tanstack/react-query';
@@ -9,7 +9,7 @@ import { queryKeys } from '@/lib/query/keys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Save, Loader2, Shield, Camera, X } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { SYSTEM_DEFAULTS } from '@/lib/config/defaults';
 import { trackEvent } from '@/lib/analytics';
@@ -21,11 +21,6 @@ export default function AddPlayerPage() {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Optional photo — uploaded after the player is created
-  const [pendingPhoto, setPendingPhoto] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
     name: '',
@@ -45,20 +40,6 @@ export default function AddPlayerPage() {
     setError(null);
   };
 
-  function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPendingPhoto(file);
-    setPhotoPreview(URL.createObjectURL(file));
-    if (photoInputRef.current) photoInputRef.current.value = '';
-  }
-
-  function handleRemovePendingPhoto() {
-    setPendingPhoto(null);
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
-    setPhotoPreview(null);
-  }
-
   const handleSave = async () => {
     if (!activeTeam) return;
     if (!form.name.trim()) {
@@ -75,7 +56,7 @@ export default function AddPlayerPage() {
         .map((v) => v.trim())
         .filter(Boolean);
 
-      const inserted = await mutate<{ id: string }[]>({
+      await mutate({
         table: 'players',
         operation: 'insert',
         data: {
@@ -94,19 +75,6 @@ export default function AddPlayerPage() {
         },
       });
 
-      // Upload photo if one was selected — best-effort, never blocks navigation
-      const newPlayerId = Array.isArray(inserted) ? inserted[0]?.id : (inserted as any)?.id;
-      if (pendingPhoto && newPlayerId) {
-        try {
-          const fd = new FormData();
-          fd.append('file', pendingPhoto);
-          fd.append('player_id', newPlayerId);
-          await fetch('/api/player-photo', { method: 'POST', body: fd });
-        } catch {
-          // Photo upload failure is non-fatal; coach can add it from the edit page
-        }
-      }
-
       await queryClient.invalidateQueries({
         queryKey: queryKeys.players.all(activeTeam.id),
       });
@@ -114,7 +82,6 @@ export default function AddPlayerPage() {
       trackEvent('player_added', {
         has_jersey: !!form.jersey_number,
         has_parent_contact: !!(form.parent_email || form.parent_name),
-        has_photo: !!pendingPhoto,
       });
 
       router.push('/roster');
@@ -133,13 +100,6 @@ export default function AddPlayerPage() {
       </div>
     );
   }
-
-  const initials = form.name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2) || '?';
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-4 lg:p-8 pb-8">
@@ -166,57 +126,6 @@ export default function AddPlayerPage() {
           <CardTitle className="text-base">Player Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Player Photo */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-zinc-300">
-              Photo <span className="text-zinc-500 font-normal">(optional — appears on parent report)</span>
-            </label>
-            <div className="flex items-center gap-4">
-              <div className="relative shrink-0">
-                {photoPreview ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={photoPreview}
-                    alt="Preview"
-                    className="h-16 w-16 rounded-full object-cover ring-2 ring-zinc-700"
-                  />
-                ) : (
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-orange-500/20 text-lg font-bold text-orange-400 ring-2 ring-zinc-700">
-                    {initials}
-                  </div>
-                )}
-              </div>
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={() => photoInputRef.current?.click()}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs font-medium text-zinc-200 hover:bg-zinc-700 transition-colors touch-manipulation"
-                >
-                  <Camera className="h-3.5 w-3.5" />
-                  {photoPreview ? 'Change Photo' : 'Add Photo'}
-                </button>
-                {photoPreview && (
-                  <button
-                    type="button"
-                    onClick={handleRemovePendingPhoto}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-500 hover:text-red-400 hover:border-red-500/40 transition-colors touch-manipulation"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    Remove
-                  </button>
-                )}
-              </div>
-            </div>
-            <p className="text-[11px] text-zinc-500">JPEG, PNG, WebP · max 5 MB</p>
-            <input
-              ref={photoInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              className="hidden"
-              onChange={handlePhotoSelect}
-            />
-          </div>
-
           {/* Name */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-zinc-300">

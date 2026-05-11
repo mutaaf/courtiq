@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef, use } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { query, mutate } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Loader2, Trash2, AlertCircle, Camera, X } from 'lucide-react';
+import { ArrowLeft, Loader2, Trash2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import type { Player } from '@/types/database';
 import { SYSTEM_DEFAULTS } from '@/lib/config/defaults';
@@ -19,13 +19,6 @@ export default function EditPlayerPage({ params }: { params: Promise<{ playerId:
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [showDelete, setShowDelete] = useState(false);
-
-  // Photo state — updated immediately on upload, separate from the Save flow
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [photoUploading, setPhotoUploading] = useState(false);
-  const [photoError, setPhotoError] = useState('');
-  const photoInputRef = useRef<HTMLInputElement>(null);
-
   const [form, setForm] = useState({
     name: '',
     nickname: '',
@@ -50,7 +43,6 @@ export default function EditPlayerPage({ params }: { params: Promise<{ playerId:
           single: true,
         });
         if (player) {
-          setPhotoUrl(player.photo_url || null);
           setForm({
             name: player.name || '',
             nickname: player.nickname || '',
@@ -73,38 +65,6 @@ export default function EditPlayerPage({ params }: { params: Promise<{ playerId:
     }
     loadPlayer();
   }, [playerId]);
-
-  async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPhotoError('');
-    setPhotoUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('player_id', playerId);
-      const res = await fetch('/api/player-photo', { method: 'POST', body: fd });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Upload failed');
-      setPhotoUrl(json.url);
-    } catch (err) {
-      setPhotoError(err instanceof Error ? err.message : 'Upload failed');
-    } finally {
-      setPhotoUploading(false);
-      // Reset input so the same file can be re-selected after an error
-      if (photoInputRef.current) photoInputRef.current.value = '';
-    }
-  }
-
-  async function handleRemovePhoto() {
-    setPhotoError('');
-    try {
-      await fetch(`/api/player-photo?player_id=${playerId}`, { method: 'DELETE' });
-      setPhotoUrl(null);
-    } catch {
-      setPhotoError('Failed to remove photo');
-    }
-  }
 
   async function handleSave() {
     if (!form.name.trim()) { setError('Name is required'); return; }
@@ -169,13 +129,6 @@ export default function EditPlayerPage({ params }: { params: Promise<{ playerId:
     );
   }
 
-  const initials = form.name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2) || '?';
-
   return (
     <div className="p-4 lg:p-8 pb-8">
       <Link href={`/roster/${playerId}`} className="mb-4 inline-flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-200">
@@ -193,72 +146,6 @@ export default function EditPlayerPage({ params }: { params: Promise<{ playerId:
               {error}
             </div>
           )}
-
-          {/* ── Player Photo ── */}
-          <div className="space-y-2">
-            <label className="text-sm text-zinc-400">
-              Player Photo{' '}
-              <span className="text-zinc-600">(appears on parent report)</span>
-            </label>
-            <div className="flex items-center gap-4">
-              {/* Avatar preview */}
-              <div className="relative shrink-0">
-                {photoUrl ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={photoUrl}
-                    alt={form.name || 'Player'}
-                    className="h-16 w-16 rounded-full object-cover ring-2 ring-zinc-700"
-                  />
-                ) : (
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-orange-500/20 text-lg font-bold text-orange-400 ring-2 ring-zinc-700">
-                    {initials}
-                  </div>
-                )}
-                {photoUploading && (
-                  <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60">
-                    <Loader2 className="h-5 w-5 animate-spin text-white" />
-                  </div>
-                )}
-              </div>
-
-              {/* Actions */}
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  disabled={photoUploading}
-                  onClick={() => photoInputRef.current?.click()}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs font-medium text-zinc-200 hover:bg-zinc-700 transition-colors disabled:opacity-50 touch-manipulation"
-                >
-                  <Camera className="h-3.5 w-3.5" />
-                  {photoUrl ? 'Change Photo' : 'Add Photo'}
-                </button>
-                {photoUrl && (
-                  <button
-                    type="button"
-                    onClick={handleRemovePhoto}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-500 hover:text-red-400 hover:border-red-500/40 transition-colors touch-manipulation"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    Remove
-                  </button>
-                )}
-              </div>
-            </div>
-            {photoError && (
-              <p className="text-xs text-red-400">{photoError}</p>
-            )}
-            <p className="text-xs text-zinc-600">JPEG, PNG, WebP · max 5 MB</p>
-
-            {/* Hidden file input */}
-            <input
-              ref={photoInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              className="hidden"
-              onChange={handlePhotoSelect}
-            />
-          </div>
 
           <div className="space-y-2">
             <label className="text-sm text-zinc-400">Name *</label>
@@ -332,7 +219,6 @@ export default function EditPlayerPage({ params }: { params: Promise<{ playerId:
           <div className="space-y-2">
             <label className="text-sm text-zinc-400">Parent Phone</label>
             <Input type="tel" value={form.parent_phone} onChange={(e) => setForm({ ...form, parent_phone: e.target.value })} />
-            <p className="text-xs text-zinc-500">Used to send player updates directly via WhatsApp after practice</p>
           </div>
 
           <div className="space-y-2">
