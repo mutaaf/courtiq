@@ -46,10 +46,13 @@ import { WeeklyFocusCard } from '@/components/home/weekly-focus-card';
 import { FreemiumNudge } from '@/components/ui/freemium-nudge';
 import { SeasonalPromo } from '@/components/onboarding/seasonal-promo';
 import { PlayerBreakthroughCard } from '@/components/home/player-breakthrough-card';
+import { PlayerOnARollCard } from '@/components/home/player-on-a-roll-card';
 import { StrugglingPlayerCard } from '@/components/home/struggling-player-card';
 import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot-card';
+import { ContinueArcCard } from '@/components/home/continue-arc-card';
+import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
 
-// ─── Shared reminder helpers ──────────────────────────────────────────────────
+// ─── Shared reminder helpers ────────────────────────────────────────────
 
 const SESSION_REMINDER_EMOJI: Record<string, string> = {
   practice: '🏃',
@@ -100,7 +103,7 @@ async function shareReminder(msg: string, onSuccess: () => void) {
   }
 }
 
-// ─── Today's Session Card ────────────────────────────────────────────────────
+// ─── Today's Session Card ────────────────────────────────────────────
 
 function TodaySessionCard({
   session,
@@ -213,7 +216,7 @@ function TodaySessionCard({
   );
 }
 
-// ─── Upcoming Sessions Card ─────────────────────────────────────────────────
+// ─── Upcoming Sessions Card ──────────────────────────────────────────────
 
 function UpcomingSessionsCard({
   sessions,
@@ -322,7 +325,7 @@ function UpcomingSessionsCard({
   );
 }
 
-// ─── Last Session Card ─────────────────────────────────────────────────────────
+// ─── Last Session Card ──────────────────────────────────────────────────
 
 const SESSION_EMOJI: Record<string, string> = {
   practice: '🏃',
@@ -394,7 +397,7 @@ function LastSessionCard({ session }: {
   );
 }
 
-// ─── Page ──────────────────────────────────────────────────────────────────────
+// ─── Page ──────────────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const { activeTeam, coach, aiPlatformAvailable } = useActiveTeam();
@@ -657,7 +660,7 @@ export default function HomePage() {
     staleTime: 20_000,
   });
 
-  // ── No team state ─────────────────────────────────────────────────────────
+  // ── No team state ────────────────────────────────────────────────────────────────────
   if (!activeTeam) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center min-h-[60vh]">
@@ -679,7 +682,7 @@ export default function HomePage() {
     );
   }
 
-  // ── Main dashboard ────────────────────────────────────────────────────────
+  // ── Main dashboard ────────────────────────────────────────────────────────────────────
   return (
     <>
     <div className="p-4 lg:p-8 space-y-6 pb-8">
@@ -872,6 +875,11 @@ export default function HomePage() {
         />
       )}
 
+      {/* Continue Arc — prompts coach to run the next session in their practice series */}
+      {!practiceActive && activeTeam && (
+        <ContinueArcCard teamId={activeTeam.id} />
+      )}
+
       {/* Last session summary — shown when no today session and practice not active */}
       {!practiceActive && todaySessions.length === 0 && lastSession && (
         <LastSessionCard session={lastSession} />
@@ -991,6 +999,11 @@ export default function HomePage() {
         />
       )}
 
+      {/* Player on a Roll — celebrates the player with the longest positive session streak */}
+      {activeTeam && stats && stats.observations >= 5 && (
+        <PlayerOnARollCard teamId={activeTeam.id} />
+      )}
+
       {/* Struggling Player Alert — flags players with repeated needs-work in a skill */}
       {activeTeam && stats && stats.observations >= 5 && (
         <StrugglingPlayerCard teamId={activeTeam.id} />
@@ -998,6 +1011,16 @@ export default function HomePage() {
 
       {/* Parent Reactions — love notes from parents */}
       {activeTeam && <ParentReactionsCard teamId={activeTeam.id} />}
+
+      {/* Weekly Parent Wrap — one-tap pre-written group chat update summarising the week */}
+      {activeTeam && coach && stats && stats.observations >= 5 && (
+        <WeeklyWrapCard
+          teamId={activeTeam.id}
+          teamName={activeTeam.name}
+          coachName={coach.full_name ?? ''}
+          totalPlayerCount={stats.players}
+        />
+      )}
 
       {/* Upcoming sessions this week */}
       {upcomingSessions.length > 0 && (
