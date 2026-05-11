@@ -11,11 +11,6 @@ import {
   filterPositiveObs,
   getWeekLabel,
 } from '@/lib/player-spotlight-utils';
-import { sendEmail } from '@/lib/email';
-import { weeklyStarParentEmail } from '@/lib/email/templates';
-import { randomBytes } from 'crypto';
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.youthsportsiq.com';
 
 // ─── POST /api/ai/weekly-star ─────────────────────────────────────────────────
 // Analyzes the last 7 days of observations for the team, picks the standout
@@ -137,95 +132,6 @@ export async function POST(request: Request) {
       .select()
       .single();
 
-    // ── Auto-notify parent if the spotlighted player has an email ────────
-    let emailSent = false;
-    let parentEmailMasked: string | null = null;
-
-    try {
-      const { data: player } = await admin
-        .from('players')
-        .select('parent_email, parent_name')
-        .eq('id', candidate.player_id)
-        .single();
-
-      if (player?.parent_email) {
-        // Get or create a permanent share token for this player
-        let shareToken: string | null = null;
-        const { data: existingShares } = await admin
-          .from('parent_shares')
-          .select('share_token')
-          .eq('player_id', candidate.player_id)
-          .eq('team_id', teamId)
-          .eq('is_active', true)
-          .is('expires_at', null)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (existingShares?.[0]?.share_token) {
-          shareToken = existingShares[0].share_token;
-        } else {
-          const newToken = randomBytes(16).toString('hex');
-          const { error: insertErr } = await admin
-            .from('parent_shares')
-            .insert({
-              player_id: candidate.player_id,
-              team_id: teamId,
-              coach_id: user.id,
-              share_token: newToken,
-              pin: null,
-              include_observations: false,
-              include_development_card: true,
-              include_report_card: true,
-              include_highlights: true,
-              include_goals: true,
-              include_drills: true,
-              include_coach_note: true,
-              include_skill_challenges: true,
-              custom_message: null,
-              is_active: true,
-              expires_at: null,
-            });
-          if (!insertErr) shareToken = newToken;
-        }
-
-        const { data: team } = await admin
-          .from('teams')
-          .select('name')
-          .eq('id', teamId)
-          .single();
-
-        const { data: coachRow } = await admin
-          .from('coaches')
-          .select('full_name')
-          .eq('id', user.id)
-          .single();
-
-        const shareUrl = shareToken ? `${APP_URL}/share/${shareToken}` : null;
-        const { subject, html } = weeklyStarParentEmail({
-          playerName: candidate.player_name,
-          coachName: coachRow?.full_name ?? 'Your Coach',
-          teamName: team?.name ?? 'Your Team',
-          weekLabel,
-          headline: validated.headline ?? `${candidate.player_name} had a standout week`,
-          achievement: validated.achievement ?? '',
-          shareUrl,
-        });
-
-        const sendResult = await sendEmail({ to: player.parent_email, subject, html });
-        if (sendResult.success) {
-          emailSent = true;
-          // Mask for display: "m***@gmail.com"
-          const [localPart, domain] = player.parent_email.split('@');
-          parentEmailMasked = localPart.length > 1
-            ? `${localPart[0]}***@${domain}`
-            : `***@${domain}`;
-        }
-      }
-    } catch (emailErr) {
-      // Non-fatal — the plan was already saved successfully
-      console.warn('[weekly-star] Parent email send failed:', emailErr);
-    }
-
     return NextResponse.json({
       plan,
       star: validated,
@@ -237,8 +143,6 @@ export async function POST(request: Request) {
         positive_count: positiveObs.length,
       },
       interactionId: result.interactionId,
-      emailSent,
-      parentEmailMasked,
     });
   } catch (error: unknown) {
     return handleAIError(error, 'Weekly star generation');
