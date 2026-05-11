@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -2586,12 +2586,14 @@ function AIDebriefCard({
   observationCount,
   savedDebrief,
   onDebriefSaved,
+  autoGenerate,
 }: {
   sessionId: string;
   teamId: string;
   observationCount: number;
   savedDebrief: SessionDebriefResult | null;
   onDebriefSaved: () => void;
+  autoGenerate?: boolean;
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2603,6 +2605,7 @@ function AIDebriefCard({
   const [planError, setPlanError] = useState<string | null>(null);
 
   const debrief = localDebrief || savedDebrief;
+  const autoGenTriggered = useRef(false);
 
   async function handleGenerate() {
     setIsGenerating(true);
@@ -2629,6 +2632,14 @@ function AIDebriefCard({
       setIsGenerating(false);
     }
   }
+
+  // Auto-generate when coach arrives from ending practice with enough observations
+  useEffect(() => {
+    if (!autoGenerate || savedDebrief || observationCount < 3 || autoGenTriggered.current) return;
+    autoGenTriggered.current = true;
+    handleGenerate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [observationCount, savedDebrief]);
 
   async function handleCreatePlan() {
     if (!debrief || debrief.next_practice_focus.length === 0) return;
@@ -3790,6 +3801,7 @@ export default function SessionDetailPage() {
             onDebriefSaved={() =>
               queryClient.invalidateQueries({ queryKey: ['session', sessionId] })
             }
+            autoGenerate={fromPractice}
           />
         )}
       </div>
