@@ -286,7 +286,7 @@ export default function DrillDetailPage({
         </Card>
       )}
 
-      {/* ── Drill History ───────────────────────────────────────────────────────────────────────────────── */}
+      {/* ── Drill History ─────────────────────────────────────────────────────── */}
       {(() => {
         const usage = buildDrillUsageSummary(drillObs);
         const recent = getRecentObservations(drillObs, 5);
