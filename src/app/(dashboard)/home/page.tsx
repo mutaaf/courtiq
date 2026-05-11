@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { query, mutate } from '@/lib/api';
 import { useElapsedTime } from '@/hooks/use-elapsed-time';
-import { shouldShowWrapUpNudge, shouldShowCaptureNudge, getElapsedMinutes } from '@/lib/elapsed-time-utils';
+import { shouldShowWrapUpNudge } from '@/lib/elapsed-time-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,13 +25,8 @@ import {
   History,
   Star,
   Share2,
-  X,
-  Trophy,
-  BarChart2,
-  MessageSquare,
 } from 'lucide-react';
 import type { Session, Plan } from '@/types/database';
-import { buildResultString } from '@/lib/season-record-utils';
 import { useAppStore } from '@/lib/store';
 import { PostPracticeDebrief } from '@/components/capture/post-practice-debrief';
 import Image from 'next/image';
@@ -51,81 +46,10 @@ import { WeeklyFocusCard } from '@/components/home/weekly-focus-card';
 import { FreemiumNudge } from '@/components/ui/freemium-nudge';
 import { SeasonalPromo } from '@/components/onboarding/seasonal-promo';
 import { PlayerBreakthroughCard } from '@/components/home/player-breakthrough-card';
-import { PlayerOnARollCard } from '@/components/home/player-on-a-roll-card';
 import { StrugglingPlayerCard } from '@/components/home/struggling-player-card';
 import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot-card';
-import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
-import { ContinueArcCard } from '@/components/home/continue-arc-card';
 
-// ─── Live Coverage Grid ────────────────────────────────────────────────────────
-
-function LiveCoverageGrid({
-  players,
-  observedIds,
-  sessionId,
-}: {
-  players: Array<{ id: string; name: string; jersey_number: number | null }>;
-  observedIds: string[];
-  sessionId: string;
-}) {
-  const observedSet = new Set(observedIds);
-  const observedCount = players.filter((p) => observedSet.has(p.id)).length;
-  const allCovered = observedCount === players.length;
-
-  function getLabel(p: { name: string; jersey_number: number | null }) {
-    if (p.jersey_number != null) return `#${p.jersey_number}`;
-    const parts = p.name.trim().split(/\s+/);
-    return parts.length >= 2
-      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-      : p.name.slice(0, 2).toUpperCase();
-  }
-
-  return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3 space-y-2.5">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Coverage</p>
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-            allCovered
-              ? 'bg-emerald-500/20 text-emerald-300'
-              : 'bg-amber-500/20 text-amber-300'
-          }`}
-        >
-          {allCovered ? '✓ All covered' : `${observedCount}/${players.length}`}
-        </span>
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        {players.map((p) => {
-          const observed = observedSet.has(p.id);
-          const captureHref = `/capture?sessionId=${sessionId}&playerId=${p.id}&player=${encodeURIComponent(p.name)}`;
-          return observed ? (
-            <span
-              key={p.id}
-              className="flex h-9 min-w-[2.25rem] items-center justify-center rounded-lg bg-emerald-500/15 px-1.5 text-xs font-bold text-emerald-400 select-none"
-              title={`${p.name} ✓ observed`}
-            >
-              {getLabel(p)}
-            </span>
-          ) : (
-            <Link
-              key={p.id}
-              href={captureHref}
-              className="flex h-9 min-w-[2.25rem] items-center justify-center rounded-lg bg-orange-500/15 px-1.5 text-xs font-bold text-orange-400 hover:bg-orange-500/25 transition-colors touch-manipulation active:scale-[0.94]"
-              title={`Observe ${p.name}`}
-            >
-              {getLabel(p)}
-            </Link>
-          );
-        })}
-      </div>
-      {!allCovered && (
-        <p className="text-[10px] text-zinc-600">Tap an orange chip to observe that player</p>
-      )}
-    </div>
-  );
-}
-
-// ─── Shared reminder helpers ──────────────────────────────────────────────────
+// ─── Shared reminder helpers ────────────────────────────────────────────────────
 
 const SESSION_REMINDER_EMOJI: Record<string, string> = {
   practice: '🏃',
@@ -257,21 +181,14 @@ function TodaySessionCard({
             Open Session
           </Button>
         </Link>
-        {session.type === 'practice' || session.type === 'training' ? (
+        {session.type === 'practice' && (
           <Link href={`/sessions/${session.id}/timer`}>
             <Button size="sm" variant="outline" className="shrink-0 gap-1.5">
               <Timer className="h-4 w-4" />
               Timer
             </Button>
           </Link>
-        ) : ['game', 'scrimmage', 'tournament'].includes(session.type) ? (
-          <Link href={`/sessions/${session.id}/game-tracker`}>
-            <Button size="sm" variant="outline" className="shrink-0 gap-1.5 border-blue-500/40 text-blue-400 hover:bg-blue-500/10 hover:text-blue-300">
-              <BarChart2 className="h-4 w-4" />
-              Stats
-            </Button>
-          </Link>
-        ) : null}
+        )}
         <Link href={`/capture?sessionId=${session.id}`}>
           <Button size="sm" variant="outline" className="shrink-0" aria-label="Capture observation">
             <Mic className="h-4 w-4" />
@@ -296,7 +213,7 @@ function TodaySessionCard({
   );
 }
 
-// ─── Upcoming Sessions Card ─────────────────────────────────────────────────
+// ─── Upcoming Sessions Card ───────────────────────────────────────────────────
 
 function UpcomingSessionsCard({
   sessions,
@@ -405,150 +322,7 @@ function UpcomingSessionsCard({
   );
 }
 
-// ─── Log Game Result Card ──────────────────────────────────────────────────────
-
-interface UnrecordedGameSession {
-  id: string;
-  type: string;
-  date: string;
-  opponent: string | null;
-}
-
-function LogGameResultCard({
-  session,
-  onSave,
-  onDismiss,
-}: {
-  session: UnrecordedGameSession;
-  onSave: (sessionId: string, result: string) => Promise<void>;
-  onDismiss: () => void;
-}) {
-  const [outcome, setOutcome] = useState<'win' | 'loss' | 'tie' | null>(null);
-  const [score, setScore] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  const GAME_EMOJI: Record<string, string> = { game: '🏀', scrimmage: '⚡', tournament: '🏆' };
-  const GAME_LABEL: Record<string, string> = { game: 'Game', scrimmage: 'Scrimmage', tournament: 'Tournament' };
-  const emoji = GAME_EMOJI[session.type] ?? '🏆';
-  const label = GAME_LABEL[session.type] ?? session.type;
-
-  const daysDiff = Math.round(
-    (Date.now() - new Date(session.date + 'T12:00:00').getTime()) / 86_400_000,
-  );
-  const whenLabel = daysDiff === 0 ? 'today' : daysDiff === 1 ? 'yesterday' : `${daysDiff} days ago`;
-
-  async function handleSave() {
-    if (!outcome) return;
-    setSaving(true);
-    try {
-      await onSave(session.id, buildResultString(outcome, score));
-      setSaved(true);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (saved) {
-    return (
-      <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 flex items-center gap-3">
-        <span className="text-2xl">{outcome === 'win' ? '🏆' : outcome === 'tie' ? '🤝' : '💪'}</span>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-emerald-300">
-            {outcome === 'win'
-              ? 'Win recorded! Great work, Coach!'
-              : outcome === 'loss'
-                ? 'Noted. Use the AI debrief to plan your bounce-back.'
-                : 'Tie recorded.'}
-          </p>
-          <p className="text-xs text-zinc-500 mt-0.5">Season record updated.</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-xl">
-            {emoji}
-          </div>
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-1">
-              <Trophy className="h-3 w-3" />
-              Log Result
-            </p>
-            <p className="text-sm font-medium text-zinc-200">
-              {label}{session.opponent ? ` vs ${session.opponent}` : ''}{' '}
-              <span className="text-zinc-500 font-normal">· {whenLabel}</span>
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={onDismiss}
-          className="shrink-0 rounded-lg p-1.5 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800 transition-colors touch-manipulation"
-          aria-label="Dismiss"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
-      <p className="text-xs text-zinc-400">How did the {label.toLowerCase()} go? Tap to log the result.</p>
-
-      <div className="grid grid-cols-3 gap-2">
-        {(
-          [
-            { value: 'win', letter: 'W', sublabel: 'Win', selected: 'border-emerald-500 bg-emerald-500/20 text-emerald-300', base: 'text-zinc-400' },
-            { value: 'loss', letter: 'L', sublabel: 'Loss', selected: 'border-red-500 bg-red-500/20 text-red-300', base: 'text-zinc-400' },
-            { value: 'tie', letter: 'T', sublabel: 'Tie', selected: 'border-zinc-400 bg-zinc-400/20 text-zinc-200', base: 'text-zinc-400' },
-          ] as const
-        ).map(({ value, letter, sublabel, selected, base }) => (
-          <button
-            key={value}
-            onClick={() => setOutcome(value)}
-            className={`flex flex-col items-center justify-center rounded-xl border py-3 touch-manipulation transition-all active:scale-[0.96] ${
-              outcome === value
-                ? selected
-                : `border-zinc-700 bg-zinc-800/50 ${base} hover:border-zinc-500 hover:text-zinc-200`
-            }`}
-          >
-            <span className="text-2xl font-black leading-none">{letter}</span>
-            <span className="text-[10px] font-medium mt-1 opacity-70">{sublabel}</span>
-          </button>
-        ))}
-      </div>
-
-      {outcome && (
-        <div className="space-y-2">
-          <input
-            type="text"
-            placeholder="Score (optional) — e.g. 42-38"
-            value={score}
-            onChange={(e) => setScore(e.target.value)}
-            className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:border-orange-500/50 focus:outline-none focus:ring-1 focus:ring-orange-500/30"
-          />
-          <Button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full"
-            size="sm"
-          >
-            {saving
-              ? 'Saving…'
-              : outcome === 'win'
-                ? 'Save Win 🏆'
-                : outcome === 'loss'
-                  ? 'Save Loss'
-                  : 'Save Tie 🤝'}
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Last Session Card ─────────────────────────────────────────────────────────
+// ─── Last Session Card ────────────────────────────────────────────────────────────────
 
 const SESSION_EMOJI: Record<string, string> = {
   practice: '🏃',
@@ -567,7 +341,7 @@ const SESSION_LABEL: Record<string, string> = {
 };
 
 function LastSessionCard({ session }: {
-  session: { id: string; type: string; date: string; quality_rating?: number | null; coach_debrief_text?: string | null; observations?: [{ count: number }] };
+  session: { id: string; type: string; date: string; quality_rating?: number | null; observations?: [{ count: number }] };
 }) {
   const obsCount = session.observations?.[0]?.count ?? 0;
   const emoji = SESSION_EMOJI[session.type] ?? '📋';
@@ -582,73 +356,45 @@ function LastSessionCard({ session }: {
 
   return (
     <Card className="border-zinc-800">
-      <CardContent className="p-4 space-y-3">
-        {/* Session info row */}
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-lg">
-            {emoji}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
-              Last session · {dateLabel}
-            </p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-sm font-semibold text-zinc-200">{label}</p>
-              {hasRating && (
-                <div className="flex items-center gap-0.5" title={`Rated ${rating}/5`}>
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`h-3 w-3 ${i < rating! ? 'text-amber-400 fill-amber-400' : 'text-zinc-700'}`}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              {obsCount > 0
-                ? `${obsCount} observation${obsCount !== 1 ? 's' : ''} captured`
-                : 'No observations — tap to add'}
-            </p>
-            {session.coach_debrief_text && session.coach_debrief_text.trim().length > 0 && (
-              <p className="text-xs italic text-zinc-500 mt-0.5 line-clamp-1">
-                📝 {session.coach_debrief_text.trim()}
-              </p>
+      <CardContent className="flex items-center gap-3 p-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-lg">
+          {emoji}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+            Last session · {dateLabel}
+          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-semibold text-zinc-200">{label}</p>
+            {hasRating && (
+              <div className="flex items-center gap-0.5" title={`Rated ${rating}/5`}>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star
+                    key={i}
+                    className={`h-3 w-3 ${i < rating! ? 'text-amber-400 fill-amber-400' : 'text-zinc-700'}`}
+                  />
+                ))}
+              </div>
             )}
           </div>
-          <Link href={`/sessions/${session.id}`} className="shrink-0">
-            <Button size="sm" variant="outline" className="gap-1">
-              <History className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">View</span>
-            </Button>
-          </Link>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            {obsCount > 0
+              ? `${obsCount} observation${obsCount !== 1 ? 's' : ''} captured`
+              : 'No observations — tap to add'}
+          </p>
         </div>
-
-        {/* Quick-action CTAs — shown when there are observations to act on */}
-        {obsCount > 0 && (
-          <div className="flex gap-2">
-            <Link
-              href={`/sessions/${session.id}#player-messages-section`}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-teal-500/25 bg-teal-500/8 px-3 py-2 text-xs font-medium text-teal-300 hover:bg-teal-500/15 transition-colors touch-manipulation active:scale-[0.97]"
-            >
-              <MessageSquare className="h-3.5 w-3.5 shrink-0" />
-              Parent Updates
-            </Link>
-            <Link
-              href={`/sessions/${session.id}#ai-debrief-section`}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-blue-500/25 bg-blue-500/8 px-3 py-2 text-xs font-medium text-blue-300 hover:bg-blue-500/15 transition-colors touch-manipulation active:scale-[0.97]"
-            >
-              <Sparkles className="h-3.5 w-3.5 shrink-0" />
-              AI Debrief
-            </Link>
-          </div>
-        )}
+        <Link href={`/sessions/${session.id}`} className="shrink-0">
+          <Button size="sm" variant="outline" className="gap-1.5">
+            <History className="h-3.5 w-3.5" />
+            View
+          </Button>
+        </Link>
       </CardContent>
     </Card>
   );
 }
 
-// ─── Page ──────────────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const { activeTeam, coach, aiPlatformAvailable } = useActiveTeam();
@@ -671,7 +417,6 @@ export default function HomePage() {
 
   const elapsedTime = useElapsedTime(practiceActive ? practiceStartedAt : null);
   const showWrapUpNudge = practiceActive && shouldShowWrapUpNudge(practiceStartedAt);
-  const elapsedMinutes = getElapsedMinutes(practiceActive ? practiceStartedAt : null);
 
   async function startPractice() {
     if (!activeTeam || !coach) return;
@@ -812,18 +557,18 @@ export default function HomePage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Roster for availability warnings + live coverage grid during practice
+  // Roster for availability warnings
   const { data: rosterPlayers = [] } = useQuery({
     queryKey: ['home-roster', activeTeam?.id],
     queryFn: async () => {
       if (!activeTeam) return [];
-      return query<{ id: string; name: string; jersey_number: number | null }[]>({
+      return query<{ id: string; name: string }[]>({
         table: 'players',
-        select: 'id, name, jersey_number',
+        select: 'id, name',
         filters: { team_id: activeTeam.id, is_active: true },
       });
     },
-    enabled: !!activeTeam && (todaySessions.length > 0 || practiceActive),
+    enabled: !!activeTeam && todaySessions.length > 0,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -846,7 +591,7 @@ export default function HomePage() {
       const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000).toISOString().split('T')[0];
       const sessions = await query<any[]>({
         table: 'sessions',
-        select: 'id, type, date, quality_rating, coach_debrief_text, observations:observations(count)',
+        select: 'id, type, date, quality_rating, observations:observations(count)',
         filters: {
           team_id: activeTeam.id,
           date: { op: 'lt', value: today },
@@ -861,45 +606,6 @@ export default function HomePage() {
     enabled: !!activeTeam && !practiceActive,
     staleTime: 5 * 60 * 1000,
   });
-
-  // Recent game session with no result logged — powers the "Log Game Result" card
-  const { data: recentUnrecordedGame, refetch: refetchUnrecordedGame } = useQuery({
-    queryKey: ['home-unrecorded-game', activeTeam?.id],
-    queryFn: async () => {
-      if (!activeTeam) return null;
-      const twoDaysAgo = new Date(Date.now() - 48 * 3_600_000).toISOString().split('T')[0];
-      const sessions = await query<UnrecordedGameSession[]>({
-        table: 'sessions',
-        select: 'id, type, date, opponent',
-        filters: {
-          team_id: activeTeam.id,
-          type: { op: 'in', value: ['game', 'scrimmage', 'tournament'] },
-          result: null,
-          date: { op: 'gte', value: twoDaysAgo },
-        },
-        order: { column: 'date', ascending: false },
-        limit: 1,
-      });
-      return sessions?.[0] ?? null;
-    },
-    enabled: !!activeTeam && !practiceActive,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const [dismissedGameId, setDismissedGameId] = useState<string | null>(null);
-
-  async function handleSaveGameResult(sessionId: string, result: string) {
-    await mutate({
-      table: 'sessions',
-      operation: 'update',
-      filters: { id: sessionId },
-      data: { result },
-    });
-    setTimeout(() => {
-      setDismissedGameId(sessionId);
-      refetchUnrecordedGame();
-    }, 2000);
-  }
 
   // Most recent practice plan (last 7 days) — powers the "Run last plan" CTA
   const { data: recentPracticePlan } = useQuery({
@@ -932,7 +638,7 @@ export default function HomePage() {
     };
   }, [recentPracticePlan]);
 
-  // Live observation count + observed player IDs for the active practice session
+  // Live observation count for the active practice session
   const { data: sessionObsStats } = useQuery({
     queryKey: ['session-obs-count', practiceSessionId],
     queryFn: async () => {
@@ -943,21 +649,15 @@ export default function HomePage() {
         filters: { session_id: practiceSessionId },
       });
       if (!obs) return null;
-      const observedIds = [...new Set(obs.filter((o) => o.player_id).map((o) => o.player_id as string))];
-      return { count: obs.length, players: observedIds.length, observedIds };
+      const players = new Set(obs.filter((o) => o.player_id).map((o) => o.player_id)).size;
+      return { count: obs.length, players };
     },
     enabled: !!practiceSessionId && practiceActive,
     refetchInterval: 30_000,
     staleTime: 20_000,
   });
 
-  // Nudge when 15+ minutes into practice with zero observations captured
-  const showCaptureNudge = shouldShowCaptureNudge(
-    practiceActive ? practiceStartedAt : null,
-    sessionObsStats?.count ?? 0,
-  );
-
-  // ── No team state ─────────────────────────────────────────────────────────
+  // ── No team state ─────────────────────────────────────────────────────────────
   if (!activeTeam) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center min-h-[60vh]">
@@ -979,7 +679,7 @@ export default function HomePage() {
     );
   }
 
-  // ── Main dashboard ────────────────────────────────────────────────────────
+  // ── Main dashboard ─────────────────────────────────────────────────────────────────
   return (
     <>
     <div className="p-4 lg:p-8 space-y-6 pb-8">
@@ -1066,19 +766,6 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Capture nudge — no observations after 15 min; reminds coach to log something */}
-          {showCaptureNudge && (
-            <Link href={practiceSessionId ? `/capture?sessionId=${practiceSessionId}` : '/capture'}>
-              <div className="flex items-center gap-3 rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm font-medium text-orange-300 hover:bg-orange-500/15 transition-colors touch-manipulation active:scale-[0.98]">
-                <Mic className="h-4 w-4 shrink-0 text-orange-400 animate-pulse" />
-                <span className="flex-1">
-                  {elapsedMinutes} min in — no observations yet
-                </span>
-                <span className="shrink-0 text-xs text-orange-500 font-semibold">Capture →</span>
-              </div>
-            </Link>
-          )}
-
           {/* Practice quick actions */}
           <div className="grid grid-cols-2 gap-3">
             <Link href={practiceSessionId ? `/capture?sessionId=${practiceSessionId}` : '/capture'}>
@@ -1100,15 +787,6 @@ export default function HomePage() {
               </Link>
             )}
           </div>
-
-          {/* Live Player Coverage Grid — who's been observed this session */}
-          {rosterPlayers.length > 0 && (
-            <LiveCoverageGrid
-              players={rosterPlayers}
-              observedIds={sessionObsStats?.observedIds ?? []}
-              sessionId={practiceSessionId ?? ''}
-            />
-          )}
         </div>
       ) : todaySessions.length > 0 ? (
         <TodaySessionCard
@@ -1150,15 +828,6 @@ export default function HomePage() {
             </button>
           )}
         </div>
-      )}
-
-      {/* Log Game Result — surfaces when a game/scrimmage/tournament session has no result logged */}
-      {recentUnrecordedGame && recentUnrecordedGame.id !== dismissedGameId && (
-        <LogGameResultCard
-          session={recentUnrecordedGame}
-          onSave={handleSaveGameResult}
-          onDismiss={() => setDismissedGameId(recentUnrecordedGame.id)}
-        />
       )}
 
       {/* Quick actions */}
@@ -1203,11 +872,6 @@ export default function HomePage() {
         />
       )}
 
-      {/* Continue Practice Arc — shown when coach has a pending arc session to run next */}
-      {!practiceActive && (
-        <ContinueArcCard teamId={activeTeam.id} />
-      )}
-
       {/* Last session summary — shown when no today session and practice not active */}
       {!practiceActive && todaySessions.length === 0 && lastSession && (
         <LastSessionCard session={lastSession} />
@@ -1217,17 +881,6 @@ export default function HomePage() {
       {!practiceActive && !isLoadingStats && stats && stats.sessions > 0 && (
         <DailyFocusCard teamId={activeTeam.id} />
       )}
-
-      {/* Practice Mode hint — shows instead of the analytics section when a session is live */}
-      {practiceActive && (
-        <div className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm text-zinc-500">
-          <span aria-hidden="true" className="text-base">🎯</span>
-          <span>Focus mode — your insights will be here after practice.</span>
-        </div>
-      )}
-
-      {/* Analytics & intelligence cards — hidden while practice is active so coaches stay focused on the court */}
-      {!practiceActive && (<>
 
       {/* Drill of the Day — deterministic drill targeting the team's top skill gap */}
       {!isLoadingStats && stats && stats.observations >= 5 && (
@@ -1249,7 +902,7 @@ export default function HomePage() {
         <FirstPracticeLauncher
           teamId={activeTeam.id}
           coachId={coach.id}
-          sportId={(activeTeam as any).sport_slug || ''}
+          sportId={activeTeam.sport_id}
           ageGroup={activeTeam.age_group}
         />
       )}
@@ -1274,36 +927,30 @@ export default function HomePage() {
           </>
         ) : (
           <>
-            <Link href="/roster">
-              <Card className="cursor-pointer transition-colors hover:border-orange-500/40 active:scale-[0.97] touch-manipulation">
-                <CardContent className="p-3 sm:p-4 text-center">
-                  <p className="text-2xl sm:text-3xl font-bold text-orange-500">
-                    {stats?.players ?? 0}
-                  </p>
-                  <p className="text-xs text-zinc-400 mt-1">Players</p>
-                </CardContent>
-              </Card>
-            </Link>
-            <Link href="/observations">
-              <Card className="cursor-pointer transition-colors hover:border-blue-500/40 active:scale-[0.97] touch-manipulation">
-                <CardContent className="p-3 sm:p-4 text-center">
-                  <p className="text-2xl sm:text-3xl font-bold text-blue-500">
-                    {stats?.observations ?? 0}
-                  </p>
-                  <p className="text-xs text-zinc-400 mt-1">Observations</p>
-                </CardContent>
-              </Card>
-            </Link>
-            <Link href="/sessions">
-              <Card className="cursor-pointer transition-colors hover:border-emerald-500/40 active:scale-[0.97] touch-manipulation">
-                <CardContent className="p-3 sm:p-4 text-center">
-                  <p className="text-2xl sm:text-3xl font-bold text-emerald-500">
-                    {stats?.sessions ?? 0}
-                  </p>
-                  <p className="text-xs text-zinc-400 mt-1">Sessions</p>
-                </CardContent>
-              </Card>
-            </Link>
+            <Card>
+              <CardContent className="p-3 sm:p-4 text-center">
+                <p className="text-2xl sm:text-3xl font-bold text-orange-500">
+                  {stats?.players ?? 0}
+                </p>
+                <p className="text-xs text-zinc-400 mt-1">Players</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3 sm:p-4 text-center">
+                <p className="text-2xl sm:text-3xl font-bold text-blue-500">
+                  {stats?.observations ?? 0}
+                </p>
+                <p className="text-xs text-zinc-400 mt-1">Observations</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3 sm:p-4 text-center">
+                <p className="text-2xl sm:text-3xl font-bold text-emerald-500">
+                  {stats?.sessions ?? 0}
+                </p>
+                <p className="text-xs text-zinc-400 mt-1">Sessions</p>
+              </CardContent>
+            </Card>
           </>
         )}
       </div>
@@ -1336,27 +983,12 @@ export default function HomePage() {
       {/* Team Wins Feed — recent badges + achieved goals */}
       {activeTeam && <TeamWinsCard teamId={activeTeam.id} />}
 
-      {/* Weekly Wrap — one-tap parent group chat update from this week's data */}
-      {activeTeam && stats && stats.observations >= 5 && coach && (
-        <WeeklyWrapCard
-          teamId={activeTeam.id}
-          teamName={activeTeam.name}
-          coachName={coach.full_name}
-          totalPlayerCount={stats.players}
-        />
-      )}
-
       {/* Player Breakthrough — celebrates when a player flips from needs-work to improving */}
       {activeTeam && stats && stats.observations >= 5 && (
         <PlayerBreakthroughCard
           teamId={activeTeam.id}
           coachName={coach?.full_name ?? undefined}
         />
-      )}
-
-      {/* Player on a Roll — celebrates a player with positive coaching in 3+ consecutive sessions */}
-      {activeTeam && stats && stats.observations >= 5 && (
-        <PlayerOnARollCard teamId={activeTeam.id} />
       )}
 
       {/* Struggling Player Alert — flags players with repeated needs-work in a skill */}
@@ -1375,8 +1007,6 @@ export default function HomePage() {
           teamName={activeTeam.name}
         />
       )}
-
-      </>)} {/* end practice-mode focus guard */}
 
     </div>
 
