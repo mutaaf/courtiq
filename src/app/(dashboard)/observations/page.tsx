@@ -37,9 +37,9 @@ import {
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { countHighlighted } from '@/lib/observation-highlights';
-import type { Observation, Player, Sentiment, ObservationSource, Session } from '@/types/database';
+import type { Observation, Player, Sentiment, ObservationSource } from '@/types/database';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Constants ─────────────────────────────────────────────────────────────────
 
 const SENTIMENT_CONFIG: Record<Sentiment, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
   positive: { label: 'Positive', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30', icon: ThumbsUp },
@@ -82,7 +82,7 @@ const CATEGORIES = [
 
 const PAGE_SIZE = 50;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────────
 
 function formatRelative(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -122,15 +122,7 @@ function avatarColor(name: string): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-function formatSessionLabel(s: Pick<Session, 'date' | 'type' | 'location' | 'opponent'>): string {
-  const d = new Date(s.date + 'T12:00:00');
-  const dateLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const typeLabel = s.type.charAt(0).toUpperCase() + s.type.slice(1);
-  const context = s.opponent ? `vs ${s.opponent}` : s.location ? `@ ${s.location}` : '';
-  return context ? `${dateLabel} · ${typeLabel} ${context}` : `${dateLabel} · ${typeLabel}`;
-}
-
-// ─── Star toggle button ───────────────────────────────────────────────────────
+// ─── Star toggle button ───────────────────────────────────────────────────────────────
 
 function StarButton({
   obsId,
@@ -157,9 +149,9 @@ function StarButton({
   );
 }
 
-// ─── Observation card ─────────────────────────────────────────────────────────
+// ─── Observation card ────────────────────────────────────────────────────────────────
 
-type EditDraft = { text: string; sentiment: Sentiment; category: string; session_id?: string | null };
+type EditDraft = { text: string; sentiment: Sentiment; category: string };
 
 function ObservationCard({
   obs,
@@ -167,7 +159,6 @@ function ObservationCard({
   parentPhone,
   coachFirstName,
   teamName,
-  sessions,
   onToggleHighlight,
   onEdit,
   onDelete,
@@ -177,7 +168,6 @@ function ObservationCard({
   parentPhone?: string | null;
   coachFirstName?: string;
   teamName?: string;
-  sessions?: Pick<Session, 'id' | 'date' | 'type' | 'location' | 'opponent'>[];
   onToggleHighlight: (id: string, next: boolean) => void;
   onEdit: (id: string, updates: EditDraft) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -192,7 +182,6 @@ function ObservationCard({
     text: obs.text,
     sentiment: obs.sentiment,
     category: obs.category || '',
-    session_id: obs.session_id || null,
   });
 
   const sentiment = SENTIMENT_CONFIG[obs.sentiment];
@@ -203,7 +192,7 @@ function ObservationCard({
 
   const startEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setDraft({ text: obs.text, sentiment: obs.sentiment, category: obs.category || '', session_id: obs.session_id || null });
+    setDraft({ text: obs.text, sentiment: obs.sentiment, category: obs.category || '' });
     setConfirmDelete(false);
     setEditing(true);
   };
@@ -231,7 +220,7 @@ function ObservationCard({
     if (!draft.text.trim()) return;
     setSaving(true);
     try {
-      await onEdit(obs.id, { text: draft.text.trim(), sentiment: draft.sentiment, category: draft.category, session_id: draft.session_id ?? null });
+      await onEdit(obs.id, { text: draft.text.trim(), sentiment: draft.sentiment, category: draft.category });
       setEditing(false);
     } finally {
       setSaving(false);
@@ -291,24 +280,6 @@ function ObservationCard({
               </select>
               <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" aria-hidden />
             </div>
-
-            {/* Session assignment — lets coaches link orphaned obs to a practice/game */}
-            {sessions && sessions.length > 0 && (
-              <div className="relative">
-                <select
-                  value={draft.session_id || ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, session_id: e.target.value || null }))}
-                  className="w-full h-9 appearance-none rounded-lg border border-zinc-700 bg-zinc-800 pl-3 pr-8 text-sm text-zinc-100 outline-none focus:border-orange-500 transition-colors"
-                  aria-label="Link to session"
-                >
-                  <option value="">Not linked to a session</option>
-                  {sessions.map((s) => (
-                    <option key={s.id} value={s.id}>{formatSessionLabel(s)}</option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" aria-hidden />
-              </div>
-            )}
 
             {/* Text area */}
             <textarea
@@ -493,7 +464,7 @@ function ObservationCard({
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────────
 
 export default function ObservationsPage() {
   const { activeTeam, coach } = useActiveTeam();
@@ -510,23 +481,6 @@ export default function ObservationsPage() {
 
   // Reset to page 1 whenever a filter changes
   const resetPage = useCallback(() => setPage(1), []);
-
-  // Fetch recent sessions for the "link to session" dropdown in inline edit
-  const { data: recentSessions } = useQuery({
-    queryKey: ['sessions', 'recent-for-obs-edit', activeTeam?.id || ''],
-    queryFn: async () => {
-      if (!activeTeam) return [];
-      return (await query<Pick<Session, 'id' | 'date' | 'type' | 'location' | 'opponent'>[]>({
-        table: 'sessions',
-        select: 'id, type, date, location, opponent',
-        filters: { team_id: activeTeam.id },
-        order: { column: 'date', ascending: false },
-        limit: 20,
-      })) ?? [];
-    },
-    enabled: !!activeTeam,
-    staleTime: 5 * 60 * 1000,
-  });
 
   // Fetch players for filter dropdown + parent phone for share feature
   const { data: players } = useQuery({
@@ -611,11 +565,6 @@ export default function ObservationsPage() {
         data: updates,
         filters: { id: obsId },
       });
-      // When session_id changes, invalidate session-scoped caches so coverage
-      // tracker and obs counts update on next visit to that session
-      if (updates.session_id) {
-        qc.invalidateQueries({ queryKey: ['session-obs-count', updates.session_id] });
-      }
     } catch {
       qc.invalidateQueries({ queryKey: cacheKey });
     }
@@ -872,7 +821,6 @@ export default function ObservationsPage() {
                     parentPhone={obs.player_id ? playerPhoneMap.get(obs.player_id) : null}
                     coachFirstName={coachFirstName}
                     teamName={activeTeam?.name}
-                    sessions={recentSessions}
                     onToggleHighlight={handleToggleHighlight}
                     onEdit={handleEditObservation}
                     onDelete={handleDeleteObservation}

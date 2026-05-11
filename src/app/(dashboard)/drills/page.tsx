@@ -12,12 +12,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Clock, Users, Filter, BarChart3, X, ChevronRight, Sparkles, Loader2, Wand2, CheckCircle2, Target, AlertTriangle, Star, Plus, Check } from 'lucide-react';
+import { Search, Clock, Users, Filter, BarChart3, X, ChevronRight, Sparkles, Loader2, Wand2, CheckCircle2, Target, AlertTriangle, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Drill, Observation } from '@/types/database';
 import { isFavorited, filterToFavorites, parseFavoritedDrills } from '@/lib/drill-favorites-utils';
-import { useAppStore } from '@/lib/store';
 
 const DRILL_CATEGORIES = [
   'Offense', 'Defense', 'Conditioning', 'Fundamentals', 'Passing', 'Shooting', 'Dribbling', 'Teamwork',
@@ -43,40 +42,6 @@ export default function DrillsPage() {
   const [ageFilter, setAgeFilter] = useState<string | null>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null);
-
-  // Practice timer context — for Add to Practice button
-  const { practiceActive, practiceSessionId } = useAppStore((state) => ({
-    practiceActive: state.practiceActive,
-    practiceSessionId: state.practiceSessionId,
-  }));
-  const [addedDrillId, setAddedDrillId] = useState<string | null>(null);
-
-  const handleAddToPractice = useCallback(
-    (e: React.MouseEvent, drill: Drill) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (!practiceSessionId) return;
-      const key = `practice-timer-queue-v1-${practiceSessionId}`;
-      try {
-        const raw = localStorage.getItem(key);
-        const existing: { id: string; name: string; durationSecs: number; cues: string[]; drillId?: string; skill_category?: string }[] = raw ? JSON.parse(raw) : [];
-        existing.push({
-          id: `drill-${drill.id}-${Date.now()}`,
-          name: drill.name,
-          durationSecs: (drill.duration_minutes ?? 5) * 60,
-          cues: drill.teaching_cues ?? [],
-          drillId: drill.id,
-          skill_category: drill.category,
-        });
-        localStorage.setItem(key, JSON.stringify(existing));
-        setAddedDrillId(drill.id);
-        setTimeout(() => setAddedDrillId(null), 2000);
-      } catch {
-        // Silently ignore — coach can still add via the timer picker
-      }
-    },
-    [practiceSessionId],
-  );
 
   // AI Builder state
   const [builderOpen, setBuilderOpen] = useState(false);
@@ -283,14 +248,6 @@ export default function DrillsPage() {
         </Button>
       </div>
 
-      {/* Live practice banner */}
-      {practiceActive && (
-        <div className="flex items-center gap-2 rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-2.5">
-          <div className="h-2 w-2 rounded-full bg-orange-400 animate-pulse shrink-0" />
-          <p className="text-sm text-orange-300 font-medium">Practice in progress — tap <strong className="text-orange-200">Add</strong> on any drill to queue it in the timer</p>
-        </div>
-      )}
-
       {/* Skill Gap Recommendations */}
       {!isLoading && topGaps.length > 0 && recommendedDrills.length > 0 && (
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-3 min-w-0">
@@ -315,57 +272,39 @@ export default function DrillsPage() {
           </div>
           <div className="flex gap-3 overflow-x-auto pb-1 snap-x min-w-0">
             {recommendedDrills.map((drill) => (
-              <div key={drill.id} className="relative shrink-0 w-52 sm:w-60 snap-start">
-                <Link
-                  href={`/drills/${drill.id}`}
-                  className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 hover:border-amber-500/30 active:scale-[0.98] touch-manipulation transition-colors block h-full"
-                >
-                  <div className="flex items-start justify-between gap-1.5">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1 flex-wrap mb-1">
-                        <p className="text-sm font-medium text-zinc-100 leading-snug line-clamp-2">{drill.name}</p>
-                        {drill.source === 'ai' && (
-                          <span className="inline-flex items-center gap-0.5 rounded-full bg-orange-500/15 px-1.5 py-0.5 text-[9px] font-medium text-orange-400 shrink-0">
-                            <Sparkles className="h-2.5 w-2.5" />
-                            AI
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-zinc-400 line-clamp-2">{drill.description}</p>
-                      <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                        <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
-                          <AlertTriangle className="h-2.5 w-2.5" />
-                          Addresses: {drill.category}
+              <Link
+                key={drill.id}
+                href={`/drills/${drill.id}`}
+                className="shrink-0 w-52 sm:w-60 snap-start rounded-xl border border-zinc-800 bg-zinc-900 p-3 hover:border-amber-500/30 active:scale-[0.98] touch-manipulation transition-colors block"
+              >
+                <div className="flex items-start justify-between gap-1.5">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1 flex-wrap mb-1">
+                      <p className="text-sm font-medium text-zinc-100 leading-snug line-clamp-2">{drill.name}</p>
+                      {drill.source === 'ai' && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-orange-500/15 px-1.5 py-0.5 text-[9px] font-medium text-orange-400 shrink-0">
+                          <Sparkles className="h-2.5 w-2.5" />
+                          AI
                         </span>
-                        {drill.duration_minutes && (
-                          <span className="flex items-center gap-0.5 text-[10px] text-zinc-500">
-                            <Clock className="h-3 w-3" />
-                            {drill.duration_minutes}m
-                          </span>
-                        )}
-                      </div>
+                      )}
                     </div>
-                    <ChevronRight className="h-4 w-4 text-zinc-600 shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-zinc-400 line-clamp-2">{drill.description}</p>
+                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                        <AlertTriangle className="h-2.5 w-2.5" />
+                        Addresses: {drill.category}
+                      </span>
+                      {drill.duration_minutes && (
+                        <span className="flex items-center gap-0.5 text-[10px] text-zinc-500">
+                          <Clock className="h-3 w-3" />
+                          {drill.duration_minutes}m
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </Link>
-                {practiceActive && (
-                  <button
-                    onClick={(e) => handleAddToPractice(e, drill)}
-                    aria-label="Add to current practice"
-                    className={`absolute bottom-2.5 right-2.5 flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium transition-colors touch-manipulation z-10 ${
-                      addedDrillId === drill.id
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30'
-                    }`}
-                  >
-                    {addedDrillId === drill.id ? (
-                      <><Check className="h-3 w-3" />Added</>
-                    ) : (
-                      <><Plus className="h-3 w-3" />Add</>
-                    )}
-                  </button>
-                )}
-              </div>
+                  <ChevronRight className="h-4 w-4 text-zinc-600 shrink-0 mt-0.5" />
+                </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -554,23 +493,6 @@ export default function DrillsPage() {
                       <p className="text-xs text-zinc-400 mt-1 line-clamp-2">{drill.description}</p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      {practiceActive && (
-                        <button
-                          onClick={(e) => handleAddToPractice(e, drill)}
-                          aria-label="Add to current practice"
-                          className={`flex h-7 items-center gap-1 rounded-full px-2 text-[11px] font-medium transition-colors touch-manipulation ${
-                            addedDrillId === drill.id
-                              ? 'bg-emerald-500/20 text-emerald-400'
-                              : 'bg-orange-500/15 text-orange-400 hover:bg-orange-500/25'
-                          }`}
-                        >
-                          {addedDrillId === drill.id ? (
-                            <><Check className="h-3 w-3" />Added</>
-                          ) : (
-                            <><Plus className="h-3 w-3" />Add</>
-                          )}
-                        </button>
-                      )}
                       <button
                         onClick={(e) => handleToggleFavorite(e, drill.id)}
                         aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
