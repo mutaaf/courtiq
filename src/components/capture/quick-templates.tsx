@@ -8,7 +8,7 @@
  * sentiment and category are already defined by the template).
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, ChevronRight, X, Loader2, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -80,7 +80,7 @@ function PlayerPicker({
   const sheetRef = useFocusTrap<HTMLDivElement>({ enabled: true, onEscape: onClose });
 
   // Load players lazily when sheet opens
-  useState(() => {
+  useEffect(() => {
     query<Player[]>({
       table: 'players',
       select: 'id, name, jersey_number',
@@ -89,7 +89,7 @@ function PlayerPicker({
     })
       .then((data) => setPlayers(data ?? []))
       .catch(() => setLoadError(true));
-  });
+  }, [teamId]);
 
   const save = useCallback(
     async (player: Player) => {
@@ -111,7 +111,7 @@ function PlayerPicker({
             sentiment: template.sentiment,
             text: template.text,
             raw_text: template.text,
-            source: 'typed' as const,
+            source: 'template' as const,
             ai_parsed: false,
             coach_edited: false,
             is_synced: true,

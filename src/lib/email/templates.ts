@@ -19,6 +19,7 @@ import {
   statRow,
   divider,
   fineprint,
+  escapeHtml,
 } from './layout';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://youthsportsiq.com';
@@ -313,6 +314,80 @@ export function reEngagementEmail(args: { coachName: string; daysQuiet: number }
       paragraph(
         'If SportsIQ isn\'t fitting your workflow, hit reply and tell me why. Real human reads every email.',
       ),
+    ].join(''),
+  });
+  return { subject, html };
+}
+
+// ── 10. Announcement alert (parent receives team announcement) ────────────
+
+export function announcementAlertEmail(args: {
+  parentName: string | null;
+  playerName: string;
+  coachName: string;
+  teamName: string;
+  title: string;
+  body: string;
+  shareUrl: string;
+}): BuiltEmail {
+  const coachFirst = args.coachName.split(' ')[0];
+  const playerFirst = args.playerName.split(' ')[0];
+  const greeting = args.parentName
+    ? `Hi ${args.parentName.split(' ')[0]},`
+    : 'Hi there,';
+  const subject = `📢 ${args.title} · ${args.teamName}`;
+  const html = renderEmail({
+    transactional: true,
+    preview: `${args.title} — from Coach ${coachFirst}`,
+    footer: `Sent by Coach ${escapeHtml(args.coachName)} · ${escapeHtml(args.teamName)} via SportsIQ`,
+    body: [
+      heroSection(`${args.title}`, `From Coach ${coachFirst} · ${args.teamName}`),
+      paragraph(greeting),
+      paragraph(args.body),
+      ctaButton(`See ${playerFirst}'s progress report`, args.shareUrl),
+      divider(),
+      paragraph(
+        `Coach ${coachFirst} uses SportsIQ to track ${args.playerName}'s development and share updates with you.`,
+      ),
+      fineprint(`Sent by ${args.coachName} · ${args.teamName}`),
+    ].join(''),
+  });
+  return { subject, html };
+}
+
+// ── 11. Weekly Star parent notification (Player of the Week) ─────────────
+
+export function weeklyStarParentEmail(args: {
+  playerName: string;
+  coachName: string;
+  teamName: string;
+  weekLabel: string;
+  headline: string;
+  achievement: string;
+  shareUrl: string | null;
+}): BuiltEmail {
+  const coachFirst = args.coachName.split(' ')[0];
+  const subject = `⭐ ${args.playerName} is Player of the Week · ${args.teamName}`;
+  const html = renderEmail({
+    transactional: true,
+    preview: `Coach ${coachFirst} named ${args.playerName} Player of the Week for ${args.weekLabel}`,
+    footer: `Sent by Coach ${escapeHtml(args.coachName)} · ${escapeHtml(args.teamName)} via SportsIQ`,
+    body: [
+      heroSection(
+        `🌟 Player of the Week: ${args.playerName}`,
+        `${args.weekLabel} · ${args.teamName}`,
+      ),
+      paragraph(`Coach ${coachFirst} says:`),
+      paragraph(`"${args.headline}"`),
+      paragraph(args.achievement),
+      args.shareUrl
+        ? ctaButton(`See ${args.playerName}'s full progress`, args.shareUrl)
+        : '',
+      divider(),
+      paragraph(
+        `Coach ${coachFirst} tracks every player's development with SportsIQ so moments like this don't go unnoticed.`,
+      ),
+      fineprint(`Sent by ${args.coachName} · ${args.teamName}`),
     ].join(''),
   });
   return { subject, html };

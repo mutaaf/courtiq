@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo, type ReactNode } from 'react';
+import { useState, useRef, useEffect, useMemo, type ReactNode, type ElementType } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery } from '@tanstack/react-query';
 import { query } from '@/lib/api';
@@ -195,7 +195,7 @@ function MarkdownContent({ content }: { content: string }) {
 // ---------------------------------------------------------------------------
 
 interface QuickAction {
-  icon: React.ElementType;
+  icon: ElementType;
   label: string;
   color: string;
   bg: string;
@@ -380,21 +380,21 @@ export default function AssistantPage() {
     queryFn: async () => {
       if (!activeTeam) return null;
       const [sessions, obs, players] = await Promise.all([
-        query<Array<{ id: string; type: string; date: string; opponent: string | null }}>({
+        query<Array<{ id: string; type: string; date: string; opponent: string | null }>>({
           table: 'sessions',
           select: 'id,type,date,opponent',
           filters: { team_id: activeTeam.id, date: { op: 'gte', value: sevenDaysAgo } },
           order: { column: 'date', ascending: true },
           limit: 20,
         }),
-        query<Array<{ player_id: string | null; category: string | null; sentiment: string; created_at: string }}>({
+        query<Array<{ player_id: string | null; category: string | null; sentiment: string; created_at: string }>>({
           table: 'observations',
           select: 'player_id,category,sentiment,created_at',
           filters: { team_id: activeTeam.id },
           order: { column: 'created_at', ascending: false },
           limit: 60,
         }),
-        query<Array<{ id: string; name: string }}>({
+        query<Array<{ id: string; name: string }>>({
           table: 'players',
           select: 'id,name',
           filters: { team_id: activeTeam.id, is_active: true },

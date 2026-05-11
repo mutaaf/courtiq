@@ -26,6 +26,7 @@ import {
   AlertTriangle,
   Sparkles,
   Calendar,
+  UserPlus,
 } from 'lucide-react';
 import Link from 'next/link';
 import { findPlayerByName } from '@/lib/player-match';
@@ -75,6 +76,11 @@ export default function ReviewPage() {
   const [aiUpgrade, setAiUpgrade] = useState<{ message: string } | null>(null);
   const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Pre-fetched roster — lets inline player add immediately reflect in save
+  type PlayerRecord = { id: string; name: string; nickname: string | null; name_variants: string[] | null };
+  const [rosterPlayers, setRosterPlayers] = useState<PlayerRecord[]>([]);
+  const [addingName, setAddingName] = useState<string | null>(null);
 
   const isApiKeyError = (msg: string): boolean => {
     const lower = msg.toLowerCase();
@@ -127,6 +133,47 @@ export default function ReviewPage() {
     }
     setLoading(false);
   }, []);
+
+  // Pre-fetch roster so inline-added players are immediately available for matching
+  useEffect(() => {
+    if (!activeTeam) return;
+    query<PlayerRecord[]>({
+      table: 'players',
+      select: 'id, name, nickname, name_variants',
+      filters: { team_id: activeTeam.id, is_active: true },
+    })
+      .then((data) => setRosterPlayers(data ?? []))
+      .catch(() => {});
+  }, [activeTeam]);
+
+  async function handleAddPlayer(name: string) {
+    if (!activeTeam || !coach || addingName) return;
+    setAddingName(name);
+    try {
+      const result = await mutate<{ id: string; name: string }[]>({
+        table: 'players',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          name: name.trim(),
+          is_active: true,
+        },
+        select: 'id, name',
+      });
+      const newPlayer = Array.isArray(result) ? result[0] : result as any;
+      if (newPlayer?.id) {
+        setRosterPlayers((prev) => [
+          ...prev,
+          { id: newPlayer.id, name: name.trim(), nickname: null, name_variants: null },
+        ]);
+        setUnmatchedNames((prev) => prev.filter((n) => n !== name));
+      }
+    } catch {
+      // silent — coach can still save, observation will just be unlinked
+    } finally {
+      setAddingName(null);
+    }
+  }
 
   const confirmObservation = (id: string) => {
     setObservations((prev) =>
@@ -204,15 +251,20 @@ export default function ReviewPage() {
     try {
       if (!coach) throw new Error('Not authenticated');
 
-      // Resolve player names to player IDs
-      const players = await query<{ id: string; name: string; nickname: string | null; name_variants: string[] | null }[]>({
-        table: 'players',
-        select: 'id, name, nickname, name_variants',
-        filters: { team_id: activeTeam.id, is_active: true },
-      });
+      // Use pre-fetched roster (includes inline-added players); fall back to fresh fetch
+      let players: { id: string; name: string; nickname: string | null; name_variants: string[] | null }[];
+      if (rosterPlayers.length > 0) {
+        players = rosterPlayers;
+      } else {
+        players = await query<{ id: string; name: string; nickname: string | null; name_variants: string[] | null }[]>({
+          table: 'players',
+          select: 'id, name, nickname, name_variants',
+          filters: { team_id: activeTeam.id, is_active: true },
+        }) ?? [];
+      }
 
       const findPlayerId = (name: string): string | null =>
-        findPlayerByName(name, players ?? []);
+        findPlayerByName(name, players);
 
       const rows = toSave.map((obs) => ({
         team_id: activeTeam.id,
@@ -270,17 +322,19 @@ export default function ReviewPage() {
       // The sync engine will push these to the server when connectivity returns.
       if (!navigator.onLine && localDB && coach) {
         try {
-          // Re-resolve players from whatever we have (may be empty array offline)
-          const cachedPlayers = await query<{ id: string; name: string; nickname: string | null; name_variants: string[] | null }[]>({
-            table: 'players',
-            select: 'id, name, nickname, name_variants',
-            filters: { team_id: activeTeam.id, is_active: true },
-          }).catch(() => []);
+          // Use pre-fetched roster for offline matching (avoids network when offline)
+          const cachedPlayers = rosterPlayers.length > 0
+            ? rosterPlayers
+            : await query<{ id: string; name: string; nickname: string | null; name_variants: string[] | null }[]>({
+                table: 'players',
+                select: 'id, name, nickname, name_variants',
+                filters: { team_id: activeTeam.id, is_active: true },
+              }).catch(() => []) ?? [];
 
           for (const obs of toSave) {
             await localDB.observations.add({
               localId: crypto.randomUUID(),
-              playerId: findPlayerByName(obs.player_name, cachedPlayers ?? []),
+              playerId: findPlayerByName(obs.player_name, cachedPlayers),
               teamId: activeTeam.id,
               coachId: coach.id,
               sessionId,
@@ -524,21 +578,38 @@ export default function ReviewPage() {
         </Card>
       )}
 
-      {/* Unmatched Names Warning */}
+      {/* Unmatched Names Warning — with inline add buttons */}
       {unmatchedNames.length > 0 && (
         <Card className="border-yellow-500/30 bg-yellow-500/5">
           <CardContent className="flex items-start gap-3 p-4">
-            <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-400" />
-            <div>
-              <p className="text-sm font-medium text-yellow-400">Unmatched Player Names</p>
-              <p className="mt-1 text-sm text-yellow-400/80">
-                These names weren&apos;t matched to your roster:{' '}
-                <span className="font-medium">{unmatchedNames.join(', ')}</span>.
-                You can add them as players in{' '}
-                <Link href="/roster/add" className="underline hover:text-yellow-300">
-                  Roster &rarr; Add Player
-                </Link>.
+            <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-400 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-yellow-400">
+                {unmatchedNames.length} name{unmatchedNames.length !== 1 ? 's' : ''} not in your roster
               </p>
+              <p className="mt-0.5 text-xs text-yellow-400/70 mb-3">
+                Tap &ldquo;Add&rdquo; to create them instantly — the observation will link automatically.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {unmatchedNames.map((name) => (
+                  <div key={name} className="flex items-center gap-1.5 rounded-full border border-yellow-500/30 bg-yellow-500/10 pl-3 pr-1.5 py-1">
+                    <span className="text-sm font-medium text-yellow-200">{name}</span>
+                    <button
+                      onClick={() => handleAddPlayer(name)}
+                      disabled={!!addingName}
+                      aria-label={`Add ${name} to roster`}
+                      className="inline-flex items-center gap-1 rounded-full bg-yellow-500/25 border border-yellow-500/40 px-2 py-0.5 text-[11px] font-semibold text-yellow-200 hover:bg-yellow-500/40 transition-colors disabled:opacity-50 touch-manipulation active:scale-95"
+                    >
+                      {addingName === name ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <UserPlus className="h-3 w-3" />
+                      )}
+                      Add
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>
