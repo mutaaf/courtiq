@@ -30,15 +30,19 @@ export interface SeasonStats {
   totalObservations: number;
   improvingSkillCount: number;
   mostActiveCategory: string | null;
-  recentObsCount: number;
+  recentObsCount: number; // last 14 days
 }
 
 export interface SkillActivityData {
   category: string;
-  recentCount: number;
-  priorCount: number;
-  delta: number;
+  recentCount: number;  // last 14 days
+  priorCount: number;   // 15-28 days ago
+  delta: number;        // recentCount - priorCount
 }
+
+// ---------------------------------------------------------------------------
+// Skill trend helpers
+// ---------------------------------------------------------------------------
 
 export function getImprovingSkills(skills: SkillProgress[]): SkillProgress[] {
   return skills.filter((s) => s.trend === 'improving');
@@ -55,6 +59,7 @@ export function getPlateauSkills(skills: SkillProgress[]): SkillProgress[] {
 export function getMostImprovedSkill(skills: SkillProgress[]): SkillProgress | null {
   const improving = getImprovingSkills(skills);
   if (improving.length === 0) return null;
+  // Prefer game_ready > got_it > practicing > exploring as tiebreaker
   const order: Record<string, number> = { game_ready: 4, got_it: 3, practicing: 2, exploring: 1 };
   return improving.sort(
     (a, b) => (order[b.proficiency_level ?? ''] ?? 0) - (order[a.proficiency_level ?? ''] ?? 0)
@@ -82,6 +87,10 @@ export function formatProficiencyLabel(level: string | null | undefined): string
   };
   return map[level ?? ''] ?? 'Exploring';
 }
+
+// ---------------------------------------------------------------------------
+// Observation activity helpers
+// ---------------------------------------------------------------------------
 
 export function groupObsByCategory(
   obs: ShareObservation[]
@@ -144,12 +153,17 @@ export function buildSkillActivityData(obs: ShareObservation[], now: Date = new 
     .sort((a, b) => b.recentCount - a.recentCount);
 }
 
+// The category with the biggest recent surge relative to prior period
 export function getMostSurgingCategory(activityData: SkillActivityData[]): SkillActivityData | null {
   if (activityData.length === 0) return null;
   const positive = activityData.filter((a) => a.recentCount > 0);
   if (positive.length === 0) return null;
   return positive.sort((a, b) => b.delta - a.delta)[0];
 }
+
+// ---------------------------------------------------------------------------
+// Season stats builder
+// ---------------------------------------------------------------------------
 
 export function buildSeasonStats(
   obs: ShareObservation[],
@@ -164,6 +178,10 @@ export function buildSeasonStats(
     recentObsCount: getObsAfterDate(obs, recent).length,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Label helpers
+// ---------------------------------------------------------------------------
 
 export function formatCategoryLabel(cat: string | null): string {
   if (!cat) return 'General';
@@ -186,6 +204,10 @@ export function buildProgressMessage(
   }
   return `${firstName} has ${totalObs} coach observation${totalObs !== 1 ? 's' : ''} on record this season.`;
 }
+
+// ---------------------------------------------------------------------------
+// Trend chip helpers for display
+// ---------------------------------------------------------------------------
 
 export function getTrendIcon(trend: string | null): string {
   if (trend === 'improving') return '↑';
