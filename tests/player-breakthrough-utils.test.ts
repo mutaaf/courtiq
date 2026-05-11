@@ -35,7 +35,7 @@ function obs(
   };
 }
 
-// ─── splitWindows ─────────────────────────────────────────────────────────────────
+// ─── splitWindows ─────────────────────────────────────────────────────────────
 
 describe('splitWindows', () => {
   it('puts observations from the last 7 days in recent', () => {
@@ -83,7 +83,7 @@ describe('splitWindows', () => {
   });
 });
 
-// ─── groupByPlayerCategory ───────────────────────────────────────────────────────────────
+// ─── groupByPlayerCategory ────────────────────────────────────────────────────
 
 describe('groupByPlayerCategory', () => {
   it('groups observations by player × category key', () => {
@@ -118,7 +118,7 @@ describe('groupByPlayerCategory', () => {
   });
 });
 
-// ─── countBySentiment ─────────────────────────────────────────────────────────────────
+// ─── countBySentiment ─────────────────────────────────────────────────────────
 
 describe('countBySentiment', () => {
   it('counts positive observations', () => {
@@ -148,7 +148,7 @@ describe('countBySentiment', () => {
   });
 });
 
-// ─── buildBreakthroughs ───────────────────────────────────────────────────────────────
+// ─── buildBreakthroughs ───────────────────────────────────────────────────────
 
 describe('buildBreakthroughs', () => {
   it('detects a basic breakthrough', () => {
@@ -241,7 +241,7 @@ describe('buildBreakthroughs', () => {
   });
 });
 
-// ─── getBestBreakthrough ────────────────────────────────────────────────────────────────
+// ─── getBestBreakthrough ──────────────────────────────────────────────────────
 
 describe('getBestBreakthrough', () => {
   it('returns the first element of a non-empty list', () => {
@@ -260,7 +260,7 @@ describe('getBestBreakthrough', () => {
   });
 });
 
-// ─── formatCategory ─────────────────────────────────────────────────────────────────────
+// ─── formatCategory ───────────────────────────────────────────────────────────
 
 describe('formatCategory', () => {
   it('capitalizes the first letter', () => {
@@ -280,7 +280,7 @@ describe('formatCategory', () => {
   });
 });
 
-// ─── hasEnoughDataForBreakthroughs ──────────────────────────────────────────────────────────
+// ─── hasEnoughDataForBreakthroughs ────────────────────────────────────────────
 
 describe('hasEnoughDataForBreakthroughs', () => {
   it('returns false when fewer than 5 observations exist', () => {
@@ -300,7 +300,7 @@ describe('hasEnoughDataForBreakthroughs', () => {
   });
 });
 
-// ─── buildBreakthroughShareText ────────────────────────────────────────────────────────────
+// ─── buildBreakthroughShareText ───────────────────────────────────────────────
 
 describe('buildBreakthroughShareText', () => {
   it('includes the player name', () => {
@@ -324,7 +324,7 @@ describe('buildBreakthroughShareText', () => {
   });
 });
 
-// ─── buildBreakthroughWhatsAppUrl ──────────────────────────────────────────────────────────
+// ─── buildBreakthroughWhatsAppUrl ─────────────────────────────────────────────
 
 describe('buildBreakthroughWhatsAppUrl', () => {
   it('builds a generic wa.me URL when no phone given', () => {
@@ -344,7 +344,7 @@ describe('buildBreakthroughWhatsAppUrl', () => {
   });
 });
 
-// ─── buildPriorLabel / buildRecentLabel ───────────────────────────────────────────────────
+// ─── buildPriorLabel / buildRecentLabel ───────────────────────────────────────
 
 describe('buildPriorLabel', () => {
   it('formats the prior needs-work count', () => {
@@ -358,7 +358,7 @@ describe('buildRecentLabel', () => {
   });
 });
 
-// ─── getBreakthroughDismissKey ────────────────────────────────────────────────────────────────
+// ─── getBreakthroughDismissKey ────────────────────────────────────────────────
 
 describe('getBreakthroughDismissKey', () => {
   it('returns a string containing all three identifiers', () => {
@@ -375,7 +375,7 @@ describe('getBreakthroughDismissKey', () => {
   });
 });
 
-// ─── constants ─────────────────────────────────────────────────────────────────────────
+// ─── constants ────────────────────────────────────────────────────────────────
 
 describe('module constants', () => {
   it('exports BREAKTHROUGH_THRESHOLD as 2', () => {

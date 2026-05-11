@@ -21,7 +21,7 @@ import {
   type GrowthObs,
 } from '@/lib/player-growth-streak-utils';
 
-// ─── Fixtures ─────────────────────────────────────────────────────────────────────────
+// ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 function obs(
   sessionId: string | null,
@@ -36,7 +36,7 @@ const SESSION_B = 'session-b';
 const SESSION_C = 'session-c';
 const SESSION_D = 'session-d';
 
-// ─── groupObsBySession ───────────────────────────────────────────────────────────────
+// ─── groupObsBySession ────────────────────────────────────────────────────────
 
 describe('groupObsBySession', () => {
   it('returns empty array for no observations', () => {
@@ -76,6 +76,7 @@ describe('groupObsBySession', () => {
       obs(null, 'positive', '2025-05-01T10:00:00Z'),
       obs(null, 'needs-work', '2025-05-03T10:00:00Z'),
     ]);
+    // Each null-session obs gets its own bucket
     expect(result).toHaveLength(2);
     expect(result[0].sessionKey).not.toBe(result[1].sessionKey);
   });
@@ -99,7 +100,7 @@ describe('groupObsBySession', () => {
   });
 });
 
-// ─── sortBucketsDesc ────────────────────────────────────────────────────────────────
+// ─── sortBucketsDesc ──────────────────────────────────────────────────────────
 
 describe('sortBucketsDesc', () => {
   it('sorts buckets most-recent first', () => {
@@ -129,7 +130,7 @@ describe('sortBucketsDesc', () => {
   });
 });
 
-// ─── calculateCurrentStreak ───────────────────────────────────────────────────────────────
+// ─── calculateCurrentStreak ───────────────────────────────────────────────────
 
 describe('calculateCurrentStreak', () => {
   it('returns 0 for empty input', () => {
@@ -164,11 +165,12 @@ describe('calculateCurrentStreak', () => {
   it('stops at first non-positive session', () => {
     const sorted = sortBucketsDesc(
       groupObsBySession([
-        obs(SESSION_A, 'needs-work', '2025-05-01T10:00:00Z'),
+        obs(SESSION_A, 'needs-work', '2025-05-01T10:00:00Z'), // oldest
         obs(SESSION_B, 'positive', '2025-05-03T10:00:00Z'),
-        obs(SESSION_C, 'positive', '2025-05-05T10:00:00Z'),
+        obs(SESSION_C, 'positive', '2025-05-05T10:00:00Z'),   // most recent
       ])
     );
+    // sorted desc: C, B, A — streak = 2 (C and B are positive, then A breaks it)
     expect(calculateCurrentStreak(sorted)).toBe(2);
   });
 
@@ -177,7 +179,7 @@ describe('calculateCurrentStreak', () => {
       groupObsBySession([
         obs(SESSION_A, 'positive', '2025-05-01T10:00:00Z'),
         obs(SESSION_B, 'positive', '2025-05-03T10:00:00Z'),
-        obs(SESSION_C, 'needs-work', '2025-05-05T10:00:00Z'),
+        obs(SESSION_C, 'needs-work', '2025-05-05T10:00:00Z'), // most recent breaks streak
       ])
     );
     expect(calculateCurrentStreak(sorted)).toBe(0);
@@ -194,7 +196,7 @@ describe('calculateCurrentStreak', () => {
   });
 });
 
-// ─── calculateLongestStreak ───────────────────────────────────────────────────────────────
+// ─── calculateLongestStreak ───────────────────────────────────────────────────
 
 describe('calculateLongestStreak', () => {
   it('returns 0 for empty input', () => {
@@ -206,10 +208,11 @@ describe('calculateLongestStreak', () => {
       groupObsBySession([
         obs(SESSION_A, 'positive', '2025-05-01T10:00:00Z'),
         obs(SESSION_B, 'positive', '2025-05-03T10:00:00Z'),
-        obs(SESSION_C, 'needs-work', '2025-05-05T10:00:00Z'),
+        obs(SESSION_C, 'needs-work', '2025-05-05T10:00:00Z'), // break
         obs(SESSION_D, 'positive', '2025-05-07T10:00:00Z'),
       ])
     );
+    // desc order: D(+), C(-), B(+), A(+) → runs: [1], [2]  → longest = 2
     expect(calculateLongestStreak(sorted)).toBe(2);
   });
 
@@ -236,7 +239,7 @@ describe('calculateLongestStreak', () => {
   });
 });
 
-// ─── countPositiveSessions ───────────────────────────────────────────────────────────────
+// ─── countPositiveSessions ────────────────────────────────────────────────────
 
 describe('countPositiveSessions', () => {
   it('returns 0 for empty input', () => {
@@ -253,7 +256,7 @@ describe('countPositiveSessions', () => {
   });
 });
 
-// ─── getLastPositiveAt ────────────────────────────────────────────────────────────────
+// ─── getLastPositiveAt ────────────────────────────────────────────────────────
 
 describe('getLastPositiveAt', () => {
   it('returns null for empty input', () => {
@@ -274,7 +277,7 @@ describe('getLastPositiveAt', () => {
   });
 });
 
-// ─── buildGrowthStreakData ───────────────────────────────────────────────────────────────
+// ─── buildGrowthStreakData ────────────────────────────────────────────────────
 
 describe('buildGrowthStreakData', () => {
   it('returns zeros for empty input', () => {
@@ -316,7 +319,7 @@ describe('buildGrowthStreakData', () => {
       obs(SESSION_A, 'positive', '2025-05-01T10:00:00Z'),
       obs(SESSION_B, 'positive', '2025-05-03T10:00:00Z'),
       obs(SESSION_C, 'positive', '2025-05-05T10:00:00Z'),
-      obs(SESSION_D, 'needs-work', '2025-05-10T10:00:00Z'),
+      obs(SESSION_D, 'needs-work', '2025-05-10T10:00:00Z'), // most recent breaks streak
     ]);
     expect(data.currentStreak).toBe(0);
     expect(data.longestStreak).toBe(3);
@@ -331,7 +334,7 @@ describe('buildGrowthStreakData', () => {
   });
 });
 
-// ─── hasEnoughDataForGrowthStreak ─────────────────────────────────────────────────────────
+// ─── hasEnoughDataForGrowthStreak ─────────────────────────────────────────────
 
 describe('hasEnoughDataForGrowthStreak', () => {
   it('returns false for empty input', () => {
@@ -357,7 +360,7 @@ describe('hasEnoughDataForGrowthStreak', () => {
   });
 });
 
-// ─── getStreakEmoji ────────────────────────────────────────────────────────────────────
+// ─── getStreakEmoji ───────────────────────────────────────────────────────────
 
 describe('getStreakEmoji', () => {
   it('returns empty string for 0', () => {
@@ -383,7 +386,7 @@ describe('getStreakEmoji', () => {
   });
 });
 
-// ─── getStreakLabel ────────────────────────────────────────────────────────────────────
+// ─── getStreakLabel ───────────────────────────────────────────────────────────
 
 describe('getStreakLabel', () => {
   it('returns empty for 0', () => {
@@ -411,7 +414,7 @@ describe('getStreakLabel', () => {
   });
 });
 
-// ─── formatStreakCount ───────────────────────────────────────────────────────────────────
+// ─── formatStreakCount ────────────────────────────────────────────────────────
 
 describe('formatStreakCount', () => {
   it('returns singular for 1', () => {
@@ -423,7 +426,7 @@ describe('formatStreakCount', () => {
   });
 });
 
-// ─── getStreakBadgeClasses ───────────────────────────────────────────────────────────────
+// ─── getStreakBadgeClasses ────────────────────────────────────────────────────
 
 describe('getStreakBadgeClasses', () => {
   it('returns muted classes for 0', () => {
@@ -443,7 +446,7 @@ describe('getStreakBadgeClasses', () => {
   });
 });
 
-// ─── getStreakTextColor ─────────────────────────────────────────────────────────────────
+// ─── getStreakTextColor ───────────────────────────────────────────────────────
 
 describe('getStreakTextColor', () => {
   it('returns zinc for 0', () => {
@@ -460,7 +463,7 @@ describe('getStreakTextColor', () => {
   });
 });
 
-// ─── isHotStreak ──────────────────────────────────────────────────────────────────────
+// ─── isHotStreak ─────────────────────────────────────────────────────────────
 
 describe('isHotStreak', () => {
   it('returns false for streak < 3', () => {
@@ -481,7 +484,7 @@ describe('isHotStreak', () => {
   });
 });
 
-// ─── isStreakActive ───────────────────────────────────────────────────────────────────
+// ─── isStreakActive ───────────────────────────────────────────────────────────
 
 describe('isStreakActive', () => {
   it('returns false when streak is 0', () => {
@@ -501,7 +504,7 @@ describe('isStreakActive', () => {
   });
 });
 
-// ─── buildShareText ─────────────────────────────────────────────────────────────────────
+// ─── buildShareText ───────────────────────────────────────────────────────────
 
 describe('buildShareText', () => {
   it('includes player first name', () => {
@@ -533,7 +536,7 @@ describe('buildShareText', () => {
   });
 });
 
-// ─── buildParentMessage ─────────────────────────────────────────────────────────────────
+// ─── buildParentMessage ───────────────────────────────────────────────────────
 
 describe('buildParentMessage', () => {
   it('returns encouraging message for hot streak', () => {
@@ -567,7 +570,7 @@ describe('buildParentMessage', () => {
   });
 });
 
-// ─── getStreakSummaryLine ───────────────────────────────────────────────────────────────
+// ─── getStreakSummaryLine ─────────────────────────────────────────────────────
 
 describe('getStreakSummaryLine', () => {
   it('returns "No positive sessions yet" when no positives', () => {

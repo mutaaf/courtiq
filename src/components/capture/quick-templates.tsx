@@ -34,7 +34,7 @@ interface QuickTemplatesProps {
   preselectPlayerId?: string | null;
 }
 
-// ── Sentiment tab ────────────────────────────────────────────────────────────────
+// ── Sentiment tab ──────────────────────────────────────────────────────────────
 
 const TAB_LABELS: { value: TemplateSentiment; label: string; color: string; ring: string }[] = [
   {
@@ -51,7 +51,7 @@ const TAB_LABELS: { value: TemplateSentiment; label: string; color: string; ring
   },
 ];
 
-// ── Player picker bottom sheet ─────────────────────────────────────────────────────
+// ── Player picker bottom sheet ─────────────────────────────────────────────────
 
 interface PlayerPickerProps {
   template: ObservationTemplate;
@@ -242,7 +242,7 @@ function PlayerPicker({
   );
 }
 
-// ── Success toast ────────────────────────────────────────────────────────────────
+// ── Success toast ──────────────────────────────────────────────────────────────
 
 function SuccessToast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
   return (
@@ -266,7 +266,7 @@ function SuccessToast({ message, onDismiss }: { message: string; onDismiss: () =
   );
 }
 
-// ── Main component ──────────────────────────────────────────────────────────────────
+// ── Main component ─────────────────────────────────────────────────────────────
 
 export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId }: QuickTemplatesProps) {
   const [activeTab, setActiveTab] = useState<TemplateSentiment>('positive');
