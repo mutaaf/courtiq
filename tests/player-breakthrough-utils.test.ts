@@ -35,7 +35,7 @@ function obs(
   };
 }
 
-// ─── splitWindows ─────────────────────────────────────────────────────────────
+// ─── splitWindows ─────────────────────────────────────────────────────────────────
 
 describe('splitWindows', () => {
   it('puts observations from the last 7 days in recent', () => {
@@ -46,14 +46,14 @@ describe('splitWindows', () => {
   });
 
   it('puts observations from days 8-21 in prior', () => {
-    const o = obs('p1', 'needs-work', 'dribbling', 14);
+    const o = obs('p1', 'needs_work', 'dribbling', 14);
     const { recent, prior } = splitWindows([o], NOW);
     expect(recent).toHaveLength(0);
     expect(prior).toHaveLength(1);
   });
 
   it('excludes observations older than 21 days', () => {
-    const o = obs('p1', 'needs-work', 'dribbling', 25);
+    const o = obs('p1', 'needs_work', 'dribbling', 25);
     const { recent, prior } = splitWindows([o], NOW);
     expect(recent).toHaveLength(0);
     expect(prior).toHaveLength(0);
@@ -74,7 +74,7 @@ describe('splitWindows', () => {
   it('correctly splits a mixed list', () => {
     const data = [
       obs('p1', 'positive', 'passing', 2),
-      obs('p1', 'needs-work', 'passing', 10),
+      obs('p1', 'needs_work', 'passing', 10),
       obs('p2', 'positive', 'defense', 1),
     ];
     const { recent, prior } = splitWindows(data, NOW);
@@ -83,13 +83,13 @@ describe('splitWindows', () => {
   });
 });
 
-// ─── groupByPlayerCategory ────────────────────────────────────────────────────
+// ─── groupByPlayerCategory ───────────────────────────────────────────────────────────────
 
 describe('groupByPlayerCategory', () => {
   it('groups observations by player × category key', () => {
     const data = [
       obs('p1', 'positive', 'dribbling', 1),
-      obs('p1', 'needs-work', 'dribbling', 2),
+      obs('p1', 'needs_work', 'dribbling', 2),
       obs('p1', 'positive', 'passing', 1),
     ];
     const map = groupByPlayerCategory(data);
@@ -118,24 +118,24 @@ describe('groupByPlayerCategory', () => {
   });
 });
 
-// ─── countBySentiment ─────────────────────────────────────────────────────────
+// ─── countBySentiment ─────────────────────────────────────────────────────────────────
 
 describe('countBySentiment', () => {
   it('counts positive observations', () => {
     const data = [
       obs('p1', 'positive', 'dribbling', 1),
       obs('p1', 'positive', 'dribbling', 2),
-      obs('p1', 'needs-work', 'dribbling', 3),
+      obs('p1', 'needs_work', 'dribbling', 3),
     ];
     expect(countBySentiment(data, 'positive')).toBe(2);
   });
 
   it('counts needs_work observations', () => {
     const data = [
-      obs('p1', 'needs-work', 'dribbling', 10),
-      obs('p1', 'needs-work', 'dribbling', 11),
+      obs('p1', 'needs_work', 'dribbling', 10),
+      obs('p1', 'needs_work', 'dribbling', 11),
     ];
-    expect(countBySentiment(data, 'needs-work')).toBe(2);
+    expect(countBySentiment(data, 'needs_work')).toBe(2);
   });
 
   it('returns 0 for empty list', () => {
@@ -148,14 +148,14 @@ describe('countBySentiment', () => {
   });
 });
 
-// ─── buildBreakthroughs ───────────────────────────────────────────────────────
+// ─── buildBreakthroughs ───────────────────────────────────────────────────────────────
 
 describe('buildBreakthroughs', () => {
   it('detects a basic breakthrough', () => {
     const data = [
       // prior window: 2 needs-work obs
-      obs('p1', 'needs-work', 'dribbling', 10),
-      obs('p1', 'needs-work', 'dribbling', 12),
+      obs('p1', 'needs_work', 'dribbling', 10),
+      obs('p1', 'needs_work', 'dribbling', 12),
       // recent window: 2 positive obs
       obs('p1', 'positive', 'dribbling', 2),
       obs('p1', 'positive', 'dribbling', 3),
@@ -170,8 +170,8 @@ describe('buildBreakthroughs', () => {
 
   it('does not trigger when recent positive count is below threshold', () => {
     const data = [
-      obs('p1', 'needs-work', 'dribbling', 10),
-      obs('p1', 'needs-work', 'dribbling', 12),
+      obs('p1', 'needs_work', 'dribbling', 10),
+      obs('p1', 'needs_work', 'dribbling', 12),
       obs('p1', 'positive', 'dribbling', 2), // only 1 positive
     ];
     expect(buildBreakthroughs(data, NOW)).toHaveLength(0);
@@ -179,7 +179,7 @@ describe('buildBreakthroughs', () => {
 
   it('does not trigger when prior needs_work count is below threshold', () => {
     const data = [
-      obs('p1', 'needs-work', 'dribbling', 10), // only 1 needs-work
+      obs('p1', 'needs_work', 'dribbling', 10), // only 1 needs-work
       obs('p1', 'positive', 'dribbling', 2),
       obs('p1', 'positive', 'dribbling', 3),
     ];
@@ -197,14 +197,14 @@ describe('buildBreakthroughs', () => {
   it('sorts by signal strength descending', () => {
     const data = [
       // player 1: weaker signal (2+2)
-      obs('p1', 'needs-work', 'passing', 10),
-      obs('p1', 'needs-work', 'passing', 12),
+      obs('p1', 'needs_work', 'passing', 10),
+      obs('p1', 'needs_work', 'passing', 12),
       obs('p1', 'positive', 'passing', 2),
       obs('p1', 'positive', 'passing', 3),
       // player 2: stronger signal (3+3)
-      obs('p2', 'needs-work', 'defense', 9),
-      obs('p2', 'needs-work', 'defense', 11),
-      obs('p2', 'needs-work', 'defense', 13),
+      obs('p2', 'needs_work', 'defense', 9),
+      obs('p2', 'needs_work', 'defense', 11),
+      obs('p2', 'needs_work', 'defense', 13),
       obs('p2', 'positive', 'defense', 1),
       obs('p2', 'positive', 'defense', 2),
       obs('p2', 'positive', 'defense', 4),
@@ -220,8 +220,8 @@ describe('buildBreakthroughs', () => {
 
   it('ignores categories with null category', () => {
     const data = [
-      obs('p1', 'needs-work', null, 10),
-      obs('p1', 'needs-work', null, 12),
+      obs('p1', 'needs_work', null, 10),
+      obs('p1', 'needs_work', null, 12),
       obs('p1', 'positive', null, 2),
       obs('p1', 'positive', null, 3),
     ];
@@ -231,8 +231,8 @@ describe('buildBreakthroughs', () => {
   it('populates detectedAt with the most recent positive obs date', () => {
     const recentObs = obs('p1', 'positive', 'dribbling', 1);
     const data = [
-      obs('p1', 'needs-work', 'dribbling', 10),
-      obs('p1', 'needs-work', 'dribbling', 12),
+      obs('p1', 'needs_work', 'dribbling', 10),
+      obs('p1', 'needs_work', 'dribbling', 12),
       obs('p1', 'positive', 'dribbling', 4),
       recentObs,
     ];
@@ -241,7 +241,7 @@ describe('buildBreakthroughs', () => {
   });
 });
 
-// ─── getBestBreakthrough ──────────────────────────────────────────────────────
+// ─── getBestBreakthrough ────────────────────────────────────────────────────────────────
 
 describe('getBestBreakthrough', () => {
   it('returns the first element of a non-empty list', () => {
@@ -260,7 +260,7 @@ describe('getBestBreakthrough', () => {
   });
 });
 
-// ─── formatCategory ───────────────────────────────────────────────────────────
+// ─── formatCategory ─────────────────────────────────────────────────────────────────────
 
 describe('formatCategory', () => {
   it('capitalizes the first letter', () => {
@@ -280,7 +280,7 @@ describe('formatCategory', () => {
   });
 });
 
-// ─── hasEnoughDataForBreakthroughs ────────────────────────────────────────────
+// ─── hasEnoughDataForBreakthroughs ──────────────────────────────────────────────────────────
 
 describe('hasEnoughDataForBreakthroughs', () => {
   it('returns false when fewer than 5 observations exist', () => {
@@ -300,7 +300,7 @@ describe('hasEnoughDataForBreakthroughs', () => {
   });
 });
 
-// ─── buildBreakthroughShareText ───────────────────────────────────────────────
+// ─── buildBreakthroughShareText ────────────────────────────────────────────────────────────
 
 describe('buildBreakthroughShareText', () => {
   it('includes the player name', () => {
@@ -324,7 +324,7 @@ describe('buildBreakthroughShareText', () => {
   });
 });
 
-// ─── buildBreakthroughWhatsAppUrl ─────────────────────────────────────────────
+// ─── buildBreakthroughWhatsAppUrl ──────────────────────────────────────────────────────────
 
 describe('buildBreakthroughWhatsAppUrl', () => {
   it('builds a generic wa.me URL when no phone given', () => {
@@ -344,7 +344,7 @@ describe('buildBreakthroughWhatsAppUrl', () => {
   });
 });
 
-// ─── buildPriorLabel / buildRecentLabel ───────────────────────────────────────
+// ─── buildPriorLabel / buildRecentLabel ───────────────────────────────────────────────────
 
 describe('buildPriorLabel', () => {
   it('formats the prior needs-work count', () => {
@@ -358,7 +358,7 @@ describe('buildRecentLabel', () => {
   });
 });
 
-// ─── getBreakthroughDismissKey ────────────────────────────────────────────────
+// ─── getBreakthroughDismissKey ────────────────────────────────────────────────────────────────
 
 describe('getBreakthroughDismissKey', () => {
   it('returns a string containing all three identifiers', () => {
@@ -375,7 +375,7 @@ describe('getBreakthroughDismissKey', () => {
   });
 });
 
-// ─── constants ────────────────────────────────────────────────────────────────
+// ─── constants ─────────────────────────────────────────────────────────────────────────
 
 describe('module constants', () => {
   it('exports BREAKTHROUGH_THRESHOLD as 2', () => {
