@@ -912,6 +912,7 @@ export default function PracticeTimerPage({
   const searchParams = useSearchParams();
   const planId = searchParams.get('planId');
   const templateIdParam = searchParams.get('templateId');
+  const arcSessionParam = searchParams.get('arcSession');
   const { activeTeam, coach } = useActiveTeam();
 
   // ── Persistence keys ─────────────────────────────────────────────────────
@@ -1144,10 +1145,70 @@ export default function PracticeTimerPage({
         if (!plan?.content_structured) return;
         const s = plan.content_structured as any;
         const items: QueueItem[] = [];
+        const now = Date.now();
 
+        // ── Practice Arc: load a specific session by 1-based index ──
+        if (arcSessionParam && Array.isArray(s.sessions)) {
+          const sessionIdx = parseInt(arcSessionParam, 10) - 1;
+          const session = s.sessions[sessionIdx];
+          if (!session) return;
+
+          if (session.warmup?.name) {
+            items.push({
+              id: `warmup-${now}`,
+              name: session.warmup.name,
+              durationSecs: Math.max(60, (session.warmup.duration_minutes ?? 5) * 60),
+              cues: [],
+              description: session.warmup.description || '',
+            });
+          }
+          (session.drills || []).forEach((d: any, i: number) => {
+            items.push({
+              id: `arc-drill-${i}-${now}`,
+              name: d.name,
+              durationSecs: Math.max(60, (d.duration_minutes ?? 10) * 60),
+              cues: Array.isArray(d.coaching_cues) ? d.coaching_cues : [],
+              description: d.description || '',
+            });
+          });
+          if (session.cooldown?.duration_minutes) {
+            items.push({
+              id: `cooldown-${now}`,
+              name: 'Cool Down',
+              durationSecs: Math.max(60, session.cooldown.duration_minutes * 60),
+              cues: [],
+              description: '',
+            });
+          }
+
+          if (items.length > 0) {
+            setQueue(items);
+            const sessionNum = sessionIdx + 1;
+            setLoadedPlanTitle(`${s.arc_title || plan.title || 'Practice Series'} — Session ${sessionNum}`);
+
+            // Write arc-progress so ContinueArcCard appears on home dashboard
+            const nextSessionNum = sessionNum + 1;
+            if (activeTeam && nextSessionNum <= s.sessions.length) {
+              const nextSession = s.sessions[nextSessionNum - 1];
+              try {
+                localStorage.setItem(`arc-progress-${activeTeam.id}`, JSON.stringify({
+                  planId,
+                  arcTitle: s.arc_title || plan.title || '',
+                  nextSession: nextSessionNum,
+                  totalSessions: s.sessions.length,
+                  nextSessionTitle: nextSession?.title || `Session ${nextSessionNum}`,
+                  savedAt: new Date().toISOString(),
+                }));
+              } catch { /* ignore */ }
+            }
+          }
+          return; // skip regular plan parsing below
+        }
+
+        // ── Regular practice plan ──
         if (s.warmup?.name) {
           items.push({
-            id: `warmup-${Date.now()}`,
+            id: `warmup-${now}`,
             name: s.warmup.name,
             durationSecs: Math.max(60, (s.warmup.duration_minutes ?? 5) * 60),
             cues: [],
@@ -1157,7 +1218,7 @@ export default function PracticeTimerPage({
 
         (s.drills || []).forEach((d: any, i: number) => {
           items.push({
-            id: `plan-drill-${i}-${Date.now()}`,
+            id: `plan-drill-${i}-${now}`,
             name: d.name,
             durationSecs: Math.max(60, (d.duration_minutes ?? 10) * 60),
             cues: Array.isArray(d.coaching_cues) ? d.coaching_cues : [],
@@ -1167,7 +1228,7 @@ export default function PracticeTimerPage({
 
         if (s.scrimmage?.duration_minutes) {
           items.push({
-            id: `scrimmage-${Date.now()}`,
+            id: `scrimmage-${now}`,
             name: s.scrimmage.focus ? `Scrimmage: ${s.scrimmage.focus}` : 'Scrimmage',
             durationSecs: Math.max(60, s.scrimmage.duration_minutes * 60),
             cues: [],
@@ -1177,7 +1238,7 @@ export default function PracticeTimerPage({
 
         if (s.cooldown?.duration_minutes) {
           items.push({
-            id: `cooldown-${Date.now()}`,
+            id: `cooldown-${now}`,
             name: 'Cool Down',
             durationSecs: Math.max(60, s.cooldown.duration_minutes * 60),
             cues: [],
@@ -1193,7 +1254,7 @@ export default function PracticeTimerPage({
       .catch(() => {/* silently ignore */})
       .finally(() => setPlanLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planId]);
+  }, [planId, arcSessionParam]);
 
   // ── Auto-load template from templateId URL param (from FirstPracticeLauncher) ──
   useEffect(() => {
