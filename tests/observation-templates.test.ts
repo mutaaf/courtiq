@@ -6,7 +6,7 @@ import {
   type ObservationTemplate,
 } from '@/lib/observation-templates';
 
-// ─── Template data integrity ─────────────────────────────────────────────────────────────────────
+// ─── Template data integrity ───────────────────────────────────────────────────
 
 describe('OBSERVATION_TEMPLATES', () => {
   it('has at least 10 positive and 10 needs-work templates', () => {
@@ -38,7 +38,7 @@ describe('OBSERVATION_TEMPLATES', () => {
   });
 });
 
-// ─── getTemplatesBySentiment ───────────────────────────────────────────────────────────────────
+// ─── getTemplatesBySentiment ───────────────────────────────────────────────────
 
 describe('getTemplatesBySentiment', () => {
   it('returns only positive templates when asked for positive', () => {
@@ -79,7 +79,7 @@ describe('getTemplatesBySentiment', () => {
   });
 });
 
-// ─── findTemplateById ──────────────────────────────────────────────────────────────────────
+// ─── findTemplateById ──────────────────────────────────────────────────────────
 
 describe('findTemplateById', () => {
   it('finds an existing positive template by id', () => {
@@ -122,7 +122,7 @@ describe('findTemplateById', () => {
   });
 });
 
-// ─── Key templates spot-check ─────────────────────────────────────────────────────────────────────
+// ─── Key templates spot-check ──────────────────────────────────────────────────
 
 describe('key templates content', () => {
   const positive = getTemplatesBySentiment('positive');

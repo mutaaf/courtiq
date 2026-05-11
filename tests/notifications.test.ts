@@ -6,7 +6,7 @@ import {
 } from '../src/app/api/notifications/route';
 import type { AppNotification, NotificationPriority } from '../src/app/api/notifications/route';
 
-// ─── Helpers ────────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function makeNotification(
   overrides: Partial<AppNotification> = {}
@@ -23,7 +23,7 @@ function makeNotification(
   };
 }
 
-// ─── buildNotificationId ────────────────────────────────────────────────────────────────
+// ─── buildNotificationId ──────────────────────────────────────────────────────
 
 describe('buildNotificationId', () => {
   it('combines type and entityId with a colon', () => {
@@ -44,7 +44,7 @@ describe('buildNotificationId', () => {
   });
 });
 
-// ─── priorityOrder ───────────────────────────────────────────────────────────────────
+// ─── priorityOrder ───────────────────────────────────────────────────────────
 
 describe('priorityOrder', () => {
   it('returns 0 for high', () => {
@@ -65,7 +65,7 @@ describe('priorityOrder', () => {
   });
 });
 
-// ─── sortNotifications ────────────────────────────────────────────────────────────────
+// ─── sortNotifications ────────────────────────────────────────────────────────
 
 describe('sortNotifications', () => {
   it('sorts high priority before medium before low', () => {

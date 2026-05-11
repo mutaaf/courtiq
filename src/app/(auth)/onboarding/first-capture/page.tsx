@@ -164,7 +164,7 @@ export default function FirstCapturePage() {
   );
 }
 
-// ─── Recording / idle / error view ───────────────────────────────────────────────
+// ─── Recording / idle / error view ─────────────────────────────────────────────
 
 function RecordingView({
   phase,
@@ -250,7 +250,7 @@ function RecordingView({
   );
 }
 
-// ─── Success view ───────────────────────────────────────────────────────────
+// ─── Success view ──────────────────────────────────────────────────────────────
 
 function SuccessView({
   observations,
