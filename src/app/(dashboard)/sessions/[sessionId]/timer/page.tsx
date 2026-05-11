@@ -46,7 +46,6 @@ import {
   Target,
   Volume2,
   VolumeX,
-  Zap,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Drill, Player, Session, Plan } from '@/types/database';
@@ -59,8 +58,7 @@ import {
   type PracticeTemplate,
   type TemplateDrill,
 } from '@/lib/practice-templates';
-import { isFavorited } from '@/lib/drill-favorites-utils';
-import { getTemplatesBySentiment, type TemplateSentiment } from '@/lib/observation-templates';
+import { OBSERVATION_TEMPLATES } from '@/lib/observation-templates';
 import {
   getPlayerFocusForCategory,
   hasEnoughObsForFocus,
@@ -167,7 +165,6 @@ function BreakScreen({
   onSkip,
   capturedPlayerIds,
   lastObsByPlayer = {},
-  sportId,
 }: {
   drillJustFinished: string;
   drillCategory?: string;
@@ -177,7 +174,6 @@ function BreakScreen({
   onSkip: () => void;
   capturedPlayerIds?: Set<string>;
   lastObsByPlayer?: Record<string, LastObsInfo>;
-  sportId?: string;
 }) {
   const [note, setNote] = useState('');
   const [selectedPlayer, setSelectedPlayer] = useState<string>('');
@@ -214,7 +210,7 @@ function BreakScreen({
   };
 
   const visibleTemplates = (() => {
-    const bySentiment = getTemplatesBySentiment(sentiment as TemplateSentiment, sportId);
+    const bySentiment = OBSERVATION_TEMPLATES.filter((t) => t.sentiment === sentiment);
     if (!drillCategory) return bySentiment.slice(0, 5);
     const cat = drillCategory.toLowerCase();
     const match = bySentiment.find((t) => t.category.toLowerCase() === cat);
@@ -500,11 +496,6 @@ function DoneScreen({
   saveSuccess,
   coachName,
   teamName,
-  arcPlanId,
-  arcSession,
-  arcTotalSessions,
-  arcTitle,
-  arcNextSessionTitle,
 }: {
   drillsRun: QueueItem[];
   notes: CapturedNote[];
@@ -519,11 +510,6 @@ function DoneScreen({
   saveSuccess?: boolean;
   coachName?: string;
   teamName?: string;
-  arcPlanId?: string;
-  arcSession?: number;
-  arcTotalSessions?: number;
-  arcTitle?: string;
-  arcNextSessionTitle?: string;
 }) {
   const [rating, setRating] = useState<number>(0);
   const [ratingSaved, setRatingSaved] = useState(false);
@@ -878,37 +864,6 @@ function DoneScreen({
               </button>
             </div>
 
-            {/* Practice Arc progress — shown when this session was part of an arc */}
-            {arcPlanId && arcSession && arcTotalSessions ? (
-              <div className="w-full rounded-xl border border-sky-500/25 bg-sky-500/8 p-4 space-y-2 text-left">
-                <div className="flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-sky-400 shrink-0" />
-                  <p className="text-sm font-semibold text-sky-300 truncate">{arcTitle || 'Practice Series'}</p>
-                  <span className="ml-auto shrink-0 text-xs font-medium text-sky-400 bg-sky-500/20 rounded-full px-2 py-0.5">
-                    ✓ {arcSession}/{arcTotalSessions}
-                  </span>
-                </div>
-                {arcSession < arcTotalSessions ? (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-1.5 text-xs text-zinc-400">
-                      <ChevronRight className="h-3.5 w-3.5 text-sky-500 shrink-0" />
-                      <span>Next: {arcNextSessionTitle || `Session ${arcSession + 1}`}</span>
-                    </div>
-                    <Link
-                      href="/plans"
-                      className="inline-flex items-center gap-1 text-xs font-medium text-sky-300 hover:text-sky-200 transition-colors"
-                    >
-                      Load Session {arcSession + 1} from Plans →
-                    </Link>
-                  </div>
-                ) : (
-                  <p className="text-xs text-emerald-400 font-medium">
-                    🎉 All {arcTotalSessions} sessions complete!
-                  </p>
-                )}
-              </div>
-            ) : null}
-
             <Link
               href={`/sessions/${sessionId}?fromPractice=1&obsCount=${notes.length}&playerCount=${new Set(notes.filter((n) => n.playerId).map((n) => n.playerId!)).size}`}
               className="w-full"
@@ -957,8 +912,6 @@ export default function PracticeTimerPage({
   const searchParams = useSearchParams();
   const planId = searchParams.get('planId');
   const templateIdParam = searchParams.get('templateId');
-  const arcPlanId = searchParams.get('arcPlanId');
-  const arcSessionParam = searchParams.get('arcSession');
   const { activeTeam, coach } = useActiveTeam();
 
   // ── Persistence keys ─────────────────────────────────────────────────────
@@ -1012,8 +965,6 @@ export default function PracticeTimerPage({
   const [loadedPlanTitle, setLoadedPlanTitle] = useState<string | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [showSwapSheet, setShowSwapSheet] = useState(false);
-  const [showMidDrillCapture, setShowMidDrillCapture] = useState(false);
-  const [midDrillSaved, setMidDrillSaved] = useState<Set<string>>(new Set());
 
   // Setup state
   const [drillSearch, setDrillSearch] = useState('');
@@ -1023,10 +974,6 @@ export default function PracticeTimerPage({
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [loadedTemplateName, setLoadedTemplateName] = useState<string | null>(null);
   const [lastPracticeQueue, setLastPracticeQueue] = useState<QueueItem[] | null>(null);
-
-  const [arcTotalSessions, setArcTotalSessions] = useState<number>(0);
-  const [arcTitle, setArcTitle] = useState<string>('');
-  const [arcNextSessionTitle, setArcNextSessionTitle] = useState<string>('');
 
   const [audioEnabled, setAudioEnabled] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
@@ -1072,18 +1019,6 @@ export default function PracticeTimerPage({
     enabled: !!activeTeam,
     ...CACHE_PROFILES.drills,
   });
-
-  const { data: favoritesData } = useQuery({
-    queryKey: ['drill-favorites'],
-    queryFn: async () => {
-      const res = await fetch('/api/drill-favorites');
-      if (!res.ok) return { favorites: [] as string[] };
-      return res.json() as Promise<{ favorites: string[] }>;
-    },
-    enabled: !!activeTeam,
-    staleTime: 5 * 60 * 1000,
-  });
-  const favoriteIds: string[] = favoritesData?.favorites ?? [];
 
   const { data: players = [] } = useQuery({
     queryKey: queryKeys.players.all(activeTeam?.id ?? ''),
@@ -1260,66 +1195,6 @@ export default function PracticeTimerPage({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId]);
 
-  // ── Load arc session from ?arcPlanId + ?arcSession URL params ──────────────
-  useEffect(() => {
-    if (!arcPlanId || !arcSessionParam || queue.length > 0 || isRecovered) return;
-    const sessionIdx = parseInt(arcSessionParam, 10) - 1; // 1-indexed → 0-indexed
-    if (isNaN(sessionIdx) || sessionIdx < 0) return;
-    setPlanLoading(true);
-    query<Plan>({
-      table: 'plans',
-      select: '*',
-      filters: { id: arcPlanId },
-      single: true,
-    })
-      .then((plan) => {
-        if (!plan?.content_structured) return;
-        const s = plan.content_structured as any;
-        const sessions = Array.isArray(s.sessions) ? s.sessions : [];
-        const arcSession = sessions[sessionIdx];
-        if (!arcSession) return;
-        const items: QueueItem[] = [];
-        if (arcSession.warmup?.name) {
-          items.push({
-            id: `warmup-${Date.now()}`,
-            name: arcSession.warmup.name,
-            durationSecs: Math.max(60, (arcSession.warmup.duration_minutes ?? 5) * 60),
-            cues: [],
-            description: arcSession.warmup.description || '',
-          });
-        }
-        (arcSession.drills || []).forEach((d: any, i: number) => {
-          items.push({
-            id: `arc-${sessionIdx}-${i}-${Date.now()}`,
-            name: d.name,
-            durationSecs: Math.max(60, (d.duration_minutes ?? 10) * 60),
-            cues: Array.isArray(d.coaching_cues) ? d.coaching_cues : [],
-            description: d.description || '',
-            category: d.skill_category || undefined,
-          });
-        });
-        if (arcSession.cooldown?.duration_minutes) {
-          items.push({
-            id: `cooldown-${Date.now()}`,
-            name: 'Cool Down',
-            durationSecs: Math.max(60, arcSession.cooldown.duration_minutes * 60),
-            cues: [],
-            description: arcSession.cooldown.notes || '',
-          });
-        }
-        if (items.length > 0) {
-          setQueue(items);
-          setLoadedPlanTitle(`${s.arc_title || 'Practice Series'} — Session ${sessionIdx + 1}`);
-          setArcTotalSessions(sessions.length);
-          setArcTitle(s.arc_title || 'Practice Series');
-          setArcNextSessionTitle(sessions[sessionIdx + 1]?.title || '');
-        }
-      })
-      .catch(() => { /* silently ignore */ })
-      .finally(() => setPlanLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [arcPlanId, arcSessionParam]);
-
   // ── Auto-load template from templateId URL param (from FirstPracticeLauncher) ──
   useEffect(() => {
     if (!templateIdParam || queue.length > 0 || isRecovered) return;
@@ -1417,14 +1292,6 @@ export default function PracticeTimerPage({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, currentIdx]);
 
-  // Close mid-drill capture overlay whenever the mode changes away from running
-  useEffect(() => {
-    if (mode !== 'running') {
-      setShowMidDrillCapture(false);
-      setMidDrillSaved(new Set());
-    }
-  }, [mode, currentIdx]);
-
   // Auto-persist captured notes so they survive accidental app closes
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1471,16 +1338,7 @@ export default function PracticeTimerPage({
     setMode('break');
   };
 
-  const handleAdjustTime = (deltaSecs: number) => {
-    setTimeLeft((prev) => Math.max(10, prev + deltaSecs));
-    setQueue((prev) =>
-      prev.map((item, idx) =>
-        idx === currentIdx ? { ...item, durationSecs: Math.max(10, item.durationSecs + deltaSecs) } : item,
-      ),
-    );
-  };
-
-  const handleBreakSave =(note: string, playerId?: string, playerName?: string, sentiment: Sentiment = 'positive', category?: string) => {
+  const handleBreakSave = (note: string, playerId?: string, playerName?: string, sentiment: Sentiment = 'positive', category?: string) => {
     const drill = queue[currentIdx];
     setNotes((prev) => [
       ...prev,
@@ -1496,25 +1354,6 @@ export default function PracticeTimerPage({
       },
     ]);
     advanceToNextDrill();
-  };
-
-  const handleMidDrillNote = (playerId: string | undefined, playerName: string, sentiment: Sentiment) => {
-    const drill = queue[currentIdx];
-    setNotes((prev) => [
-      ...prev,
-      {
-        drillName: drill?.name || 'Mid-drill',
-        drillId: drill?.drillId,
-        note: '',
-        playerId: playerId || undefined,
-        playerName,
-        sentiment,
-        category: drill?.category || 'general',
-        timestamp: new Date(),
-      },
-    ]);
-    const key = `${playerId ?? 'team'}-${sentiment}`;
-    setMidDrillSaved((prev) => new Set([...prev, key]));
   };
 
   const handleBreakSkip = () => {
@@ -1578,29 +1417,6 @@ export default function PracticeTimerPage({
         localStorage.removeItem(NOTES_KEY);
         localStorage.removeItem(QUEUE_KEY);
       } catch { /* ignore */ }
-
-      // Persist arc progress so the home dashboard can nudge "Continue Series"
-      if (arcPlanId && arcSessionParam && arcTotalSessions > 0) {
-        const arcSessionNum = parseInt(arcSessionParam, 10);
-        if (!isNaN(arcSessionNum)) {
-          try {
-            const arcKey = `arc-progress-${activeTeam.id}`;
-            if (arcSessionNum < arcTotalSessions) {
-              localStorage.setItem(arcKey, JSON.stringify({
-                planId: arcPlanId,
-                arcTitle,
-                nextSession: arcSessionNum + 1,
-                totalSessions: arcTotalSessions,
-                nextSessionTitle: arcNextSessionTitle,
-                savedAt: new Date().toISOString(),
-              }));
-            } else {
-              localStorage.removeItem(arcKey);
-            }
-          } catch { /* ignore */ }
-        }
-      }
-
       setSaveSuccess(true);
       setIsSaving(false);
       // Coach sees success state with parent update card; navigates via "View Session & AI Debrief" button.
@@ -1719,12 +1535,6 @@ export default function PracticeTimerPage({
       d.category.toLowerCase().includes(drillSearch.toLowerCase())
   );
 
-  // ── Favorited drills for the quick-pick section ───────────────────────────
-  const favoritedDrills = useMemo(
-    () => drills.filter((d) => isFavorited(d.id, favoriteIds)),
-    [drills, favoriteIds],
-  );
-
   // ── Skill-gap drill suggestions for the empty queue screen ───────────────
   // Uses already-fetched needsWorkObs + drills — no extra API call.
   const suggestedDrills = useMemo(() => {
@@ -1751,8 +1561,8 @@ export default function PracticeTimerPage({
 
   // ── Practice templates ───────────────────────────────────────────────────
   const availableTemplates = rankTemplates(
-    getTemplatesForSport((activeTeam as any)?.sport_slug || ''),
-    (activeTeam as any)?.sport_slug || '',
+    getTemplatesForSport(activeTeam?.sport_id || ''),
+    activeTeam?.sport_id || '',
     activeTeam?.age_group || ''
   );
 
@@ -1802,11 +1612,6 @@ export default function PracticeTimerPage({
         saveSuccess={saveSuccess}
         coachName={coach?.full_name ?? undefined}
         teamName={activeTeam?.name ?? undefined}
-        arcPlanId={arcPlanId ?? undefined}
-        arcSession={arcSessionParam ? parseInt(arcSessionParam, 10) : undefined}
-        arcTotalSessions={arcTotalSessions || undefined}
-        arcTitle={arcTitle || undefined}
-        arcNextSessionTitle={arcNextSessionTitle || undefined}
       />
     );
   }
@@ -1826,7 +1631,6 @@ export default function PracticeTimerPage({
         onSkip={handleBreakSkip}
         capturedPlayerIds={capturedPlayerIds}
         lastObsByPlayer={lastObsByPlayer}
-        sportId={(activeTeam as any)?.sport_slug ?? undefined}
       />
     );
   }
@@ -1908,23 +1712,6 @@ export default function PracticeTimerPage({
             >
               {fmt(timeLeft)}
             </span>
-            {/* Time adjustment buttons */}
-            <div className="flex items-center justify-center gap-3 mt-2">
-              <button
-                onClick={() => handleAdjustTime(-120)}
-                className="flex items-center gap-1 rounded-full bg-zinc-800 hover:bg-zinc-700 active:scale-95 px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-all touch-manipulation"
-                aria-label="Subtract 2 minutes from current drill"
-              >
-                −2 min
-              </button>
-              <button
-                onClick={() => handleAdjustTime(300)}
-                className="flex items-center gap-1 rounded-full bg-zinc-800 hover:bg-zinc-700 active:scale-95 px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-all touch-manipulation"
-                aria-label="Add 5 minutes to current drill"
-              >
-                +5 min
-              </button>
-            </div>
           </div>
 
           {/* Coaching cue */}
@@ -1971,20 +1758,16 @@ export default function PracticeTimerPage({
 
         {/* Controls */}
         <div className="p-6 flex gap-4 justify-center items-center">
-          {/* Left: Swap (if alternatives exist) or spacer */}
-          <div className="flex flex-col items-center gap-1 w-12">
-            {swapAlternatives.length > 0 ? (
-              <button
-                onClick={() => setShowSwapSheet(true)}
-                className="flex flex-col items-center gap-1 text-zinc-500 hover:text-zinc-300 transition-colors"
-                aria-label="Swap this drill for an alternative"
-              >
-                <Shuffle className="h-5 w-5" />
-                <span className="text-xs">Swap</span>
-              </button>
-            ) : <div />}
-          </div>
-
+          {swapAlternatives.length > 0 && (
+            <button
+              onClick={() => setShowSwapSheet(true)}
+              className="flex flex-col items-center gap-1 text-zinc-500 hover:text-zinc-300 transition-colors"
+              aria-label="Swap this drill for an alternative"
+            >
+              <Shuffle className="h-5 w-5" />
+              <span className="text-xs">Swap</span>
+            </button>
+          )}
           <Button
             onClick={handlePauseResume}
             size="lg"
@@ -1996,121 +1779,9 @@ export default function PracticeTimerPage({
           >
             {isPaused ? <Play className="h-6 w-6" /> : <Pause className="h-6 w-6" />}
           </Button>
-
-          {/* Right: Quick Note button */}
-          <button
-            onClick={() => { setShowMidDrillCapture(true); setMidDrillSaved(new Set()); }}
-            className="relative flex flex-col items-center gap-1 text-zinc-500 hover:text-orange-400 transition-colors w-12"
-            aria-label="Quick observation — tap a player while timer runs"
-          >
-            <Zap className="h-5 w-5" />
-            <span className="text-xs">Note</span>
-            {notes.length > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 text-[9px] font-bold text-white">
-                {notes.length > 9 ? '9+' : notes.length}
-              </span>
-            )}
-          </button>
+          {/* spacer to balance the Swap button */}
+          {swapAlternatives.length > 0 && <div className="w-9" />}
         </div>
-
-        {/* Mid-drill quick observation overlay — timer keeps running */}
-        {showMidDrillCapture && (
-          <div className="fixed inset-0 z-50 flex items-end" role="dialog" aria-modal="true" aria-label="Quick observation">
-            <div className="absolute inset-0 bg-black/70" onClick={() => setShowMidDrillCapture(false)} />
-            <div className="relative w-full bg-zinc-900 rounded-t-2xl border-t border-zinc-800 p-5 space-y-4 max-h-[80vh] overflow-y-auto">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-semibold text-zinc-100 flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-orange-400" />
-                    Quick Note
-                  </h3>
-                  <p className="text-xs text-zinc-500 mt-0.5">Timer keeps running — tap 👍 or 👎 to save instantly</p>
-                </div>
-                <button
-                  onClick={() => setShowMidDrillCapture(false)}
-                  className="text-zinc-500 hover:text-zinc-300 transition-colors p-1"
-                  aria-label="Close"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-
-              {midDrillSaved.size > 0 && (
-                <p className="text-xs text-emerald-400 flex items-center gap-1">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  {midDrillSaved.size} saved this drill
-                </p>
-              )}
-
-              <div className="space-y-2">
-                {presentPlayers.map((p) => {
-                  const firstName = p.name.split(' ')[0];
-                  const label = p.jersey_number ? `#${p.jersey_number} ${firstName}` : firstName;
-                  const savedPos = midDrillSaved.has(`${p.id}-positive`);
-                  const savedNeg = midDrillSaved.has(`${p.id}-needs-work`);
-                  return (
-                    <div key={p.id} className="flex items-center gap-2 rounded-xl bg-zinc-800 px-3 py-2.5">
-                      <span className="flex-1 text-sm font-medium text-zinc-100 truncate">{label}</span>
-                      <button
-                        onClick={() => handleMidDrillNote(p.id, p.name, 'positive')}
-                        className={`flex h-9 w-9 items-center justify-center rounded-lg text-base transition-all active:scale-95 touch-manipulation ${
-                          savedPos
-                            ? 'bg-emerald-500/40 text-emerald-300 ring-1 ring-emerald-500/60'
-                            : 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/30'
-                        }`}
-                        aria-label={`${firstName} positive`}
-                      >
-                        👍
-                      </button>
-                      <button
-                        onClick={() => handleMidDrillNote(p.id, p.name, 'needs-work')}
-                        className={`flex h-9 w-9 items-center justify-center rounded-lg text-base transition-all active:scale-95 touch-manipulation ${
-                          savedNeg
-                            ? 'bg-amber-500/40 text-amber-300 ring-1 ring-amber-500/60'
-                            : 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/30'
-                        }`}
-                        aria-label={`${firstName} needs work`}
-                      >
-                        👎
-                      </button>
-                    </div>
-                  );
-                })}
-
-                {/* Team/general row */}
-                <div className="flex items-center gap-2 rounded-xl bg-zinc-800/60 border border-zinc-700/50 px-3 py-2.5">
-                  <span className="flex-1 text-sm text-zinc-400 truncate">Team / General</span>
-                  <button
-                    onClick={() => handleMidDrillNote(undefined, 'Team', 'positive')}
-                    className={`flex h-9 w-9 items-center justify-center rounded-lg text-base transition-all active:scale-95 touch-manipulation ${
-                      midDrillSaved.has('team-positive')
-                        ? 'bg-emerald-500/40 text-emerald-300 ring-1 ring-emerald-500/60'
-                        : 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/30'
-                    }`}
-                    aria-label="Team positive"
-                  >
-                    👍
-                  </button>
-                  <button
-                    onClick={() => handleMidDrillNote(undefined, 'Team', 'needs-work')}
-                    className={`flex h-9 w-9 items-center justify-center rounded-lg text-base transition-all active:scale-95 touch-manipulation ${
-                      midDrillSaved.has('team-needs-work')
-                        ? 'bg-amber-500/40 text-amber-300 ring-1 ring-amber-500/60'
-                        : 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/30'
-                    }`}
-                    aria-label="Team needs work"
-                  >
-                    👎
-                  </button>
-                </div>
-              </div>
-
-              <p className="text-xs text-zinc-600 text-center pb-1">
-                Current drill: {queue[currentIdx]?.name} · {fmt(timeLeft)} remaining
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Swap Drill bottom sheet */}
         {showSwapSheet && (
@@ -2447,65 +2118,26 @@ export default function PracticeTimerPage({
                 />
               </div>
             </div>
-            <div className="max-h-72 overflow-y-auto divide-y divide-zinc-800">
-              {/* Favorites quick-pick — shown when search is empty */}
-              {!drillSearch && favoritedDrills.length > 0 && (
-                <>
-                  <div className="flex items-center gap-1.5 px-4 py-2 bg-amber-500/5">
-                    <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-400">
-                      Your Favorites
-                    </span>
-                  </div>
-                  {favoritedDrills.map((drill) => (
-                    <button
-                      key={`fav-${drill.id}`}
-                      onClick={() => addFromLibrary(drill)}
-                      className="flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-amber-500/5 transition-colors group bg-amber-500/[0.03]"
-                    >
-                      <Star className="h-4 w-4 fill-amber-400 text-amber-400 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-zinc-200 truncate">{drill.name}</p>
-                        <p className="text-xs text-zinc-500">{drill.category}</p>
-                      </div>
-                      <span className="text-xs text-zinc-600 shrink-0">
-                        {drill.duration_minutes ?? 10} min
-                      </span>
-                    </button>
-                  ))}
-                  <div className="flex items-center gap-2 px-4 py-1.5 bg-zinc-900">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
-                      All Drills
-                    </span>
-                  </div>
-                </>
-              )}
+            <div className="max-h-60 overflow-y-auto divide-y divide-zinc-800">
               {filteredDrills.length === 0 ? (
                 <p className="text-sm text-zinc-500 p-4 text-center">No drills found</p>
               ) : (
-                filteredDrills.slice(0, 30).map((drill) => {
-                  const starred = isFavorited(drill.id, favoriteIds);
-                  return (
-                    <button
-                      key={drill.id}
-                      onClick={() => addFromLibrary(drill)}
-                      className="flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-zinc-800 transition-colors group"
-                    >
-                      {starred ? (
-                        <Star className="h-4 w-4 fill-amber-400 text-amber-400 shrink-0" />
-                      ) : (
-                        <Dumbbell className="h-4 w-4 text-zinc-600 group-hover:text-orange-500 transition-colors shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-zinc-200 truncate">{drill.name}</p>
-                        <p className="text-xs text-zinc-500">{drill.category}</p>
-                      </div>
-                      <span className="text-xs text-zinc-600 shrink-0">
-                        {drill.duration_minutes ?? 10} min
-                      </span>
-                    </button>
-                  );
-                })
+                filteredDrills.slice(0, 30).map((drill) => (
+                  <button
+                    key={drill.id}
+                    onClick={() => addFromLibrary(drill)}
+                    className="flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-zinc-800 transition-colors group"
+                  >
+                    <Dumbbell className="h-4 w-4 text-zinc-600 group-hover:text-orange-500 transition-colors shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-zinc-200 truncate">{drill.name}</p>
+                      <p className="text-xs text-zinc-500">{drill.category}</p>
+                    </div>
+                    <span className="text-xs text-zinc-600 shrink-0">
+                      {drill.duration_minutes ?? 10} min
+                    </span>
+                  </button>
+                ))
               )}
             </div>
           </div>
