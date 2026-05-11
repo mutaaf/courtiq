@@ -911,6 +911,7 @@ export default function PracticeTimerPage({
   const { sessionId } = use(params);
   const searchParams = useSearchParams();
   const planId = searchParams.get('planId');
+  const arcSessionParam = searchParams.get('arcSession');
   const templateIdParam = searchParams.get('templateId');
   const { activeTeam, coach } = useActiveTeam();
 
@@ -1142,7 +1143,15 @@ export default function PracticeTimerPage({
     })
       .then((plan) => {
         if (!plan?.content_structured) return;
-        const s = plan.content_structured as any;
+        const top = plan.content_structured as any;
+
+        // For practice_arc plans with an arcSession param, load that session's drills
+        const arcSessionNum = arcSessionParam ? parseInt(arcSessionParam, 10) : null;
+        const arcSession = arcSessionNum && Array.isArray(top.sessions)
+          ? (top.sessions.find((ss: any) => ss.session_number === arcSessionNum) ?? top.sessions[arcSessionNum - 1])
+          : null;
+        const s = arcSession ?? top;
+
         const items: QueueItem[] = [];
 
         if (s.warmup?.name) {
@@ -1187,7 +1196,14 @@ export default function PracticeTimerPage({
 
         if (items.length > 0) {
           setQueue(items);
-          setLoadedPlanTitle(plan.title || 'Practice Plan');
+          if (arcSession && arcSessionNum) {
+            const totalSessions = Array.isArray(top.sessions) ? top.sessions.length : 1;
+            setLoadedPlanTitle(
+              `${top.arc_title ?? plan.title ?? 'Practice Arc'} · Session ${arcSessionNum} of ${totalSessions}`
+            );
+          } else {
+            setLoadedPlanTitle(plan.title || 'Practice Plan');
+          }
         }
       })
       .catch(() => {/* silently ignore */})

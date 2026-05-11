@@ -927,6 +927,47 @@ export default function PlansPage() {
     }
   }
 
+  async function handleRunArcSession(planId: string, sessionNum: number, arc: any) {
+    if (!activeTeam || !coach) return;
+    setCreatingSession(true);
+    try {
+      const newSession = await mutate({
+        table: 'sessions',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          type: 'practice',
+          date: new Date().toISOString().slice(0, 10),
+        },
+      });
+      const sessionId = (newSession as any)?.[0]?.id || (newSession as any)?.id;
+      if (!sessionId) return;
+
+      const totalSessions = Array.isArray(arc.sessions) ? arc.sessions.length : 1;
+      const nextSessionNum = sessionNum + 1;
+      if (nextSessionNum <= totalSessions) {
+        const nextSess = arc.sessions[nextSessionNum - 1];
+        try {
+          localStorage.setItem(`arc-progress-${activeTeam.id}`, JSON.stringify({
+            planId,
+            arcTitle: arc.arc_title ?? 'Practice Series',
+            nextSession: nextSessionNum,
+            totalSessions,
+            nextSessionTitle: nextSess?.title ?? `Session ${nextSessionNum}`,
+            savedAt: new Date().toISOString(),
+          }));
+        } catch { /* ignore localStorage errors */ }
+      }
+
+      router.push(`/sessions/${sessionId}/timer?planId=${planId}&arcSession=${sessionNum}`);
+    } catch {
+      // ignore
+    } finally {
+      setCreatingSession(false);
+    }
+  }
+
   function renderObjectFields(obj: any) {
     if (!obj || typeof obj !== 'object') return String(obj ?? '');
     return (
@@ -1016,6 +1057,15 @@ export default function PlansPage() {
                       <p className={`text-sm font-semibold text-${accent}-300`}>{session.title}</p>
                       <p className="text-xs text-zinc-500">{session.theme} · {session.duration_minutes} min</p>
                     </div>
+                    <button
+                      onClick={() => handleRunArcSession(plan.id, n, arc)}
+                      disabled={creatingSession}
+                      className="shrink-0 flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 px-2.5 py-1 text-xs font-semibold text-white transition-colors touch-manipulation"
+                      title={`Load session ${n} into the Practice Timer`}
+                    >
+                      <Play className="h-3 w-3" />
+                      Run
+                    </button>
                   </div>
 
                   {/* Session goal */}
