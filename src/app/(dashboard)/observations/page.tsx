@@ -39,7 +39,7 @@ import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { countHighlighted } from '@/lib/observation-highlights';
 import type { Observation, Player, Sentiment, ObservationSource } from '@/types/database';
 
-// ─── Constants ─────────────────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const SENTIMENT_CONFIG: Record<Sentiment, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
   positive: { label: 'Positive', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30', icon: ThumbsUp },
@@ -82,7 +82,7 @@ const CATEGORIES = [
 
 const PAGE_SIZE = 50;
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatRelative(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -122,7 +122,7 @@ function avatarColor(name: string): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-// ─── Star toggle button ──────────────────────────────────────────────────────────────────
+// ─── Star toggle button ───────────────────────────────────────────────────────
 
 function StarButton({
   obsId,
@@ -149,7 +149,7 @@ function StarButton({
   );
 }
 
-// ─── Observation card ──────────────────────────────────────────────────────────────────
+// ─── Observation card ─────────────────────────────────────────────────────────
 
 type EditDraft = { text: string; sentiment: Sentiment; category: string };
 
@@ -464,7 +464,7 @@ function ObservationCard({
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ObservationsPage() {
   const { activeTeam, coach } = useActiveTeam();
