@@ -21,7 +21,7 @@ export interface AppNotification {
   timestamp: string; // ISO — when the condition arose
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 export function buildNotificationId(type: NotificationType, entityId: string): string {
   return `${type}:${entityId}`;
@@ -56,7 +56,7 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-// ─── GET /api/notifications?team_id=xxx ─────────────────────────────────────────────────────────
+// ─── GET /api/notifications?team_id=xxx ──────────────────────────────────────
 // Aggregates up to 20 actionable alerts for the given team.
 // Used by the NotificationBell in DashboardShell.
 
@@ -122,7 +122,7 @@ export async function GET(request: Request) {
 
   const notifications: AppNotification[] = [];
 
-  // ── 1. Players not observed in 14+ days ─────────────────────────────────────────────
+  // ── 1. Players not observed in 14+ days ────────────────────────────────────
   const observedPlayerIds = new Set(
     obs.map((o: any) => o.player_id as string).filter(Boolean)
   );
@@ -140,7 +140,7 @@ export async function GET(request: Request) {
     }
   }
 
-  // ── 2. Active goals due within 7 days (or overdue) ─────────────────────────────────
+  // ── 2. Active goals due within 7 days (or overdue) ─────────────────────────
   for (const goal of goals) {
     if (!(goal as any).target_date) continue;
     const targetMs = new Date((goal as any).target_date as string).getTime();
@@ -160,7 +160,7 @@ export async function GET(request: Request) {
     });
   }
 
-  // ── 3. Sessions today with no observations captured yet ─────────────────────────────
+  // ── 3. Sessions today with no observations captured yet ────────────────────
   const obsSessionIds = new Set(
     obs.map((o: any) => o.session_id as string).filter(Boolean)
   );
@@ -178,7 +178,7 @@ export async function GET(request: Request) {
     }
   }
 
-  // ── 4. Achievements earned in last 48 hours ────────────────────────────────────────────
+  // ── 4. Achievements earned in last 48 hours ────────────────────────────────
   for (const ach of achievements) {
     const playerName = playerMap[(ach as any).player_id] ?? 'Player';
     const badgeName = BADGE_NAMES[(ach as any).badge_type] ?? (ach as any).badge_type;
@@ -193,7 +193,7 @@ export async function GET(request: Request) {
     });
   }
 
-  // ── 5. Player birthdays today ──────────────────────────────────────────────────────────
+  // ── 5. Player birthdays today ────────────────────────────────────────────────
   const todayDate = new Date();
   for (const player of players) {
     const dob = (player as any).date_of_birth as string | null;
