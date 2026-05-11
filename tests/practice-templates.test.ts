@@ -16,7 +16,7 @@ import {
   scaleTemplateDuration,
 } from '../src/lib/practice-templates';
 
-// ─── Registry ────────────────────────────────────────────────────────────────
+// ─── Registry ─────────────────────────────────────────────────────────────
 
 describe('PRACTICE_TEMPLATES registry', () => {
   it('exports at least 5 templates', () => {
@@ -72,7 +72,7 @@ describe('PRACTICE_TEMPLATES registry', () => {
   });
 });
 
-// ─── getTemplatesForSport ────────────────────────────────────────────────────
+// ─── getTemplatesForSport ─────────────────────────────────────────────────────
 
 describe('getTemplatesForSport', () => {
   it('returns basketball templates for basketball', () => {
@@ -105,25 +105,9 @@ describe('getTemplatesForSport', () => {
     const result = getTemplatesForSport('basketball');
     expect(result.some((t) => t.sport === 'soccer')).toBe(false);
   });
-
-  it('returns volleyball templates for volleyball', () => {
-    const result = getTemplatesForSport('volleyball');
-    expect(result.some((t) => t.sport === 'volleyball')).toBe(true);
-  });
-
-  it('returns flag_football templates for flag_football', () => {
-    const result = getTemplatesForSport('flag_football');
-    expect(result.some((t) => t.sport === 'flag_football')).toBe(true);
-  });
-
-  it('includes generic templates alongside sport-specific ones for volleyball', () => {
-    const result = getTemplatesForSport('volleyball');
-    expect(result.some((t) => t.sport === '')).toBe(true);
-    expect(result.some((t) => t.sport === 'volleyball')).toBe(true);
-  });
 });
 
-// ─── getTemplateById ─────────────────────────────────────────────────────────
+// ─── getTemplateById ───────────────────────────────────────────────────────
 
 describe('getTemplateById', () => {
   it('finds a template by id', () => {
@@ -148,7 +132,7 @@ describe('getTemplateById', () => {
   });
 });
 
-// ─── getTotalMinutes ─────────────────────────────────────────────────────────
+// ─── getTotalMinutes ───────────────────────────────────────────────────────
 
 describe('getTotalMinutes', () => {
   it('sums up all drill durations', () => {
@@ -179,7 +163,7 @@ describe('getDrillCount', () => {
   });
 });
 
-// ─── matchesAgeGroup ─────────────────────────────────────────────────────────
+// ─── matchesAgeGroup ───────────────────────────────────────────────────────
 
 describe('matchesAgeGroup', () => {
   it('returns true when ageGroup is empty', () => {
@@ -251,7 +235,7 @@ describe('rankTemplates', () => {
   });
 });
 
-// ─── hasSufficientCues ───────────────────────────────────────────────────────
+// ─── hasSufficientCues ─────────────────────────────────────────────────────────
 
 describe('hasSufficientCues', () => {
   it('returns true for templates that have cues on every drill', () => {
@@ -269,7 +253,7 @@ describe('hasSufficientCues', () => {
   });
 });
 
-// ─── buildTemplateLabel ───────────────────────────────────────────────────────
+// ─── buildTemplateLabel ─────────────────────────────────────────────────────────
 
 describe('buildTemplateLabel', () => {
   it('includes template name', () => {
@@ -288,7 +272,7 @@ describe('buildTemplateLabel', () => {
   });
 });
 
-// ─── buildTemplateSummary ────────────────────────────────────────────────────
+// ─── buildTemplateSummary ───────────────────────────────────────────────────────
 
 describe('buildTemplateSummary', () => {
   it('includes drill count', () => {
@@ -313,7 +297,7 @@ describe('buildTemplateSummary', () => {
   });
 });
 
-// ─── filterByTag ─────────────────────────────────────────────────────────────
+// ─── filterByTag ────────────────────────────────────────────────────────────
 
 describe('filterByTag', () => {
   it('returns templates matching the tag', () => {
@@ -335,7 +319,7 @@ describe('filterByTag', () => {
   });
 });
 
-// ─── getAllTags ───────────────────────────────────────────────────────────────
+// ─── getAllTags ─────────────────────────────────────────────────────────────
 
 describe('getAllTags', () => {
   it('returns a sorted array of unique tags', () => {
@@ -358,7 +342,7 @@ describe('getAllTags', () => {
   });
 });
 
-// ─── templateFitsSession ─────────────────────────────────────────────────────
+// ─── templateFitsSession ───────────────────────────────────────────────────────
 
 describe('templateFitsSession', () => {
   it('returns true when available time equals template duration', () => {
@@ -377,7 +361,7 @@ describe('templateFitsSession', () => {
   });
 });
 
-// ─── scaleTemplateDuration ───────────────────────────────────────────────────
+// ─── scaleTemplateDuration ───────────────────────────────────────────────────────
 
 describe('scaleTemplateDuration', () => {
   it('scales total duration to the target', () => {

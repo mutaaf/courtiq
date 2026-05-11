@@ -48,7 +48,7 @@ import {
 import { GET as shareTokenGet } from '@/app/api/share/[token]/route';
 import { POST as shareCreatePost } from '@/app/api/share/create/route';
 
-// ─── Mock helpers ──────────────────────────────────────────────────────────────
+// ─── Mock helpers ──────────────────────────────────────────────────────────
 
 /**
  * Returns a chainable Supabase query mock.
@@ -72,7 +72,6 @@ function buildChain(data: unknown = null, error: unknown = null) {
     order: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue(resolved),
-    maybeSingle: vi.fn().mockResolvedValue(resolved),
   };
   return chain;
 }
@@ -87,7 +86,7 @@ function setNoAuth() {
   mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 }
 
-// ─── 1. Config Resolver — pure functions ──────────────────────────────────────
+// ─── 1. Config Resolver — pure functions ───────────────────────────────────────────
 
 const SYS = {
   sport: {
@@ -306,7 +305,7 @@ describe('handleAIError', () => {
   });
 });
 
-// ─── 3. Config API route ──────────────────────────────────────────────────────
+// ─── 3. Config API route ───────────────────────────────────────────────────────
 
 describe('Config API — GET /api/config/[domain]', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -438,7 +437,7 @@ describe('Config API — DELETE /api/config/[domain]', () => {
   });
 });
 
-// ─── 4. Share [token] GET route ───────────────────────────────────────────────
+// ─── 4. Share [token] GET route ──────────────────────────────────────────────────
 
 /** Minimal valid share fixture. All include_* flags default to false. */
 function makeShare(overrides: Record<string, unknown> = {}) {
@@ -561,7 +560,7 @@ describe('Share [token] GET route', () => {
   });
 });
 
-// ─── 5. Share create POST route ───────────────────────────────────────────────
+// ─── 5. Share create POST route ─────────────────────────────────────────────────
 
 describe('Share create POST route', () => {
   beforeEach(() => vi.clearAllMocks());

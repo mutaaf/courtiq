@@ -1,4 +1,6 @@
-// ─── Practice Template Library ─────────────────────────────────────────────────────────────────────────────
+// ─── Practice Template Library ─────────────────────────────────────────────────────────
+// Pre-built, age-appropriate practice templates for volunteer coaches.
+// Each template produces a ready-to-run drill queue — no setup required.
 
 export type AgeGroup =
   | 'U6' | 'U7' | 'U8'
@@ -15,13 +17,15 @@ export interface TemplateDrill {
 export interface PracticeTemplate {
   id: string;
   name: string;
-  sport: string;
-  ageLabel: string;
+  sport: string;       // matches team.sport_id lowercase
+  ageLabel: string;    // human-readable age range
   totalMins: number;
   description: string;
   drills: TemplateDrill[];
   tags: string[];
 }
+
+// ─── Basketball Templates ──────────────────────────────────────────────────
 
 const BASKETBALL_U8: PracticeTemplate = {
   id: 'bball-u8-30',
@@ -211,6 +215,8 @@ const BASKETBALL_U16: PracticeTemplate = {
   ],
 };
 
+// ─── Soccer Templates ──────────────────────────────────────────────────
+
 const SOCCER_U8: PracticeTemplate = {
   id: 'soccer-u8-30',
   name: 'First Kick',
@@ -323,10 +329,12 @@ const SOCCER_U12: PracticeTemplate = {
   ],
 };
 
+// ─── Generic Template ──────────────────────────────────────────────────
+
 const FIRST_PRACTICE: PracticeTemplate = {
   id: 'generic-first-30',
   name: 'First Practice',
-  sport: '',
+  sport: '',  // matches any sport
   ageLabel: 'Any age',
   totalMins: 30,
   description: 'Perfect for your very first practice. Get-to-know-you games, basic skills, and a fun finish.',
@@ -378,6 +386,8 @@ const FIRST_PRACTICE: PracticeTemplate = {
   ],
 };
 
+// ─── Template Registry ──────────────────────────────────────────────────
+
 export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
   FIRST_PRACTICE,
   BASKETBALL_U8,
@@ -386,6 +396,8 @@ export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
   SOCCER_U8,
   SOCCER_U12,
 ];
+
+// ─── Utility Functions ──────────────────────────────────────────────────
 
 export function getTemplatesForSport(sportId: string): PracticeTemplate[] {
   const sport = sportId.toLowerCase();
@@ -408,6 +420,7 @@ export function getDrillCount(template: PracticeTemplate): number {
 
 export function matchesAgeGroup(template: PracticeTemplate, ageGroup: string): boolean {
   if (!ageGroup) return true;
+  // Generic templates (sport='') match every age group
   if (template.sport === '') return true;
   const id = template.id;
   const ageNum = parseInt(ageGroup.replace(/\D/g, ''), 10);
@@ -428,6 +441,7 @@ export function rankTemplates(
     const aMatch = matchesAgeGroup(a, ageGroup) ? 0 : 1;
     const bMatch = matchesAgeGroup(b, ageGroup) ? 0 : 1;
     if (aMatch !== bMatch) return aMatch - bMatch;
+    // Generic templates last within same age match
     const aGeneric = a.sport === '' ? 1 : 0;
     const bGeneric = b.sport === '' ? 1 : 0;
     return aGeneric - bGeneric;
