@@ -560,18 +560,18 @@ export default function HomePage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Roster for availability warnings
+  // Roster for availability warnings + practice coverage
   const { data: rosterPlayers = [] } = useQuery({
     queryKey: ['home-roster', activeTeam?.id],
     queryFn: async () => {
       if (!activeTeam) return [];
-      return query<{ id: string; name: string }[]>({
+      return query<{ id: string; name: string; jersey_number: number | null }[]>({
         table: 'players',
-        select: 'id, name',
+        select: 'id, name, jersey_number',
         filters: { team_id: activeTeam.id, is_active: true },
       });
     },
-    enabled: !!activeTeam && todaySessions.length > 0,
+    enabled: !!activeTeam && (todaySessions.length > 0 || practiceActive),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -641,7 +641,7 @@ export default function HomePage() {
     };
   }, [recentPracticePlan]);
 
-  // Live observation count for the active practice session
+  // Live observation count + coverage for the active practice session
   const { data: sessionObsStats } = useQuery({
     queryKey: ['session-obs-count', practiceSessionId],
     queryFn: async () => {
@@ -652,13 +652,24 @@ export default function HomePage() {
         filters: { session_id: practiceSessionId },
       });
       if (!obs) return null;
-      const players = new Set(obs.filter((o) => o.player_id).map((o) => o.player_id)).size;
-      return { count: obs.length, players };
+      const observedSet = new Set(obs.filter((o) => o.player_id).map((o) => o.player_id as string));
+      return {
+        count: obs.length,
+        players: observedSet.size,
+        observedPlayerIds: [...observedSet],
+      };
     },
     enabled: !!practiceSessionId && practiceActive,
     refetchInterval: 30_000,
     staleTime: 20_000,
   });
+
+  // Which players haven't been observed yet in the active practice session
+  const unobservedDuringPractice = useMemo(() => {
+    if (!practiceActive || !rosterPlayers.length) return [];
+    const observed = new Set(sessionObsStats?.observedPlayerIds ?? []);
+    return rosterPlayers.filter((p) => !observed.has(p.id));
+  }, [practiceActive, rosterPlayers, sessionObsStats]);
 
   // ── No team state ────────────────────────────────────────────────────────────────────
   if (!activeTeam) {
@@ -790,6 +801,37 @@ export default function HomePage() {
               </Link>
             )}
           </div>
+
+          {/* Mid-practice coverage row — who still needs an observation? */}
+          {practiceSessionId && rosterPlayers.length > 0 && (
+            unobservedDuringPractice.length === 0 ? (
+              <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
+                <span aria-hidden="true">✓</span>
+                <span>All {rosterPlayers.length} players observed this session</span>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                  Not yet observed ({unobservedDuringPractice.length}/{rosterPlayers.length})
+                </p>
+                <div className="flex gap-2 flex-wrap">
+                  {unobservedDuringPractice.map((p) => {
+                    const label = p.jersey_number != null ? `#${p.jersey_number} ${p.name.split(' ')[0]}` : p.name.split(' ')[0];
+                    const href = practiceSessionId
+                      ? `/capture?sessionId=${practiceSessionId}&playerId=${p.id}&player=${encodeURIComponent(p.name)}`
+                      : `/capture?playerId=${p.id}&player=${encodeURIComponent(p.name)}`;
+                    return (
+                      <Link key={p.id} href={href}>
+                        <span className="inline-flex items-center rounded-full border border-orange-500/30 bg-orange-500/10 px-2.5 py-1 text-xs font-medium text-orange-300 hover:bg-orange-500/20 transition-colors touch-manipulation active:scale-95">
+                          {label}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )
+          )}
         </div>
       ) : todaySessions.length > 0 ? (
         <TodaySessionCard
