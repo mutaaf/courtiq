@@ -318,6 +318,66 @@ export function reEngagementEmail(args: { coachName: string; daysQuiet: number }
   return { subject, html };
 }
 
+// ── 10. Announcement alert (coach → parent announcement notification) ──────
+
+export function announcementAlertEmail(args: {
+  parentName: string | null;
+  playerName: string;
+  coachName: string;
+  teamName: string;
+  title: string;
+  body: string;
+  shareUrl: string;
+}): BuiltEmail {
+  const coachFirst = args.coachName.split(' ')[0];
+  const parentFirst = args.parentName ? args.parentName.split(' ')[0] : null;
+  const subject = `📢 ${args.title} · ${args.teamName}`;
+  const html = renderEmail({
+    preview: `Coach ${coachFirst} sent an announcement for ${args.teamName}.`,
+    transactional: true,
+    body: [
+      heroSection(`Coach ${coachFirst}`, args.teamName),
+      paragraph(parentFirst ? `Hi ${parentFirst},` : 'Hi there,'),
+      paragraph(args.title),
+      paragraph(args.body),
+      paragraph(`${args.playerName}'s progress report is available on SportsIQ.`),
+      ctaButton(`See ${args.playerName}'s progress report`, args.shareUrl),
+      divider(),
+      fineprint(`Sent by ${args.coachName} · ${args.teamName}`),
+    ].join(''),
+  });
+  return { subject, html };
+}
+
+// ── 11. Weekly Star (Player of the Week notification to parent) ────────────
+
+export function weeklyStarParentEmail(args: {
+  playerName: string;
+  coachName: string;
+  teamName: string;
+  weekLabel: string;
+  headline: string;
+  achievement: string;
+  shareUrl: string | null;
+}): BuiltEmail {
+  const coachFirst = args.coachName.split(' ')[0];
+  const subject = `\u{1F31F} ${args.playerName} is Player of the Week \u{00B7} ${args.teamName}`;
+  const html = renderEmail({
+    preview: `Coach ${coachFirst} named ${args.playerName} Player of the Week for ${args.teamName}.`,
+    transactional: true,
+    body: [
+      heroSection(`\u{1F31F} Player of the Week: ${args.playerName}`, args.teamName),
+      paragraph(`Coach ${coachFirst} \u{00B7} ${args.weekLabel}`),
+      paragraph(args.headline),
+      paragraph(args.achievement),
+      args.shareUrl ? ctaButton(`See ${args.playerName}'s full progress report`, args.shareUrl) : '',
+      divider(),
+      fineprint(`Sent by ${args.coachName} \u{00B7} ${args.teamName}`),
+    ].join(''),
+  });
+  return { subject, html };
+}
+
 // ── helpers ────────────────────────────────────────────────────────────────
 
 function escapeQuotes(s: string): string {

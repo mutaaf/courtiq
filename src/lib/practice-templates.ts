@@ -386,6 +386,117 @@ const FIRST_PRACTICE: PracticeTemplate = {
   ],
 };
 
+const VOLLEYBALL_U12: PracticeTemplate = {
+  id: 'vball-u12-45',
+  name: 'Volleyball Fundamentals',
+  sport: 'volleyball',
+  ageLabel: 'Ages 9–12',
+  totalMins: 45,
+  description: 'Serve, pass, and rally. Builds the three core skills every young volleyball player needs.',
+  tags: ['fundamentals', 'medium', 'volleyball'],
+  drills: [
+    {
+      name: 'Passing Warm-Up',
+      durationMins: 8,
+      cues: [
+        'Flat platform — press forearms together before the ball arrives',
+        'Bend your knees and get low; don\'t reach up for the ball',
+        'Aim for the setter target — consistent angle every time',
+        'Call "mine!" loud so teammates know who has it',
+      ],
+      description: 'Partners 10 feet apart, forearm-pass back and forth to warm up arms and footwork.',
+    },
+    {
+      name: 'Underhand Serve Lines',
+      durationMins: 10,
+      cues: [
+        'Toss the ball in front of your hitting shoulder — not too high',
+        'Step toward the net as you swing — transfer your weight',
+        'Contact with the heel of your open hand, firm wrist',
+        'Celebrate every ball that clears the net, regardless of placement',
+      ],
+      description: 'Players serve from the service line into the opposite court. Rotate after 5 attempts.',
+    },
+    {
+      name: 'Bump-Set-Hit Progression',
+      durationMins: 12,
+      cues: [
+        'Bump to the setter — not straight up',
+        'Setter: face your target, quick hands, push the ball up and out',
+        'Hitter: approach two steps, arms swing back then forward',
+        'Slow it down if they\'re struggling — master the bump first',
+      ],
+      description: 'Groups of 3 practice the full three-touch sequence across the net.',
+    },
+    {
+      name: 'King of the Court',
+      durationMins: 15,
+      cues: [
+        'Communicate every touch — "mine," "help," "out"',
+        'Winners stay, rotate in fresh teams',
+        'Use all three touches before sending it over',
+        'Coaches: reinforce the skill, not just the score',
+      ],
+      description: 'Short-court rally game. Winning team stays; losing team rotates off. Focus on rally, not power.',
+    },
+  ],
+};
+
+const FLAG_FOOTBALL_U10: PracticeTemplate = {
+  id: 'flagball-u10-45',
+  name: 'Flag Football Basics',
+  sport: 'flag_football',
+  ageLabel: 'Ages 7–10',
+  totalMins: 45,
+  description: 'Routes, flags, and 5-on-5 fun. Teaches position fundamentals in a no-contact format.',
+  tags: ['fundamentals', 'medium', 'flag_football'],
+  drills: [
+    {
+      name: 'Flag Pull Warm-Up',
+      durationMins: 7,
+      cues: [
+        'Two hands reach for the flags — don\'t just swipe with one',
+        'Keep your eyes on the runner\'s hips, not their feet',
+        'Stay on your feet — no diving',
+        'Ball carrier: change direction, don\'t run straight at the defender',
+      ],
+      description: 'Open-field 1-on-1. Ball carrier has 10 yards to reach the end zone; defender tries to pull the flag.',
+    },
+    {
+      name: 'Route Tree (Go, Out, Slant)',
+      durationMins: 10,
+      cues: [
+        'Run full speed until the break — defenders read your body, not your route',
+        'Plant with the outside foot on an out route, then burst',
+        'Eyes up and hands out ready before the ball arrives',
+        'QB: throw to where the receiver is going, not where they are',
+      ],
+      description: 'Receivers run three basic routes while QB practices timing. Coach calls the route.',
+    },
+    {
+      name: 'Snap & Hand-Off Mechanics',
+      durationMins: 8,
+      cues: [
+        'QB: call the snap count clearly every time',
+        'Center: steady snap — no wobbly spirals',
+        'Hand-off: QB meets the runner, don\'t just toss it',
+        'Runner: secure the ball before looking upfield',
+      ],
+      description: 'Center-QB-RB unit works snap-and-hand-off reps. Switch positions every minute.',
+    },
+    {
+      name: '5-on-5 Scrimmage',
+      durationMins: 20,
+      cues: [
+        'Offense: use all four downs — no panic punts',
+        'Defense: rush only one player on each play',
+        'Celebrate big plays from both sides — sportsmanship first',
+        'Coaches: call one timeout per team to walk through a play',
+      ],
+      description: 'Full 5-on-5 on a short field. Each possession starts at midfield. Focus on applying routes and flag pulls from earlier drills.',
+    },
+  ],
+};
 // ─── Template Registry ──────────────────────────────────────────────────
 
 export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
@@ -395,6 +506,8 @@ export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
   BASKETBALL_U16,
   SOCCER_U8,
   SOCCER_U12,
+  VOLLEYBALL_U12,
+  FLAG_FOOTBALL_U10,
 ];
 
 // ─── Utility Functions ──────────────────────────────────────────────────
