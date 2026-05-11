@@ -23,7 +23,6 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import Link from 'next/link';
-import { getRatingLabel, getRatingColor, type QualityRating } from '@/lib/session-quality-utils';
 
 interface Props {
   sessionId: string;
@@ -83,8 +82,6 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
   const [savedSummary, setSavedSummary] = useState<SavedSummary | null>(null);
   const [sessionObservedIds, setSessionObservedIds] = useState<Set<string>>(new Set());
   const [parentMsgShared, setParentMsgShared] = useState(false);
-  const [qualityRating, setQualityRating] = useState<QualityRating | null>(null);
-  const [ratingSaved, setRatingSaved] = useState(false);
 
   useEffect(() => {
     if (!activeTeam?.id) return;
@@ -239,10 +236,6 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
       .slice(0, 2)
       .map((c) => c.charAt(0).toUpperCase() + c.slice(1).replace(/_/g, ' '));
 
-    const standoutFirstNames = selectedPlayers
-      .map((id) => players.find((p) => p.id === id)?.name?.split(' ')[0])
-      .filter((n): n is string => !!n);
-
     const lines: string[] = [];
     lines.push(`📋 Practice update from Coach ${coachFirst}!`);
     lines.push('');
@@ -255,15 +248,6 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
     }
     if (topPositiveCats.length > 0) {
       lines.push(`Highlights today: ${topPositiveCats.join(' & ')}.`);
-    }
-    if (standoutFirstNames.length >= 5) {
-      lines.push(`Great team effort from everyone today! 🌟`);
-    } else if (standoutFirstNames.length >= 2) {
-      const last = standoutFirstNames[standoutFirstNames.length - 1];
-      const rest = standoutFirstNames.slice(0, -1).join(', ');
-      lines.push(`Special shoutout to ${rest} and ${last} for an outstanding effort today! 🌟`);
-    } else if (standoutFirstNames.length === 1) {
-      lines.push(`Special shoutout to ${standoutFirstNames[0]} for an outstanding effort today! 🌟`);
     }
     if (needsWork.length > 0) {
       lines.push('Keep practising at home to stay sharp!');
@@ -282,17 +266,6 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
     }
     setParentMsgShared(true);
     setTimeout(() => setParentMsgShared(false), 2500);
-  }
-
-  async function handleQualityRating(rating: QualityRating) {
-    setQualityRating(rating);
-    setRatingSaved(false);
-    try {
-      await mutate({ table: 'sessions', operation: 'update', data: { quality_rating: rating }, filters: { id: sessionId } });
-      setRatingSaved(true);
-    } catch {
-      // silent — rating is best-effort, never blocks the done screen
-    }
   }
 
   return (
@@ -324,7 +297,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
         )}
 
         <div className="px-5 pb-5">
-          {/* ── Step 1: Standouts ── */}
+          {/* Step 1: Standouts */}
           {step === 'standouts' && (
             <Card className="border-zinc-800">
               <CardContent className="p-4 space-y-4">
@@ -334,7 +307,6 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                   <p className="text-xs text-zinc-500 mt-1">Tap players who caught your eye</p>
                 </div>
 
-                {/* Coverage summary */}
                 {players.length > 0 && (
                   <div className={`rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-3 ${
                     sessionObservedIds.size === players.length
@@ -411,7 +383,6 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                   )}
                 </div>
 
-                {/* Not-yet-observed callout */}
                 {players.length > 0 && sessionObservedIds.size < players.length && sessionObservedIds.size >= 0 && (
                   <p className="text-center text-[11px] text-zinc-600">
                     <span className="inline-block w-2 h-2 rounded-full bg-amber-500/60 mr-1.5 align-middle" />
@@ -422,7 +393,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
             </Card>
           )}
 
-          {/* ── Step 2: Positives ── */}
+          {/* Step 2: Positives */}
           {step === 'positives' && (
             <Card className="border-zinc-800">
               <CardContent className="p-4 space-y-4">
@@ -450,7 +421,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
             </Card>
           )}
 
-          {/* ── Step 3: Needs work ── */}
+          {/* Step 3: Needs work */}
           {step === 'work' && (
             <Card className="border-zinc-800">
               <CardContent className="p-4 space-y-4">
@@ -478,7 +449,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
             </Card>
           )}
 
-          {/* ── Step 4: Notes ── */}
+          {/* Step 4: Notes */}
           {step === 'notes' && (
             <Card className="border-zinc-800">
               <CardContent className="p-4 space-y-4">
@@ -497,7 +468,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
             </Card>
           )}
 
-          {/* ── Step 5: Done ── */}
+          {/* Step 5: Done */}
           {step === 'done' && savedSummary && (
             <div className="py-2 space-y-5">
               <div className="text-center space-y-3">
@@ -515,41 +486,12 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                 </div>
               </div>
 
-              {/* Quality rating — 1–5 stars, saves silently, feeds analytics */}
-              <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 px-4 py-3.5 space-y-2.5">
-                <p className="text-center text-sm font-medium text-zinc-300">How did practice go?</p>
-                <div className="flex justify-center gap-2">
-                  {([1, 2, 3, 4, 5] as QualityRating[]).map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => handleQualityRating(n)}
-                      aria-label={`Rate practice ${n} star${n !== 1 ? 's' : ''}`}
-                      className="p-1.5 touch-manipulation active:scale-90 transition-transform"
-                    >
-                      <Star
-                        className={`h-7 w-7 transition-colors ${
-                          qualityRating !== null && n <= qualityRating
-                            ? 'fill-amber-400 text-amber-400'
-                            : 'text-zinc-600 hover:text-amber-400'
-                        }`}
-                      />
-                    </button>
-                  ))}
-                </div>
-                {qualityRating !== null && (
-                  <p className={`text-center text-sm font-semibold ${getRatingColor(qualityRating)}`}>
-                    {getRatingLabel(qualityRating)}{ratingSaved ? ' ✓' : ''}
-                  </p>
-                )}
-              </div>
-
-              {/* Quick parent update — pre-built WhatsApp/SMS message, zero AI */}
               <div className="rounded-xl border border-teal-500/30 bg-teal-500/10 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <MessageSquare className="h-4 w-4 text-teal-400 shrink-0" />
                   <p className="text-sm font-semibold text-teal-300">Quick parent update ready</p>
                 </div>
-                <p className="text-xs text-teal-400/70 leading-relaxed whitespace-pre-line line-clamp-6">
+                <p className="text-xs text-teal-400/70 leading-relaxed whitespace-pre-line line-clamp-4">
                   {buildDebriefParentUpdate()}
                 </p>
                 <button
