@@ -8,7 +8,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// ─── Hoisted mocks ─────────────────────────────────────────────────────────────
+// ─── Hoisted mocks ───────────────────────────────────────────────────────────
 // vi.mock() calls are hoisted to the top of the file, so all mock factories must
 // reference variables created via vi.hoisted() — plain const/let at module scope
 // would not yet be initialised when the factory runs.
@@ -38,7 +38,7 @@ import {
 } from '@/lib/config/resolver';
 import { handleAIError } from '@/lib/ai/error';
 
-// ─── Route handler imports ─────────────────────────────────────────────────────
+// ─── Route handler imports ────────────────────────────────────────────────────
 
 import {
   GET as configGet,
@@ -48,7 +48,7 @@ import {
 import { GET as shareTokenGet } from '@/app/api/share/[token]/route';
 import { POST as shareCreatePost } from '@/app/api/share/create/route';
 
-// ─── Mock helpers ──────────────────────────────────────────────────────────
+// ─── Mock helpers ──────────────────────────────────────────────────────────────
 
 /**
  * Returns a chainable Supabase query mock.
@@ -265,7 +265,7 @@ describe('resolveConfigWithSource', () => {
   });
 });
 
-// ─── 2. handleAIError ─────────────────────────────────────────────────────────
+// ─── 2. handleAIError ───────────────────────────────────────────────────────────
 
 describe('handleAIError', () => {
   it('returns 429 for a RateLimitError (status 429)', async () => {
@@ -305,7 +305,7 @@ describe('handleAIError', () => {
   });
 });
 
-// ─── 3. Config API route ───────────────────────────────────────────────────────
+// ─── 3. Config API route ──────────────────────────────────────────────────────
 
 describe('Config API — GET /api/config/[domain]', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -437,7 +437,7 @@ describe('Config API — DELETE /api/config/[domain]', () => {
   });
 });
 
-// ─── 4. Share [token] GET route ──────────────────────────────────────────────────
+// ─── 4. Share [token] GET route ────────────────────────────────────────────────────
 
 /** Minimal valid share fixture. All include_* flags default to false. */
 function makeShare(overrides: Record<string, unknown> = {}) {
@@ -560,7 +560,7 @@ describe('Share [token] GET route', () => {
   });
 });
 
-// ─── 5. Share create POST route ─────────────────────────────────────────────────
+// ─── 5. Share create POST route ─────────────────────────────────────────────────────
 
 describe('Share create POST route', () => {
   beforeEach(() => vi.clearAllMocks());

@@ -16,7 +16,7 @@ import {
   scaleTemplateDuration,
 } from '../src/lib/practice-templates';
 
-// ─── Registry ─────────────────────────────────────────────────────────────
+// ─── Registry ─────────────────────────────────────────────────────────────────
 
 describe('PRACTICE_TEMPLATES registry', () => {
   it('exports at least 5 templates', () => {
@@ -72,7 +72,7 @@ describe('PRACTICE_TEMPLATES registry', () => {
   });
 });
 
-// ─── getTemplatesForSport ─────────────────────────────────────────────────────
+// ─── getTemplatesForSport ─────────────────────────────────────────────────────────
 
 describe('getTemplatesForSport', () => {
   it('returns basketball templates for basketball', () => {
@@ -107,7 +107,7 @@ describe('getTemplatesForSport', () => {
   });
 });
 
-// ─── getTemplateById ───────────────────────────────────────────────────────
+// ─── getTemplateById ──────────────────────────────────────────────────────────────
 
 describe('getTemplateById', () => {
   it('finds a template by id', () => {
@@ -132,7 +132,7 @@ describe('getTemplateById', () => {
   });
 });
 
-// ─── getTotalMinutes ───────────────────────────────────────────────────────
+// ─── getTotalMinutes ─────────────────────────────────────────────────────────────
 
 describe('getTotalMinutes', () => {
   it('sums up all drill durations', () => {
@@ -153,7 +153,7 @@ describe('getTotalMinutes', () => {
   });
 });
 
-// ─── getDrillCount ───────────────────────────────────────────────────────────
+// ─── getDrillCount ───────────────────────────────────────────────────────────────
 
 describe('getDrillCount', () => {
   it('returns the number of drills', () => {
@@ -163,7 +163,7 @@ describe('getDrillCount', () => {
   });
 });
 
-// ─── matchesAgeGroup ───────────────────────────────────────────────────────
+// ─── matchesAgeGroup ─────────────────────────────────────────────────────────────
 
 describe('matchesAgeGroup', () => {
   it('returns true when ageGroup is empty', () => {
@@ -209,7 +209,7 @@ describe('matchesAgeGroup', () => {
   });
 });
 
-// ─── rankTemplates ────────────────────────────────────────────────────────────
+// ─── rankTemplates ────────────────────────────────────────────────────────────────
 
 describe('rankTemplates', () => {
   it('returns all provided templates', () => {
@@ -235,7 +235,7 @@ describe('rankTemplates', () => {
   });
 });
 
-// ─── hasSufficientCues ─────────────────────────────────────────────────────────
+// ─── hasSufficientCues ───────────────────────────────────────────────────────────────
 
 describe('hasSufficientCues', () => {
   it('returns true for templates that have cues on every drill', () => {
@@ -253,7 +253,7 @@ describe('hasSufficientCues', () => {
   });
 });
 
-// ─── buildTemplateLabel ─────────────────────────────────────────────────────────
+// ─── buildTemplateLabel ─────────────────────────────────────────────────────────────
 
 describe('buildTemplateLabel', () => {
   it('includes template name', () => {
@@ -272,7 +272,7 @@ describe('buildTemplateLabel', () => {
   });
 });
 
-// ─── buildTemplateSummary ───────────────────────────────────────────────────────
+// ─── buildTemplateSummary ───────────────────────────────────────────────────────────
 
 describe('buildTemplateSummary', () => {
   it('includes drill count', () => {
@@ -297,7 +297,7 @@ describe('buildTemplateSummary', () => {
   });
 });
 
-// ─── filterByTag ────────────────────────────────────────────────────────────
+// ─── filterByTag ─────────────────────────────────────────────────────────────────
 
 describe('filterByTag', () => {
   it('returns templates matching the tag', () => {
@@ -319,7 +319,7 @@ describe('filterByTag', () => {
   });
 });
 
-// ─── getAllTags ─────────────────────────────────────────────────────────────
+// ─── getAllTags ───────────────────────────────────────────────────────────────────
 
 describe('getAllTags', () => {
   it('returns a sorted array of unique tags', () => {
@@ -342,7 +342,7 @@ describe('getAllTags', () => {
   });
 });
 
-// ─── templateFitsSession ───────────────────────────────────────────────────────
+// ─── templateFitsSession ───────────────────────────────────────────────────────────
 
 describe('templateFitsSession', () => {
   it('returns true when available time equals template duration', () => {
@@ -361,7 +361,7 @@ describe('templateFitsSession', () => {
   });
 });
 
-// ─── scaleTemplateDuration ───────────────────────────────────────────────────────
+// ─── scaleTemplateDuration ───────────────────────────────────────────────────────────
 
 describe('scaleTemplateDuration', () => {
   it('scales total duration to the target', () => {
