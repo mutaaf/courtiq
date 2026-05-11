@@ -1,5 +1,12 @@
 /**
- * Lifecycle + transactional email templates.
+ * Lifecycle + transactional email templates. Each builder returns
+ * { subject, html } so callers can pipe straight into sendEmail().
+ *
+ * Style notes:
+ *  - Subjects are short, specific, and sentence-cased (no ALL CAPS)
+ *  - Body copy talks like a coach, not a corporate help-desk
+ *  - One primary CTA per email, plus an optional secondary link
+ *  - All HTML built with the layout helpers — never raw <h1> in here
  */
 
 import {
@@ -20,6 +27,8 @@ export interface BuiltEmail {
   subject: string;
   html: string;
 }
+
+// ── 1. Welcome (after signup completes — coach has a team and players) ──────
 
 export function welcomeEmail(args: { coachName: string; teamName: string }): BuiltEmail {
   const subject = `${args.coachName.split(' ')[0]}, you're in. Welcome to SportsIQ.`;
@@ -45,6 +54,8 @@ export function welcomeEmail(args: { coachName: string; teamName: string }): Bui
   });
   return { subject, html };
 }
+
+// ── 2. First observation (celebratory — fires after the very first capture) ─
 
 export function firstObservationEmail(args: {
   coachName: string;
@@ -74,6 +85,8 @@ export function firstObservationEmail(args: {
   });
   return { subject, html };
 }
+
+// ── 3. Subscription confirmed (after Stripe checkout.session.completed) ────
 
 export function subscriptionConfirmedEmail(args: {
   coachName: string;
@@ -114,6 +127,8 @@ export function subscriptionConfirmedEmail(args: {
   return { subject, html };
 }
 
+// ── 4. Trial ending (3 days before trial_period_days expires) ──────────────
+
 export function trialEndingEmail(args: {
   coachName: string;
   daysLeft: number;
@@ -150,6 +165,8 @@ export function trialEndingEmail(args: {
   return { subject, html };
 }
 
+// ── 5. Subscription canceled (after sub.deleted) ──────────────────────────
+
 export function subscriptionCanceledEmail(args: {
   coachName: string;
   archivedTeamCount: number;
@@ -177,6 +194,8 @@ export function subscriptionCanceledEmail(args: {
   });
   return { subject, html };
 }
+
+// ── 6. Parent share notification (when coach shares a report) ─────────────
 
 export function parentShareEmail(args: {
   parentName: string | null;
@@ -206,6 +225,8 @@ export function parentShareEmail(args: {
   });
   return { subject, html };
 }
+
+// ── 7. Weekly digest (Sunday morning, paid coaches) ───────────────────────
 
 export function weeklyDigestEmail(args: {
   coachName: string;
@@ -240,6 +261,8 @@ export function weeklyDigestEmail(args: {
   return { subject, html };
 }
 
+// ── 8. Practice reminder (day-of, paid coaches) ────────────────────────────
+
 export function practiceReminderEmail(args: {
   coachName: string;
   teamName: string;
@@ -271,6 +294,8 @@ export function practiceReminderEmail(args: {
   return { subject, html };
 }
 
+// ── 9. Re-engagement (no captures in 14+ days) ─────────────────────────────
+
 export function reEngagementEmail(args: { coachName: string; daysQuiet: number }): BuiltEmail {
   const subject = "Practice still happening?";
   const html = renderEmail({
@@ -292,6 +317,8 @@ export function reEngagementEmail(args: { coachName: string; daysQuiet: number }
   });
   return { subject, html };
 }
+
+// ── helpers ────────────────────────────────────────────────────────────────
 
 function escapeQuotes(s: string): string {
   return s.replace(/"/g, '&quot;');
