@@ -368,7 +368,7 @@ export default function AssistantPage() {
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voice = useVoiceInput();
 
-  // ── Context data for personalised quick-start suggestions ──────────────────────
+  // ── Context data for personalised quick-start suggestions ──────────────
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const sevenDaysAgo = useMemo(
     () => new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10),
@@ -380,21 +380,21 @@ export default function AssistantPage() {
     queryFn: async () => {
       if (!activeTeam) return null;
       const [sessions, obs, players] = await Promise.all([
-        query<Array<{ id: string; type: string; date: string; opponent: string | null }>>({
+        query<Array<{ id: string; type: string; date: string; opponent: string | null }}>({
           table: 'sessions',
           select: 'id,type,date,opponent',
           filters: { team_id: activeTeam.id, date: { op: 'gte', value: sevenDaysAgo } },
           order: { column: 'date', ascending: true },
           limit: 20,
         }),
-        query<Array<{ player_id: string | null; category: string | null; sentiment: string; created_at: string }>>({
+        query<Array<{ player_id: string | null; category: string | null; sentiment: string; created_at: string }}>({
           table: 'observations',
           select: 'player_id,category,sentiment,created_at',
           filters: { team_id: activeTeam.id },
           order: { column: 'created_at', ascending: false },
           limit: 60,
         }),
-        query<Array<{ id: string; name: string }>>({
+        query<Array<{ id: string; name: string }}>({
           table: 'players',
           select: 'id,name',
           filters: { team_id: activeTeam.id, is_active: true },
@@ -418,7 +418,7 @@ export default function AssistantPage() {
 
   const actionsToShow = dynamicActions ?? QUICK_ACTIONS;
   const isPersonalised = dynamicActions !== null;
-  // ── End context suggestions ─────────────────────────────────────────────────────
+  // ── End context suggestions ───────────────────────────────────────────
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
