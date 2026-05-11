@@ -55,7 +55,6 @@ import {
   Fingerprint,
   Mic,
   Award,
-  Search,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { PrintButton } from '@/components/ui/print-button';
@@ -434,7 +433,6 @@ export default function PlansPage() {
   // Weekly Star state
   const [generatingWeeklyStar, setGeneratingWeeklyStar] = useState(false);
   const [weeklyStarCopied, setWeeklyStarCopied] = useState(false);
-  const [weeklyStarEmailNotice, setWeeklyStarEmailNotice] = useState<string | null>(null);
 
   // Practice Arc state
   const [showArcForm, setShowArcForm] = useState(false);
@@ -444,16 +442,12 @@ export default function PlansPage() {
   const [arcEvent, setArcEvent] = useState('');
   const [arcFocus, setArcFocus] = useState('');
 
-  // Plan type filter + search
+  // Plan type filter
   const [planTypeFilter, setPlanTypeFilter] = useState<string | null>(null);
-  const [planSearch, setPlanSearch] = useState('');
 
   // Run Practice modal state
   const [showRunModal, setShowRunModal] = useState(false);
   const [creatingSession, setCreatingSession] = useState(false);
-
-  // Practice Arc session runner state
-  const [runningArcSession, setRunningArcSession] = useState<{ planId: string; sessionNum: number } | null>(null);
 
   const { data: plans, isLoading, refetch: refetchPlans } = useQuery({
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
@@ -501,19 +495,9 @@ export default function PlansPage() {
 
   const filteredPlans = useMemo(() => {
     if (!plans) return [];
-    let result = plans;
-    if (planTypeFilter) {
-      result = result.filter((p) => p.type === planTypeFilter);
-    }
-    const q = planSearch.trim().toLowerCase();
-    if (q) {
-      result = result.filter((p) => {
-        const title = (p.title || PLAN_TYPE_CONFIG[p.type]?.label || '').toLowerCase();
-        return title.includes(q);
-      });
-    }
-    return result;
-  }, [plans, planTypeFilter, planSearch]);
+    if (!planTypeFilter) return plans;
+    return plans.filter((p) => p.type === planTypeFilter);
+  }, [plans, planTypeFilter]);
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const { data: todaySessions = [] } = useQuery({
@@ -736,7 +720,6 @@ export default function PlansPage() {
   const generateWeeklyStar = async () => {
     if (!activeTeam) return;
     setGeneratingWeeklyStar(true);
-    setWeeklyStarEmailNotice(null);
     setError(null);
     try {
       const res = await fetch('/api/ai/weekly-star', {
@@ -751,9 +734,6 @@ export default function PlansPage() {
       const data = await res.json();
       qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
       setSelectedPlan(data.plan);
-      if (data.emailSent && data.parentEmailMasked) {
-        setWeeklyStarEmailNotice(`Congrats email sent to ${data.parentEmailMasked}`);
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Weekly star generation failed');
     } finally {
@@ -947,31 +927,6 @@ export default function PlansPage() {
     }
   }
 
-  async function handleRunArcSession(planId: string, sessionNumber: number) {
-    if (!activeTeam || !coach) return;
-    setRunningArcSession({ planId, sessionNum: sessionNumber });
-    try {
-      const newSession = await mutate({
-        table: 'sessions',
-        operation: 'insert',
-        data: {
-          team_id: activeTeam.id,
-          coach_id: coach.id,
-          type: 'practice',
-          date: new Date().toISOString().slice(0, 10),
-        },
-      });
-      const sessionId = (newSession as any)?.[0]?.id || (newSession as any)?.id;
-      if (sessionId) {
-        router.push(`/sessions/${sessionId}/timer?arcPlanId=${planId}&arcSession=${sessionNumber}`);
-      }
-    } catch {
-      // ignore — user stays on page
-    } finally {
-      setRunningArcSession(null);
-    }
-  }
-
   function renderObjectFields(obj: any) {
     if (!obj || typeof obj !== 'object') return String(obj ?? '');
     return (
@@ -1117,19 +1072,6 @@ export default function PlansPage() {
                       <p className="text-xs text-zinc-500 italic">Next: {session.carries_forward}</p>
                     </div>
                   )}
-
-                  {/* Run this session in Practice Timer */}
-                  <button
-                    onClick={() => handleRunArcSession(plan.id, n)}
-                    disabled={runningArcSession?.planId === plan.id && runningArcSession?.sessionNum === n}
-                    className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/50 px-4 py-2.5 text-sm font-medium text-zinc-300 hover:border-zinc-600 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation active:scale-[0.98]"
-                  >
-                    {runningArcSession?.planId === plan.id && runningArcSession?.sessionNum === n ? (
-                      <><Loader2 className="h-4 w-4 animate-spin shrink-0" />Starting…</>
-                    ) : (
-                      <><Timer className="h-4 w-4 shrink-0" />Run Session {n} in Practice Timer</>
-                    )}
-                  </button>
                 </div>
               );
             })}
@@ -3221,14 +3163,6 @@ export default function PlansPage() {
               <Sparkles className="h-4 w-4 text-amber-500/50 shrink-0" />
             </button>
 
-            {/* Email confirmation — shown after Weekly Star generates with parent email */}
-            {weeklyStarEmailNotice && (
-              <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
-                <span aria-hidden="true">✉️</span>
-                <span>{weeklyStarEmailNotice}</span>
-              </div>
-            )}
-
             {/* Season Summary — whole team */}
             <button
               onClick={generateSeasonSummary}
@@ -3782,44 +3716,20 @@ export default function PlansPage() {
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">
             Previous Plans
-            {(planTypeFilter || planSearch.trim()) && filteredPlans.length > 0 && (
+            {planTypeFilter && filteredPlans.length > 0 && (
               <span className="ml-1.5 text-zinc-500 normal-case font-normal">({filteredPlans.length})</span>
             )}
           </h2>
-          {(planTypeFilter || planSearch.trim()) && (
+          {planTypeFilter && (
             <button
-              onClick={() => { setPlanTypeFilter(null); setPlanSearch(''); }}
+              onClick={() => setPlanTypeFilter(null)}
               className="text-xs text-orange-400 hover:text-orange-300 font-medium transition-colors"
-              aria-label="Clear filters"
+              aria-label="Clear plan type filter"
             >
-              Clear all
+              Clear filter
             </button>
           )}
         </div>
-
-        {/* Search input — shown when there are enough plans to warrant searching */}
-        {!isLoading && (plans?.length ?? 0) > 5 && (
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 pointer-events-none" aria-hidden />
-            <input
-              type="search"
-              value={planSearch}
-              onChange={(e) => setPlanSearch(e.target.value)}
-              placeholder="Search plans by name…"
-              aria-label="Search plans"
-              className="w-full rounded-lg bg-zinc-900 border border-zinc-800 pl-9 pr-8 py-2 text-sm text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
-            />
-            {planSearch && (
-              <button
-                onClick={() => setPlanSearch('')}
-                aria-label="Clear search"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-        )}
 
         {/* Type filter chips — only shown when there are 2+ plan types */}
         {!isLoading && planTypeOptions.length >= 2 && (
@@ -3869,12 +3779,10 @@ export default function PlansPage() {
           <Card className="border-dashed border-zinc-700">
             <CardContent className="flex flex-col items-center justify-center py-10">
               <p className="text-zinc-500 text-sm text-center">
-                {planSearch.trim()
-                  ? `No plans matching "${planSearch.trim()}".`
-                  : `No ${planTypeFilter && PLAN_TYPE_CONFIG[planTypeFilter] ? PLAN_TYPE_CONFIG[planTypeFilter].label : ''} plans yet.`}
+                No {planTypeFilter && PLAN_TYPE_CONFIG[planTypeFilter] ? PLAN_TYPE_CONFIG[planTypeFilter].label : ''} plans yet.
               </p>
               <button
-                onClick={() => { setPlanTypeFilter(null); setPlanSearch(''); }}
+                onClick={() => setPlanTypeFilter(null)}
                 className="mt-2 text-xs text-orange-400 hover:text-orange-300 font-medium transition-colors"
               >
                 Show all plans

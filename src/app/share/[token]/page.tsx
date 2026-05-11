@@ -225,7 +225,7 @@ const PROFICIENCY_LEVELS: Record<string, ProficiencyLevel> = {
   },
   got_it: {
     label: 'Got It!',
-    emoji: '⭐',
+    emoji: '\u2B50',
     percent: 75,
     barColor: 'bg-emerald-400',
     bgColor: 'bg-emerald-50',
@@ -439,7 +439,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
               <p className="text-sm text-gray-500">
                 {[player?.position, player?.jersey_number != null ? `#${player.jersey_number}` : null, season]
                   .filter(Boolean)
-                  .join(' · ')}
+                  .join(' \u00B7 ')}
               </p>
             </div>
           </div>
@@ -545,7 +545,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         {featuredHighlight && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-lg">{`✨`}</span>
+              <span className="text-lg">{'\u2728'}</span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 This Week&apos;s Highlight
               </h3>
@@ -566,7 +566,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         {showJourney && (totalObservationCount > 0 || safeSkills.length > 0) && (
           <div className="mx-4 mt-4 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-100 p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-lg">{`\u{1F4C8}`}</span>
+              <span className="text-lg">{'\u{1F4C8}'}</span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-orange-600">
                 Season at a Glance
               </h3>
@@ -649,7 +649,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         {sortedSkills.length >= 3 && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-1 flex items-center gap-2">
-              <span className="text-lg" aria-hidden="true">🗈️</span>
+              <span className="text-lg" aria-hidden="true">🕸️</span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Skills at a Glance
               </h3>
@@ -679,7 +679,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         {improvingSkills.length > 0 && (
           <div className="mx-4 mt-4 rounded-2xl bg-emerald-50 border border-emerald-100 p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-lg">{`\u{1F680}`}</span>
+              <span className="text-lg">{'\u{1F680}'}</span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
                 Skills on the Rise
               </h3>
@@ -876,7 +876,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         {sortedSkills.length > 0 && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center gap-2">
-              <span className="text-lg">{`\u{1F4CA}`}</span>
+              <span className="text-lg">{'\u{1F4CA}'}</span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Skill Progress
               </h3>
@@ -904,7 +904,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         {celebrations.length > 0 && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-lg">{`\u{1F389}`}</span>
+              <span className="text-lg">{'\u{1F389}'}</span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 What to Celebrate
               </h3>
@@ -912,7 +912,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             <ul className="space-y-2">
               {celebrations.map((item, i) => (
                 <li key={i} className="flex items-start gap-2.5 text-sm text-gray-700">
-                  <span className="mt-0.5 shrink-0 text-emerald-500">{`✓`}</span>
+                  <span className="mt-0.5 shrink-0 text-emerald-500">{'\u2713'}</span>
                   {item}
                 </li>
               ))}
@@ -924,7 +924,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         {(nextChallenge || homePractice) && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-lg">{`\u{1F3AF}`}</span>
+              <span className="text-lg">{'\u{1F3AF}'}</span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Next Challenge
               </h3>
@@ -947,7 +947,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         {highlights && highlights.length > 1 && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-lg">{`\u{1F4DD}`}</span>
+              <span className="text-lg">{'\u{1F4DD}'}</span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Recent Observations
               </h3>
@@ -970,7 +970,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         {(customMessage || reportCard?.coach_message) && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-lg">{`\u{1F4AC}`}</span>
+              <span className="text-lg">{'\u{1F4AC}'}</span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Coach&apos;s Note
               </h3>
@@ -984,7 +984,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
               </p>
             )}
             <p className="text-xs text-gray-400">
-              {teamName}{season ? ` · ${season}` : ''}
+              {teamName}{season ? ` \u00B7 ${season}` : ''}
             </p>
           </div>
         )}

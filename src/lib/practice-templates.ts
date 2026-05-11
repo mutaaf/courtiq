@@ -1,4 +1,4 @@
-// ─── Practice Template Library ──────────────────────────────────────────────────────
+// ─── Practice Template Library ───────────────────────────────────────────────
 // Pre-built, age-appropriate practice templates for volunteer coaches.
 // Each template produces a ready-to-run drill queue — no setup required.
 
@@ -25,7 +25,7 @@ export interface PracticeTemplate {
   tags: string[];
 }
 
-// ─── Basketball Templates ─────────────────────────────────────────────────────────────
+// ─── Basketball Templates ────────────────────────────────────────────────────
 
 const BASKETBALL_U8: PracticeTemplate = {
   id: 'bball-u8-30',
@@ -215,7 +215,7 @@ const BASKETBALL_U16: PracticeTemplate = {
   ],
 };
 
-// ─── Soccer Templates ────────────────────────────────────────────────────────────
+// ─── Soccer Templates ────────────────────────────────────────────────────────
 
 const SOCCER_U8: PracticeTemplate = {
   id: 'soccer-u8-30',
@@ -329,7 +329,7 @@ const SOCCER_U12: PracticeTemplate = {
   ],
 };
 
-// ─── Generic Template ────────────────────────────────────────────────────────────
+// ─── Generic Template ────────────────────────────────────────────────────────
 
 const FIRST_PRACTICE: PracticeTemplate = {
   id: 'generic-first-30',
@@ -386,7 +386,7 @@ const FIRST_PRACTICE: PracticeTemplate = {
   ],
 };
 
-// ─── Template Registry ────────────────────────────────────────────────────────────
+// ─── Template Registry ───────────────────────────────────────────────────────
 
 export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
   FIRST_PRACTICE,
@@ -397,7 +397,7 @@ export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
   SOCCER_U12,
 ];
 
-// ─── Utility Functions ───────────────────────────────────────────────────────────
+// ─── Utility Functions ───────────────────────────────────────────────────────
 
 export function getTemplatesForSport(sportId: string): PracticeTemplate[] {
   const sport = sportId.toLowerCase();

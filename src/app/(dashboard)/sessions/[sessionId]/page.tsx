@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -1137,18 +1137,14 @@ function PlayerSessionMessagesCard({
   sessionId,
   teamId,
   observationCount,
-  initialData,
 }: {
   sessionId: string;
   teamId: string;
   observationCount: number;
-  initialData?: PlayerSessionMessagesResult | null;
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [messages, setMessages] = useState<PlayerSessionMessagesResult | null>(initialData ?? null);
-
-  useEffect(() => { if (initialData) setMessages(initialData); }, [initialData]);
+  const [messages, setMessages] = useState<PlayerSessionMessagesResult | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [sharedIdx, setSharedIdx] = useState<number | null>(null);
   const [emailSending, setEmailSending] = useState(false);
@@ -1505,26 +1501,17 @@ function TeamGroupMessageCard({
   sessionId,
   teamId,
   observationCount,
-  initialData,
 }: {
   sessionId: string;
   teamId: string;
   observationCount: number;
-  initialData?: TeamGroupMessageResult | null;
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<TeamGroupMessageResult | null>(initialData ?? null);
+  const [result, setResult] = useState<TeamGroupMessageResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState(false);
-  const [editedMessage, setEditedMessage] = useState(initialData?.message ?? '');
-
-  useEffect(() => {
-    if (initialData) {
-      setResult(initialData);
-      setEditedMessage(initialData.message);
-    }
-  }, [initialData]);
+  const [editedMessage, setEditedMessage] = useState('');
 
   async function handleGenerate() {
     setIsGenerating(true);
@@ -2599,20 +2586,16 @@ function AIDebriefCard({
   observationCount,
   savedDebrief,
   onDebriefSaved,
-  batchDebrief,
 }: {
   sessionId: string;
   teamId: string;
   observationCount: number;
   savedDebrief: SessionDebriefResult | null;
   onDebriefSaved: () => void;
-  batchDebrief?: SessionDebriefResult | null;
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [localDebrief, setLocalDebrief] = useState<SessionDebriefResult | null>(savedDebrief);
-
-  useEffect(() => { if (batchDebrief) setLocalDebrief(batchDebrief); }, [batchDebrief]);
 
   // Practice plan creation state
   const [isPlanGenerating, setIsPlanGenerating] = useState(false);
@@ -2824,14 +2807,6 @@ function AIDebriefCard({
                           )}
                         </div>
                         <p className="text-xs text-zinc-300 mt-0.5">{area.detail}</p>
-                        <Link
-                          href={`/drills?category=${encodeURIComponent(area.skill_area)}`}
-                          className={`mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium transition-colors ${area.is_recurring ? 'text-red-400/70 hover:text-red-300' : 'text-amber-400/70 hover:text-amber-300'}`}
-                        >
-                          <Dumbbell className="h-3 w-3" />
-                          Find drills
-                          <ArrowRight className="h-3 w-3" />
-                        </Link>
                       </div>
                     </div>
                   ))}
@@ -2859,21 +2834,9 @@ function AIDebriefCard({
                         <span className="text-xs font-semibold text-blue-300">{item.focus}</span>
                       </div>
                       <p className="text-xs text-zinc-400 pl-7">{item.rationale}</p>
-                      <div className="flex items-center justify-between pl-7 gap-2">
-                        <Link
-                          href={`/drills?search=${encodeURIComponent(item.suggested_drill)}`}
-                          className="flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 transition-colors group min-w-0"
-                        >
-                          <Dumbbell className="h-3 w-3 shrink-0" />
-                          <span className="italic truncate">{item.suggested_drill}</span>
-                          <ArrowRight className="h-3 w-3 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity" />
-                        </Link>
-                        <Link
-                          href={`/drills?category=${encodeURIComponent(item.focus)}`}
-                          className="text-[10px] text-zinc-500 hover:text-blue-400 transition-colors whitespace-nowrap shrink-0"
-                        >
-                          More {item.focus} drills
-                        </Link>
+                      <div className="flex items-center gap-1.5 pl-7">
+                        <Dumbbell className="h-3 w-3 text-zinc-600 shrink-0" />
+                        <p className="text-[11px] text-zinc-500 italic">{item.suggested_drill}</p>
                       </div>
                     </div>
                   ))}
@@ -2895,14 +2858,12 @@ function AIDebriefCard({
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {debrief.recurring_focus_areas.map((area, i) => (
-                    <Link
+                    <span
                       key={i}
-                      href={`/drills?category=${encodeURIComponent(area)}`}
-                      className="inline-flex items-center gap-1 rounded-full border border-red-500/25 bg-red-500/10 px-2.5 py-0.5 text-[11px] font-medium text-red-400 capitalize hover:bg-red-500/20 hover:border-red-500/40 transition-colors active:scale-95"
+                      className="inline-flex items-center rounded-full border border-red-500/25 bg-red-500/10 px-2.5 py-0.5 text-[11px] font-medium text-red-400 capitalize"
                     >
                       {area}
-                      <ArrowRight className="h-2.5 w-2.5 opacity-60" />
-                    </Link>
+                    </span>
                   ))}
                 </div>
               </div>
@@ -3016,29 +2977,6 @@ export default function SessionDetailPage() {
   const fromPracticePlayerCount = parseInt(searchParams?.get('playerCount') || '0', 10);
   const [practiceBannerDismissed, setPracticeBannerDismissed] = useState(false);
   const showPracticeComplete = fromPractice && !practiceBannerDismissed;
-
-  // Batch AI generation — "Generate All Summaries" fires debrief + player messages + group chat in parallel
-  const [isBatchGenerating, setIsBatchGenerating] = useState(false);
-  const [batchProgress, setBatchProgress] = useState(0);
-  const [batchMessages, setBatchMessages] = useState<PlayerSessionMessagesResult | null>(null);
-  const [batchGroupMsg, setBatchGroupMsg] = useState<TeamGroupMessageResult | null>(null);
-  const [batchAiDebrief, setBatchAiDebrief] = useState<SessionDebriefResult | null>(null);
-
-  async function handleBatchGenerate() {
-    if (!activeTeam) return;
-    setIsBatchGenerating(true);
-    setBatchProgress(0);
-    const tid = activeTeam.id;
-    await Promise.allSettled([
-      fetch('/api/ai/session-debrief', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId, teamId: tid }) })
-        .then((r) => r.json()).then((d) => { if (d.debrief) setBatchAiDebrief(d.debrief); }).finally(() => setBatchProgress((p) => p + 1)),
-      fetch('/api/ai/player-session-messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId, teamId: tid }) })
-        .then((r) => r.json()).then((d) => { if (d.messages) setBatchMessages(d.messages); }).finally(() => setBatchProgress((p) => p + 1)),
-      fetch('/api/ai/team-group-message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId, teamId: tid }) })
-        .then((r) => r.json()).then((d) => { if (d.groupMessage) setBatchGroupMsg(d.groupMessage); }).finally(() => setBatchProgress((p) => p + 1)),
-    ]);
-    setIsBatchGenerating(false);
-  }
 
   const [debrief, setDebrief] = useState('');
   const [debriefInitialized, setDebriefInitialized] = useState(false);
@@ -3338,19 +3276,6 @@ export default function SessionDetailPage() {
     setTimeout(() => setObsActionState(s => { const n = { ...s }; delete n[obsId]; return n; }), 2000);
   };
 
-  const handleToggleHighlight = async (obsId: string, nextHighlighted: boolean) => {
-    queryClient.setQueryData(queryKeys.observations.session(sessionId), (prev: any[]) =>
-      prev ? prev.map((o) => o.id === obsId ? { ...o, is_highlighted: nextHighlighted } : o) : prev,
-    );
-    try {
-      await mutate({ table: 'observations', operation: 'update', data: { is_highlighted: nextHighlighted }, filters: { id: obsId } });
-    } catch {
-      queryClient.setQueryData(queryKeys.observations.session(sessionId), (prev: any[]) =>
-        prev ? prev.map((o) => o.id === obsId ? { ...o, is_highlighted: !nextHighlighted } : o) : prev,
-      );
-    }
-  };
-
   const isLoading = sessionLoading || obsLoading;
 
   if (isLoading) {
@@ -3595,12 +3520,6 @@ export default function SessionDetailPage() {
       <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
         <span className="shrink-0 text-[11px] font-medium text-zinc-600 mr-0.5">Jump to:</span>
         <button
-          onClick={() => document.getElementById('team-talk-section')?.scrollIntoView({ behavior: 'smooth' })}
-          className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-orange-500/50 hover:text-orange-400 transition-colors touch-manipulation active:scale-95"
-        >
-          🎙 Team Talk
-        </button>
-        <button
           onClick={() => document.getElementById('ai-debrief-section')?.scrollIntoView({ behavior: 'smooth' })}
           className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-orange-500/50 hover:text-orange-400 transition-colors touch-manipulation active:scale-95"
         >
@@ -3640,14 +3559,6 @@ export default function SessionDetailPage() {
         >
           📣 Group Chat
         </button>
-        {(session.type === 'practice' || session.type === 'training') && (
-          <button
-            onClick={() => document.getElementById('huddle-script-section')?.scrollIntoView({ behavior: 'smooth' })}
-            className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-lime-500/50 hover:text-lime-400 transition-colors touch-manipulation active:scale-95"
-          >
-            🟢 Huddle Script
-          </button>
-        )}
       </div>
 
       {/* Practice Complete Banner — shown when arriving from practice timer */}
@@ -3670,49 +3581,8 @@ export default function SessionDetailPage() {
                 {fromPracticeObsCount > 0
                   ? `${fromPracticeObsCount} observation${fromPracticeObsCount !== 1 ? 's' : ''} saved${fromPracticePlayerCount > 0 ? ` for ${fromPracticePlayerCount} player${fromPracticePlayerCount !== 1 ? 's' : ''}` : ''}.`
                   : 'Session recorded.'}
+                {' '}What would you like to do next?
               </p>
-
-              {/* Generate All — fires AI Debrief + Player Messages + Group Chat in parallel */}
-              {batchProgress < 3 && fromPracticeObsCount > 0 && (
-                <div className="mt-3">
-                  {isBatchGenerating ? (
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1.5">
-                        {[0, 1, 2].map((i) => (
-                          <div
-                            key={i}
-                            className={`h-2 w-2 rounded-full transition-all duration-300 ${i < batchProgress ? 'bg-emerald-400' : 'bg-zinc-600 animate-pulse'}`}
-                          />
-                        ))}
-                      </div>
-                      <span className="text-xs text-zinc-400">
-                        Generating {batchProgress}/3 summaries…
-                      </span>
-                    </div>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={handleBatchGenerate}
-                      className="h-8 bg-orange-600 hover:bg-orange-500 text-white text-xs gap-1.5"
-                    >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      Generate All Summaries
-                    </Button>
-                  )}
-                  <p className="text-[11px] text-zinc-500 mt-1.5">
-                    AI Debrief · Player Messages · Group Chat — all at once
-                  </p>
-                </div>
-              )}
-
-              {/* Ready state — all 3 done */}
-              {batchProgress >= 3 && !isBatchGenerating && (
-                <div className="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                  <p className="text-xs text-emerald-300 font-medium">All summaries ready — scroll down to review &amp; send</p>
-                </div>
-              )}
-
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button
                   size="sm"
@@ -3723,7 +3593,7 @@ export default function SessionDetailPage() {
                   className="h-8 bg-teal-600 hover:bg-teal-500 text-white text-xs gap-1.5"
                 >
                   <Send className="h-3.5 w-3.5" />
-                  Parent Updates
+                  Send Parent Updates
                 </Button>
                 <Button
                   size="sm"
@@ -3758,12 +3628,10 @@ export default function SessionDetailPage() {
 
       {/* Opening Team Talk — AI-written motivational script for any session */}
       {activeTeam && (
-        <div id="team-talk-section">
-          <TeamTalkCard
-            sessionId={sessionId}
-            teamId={activeTeam.id}
-          />
-        </div>
+        <TeamTalkCard
+          sessionId={sessionId}
+          teamId={activeTeam.id}
+        />
       )}
 
       {/* Observations */}
@@ -3854,33 +3722,20 @@ export default function SessionDetailPage() {
                     const canSendToParent = isPositive && obs.player_id && obs.player_id !== '__none__';
                     const actionState = obsActionState[obs.id];
                     return (
-                      <Card key={obs.id} className={obs.is_highlighted ? 'border-amber-500/40 bg-amber-500/5' : ''}>
+                      <Card key={obs.id}>
                         <CardContent className="p-3">
                           <div className="flex items-start gap-3">
                             <SentimentIcon
                               className={`h-4 w-4 mt-0.5 shrink-0 ${sentimentConfig?.color || 'text-zinc-400'}`}
                             />
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2 mb-1">
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="secondary" className="text-[10px]">
-                                    {obs.category}
-                                  </Badge>
-                                  <Badge variant="outline" className="text-[10px]">
-                                    {obs.source}
-                                  </Badge>
-                                  {obs.is_highlighted && (
-                                    <span className="text-[10px] font-medium text-amber-400">⭐ Coach&apos;s Pick</span>
-                                  )}
-                                </div>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleToggleHighlight(obs.id, !obs.is_highlighted); }}
-                                  className={`flex h-7 w-7 items-center justify-center rounded-full transition-colors touch-manipulation active:scale-95 shrink-0 ${obs.is_highlighted ? 'text-amber-400 hover:text-amber-300' : 'text-zinc-600 hover:text-zinc-400'}`}
-                                  aria-label={obs.is_highlighted ? 'Remove from highlights' : 'Add to highlights'}
-                                  aria-pressed={obs.is_highlighted}
-                                >
-                                  <Star className={`h-3.5 w-3.5 ${obs.is_highlighted ? 'fill-amber-400' : ''}`} />
-                                </button>
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {obs.category}
+                                </Badge>
+                                <Badge variant="outline" className="text-[10px]">
+                                  {obs.source}
+                                </Badge>
                               </div>
                               <p className="text-sm text-zinc-300">{obs.text}</p>
                               <div className="flex items-center gap-2 mt-2">
@@ -3935,7 +3790,6 @@ export default function SessionDetailPage() {
             onDebriefSaved={() =>
               queryClient.invalidateQueries({ queryKey: ['session', sessionId] })
             }
-            batchDebrief={batchAiDebrief}
           />
         )}
       </div>
@@ -3988,7 +3842,6 @@ export default function SessionDetailPage() {
             sessionId={sessionId}
             teamId={activeTeam.id}
             observationCount={observations?.length || 0}
-            initialData={batchMessages}
           />
         )}
       </div>
@@ -4000,20 +3853,17 @@ export default function SessionDetailPage() {
             sessionId={sessionId}
             teamId={activeTeam.id}
             observationCount={observations?.length || 0}
-            initialData={batchGroupMsg}
           />
         )}
       </div>
 
       {/* Huddle Script — 30-second end-of-practice script to read to the team */}
       {activeTeam && (
-        <div id="huddle-script-section">
-          <HuddleScriptCard
-            sessionId={sessionId}
-            teamId={activeTeam.id}
-            observationCount={observations?.length || 0}
-          />
-        </div>
+        <HuddleScriptCard
+          sessionId={sessionId}
+          teamId={activeTeam.id}
+          observationCount={observations?.length || 0}
+        />
       )}
 
       {/* Media Upload Section */}
@@ -4287,7 +4137,7 @@ export default function SessionDetailPage() {
 
           {/* Template chips */}
           <div className="flex flex-wrap gap-2">
-            {getTemplatesBySentiment(qoSentiment, (activeTeam as any)?.sport_slug ?? undefined).slice(0, 8).map((t) => (
+            {getTemplatesBySentiment(qoSentiment).slice(0, 8).map((t) => (
               <button
                 key={t.id}
                 onClick={() => { setQoTemplate(qoTemplate === t.id ? null : t.id); setQoText(''); }}
