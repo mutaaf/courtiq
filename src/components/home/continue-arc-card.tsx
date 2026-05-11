@@ -62,7 +62,7 @@ export function ContinueArcCard({ teamId }: { teamId: string }) {
             href="/plans"
             className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-sky-500/25 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-300 hover:bg-sky-500/25 transition-colors touch-manipulation active:scale-[0.97]"
           >
-            Load Session {arc.nextSession} in Timer
+            Open Practice Series
             <ChevronRight className="h-3.5 w-3.5" />
           </Link>
         </div>

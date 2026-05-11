@@ -912,6 +912,7 @@ export default function PracticeTimerPage({
   const searchParams = useSearchParams();
   const planId = searchParams.get('planId');
   const templateIdParam = searchParams.get('templateId');
+  const arcSessionParam = searchParams.get('arcSession'); // e.g. "1", "2", "3"
   const { activeTeam, coach } = useActiveTeam();
 
   // ── Persistence keys ─────────────────────────────────────────────────────
@@ -1145,17 +1146,24 @@ export default function PracticeTimerPage({
         const s = plan.content_structured as any;
         const items: QueueItem[] = [];
 
-        if (s.warmup?.name) {
+        // Determine source: a single arc session, or the full flat plan
+        const arcSessionIndex = arcSessionParam ? parseInt(arcSessionParam, 10) - 1 : -1;
+        const arcSession = arcSessionIndex >= 0 && Array.isArray(s.sessions)
+          ? s.sessions[arcSessionIndex]
+          : null;
+        const src = arcSession ?? s; // use arc session or flat plan
+
+        if (src.warmup?.name) {
           items.push({
             id: `warmup-${Date.now()}`,
-            name: s.warmup.name,
-            durationSecs: Math.max(60, (s.warmup.duration_minutes ?? 5) * 60),
+            name: src.warmup.name,
+            durationSecs: Math.max(60, (src.warmup.duration_minutes ?? 5) * 60),
             cues: [],
-            description: s.warmup.description || '',
+            description: src.warmup.description || '',
           });
         }
 
-        (s.drills || []).forEach((d: any, i: number) => {
+        (src.drills || []).forEach((d: any, i: number) => {
           items.push({
             id: `plan-drill-${i}-${Date.now()}`,
             name: d.name,
@@ -1165,35 +1173,38 @@ export default function PracticeTimerPage({
           });
         });
 
-        if (s.scrimmage?.duration_minutes) {
+        if (src.scrimmage?.duration_minutes) {
           items.push({
             id: `scrimmage-${Date.now()}`,
-            name: s.scrimmage.focus ? `Scrimmage: ${s.scrimmage.focus}` : 'Scrimmage',
-            durationSecs: Math.max(60, s.scrimmage.duration_minutes * 60),
+            name: src.scrimmage.focus ? `Scrimmage: ${src.scrimmage.focus}` : 'Scrimmage',
+            durationSecs: Math.max(60, src.scrimmage.duration_minutes * 60),
             cues: [],
             description: '',
           });
         }
 
-        if (s.cooldown?.duration_minutes) {
+        if (src.cooldown?.duration_minutes) {
           items.push({
             id: `cooldown-${Date.now()}`,
             name: 'Cool Down',
-            durationSecs: Math.max(60, s.cooldown.duration_minutes * 60),
+            durationSecs: Math.max(60, src.cooldown.duration_minutes * 60),
             cues: [],
-            description: s.cooldown.notes || '',
+            description: src.cooldown.notes || '',
           });
         }
 
         if (items.length > 0) {
           setQueue(items);
-          setLoadedPlanTitle(plan.title || 'Practice Plan');
+          const sessionLabel = arcSession
+            ? `${s.arc_title ?? plan.title ?? 'Practice Arc'} — Session ${arcSessionParam}`
+            : plan.title || 'Practice Plan';
+          setLoadedPlanTitle(sessionLabel);
         }
       })
       .catch(() => {/* silently ignore */})
       .finally(() => setPlanLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planId]);
+  }, [planId, arcSessionParam]);
 
   // ── Auto-load template from templateId URL param (from FirstPracticeLauncher) ──
   useEffect(() => {
