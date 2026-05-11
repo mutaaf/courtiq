@@ -75,7 +75,7 @@ export function groupByPlayerCategory(obs: BTObs[]): Map<string, BTObs[]> {
 /** Counts observations matching a specific sentiment. */
 export function countBySentiment(
   obs: BTObs[],
-  sentiment: 'positive' | 'needs-work' | 'neutral'
+  sentiment: 'positive' | 'needs_work' | 'neutral'
 ): number {
   return obs.filter((o) => o.sentiment === sentiment).length;
 }
@@ -103,7 +103,7 @@ export function buildBreakthroughs(obs: BTObs[], now = Date.now()): PlayerBreakt
     const priorObs = priorByKey.get(key) ?? [];
 
     const recentPositive = countBySentiment(recentObs, 'positive');
-    const priorNeedsWork = countBySentiment(priorObs, 'needs-work');
+    const priorNeedsWork = countBySentiment(priorObs, 'needs_work');
 
     if (
       recentPositive >= BREAKTHROUGH_THRESHOLD &&

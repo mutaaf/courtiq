@@ -31,7 +31,7 @@ export function QuickCaptureWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<WidgetTab>('voice');
 
-  // ── Voice tab state ───────────────────────────────────────────────────────────────────
+  // ── Voice tab state ──────────────────────────────────────────────────────
   const [widgetState, setWidgetState] = useState<WidgetState>('idle');
   const [liveTranscript, setLiveTranscript] = useState('');
   const [savedCount, setSavedCount] = useState(0);
@@ -44,18 +44,13 @@ export function QuickCaptureWidget() {
   const audioChunksRef = useRef<Blob[]>([]);
   const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Templates tab state ─────────────────────────────────────────────────────────────
+  // ── Templates tab state ──────────────────────────────────────────────────
   const [templateStep, setTemplateStep] = useState<TemplateStep>('pick');
   const [templateSentiment, setTemplateSentiment] = useState<'positive' | 'needs-work'>('positive');
   const [selectedTemplate, setSelectedTemplate] = useState<ObservationTemplate | null>(null);
   const [roster, setRoster] = useState<{ id: string; name: string; jersey_number: number | null }[]>([]);
   const [rosterLoading, setRosterLoading] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
-  // Tally mode: count how many times current template was saved, and who was saved last
-  const [tallyCount, setTallyCount] = useState(0);
-  const [lastSavedName, setLastSavedName] = useState<string | null>(null);
-  // Players already observed in the current session
-  const [sessionObservedIds, setSessionObservedIds] = useState<Set<string>>(new Set());
 
   const trapRef = useFocusTrap<HTMLDivElement>({
     enabled: isOpen,
@@ -65,7 +60,7 @@ export function QuickCaptureWidget() {
     },
   });
 
-  // Load roster + session coverage when templates tab is opened
+  // Load roster when templates tab is opened
   useEffect(() => {
     if (!isOpen || activeTab !== 'templates' || !activeTeam?.id || roster.length > 0) return;
     setRosterLoading(true);
@@ -77,20 +72,7 @@ export function QuickCaptureWidget() {
       setRoster(data || []);
       setRosterLoading(false);
     });
-
-    if (!practiceSessionId) return;
-    query<{ player_id: string | null }[]>({
-      table: 'observations',
-      select: 'player_id',
-      filters: { session_id: practiceSessionId },
-      limit: 200,
-    }).then((rows) => {
-      const ids = new Set(
-        (rows ?? []).map((r) => r.player_id).filter(Boolean) as string[]
-      );
-      setSessionObservedIds(ids);
-    });
-  }, [isOpen, activeTab, activeTeam?.id, roster.length, practiceSessionId]);
+  }, [isOpen, activeTab, activeTeam?.id, roster.length]);
 
   const cleanupMedia = useCallback(() => {
     if (recognitionRef.current) {
@@ -119,8 +101,6 @@ export function QuickCaptureWidget() {
     setTemplateStep('pick');
     setSelectedTemplate(null);
     setTemplateSentiment('positive');
-    setTallyCount(0);
-    setLastSavedName(null);
   }, []);
 
   const close = useCallback(() => {
@@ -134,7 +114,7 @@ export function QuickCaptureWidget() {
     resetTemplateState();
   }, [cleanupMedia, resetVoiceState, resetTemplateState]);
 
-  // ── Voice: start recording ────────────────────────────────────────────────────────────────
+  // ── Voice: start recording ─────────────────────────────────────────────
   const startRecording = useCallback(async () => {
     if (!activeTeam) return;
     resetVoiceState();
@@ -204,7 +184,7 @@ export function QuickCaptureWidget() {
     }
   }, [activeTeam, resetVoiceState]);
 
-  // ── Voice: stop and process ────────────────────────────────────────────────────────────
+  // ── Voice: stop and process ────────────────────────────────────────────
   const stopAndProcess = useCallback(async () => {
     const recorder = mediaRecorderRef.current;
     if (!recorder || recorder.state === 'inactive') return;
@@ -315,17 +295,16 @@ export function QuickCaptureWidget() {
     recorder.stop();
   }, [activeTeam, coach, queryClient, resetVoiceState]);
 
-  // ── Templates: pick a template ──────────────────────────────────────────────────
+  // ── Templates: pick a template ────────────────────────────────────────
   function handlePickTemplate(tpl: ObservationTemplate) {
     setSelectedTemplate(tpl);
     setTemplateStep('player');
   }
 
-  // ── Templates: save observation for chosen player ─────────────────────────────────
+  // ── Templates: save observation for chosen player ─────────────────────
   async function saveTemplateObservation(playerId: string) {
     if (!selectedTemplate || !activeTeam || !coach) return;
     setSavingTemplate(true);
-    const playerFirstName = roster.find((p) => p.id === playerId)?.name.split(' ')[0] ?? null;
     const sessionId = practiceActive && practiceSessionId ? practiceSessionId : null;
     try {
       await mutate({
@@ -348,10 +327,6 @@ export function QuickCaptureWidget() {
 
       if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
 
-      setSessionObservedIds((prev) => new Set([...prev, playerId]));
-      setLastSavedName(playerFirstName);
-      setTallyCount((prev) => prev + 1);
-
       queryClient.invalidateQueries({ queryKey: queryKeys.observations.all(activeTeam.id) });
       queryClient.invalidateQueries({ queryKey: ['home-stats', activeTeam.id] });
       queryClient.invalidateQueries({ queryKey: ['home-pulse', activeTeam.id] });
@@ -360,11 +335,11 @@ export function QuickCaptureWidget() {
       }
 
       setTemplateStep('saved');
-      // Tally mode: return to player picker (template stays selected) so coach can
-      // immediately log another player without re-picking the template
+      // Auto-reset so coach can log another immediately
       setTimeout(() => {
-        setTemplateStep('player');
-      }, 800);
+        setTemplateStep('pick');
+        setSelectedTemplate(null);
+      }, 1400);
     } catch {
       // fall back to pick so coach can retry
       setTemplateStep('pick');
@@ -378,8 +353,8 @@ export function QuickCaptureWidget() {
 
   const isBusy = widgetState === 'recording' || widgetState === 'processing' || savingTemplate;
 
-  const positiveTemplates = getTemplatesBySentiment('positive', (activeTeam as any)?.sport_slug ?? undefined);
-  const needsWorkTemplates = getTemplatesBySentiment('needs-work', (activeTeam as any)?.sport_slug ?? undefined);
+  const positiveTemplates = getTemplatesBySentiment('positive');
+  const needsWorkTemplates = getTemplatesBySentiment('needs-work');
   const shownTemplates = templateSentiment === 'positive' ? positiveTemplates : needsWorkTemplates;
 
   return (
@@ -482,7 +457,7 @@ export function QuickCaptureWidget() {
               </button>
             </div>
 
-            {/* ── Voice Tab ───────────────────────────────────────────────────────── */}
+            {/* ── Voice Tab ─────────────────────────────────────────────── */}
             {activeTab === 'voice' && (
               <>
                 {(widgetState === 'idle' || widgetState === 'recording') && (
@@ -577,7 +552,7 @@ export function QuickCaptureWidget() {
               </>
             )}
 
-            {/* ── Templates Tab ───────────────────────────────────────────────────── */}
+            {/* ── Templates Tab ─────────────────────────────────────────── */}
             {activeTab === 'templates' && (
               <>
                 {/* Step 1: pick template */}
@@ -635,7 +610,7 @@ export function QuickCaptureWidget() {
                     </div>
 
                     <p className="text-center text-xs text-zinc-600">
-                      Pick a template, then tap each player — same template stays selected
+                      Tap a template, then pick the player — saved instantly
                     </p>
                   </div>
                 )}
@@ -643,7 +618,7 @@ export function QuickCaptureWidget() {
                 {/* Step 2: pick player */}
                 {templateStep === 'player' && (
                   <div className="flex flex-col gap-3">
-                    {/* Selected template preview with tally count */}
+                    {/* Selected template preview */}
                     {selectedTemplate && (
                       <div className={cn(
                         'flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium',
@@ -652,28 +627,11 @@ export function QuickCaptureWidget() {
                           : 'bg-amber-900/40 text-amber-300'
                       )}>
                         <span className="text-lg">{selectedTemplate.emoji}</span>
-                        <span className="flex-1">{selectedTemplate.text}</span>
-                        {tallyCount > 0 && (
-                          <span className={cn(
-                            'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold',
-                            selectedTemplate.sentiment === 'positive'
-                              ? 'bg-emerald-500/30 text-emerald-300'
-                              : 'bg-amber-500/30 text-amber-300'
-                          )}>
-                            ×{tallyCount}
-                          </span>
-                        )}
+                        <span>{selectedTemplate.text}</span>
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-medium text-zinc-400">
-                        {tallyCount > 0 ? 'Who else?' : 'Who was this for?'}
-                      </p>
-                      {practiceSessionId && sessionObservedIds.size > 0 && (
-                        <p className="text-[10px] text-emerald-500">{sessionObservedIds.size} observed ✓</p>
-                      )}
-                    </div>
+                    <p className="text-xs font-medium text-zinc-400">Who was this for?</p>
 
                     {rosterLoading ? (
                       <div className="flex justify-center py-4">
@@ -685,72 +643,46 @@ export function QuickCaptureWidget() {
                       </p>
                     ) : (
                       <div className="grid max-h-52 grid-cols-2 gap-1.5 overflow-y-auto pb-1">
-                        {[...roster]
-                          .sort((a, b) => {
-                            const aObs = sessionObservedIds.has(a.id);
-                            const bObs = sessionObservedIds.has(b.id);
-                            if (aObs !== bObs) return aObs ? 1 : -1;
-                            return 0;
-                          })
-                          .map((player) => {
-                            const alreadyObserved = sessionObservedIds.has(player.id);
-                            return (
-                              <button
-                                key={player.id}
-                                type="button"
-                                disabled={savingTemplate}
-                                onClick={() => saveTemplateObservation(player.id)}
-                                className={cn(
-                                  'flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors',
-                                  'active:scale-[0.97] touch-manipulation',
-                                  alreadyObserved
-                                    ? 'bg-emerald-950/50 border border-emerald-700/30 text-emerald-300/80 hover:bg-emerald-900/50'
-                                    : 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700',
-                                  savingTemplate && 'pointer-events-none opacity-50'
-                                )}
-                              >
-                                <span className={cn(
-                                  'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
-                                  alreadyObserved
-                                    ? 'bg-emerald-500/20 text-emerald-400'
-                                    : 'bg-orange-500/20 text-orange-400'
-                                )}>
-                                  {alreadyObserved
-                                    ? '✓'
-                                    : player.jersey_number != null
-                                    ? `#${player.jersey_number}`
-                                    : player.name.charAt(0).toUpperCase()}
-                                </span>
-                                <span className="truncate">{player.name.split(' ')[0]}</span>
-                              </button>
-                            );
-                          })}
+                        {roster.map((player) => (
+                          <button
+                            key={player.id}
+                            type="button"
+                            disabled={savingTemplate}
+                            onClick={() => saveTemplateObservation(player.id)}
+                            className={cn(
+                              'flex items-center gap-2 rounded-xl bg-zinc-800 px-3 py-2.5 text-left text-sm font-medium text-zinc-200',
+                              'hover:bg-zinc-700 active:scale-[0.97] touch-manipulation transition-colors',
+                              savingTemplate && 'pointer-events-none opacity-50'
+                            )}
+                          >
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500/20 text-xs font-bold text-orange-400">
+                              {player.jersey_number != null ? `#${player.jersey_number}` : player.name.charAt(0).toUpperCase()}
+                            </span>
+                            <span className="truncate">{player.name.split(' ')[0]}</span>
+                          </button>
+                        ))}
                       </div>
                     )}
 
                     <button
                       type="button"
-                      onClick={() => { setTemplateStep('pick'); setSelectedTemplate(null); setTallyCount(0); setLastSavedName(null); }}
+                      onClick={() => { setTemplateStep('pick'); setSelectedTemplate(null); }}
                       className="self-start text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
                     >
-                      ← Change template
+                      ← Back
                     </button>
                   </div>
                 )}
 
-                {/* Step 3: saved confirmation — briefly shown before returning to player picker */}
+                {/* Step 3: saved confirmation */}
                 {templateStep === 'saved' && (
-                  <div className="flex flex-col items-center gap-3 py-4">
+                  <div className="flex flex-col items-center gap-4 py-4">
                     <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20">
                       <CheckCircle2 className="h-7 w-7 text-emerald-400" />
                     </div>
                     <div className="text-center">
-                      <p className="text-sm font-semibold text-zinc-100">
-                        {lastSavedName ? `${lastSavedName} ✓` : 'Saved!'}
-                      </p>
-                      <p className="mt-1 text-xs text-zinc-500">
-                        {tallyCount > 1 ? `${tallyCount} saved — tap another player` : 'Tap another player to keep going…'}
-                      </p>
+                      <p className="text-sm font-semibold text-zinc-100">Saved!</p>
+                      <p className="mt-1 text-xs text-zinc-500">Ready to log another…</p>
                     </div>
                   </div>
                 )}
