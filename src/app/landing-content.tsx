@@ -698,7 +698,7 @@ export default function LandingContent() {
               {[
                 { emoji: '\u{1F3C0}', name: 'Basketball' },
                 { emoji: '\u{1F3C8}', name: 'Flag Football' },
-                { emoji: '⚽', name: 'Soccer' },
+                { emoji: '\u26BD', name: 'Soccer' },
               ].map((s) => (
                 <div key={s.name} className="flex flex-col items-center gap-1.5">
                   <span className="text-3xl">{s.emoji}</span>
