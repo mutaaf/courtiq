@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import type { AppNotification, NotificationType } from '@/app/api/notifications/route';
 
-// ─── Read-state persistence (localStorage) ───────────────────────────────────
+// ─── Read-state persistence (localStorage) ────────────────────────────────────────────
 
 const STORAGE_KEY = 'sportsiq:notification_reads';
 
@@ -29,7 +29,7 @@ function saveReadIds(ids: Set<string>): void {
   }
 }
 
-// ─── Per-type visual config ───────────────────────────────────────────────────
+// ─── Per-type visual config ────────────────────────────────────────────────────
 
 const TYPE_CONFIG: Record<
   NotificationType,
@@ -48,7 +48,7 @@ const PRIORITY_DOT: Record<string, string> = {
   low: 'bg-emerald-500',
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Component ───────────────────────────────────────────────────────────────────
 
 export function NotificationBell() {
   const { activeTeamId } = useActiveTeam();

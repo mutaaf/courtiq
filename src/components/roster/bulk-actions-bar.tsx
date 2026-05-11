@@ -111,10 +111,12 @@ export function BulkActionsBar({ selectedPlayers, teamId, coachId, onClear }: Bu
       {/* Sticky action bar */}
       <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] sm:bottom-4 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none">
         <div className="pointer-events-auto w-full max-w-lg rounded-2xl border border-orange-500/40 bg-zinc-900/95 shadow-2xl shadow-orange-500/10 backdrop-blur-sm p-3 flex items-center gap-3">
+          {/* Count badge */}
           <div className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-orange-500 px-3 text-sm font-bold text-white shrink-0">
             {count}
           </div>
 
+          {/* Actions */}
           <div className="flex-1 flex items-center gap-2 overflow-x-auto">
             <Button
               size="sm"
@@ -143,6 +145,7 @@ export function BulkActionsBar({ selectedPlayers, teamId, coachId, onClear }: Bu
             </Button>
           </div>
 
+          {/* Clear */}
           <Button
             size="sm"
             variant="ghost"
@@ -154,6 +157,7 @@ export function BulkActionsBar({ selectedPlayers, teamId, coachId, onClear }: Bu
         </div>
       </div>
 
+      {/* Feedback toast */}
       {feedbackMsg && (
         <div className={`fixed bottom-[calc(9rem+env(safe-area-inset-bottom))] sm:bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium shadow-lg ${feedbackOk ? 'bg-emerald-600 text-white' : feedbackErr ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-200'}`}>
           {feedbackOk ? <CheckCircle className="h-4 w-4 shrink-0" /> : feedbackErr ? <AlertCircle className="h-4 w-4 shrink-0" /> : null}
@@ -161,6 +165,7 @@ export function BulkActionsBar({ selectedPlayers, teamId, coachId, onClear }: Bu
         </div>
       )}
 
+      {/* Observation Modal */}
       {obsModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setObsModal(false)}>
           <div ref={obsTrapRef} role="dialog" aria-modal="true" aria-labelledby="bulk-obs-title" className="w-full max-w-md rounded-2xl bg-zinc-900 border border-zinc-700 p-5 space-y-4" onClick={(e) => e.stopPropagation()}>

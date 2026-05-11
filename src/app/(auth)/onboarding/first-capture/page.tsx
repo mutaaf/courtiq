@@ -164,7 +164,7 @@ export default function FirstCapturePage() {
   );
 }
 
-// ─── Recording / idle / error view ─────────────────────────────────────────────
+// ─── Recording / idle / error view ───────────────────────────────────────────────
 
 function RecordingView({
   phase,
@@ -250,7 +250,7 @@ function RecordingView({
   );
 }
 
-// ─── Success view ──────────────────────────────────────────────────────────────
+// ─── Success view ───────────────────────────────────────────────────────────
 
 function SuccessView({
   observations,
@@ -291,7 +291,7 @@ function SuccessView({
                 {obs.sentiment}
               </span>
               <span className="text-[11px] text-zinc-500">{obs.player_name || 'Team'}</span>
-              <span className="text-[11px] text-zinc-600">&middot;</span>
+              <span className="text-[11px] text-zinc-600">·</span>
               <span className="text-[11px] text-zinc-500">{obs.category}</span>
             </div>
             <p className="text-sm text-zinc-200">{obs.text}</p>

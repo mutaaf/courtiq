@@ -34,7 +34,7 @@ const EXPIRY_OPTIONS: { value: AnnouncementExpiry; label: string }[] = [
   { value: 'never', label: 'No expiry' },
 ];
 
-// ─── Create Form ──────────────────────────────────────────────────────────────
+// ─── Create Form ─────────────────────────────────────────────────────────────────
 
 interface CreateFormProps {
   teamId: string;
@@ -154,7 +154,7 @@ function CreateForm({ teamId, onClose, onCreated }: CreateFormProps) {
   );
 }
 
-// ─── Main Panel ───────────────────────────────────────────────────────────────
+// ─── Main Panel ───────────────────────────────────────────────────────────────────
 
 export function AnnouncementsPanel() {
   const { activeTeam } = useActiveTeam();
