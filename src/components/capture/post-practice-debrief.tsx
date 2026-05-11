@@ -65,6 +65,7 @@ type Step = 'standouts' | 'positives' | 'work' | 'notes' | 'done';
 interface SavedSummary {
   obsCount: number;
   playerCount: number;
+  workCategories: string[];
 }
 
 export function PostPracticeDebrief({ sessionId, onClose }: Props) {
@@ -82,6 +83,9 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
   const [savedSummary, setSavedSummary] = useState<SavedSummary | null>(null);
   const [sessionObservedIds, setSessionObservedIds] = useState<Set<string>>(new Set());
   const [parentMsgShared, setParentMsgShared] = useState(false);
+  const [isPlanGenerating, setIsPlanGenerating] = useState(false);
+  const [planCreated, setPlanCreated] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!activeTeam?.id) return;
@@ -210,8 +214,9 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
     const obsCount =
       selectedPlayers.length * (positives.length + needsWork.length) +
       (notes.trim() ? 1 : 0);
+    const workCategories = [...new Set(needsWork.map((t) => t.category))];
 
-    setSavedSummary({ obsCount, playerCount });
+    setSavedSummary({ obsCount, playerCount, workCategories });
     setSaving(false);
     setStep('done');
   }
@@ -223,6 +228,32 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
       useAppStore.getState().setPracticeStartedAt(null);
     }
     onClose();
+  }
+
+  async function handleCreatePlan() {
+    if (!activeTeam || !savedSummary?.workCategories?.length) return;
+    setIsPlanGenerating(true);
+    setPlanError(null);
+    try {
+      const res = await fetch('/api/ai/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId: activeTeam.id,
+          type: 'practice',
+          focusSkills: savedSummary.workCategories,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to create practice plan');
+      }
+      setPlanCreated(true);
+    } catch (err) {
+      setPlanError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsPlanGenerating(false);
+    }
   }
 
   function buildDebriefParentUpdate(): string {
@@ -527,14 +558,56 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                     <span className="text-xs text-zinc-500">AI debrief + timeline</span>
                   </button>
                 </Link>
-                <Link href="/plans" onClick={onClose}>
-                  <button className="w-full flex flex-col items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 p-4 text-center hover:border-orange-500/40 hover:bg-zinc-800 transition-colors touch-manipulation active:scale-[0.97]">
-                    <ClipboardList className="h-6 w-6 text-blue-400" />
-                    <span className="text-sm font-medium text-zinc-200">Plan Next Practice</span>
-                    <span className="text-xs text-zinc-500">AI-powered from today</span>
+
+                {planCreated ? (
+                  <Link href="/plans" onClick={onClose}>
+                    <button className="w-full flex flex-col items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-center touch-manipulation active:scale-[0.97]">
+                      <Check className="h-6 w-6 text-emerald-400" />
+                      <span className="text-sm font-medium text-emerald-300">Plan Created!</span>
+                      <span className="text-xs text-emerald-400/70">View in Plans →</span>
+                    </button>
+                  </Link>
+                ) : savedSummary.workCategories.length > 0 ? (
+                  <button
+                    onClick={handleCreatePlan}
+                    disabled={isPlanGenerating}
+                    className="w-full flex flex-col items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 p-4 text-center hover:border-blue-500/50 hover:bg-blue-500/15 transition-colors touch-manipulation active:scale-[0.97] disabled:opacity-60"
+                  >
+                    {isPlanGenerating ? (
+                      <>
+                        <Loader2 className="h-6 w-6 text-blue-400 animate-spin" />
+                        <span className="text-sm font-medium text-blue-300">Building plan…</span>
+                        <span className="text-xs text-blue-400/70">This takes ~10s</span>
+                      </>
+                    ) : (
+                      <>
+                        <ClipboardList className="h-6 w-6 text-blue-400" />
+                        <span className="text-sm font-medium text-zinc-200">Plan Next Practice</span>
+                        <span className="text-xs text-blue-400/70 capitalize">
+                          Focus: {savedSummary.workCategories.slice(0, 2).join(' & ')}
+                        </span>
+                      </>
+                    )}
                   </button>
-                </Link>
+                ) : (
+                  <Link href="/plans" onClick={onClose}>
+                    <button className="w-full flex flex-col items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 p-4 text-center hover:border-orange-500/40 hover:bg-zinc-800 transition-colors touch-manipulation active:scale-[0.97]">
+                      <ClipboardList className="h-6 w-6 text-blue-400" />
+                      <span className="text-sm font-medium text-zinc-200">Plan Next Practice</span>
+                      <span className="text-xs text-zinc-500">AI-powered from today</span>
+                    </button>
+                  </Link>
+                )}
               </div>
+
+              {planError && (
+                <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400 text-center">
+                  {planError} —{' '}
+                  <Link href="/plans" onClick={onClose} className="underline hover:text-red-300">
+                    try in Plans
+                  </Link>
+                </p>
+              )}
 
               <Button
                 variant="ghost"
