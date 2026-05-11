@@ -49,7 +49,7 @@ import { PlayerBreakthroughCard } from '@/components/home/player-breakthrough-ca
 import { StrugglingPlayerCard } from '@/components/home/struggling-player-card';
 import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot-card';
 
-// ─── Shared reminder helpers ────────────────────────────────────────────────────
+// ─── Shared reminder helpers ──────────────────────────────────────────────────
 
 const SESSION_REMINDER_EMOJI: Record<string, string> = {
   practice: '🏃',
@@ -213,7 +213,7 @@ function TodaySessionCard({
   );
 }
 
-// ─── Upcoming Sessions Card ───────────────────────────────────────────────────
+// ─── Upcoming Sessions Card ─────────────────────────────────────────────────
 
 function UpcomingSessionsCard({
   sessions,
@@ -322,7 +322,7 @@ function UpcomingSessionsCard({
   );
 }
 
-// ─── Last Session Card ────────────────────────────────────────────────────────────────
+// ─── Last Session Card ─────────────────────────────────────────────────────────
 
 const SESSION_EMOJI: Record<string, string> = {
   practice: '🏃',
@@ -394,7 +394,7 @@ function LastSessionCard({ session }: {
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────────
+// ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const { activeTeam, coach, aiPlatformAvailable } = useActiveTeam();
@@ -657,7 +657,7 @@ export default function HomePage() {
     staleTime: 20_000,
   });
 
-  // ── No team state ─────────────────────────────────────────────────────────────
+  // ── No team state ─────────────────────────────────────────────────────────
   if (!activeTeam) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center min-h-[60vh]">
@@ -679,7 +679,7 @@ export default function HomePage() {
     );
   }
 
-  // ── Main dashboard ─────────────────────────────────────────────────────────────────
+  // ── Main dashboard ────────────────────────────────────────────────────────
   return (
     <>
     <div className="p-4 lg:p-8 space-y-6 pb-8">

@@ -297,7 +297,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
         )}
 
         <div className="px-5 pb-5">
-          {/* Step 1: Standouts */}
+          {/* ── Step 1: Standouts ── */}
           {step === 'standouts' && (
             <Card className="border-zinc-800">
               <CardContent className="p-4 space-y-4">
@@ -307,6 +307,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                   <p className="text-xs text-zinc-500 mt-1">Tap players who caught your eye</p>
                 </div>
 
+                {/* Coverage summary */}
                 {players.length > 0 && (
                   <div className={`rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-3 ${
                     sessionObservedIds.size === players.length
@@ -383,6 +384,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                   )}
                 </div>
 
+                {/* Not-yet-observed callout */}
                 {players.length > 0 && sessionObservedIds.size < players.length && sessionObservedIds.size >= 0 && (
                   <p className="text-center text-[11px] text-zinc-600">
                     <span className="inline-block w-2 h-2 rounded-full bg-amber-500/60 mr-1.5 align-middle" />
@@ -393,7 +395,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
             </Card>
           )}
 
-          {/* Step 2: Positives */}
+          {/* ── Step 2: Positives ── */}
           {step === 'positives' && (
             <Card className="border-zinc-800">
               <CardContent className="p-4 space-y-4">
@@ -421,7 +423,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
             </Card>
           )}
 
-          {/* Step 3: Needs work */}
+          {/* ── Step 3: Needs work ── */}
           {step === 'work' && (
             <Card className="border-zinc-800">
               <CardContent className="p-4 space-y-4">
@@ -449,7 +451,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
             </Card>
           )}
 
-          {/* Step 4: Notes */}
+          {/* ── Step 4: Notes ── */}
           {step === 'notes' && (
             <Card className="border-zinc-800">
               <CardContent className="p-4 space-y-4">
@@ -468,7 +470,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
             </Card>
           )}
 
-          {/* Step 5: Done */}
+          {/* ── Step 5: Done ── */}
           {step === 'done' && savedSummary && (
             <div className="py-2 space-y-5">
               <div className="text-center space-y-3">
@@ -486,6 +488,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                 </div>
               </div>
 
+              {/* Quick parent update — pre-built WhatsApp/SMS message, zero AI */}
               <div className="rounded-xl border border-teal-500/30 bg-teal-500/10 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <MessageSquare className="h-4 w-4 text-teal-400 shrink-0" />
