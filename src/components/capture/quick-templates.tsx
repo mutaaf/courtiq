@@ -2,10 +2,6 @@
 
 /**
  * QuickTemplates — one-tap pre-defined observation chips for the capture page.
- *
- * Coaches tap a template chip → pick a player from a bottom sheet →
- * the observation is saved immediately (no AI segmentation needed since
- * sentiment and category are already defined by the template).
  */
 
 import { useState, useCallback } from 'react';
@@ -32,10 +28,7 @@ interface QuickTemplatesProps {
   coachId: string;
   sessionId?: string | null;
   preselectPlayerId?: string | null;
-  sportId?: string | null;
 }
-
-// ── Sentiment tab ──────────────────────────────────────────────────────────────
 
 const TAB_LABELS: { value: TemplateSentiment; label: string; color: string; ring: string }[] = [
   {
@@ -51,8 +44,6 @@ const TAB_LABELS: { value: TemplateSentiment; label: string; color: string; ring
     ring: 'ring-amber-500/40',
   },
 ];
-
-// ── Player picker bottom sheet ─────────────────────────────────────────────────
 
 interface PlayerPickerProps {
   template: ObservationTemplate;
@@ -80,7 +71,6 @@ function PlayerPicker({
 
   const sheetRef = useFocusTrap<HTMLDivElement>({ enabled: true, onEscape: onClose });
 
-  // Load players lazily when sheet opens
   useState(() => {
     query<Player[]>({
       table: 'players',
@@ -138,7 +128,6 @@ function PlayerPicker({
       : { badge: 'bg-amber-500/15 text-amber-400', dot: 'bg-amber-500' };
 
   return (
-    /* Overlay */
     <div
       className="fixed inset-0 z-50 flex items-end bg-black/60 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -150,12 +139,10 @@ function PlayerPicker({
         ref={sheetRef}
         className="w-full rounded-t-2xl border-t border-zinc-800 bg-zinc-950 pb-safe"
       >
-        {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="h-1 w-10 rounded-full bg-zinc-700" />
         </div>
 
-        {/* Header */}
         <div className="flex items-start justify-between gap-3 px-5 pt-2 pb-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1">
@@ -180,7 +167,6 @@ function PlayerPicker({
           Select player
         </p>
 
-        {/* Player list */}
         <div className="max-h-[55vh] overflow-y-auto pb-6 px-3">
           {loadError && (
             <p className="px-2 py-4 text-center text-sm text-red-400">Failed to load players.</p>
@@ -218,7 +204,6 @@ function PlayerPicker({
                   isPreselected && 'border border-orange-500/40 bg-orange-500/8'
                 )}
               >
-                {/* Jersey badge */}
                 <div className={cn(
                   'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold',
                   isPreselected ? 'bg-orange-500/20 text-orange-300' : 'bg-zinc-800 text-zinc-300'
@@ -243,8 +228,6 @@ function PlayerPicker({
   );
 }
 
-// ── Success toast ──────────────────────────────────────────────────────────────
-
 function SuccessToast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
   return (
     <div
@@ -267,15 +250,13 @@ function SuccessToast({ message, onDismiss }: { message: string; onDismiss: () =
   );
 }
 
-// ── Main component ─────────────────────────────────────────────────────────────
-
-export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId, sportId }: QuickTemplatesProps) {
+export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId }: QuickTemplatesProps) {
   const [activeTab, setActiveTab] = useState<TemplateSentiment>('positive');
   const [selectedTemplate, setSelectedTemplate] = useState<ObservationTemplate | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [successTimer, setSuccessTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
-  const templates = getTemplatesBySentiment(activeTab, sportId ?? undefined);
+  const templates = getTemplatesBySentiment(activeTab);
 
   const handleTemplateClick = useCallback((template: ObservationTemplate) => {
     setSelectedTemplate(template);
@@ -296,7 +277,6 @@ export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId, 
   return (
     <>
       <div className="space-y-3">
-        {/* Section header */}
         <div className="flex items-center gap-2">
           <div className="flex h-6 w-6 items-center justify-center rounded-md bg-orange-500/15">
             <Zap className="h-3.5 w-3.5 text-orange-400" />
@@ -306,7 +286,6 @@ export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId, 
           </h2>
         </div>
 
-        {/* Sentiment tabs */}
         <div className="flex gap-2" role="tablist" aria-label="Template sentiment">
           {TAB_LABELS.map((tab) => (
             <button
@@ -326,7 +305,6 @@ export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId, 
           ))}
         </div>
 
-        {/* Template chips */}
         <div
           role="tabpanel"
           className="flex flex-wrap gap-2"
@@ -353,7 +331,6 @@ export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId, 
         </div>
       </div>
 
-      {/* Player picker bottom sheet */}
       {selectedTemplate && (
         <PlayerPicker
           template={selectedTemplate}
@@ -366,7 +343,6 @@ export function QuickTemplates({ teamId, coachId, sessionId, preselectPlayerId, 
         />
       )}
 
-      {/* Success toast */}
       {successMsg && (
         <SuccessToast
           message={successMsg}

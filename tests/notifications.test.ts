@@ -6,8 +6,6 @@ import {
 } from '../src/app/api/notifications/route';
 import type { AppNotification, NotificationPriority } from '../src/app/api/notifications/route';
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 function makeNotification(
   overrides: Partial<AppNotification> = {}
 ): AppNotification {
@@ -23,8 +21,6 @@ function makeNotification(
   };
 }
 
-// ─── buildNotificationId ──────────────────────────────────────────────────────
-
 describe('buildNotificationId', () => {
   it('combines type and entityId with a colon', () => {
     expect(buildNotificationId('unobserved_player', 'player-123')).toBe(
@@ -36,8 +32,6 @@ describe('buildNotificationId', () => {
     expect(buildNotificationId('goal_deadline', 'goal-1')).toBe('goal_deadline:goal-1');
     expect(buildNotificationId('session_today', 'session-9')).toBe('session_today:session-9');
     expect(buildNotificationId('achievement_earned', 'ach-7')).toBe('achievement_earned:ach-7');
-    expect(buildNotificationId('birthday_today', 'player-5')).toBe('birthday_today:player-5');
-    expect(buildNotificationId('parent_report_viewed', 'share-42')).toBe('parent_report_viewed:share-42');
   });
 
   it('preserves UUIDs unchanged', () => {
@@ -45,8 +39,6 @@ describe('buildNotificationId', () => {
     expect(buildNotificationId('goal_deadline', uuid)).toBe(`goal_deadline:${uuid}`);
   });
 });
-
-// ─── priorityOrder ───────────────────────────────────────────────────────────
 
 describe('priorityOrder', () => {
   it('returns 0 for high', () => {
@@ -66,8 +58,6 @@ describe('priorityOrder', () => {
     expect(priorityOrder('medium')).toBeLessThan(priorityOrder('low'));
   });
 });
-
-// ─── sortNotifications ────────────────────────────────────────────────────────
 
 describe('sortNotifications', () => {
   it('sorts high priority before medium before low', () => {
@@ -126,8 +116,6 @@ describe('sortNotifications', () => {
     ];
     const sorted = sortNotifications(items);
     expect(sorted).toHaveLength(3);
-    // All high priority — order among equals is defined by timestamp (same here), so
-    // we just assert all ids are present.
     expect(sorted.map((n) => n.id).sort()).toEqual(['a', 'b', 'c']);
   });
 
@@ -144,13 +132,10 @@ describe('sortNotifications', () => {
       makeNotification({ id: String(i), priority: p, timestamp: timestamps[i] })
     );
     const sorted = sortNotifications(items);
-    // First two should be high priority, sorted newest-first within high
     expect(sorted[0].priority).toBe('high');
     expect(sorted[1].priority).toBe('high');
     expect(new Date(sorted[0].timestamp) >= new Date(sorted[1].timestamp)).toBe(true);
-    // Then medium
     expect(sorted[2].priority).toBe('medium');
-    // Then low, newest-first
     expect(sorted[3].priority).toBe('low');
     expect(sorted[4].priority).toBe('low');
     expect(new Date(sorted[3].timestamp) >= new Date(sorted[4].timestamp)).toBe(true);

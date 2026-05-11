@@ -30,19 +30,15 @@ export interface SeasonStats {
   totalObservations: number;
   improvingSkillCount: number;
   mostActiveCategory: string | null;
-  recentObsCount: number; // last 14 days
+  recentObsCount: number;
 }
 
 export interface SkillActivityData {
   category: string;
-  recentCount: number;  // last 14 days
-  priorCount: number;   // 15-28 days ago
-  delta: number;        // recentCount - priorCount
+  recentCount: number;
+  priorCount: number;
+  delta: number;
 }
-
-// ---------------------------------------------------------------------------
-// Skill trend helpers
-// ---------------------------------------------------------------------------
 
 export function getImprovingSkills(skills: SkillProgress[]): SkillProgress[] {
   return skills.filter((s) => s.trend === 'improving');
@@ -59,7 +55,6 @@ export function getPlateauSkills(skills: SkillProgress[]): SkillProgress[] {
 export function getMostImprovedSkill(skills: SkillProgress[]): SkillProgress | null {
   const improving = getImprovingSkills(skills);
   if (improving.length === 0) return null;
-  // Prefer game_ready > got_it > practicing > exploring as tiebreaker
   const order: Record<string, number> = { game_ready: 4, got_it: 3, practicing: 2, exploring: 1 };
   return improving.sort(
     (a, b) => (order[b.proficiency_level ?? ''] ?? 0) - (order[a.proficiency_level ?? ''] ?? 0)
@@ -87,10 +82,6 @@ export function formatProficiencyLabel(level: string | null | undefined): string
   };
   return map[level ?? ''] ?? 'Exploring';
 }
-
-// ---------------------------------------------------------------------------
-// Observation activity helpers
-// ---------------------------------------------------------------------------
 
 export function groupObsByCategory(
   obs: ShareObservation[]
@@ -153,17 +144,12 @@ export function buildSkillActivityData(obs: ShareObservation[], now: Date = new 
     .sort((a, b) => b.recentCount - a.recentCount);
 }
 
-// The category with the biggest recent surge relative to prior period
 export function getMostSurgingCategory(activityData: SkillActivityData[]): SkillActivityData | null {
   if (activityData.length === 0) return null;
   const positive = activityData.filter((a) => a.recentCount > 0);
   if (positive.length === 0) return null;
   return positive.sort((a, b) => b.delta - a.delta)[0];
 }
-
-// ---------------------------------------------------------------------------
-// Season stats builder
-// ---------------------------------------------------------------------------
 
 export function buildSeasonStats(
   obs: ShareObservation[],
@@ -178,10 +164,6 @@ export function buildSeasonStats(
     recentObsCount: getObsAfterDate(obs, recent).length,
   };
 }
-
-// ---------------------------------------------------------------------------
-// Label helpers
-// ---------------------------------------------------------------------------
 
 export function formatCategoryLabel(cat: string | null): string {
   if (!cat) return 'General';
@@ -204,10 +186,6 @@ export function buildProgressMessage(
   }
   return `${firstName} has ${totalObs} coach observation${totalObs !== 1 ? 's' : ''} on record this season.`;
 }
-
-// ---------------------------------------------------------------------------
-// Trend chip helpers for display
-// ---------------------------------------------------------------------------
 
 export function getTrendIcon(trend: string | null): string {
   if (trend === 'improving') return '↑';
@@ -234,70 +212,4 @@ export function filterSkillsWithTrend(skills: SkillProgress[]): SkillProgress[] 
 
 export function hasEnoughDataForJourney(obs: ShareObservation[], skills: SkillProgress[]): boolean {
   return obs.length >= 3 || skills.length >= 1;
-}
-
-// ---------------------------------------------------------------------------
-// Weekly progress chart helpers (parent portal trend sparkline)
-// ---------------------------------------------------------------------------
-
-export interface WeeklyProgressPoint {
-  weekLabel: string;   // "8w", "7w", …, "1w", "Now"
-  positiveCount: number;
-  totalCount: number;
-  weekStart: Date;
-  weekEnd: Date;
-}
-
-/**
- * Buckets observations into `weekCount` weekly windows ending at `now`.
- * Most-recent window is last in the array (left=oldest, right=newest).
- */
-export function buildWeeklyProgress(
-  obs: ShareObservation[],
-  now: Date = new Date(),
-  weekCount: number = 8,
-): WeeklyProgressPoint[] {
-  const MS_PER_WEEK = 7 * 86_400_000;
-  const points: WeeklyProgressPoint[] = [];
-
-  for (let i = weekCount - 1; i >= 0; i--) {
-    const weekEnd = new Date(now.getTime() - i * MS_PER_WEEK);
-    const weekStart = new Date(weekEnd.getTime() - MS_PER_WEEK);
-
-    const weekObs = obs.filter((o) => {
-      const t = new Date(o.created_at).getTime();
-      return t >= weekStart.getTime() && t < weekEnd.getTime();
-    });
-
-    points.push({
-      weekLabel: i === 0 ? 'Now' : `${i}w`,
-      positiveCount: weekObs.filter((o) => o.sentiment === 'positive').length,
-      totalCount: weekObs.length,
-      weekStart,
-      weekEnd,
-    });
-  }
-
-  return points;
-}
-
-/** Returns true when at least 2 different weeks have any observations. */
-export function hasEnoughDataForWeeklyProgress(points: WeeklyProgressPoint[]): boolean {
-  return points.filter((p) => p.totalCount > 0).length >= 2;
-}
-
-/** Returns the maximum positiveCount across all points (minimum 1 to avoid divide-by-zero). */
-export function getWeeklyProgressMax(points: WeeklyProgressPoint[]): number {
-  return Math.max(...points.map((p) => p.positiveCount), 1);
-}
-
-/** True when the latest half of points has a higher avg positive count than the earlier half. */
-export function isProgressTrending(points: WeeklyProgressPoint[]): boolean {
-  if (points.length < 4) return false;
-  const mid = Math.floor(points.length / 2);
-  const recent = points.slice(mid);
-  const prior = points.slice(0, mid);
-  const avgRecent = recent.reduce((s, p) => s + p.positiveCount, 0) / recent.length;
-  const avgPrior = prior.reduce((s, p) => s + p.positiveCount, 0) / prior.length;
-  return avgRecent > avgPrior;
 }

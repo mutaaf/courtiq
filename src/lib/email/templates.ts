@@ -1,12 +1,5 @@
 /**
- * Lifecycle + transactional email templates. Each builder returns
- * { subject, html } so callers can pipe straight into sendEmail().
- *
- * Style notes:
- *  - Subjects are short, specific, and sentence-cased (no ALL CAPS)
- *  - Body copy talks like a coach, not a corporate help-desk
- *  - One primary CTA per email, plus an optional secondary link
- *  - All HTML built with the layout helpers — never raw <h1> in here
+ * Lifecycle + transactional email templates.
  */
 
 import {
@@ -19,7 +12,6 @@ import {
   statRow,
   divider,
   fineprint,
-  escapeHtml as escapeHtmlInline,
 } from './layout';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://youthsportsiq.com';
@@ -28,8 +20,6 @@ export interface BuiltEmail {
   subject: string;
   html: string;
 }
-
-// ── 1. Welcome (after signup completes — coach has a team and players) ──────
 
 export function welcomeEmail(args: { coachName: string; teamName: string }): BuiltEmail {
   const subject = `${args.coachName.split(' ')[0]}, you're in. Welcome to SportsIQ.`;
@@ -55,8 +45,6 @@ export function welcomeEmail(args: { coachName: string; teamName: string }): Bui
   });
   return { subject, html };
 }
-
-// ── 2. First observation (celebratory — fires after the very first capture) ─
 
 export function firstObservationEmail(args: {
   coachName: string;
@@ -86,8 +74,6 @@ export function firstObservationEmail(args: {
   });
   return { subject, html };
 }
-
-// ── 3. Subscription confirmed (after Stripe checkout.session.completed) ────
 
 export function subscriptionConfirmedEmail(args: {
   coachName: string;
@@ -128,8 +114,6 @@ export function subscriptionConfirmedEmail(args: {
   return { subject, html };
 }
 
-// ── 4. Trial ending (3 days before trial_period_days expires) ──────────────
-
 export function trialEndingEmail(args: {
   coachName: string;
   daysLeft: number;
@@ -166,8 +150,6 @@ export function trialEndingEmail(args: {
   return { subject, html };
 }
 
-// ── 5. Subscription canceled (after sub.deleted) ──────────────────────────
-
 export function subscriptionCanceledEmail(args: {
   coachName: string;
   archivedTeamCount: number;
@@ -195,8 +177,6 @@ export function subscriptionCanceledEmail(args: {
   });
   return { subject, html };
 }
-
-// ── 6. Parent share notification (when coach shares a report) ─────────────
 
 export function parentShareEmail(args: {
   parentName: string | null;
@@ -226,8 +206,6 @@ export function parentShareEmail(args: {
   });
   return { subject, html };
 }
-
-// ── 7. Weekly digest (Sunday morning, paid coaches) ───────────────────────
 
 export function weeklyDigestEmail(args: {
   coachName: string;
@@ -262,8 +240,6 @@ export function weeklyDigestEmail(args: {
   return { subject, html };
 }
 
-// ── 8. Practice reminder (day-of, paid coaches) ────────────────────────────
-
 export function practiceReminderEmail(args: {
   coachName: string;
   teamName: string;
@@ -295,8 +271,6 @@ export function practiceReminderEmail(args: {
   return { subject, html };
 }
 
-// ── 9. Re-engagement (no captures in 14+ days) ─────────────────────────────
-
 export function reEngagementEmail(args: { coachName: string; daysQuiet: number }): BuiltEmail {
   const subject = "Practice still happening?";
   const html = renderEmail({
@@ -318,102 +292,6 @@ export function reEngagementEmail(args: { coachName: string; daysQuiet: number }
   });
   return { subject, html };
 }
-
-// ── 10. Weekly Star — parent congratulations email ────────────────────────
-// Sent automatically when a coach generates the Player of the Week spotlight.
-
-export function weeklyStarParentEmail(args: {
-  playerName: string;
-  coachName: string;
-  teamName: string;
-  weekLabel: string;
-  headline: string;
-  achievement: string;
-  shareUrl: string | null;
-}): BuiltEmail {
-  const coachFirst = args.coachName.split(' ')[0];
-  const subject = `${args.playerName} is ${args.teamName}'s Player of the Week! 🌟`;
-  const html = renderEmail({
-    transactional: true,
-    preview: `Coach ${coachFirst} picked ${args.playerName} as the standout player this week.`,
-    body: [
-      heroSection(
-        `🌟 Player of the Week — ${args.weekLabel}`,
-        `Coach ${coachFirst} from ${args.teamName} selected ${args.playerName} as this week's standout player.`,
-      ),
-      // Orange-accented headline block
-      `<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:0 0 20px;">
-        <tr>
-          <td style="background:#fff7ed;border-left:4px solid #f97316;border-radius:0 8px 8px 0;padding:14px 16px;">
-            <p style="margin:0;font-size:16px;font-weight:600;color:#0f172a;line-height:1.4;">${escapeHtmlInline(args.headline)}</p>
-          </td>
-        </tr>
-      </table>`,
-      paragraph(args.achievement),
-      args.shareUrl
-        ? ctaButton(`See ${args.playerName}'s full progress report →`, args.shareUrl)
-        : '',
-      divider(),
-      fineprint(
-        `Sent by Coach ${args.coachName} via SportsIQ · ${args.teamName}`,
-      ),
-    ].join(''),
-  });
-  return { subject, html };
-}
-
-// ── 11. Team announcement alert (sent to parents when coach posts an update) ─
-
-export function announcementAlertEmail(args: {
-  parentName: string | null;
-  playerName: string;
-  coachName: string;
-  teamName: string;
-  title: string;
-  body: string;
-  shareUrl: string;
-}): BuiltEmail {
-  const coachFirst = args.coachName.split(' ')[0];
-  const playerFirst = args.playerName.split(' ')[0];
-  const greeting = args.parentName
-    ? `Hi ${args.parentName.split(' ')[0]},`
-    : 'Hi there,';
-  const subject = `📢 ${args.title} — ${args.teamName}`;
-  const html = renderEmail({
-    transactional: true,
-    preview: `Coach ${coachFirst} from ${args.teamName} posted a team update.`,
-    body: [
-      heroSection(
-        '📢 Team Update from Your Coach',
-        `Coach ${escapeHtmlInline(coachFirst)} posted a message for ${escapeHtmlInline(args.teamName)}.`,
-      ),
-      paragraph(`${escapeHtmlInline(greeting)}`),
-      `<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:0 0 20px;">
-        <tr>
-          <td style="background:#fff7ed;border-left:4px solid #f97316;border-radius:0 8px 8px 0;padding:14px 16px;">
-            <p style="margin:0 0 8px;font-size:15px;font-weight:700;color:#0f172a;line-height:1.4;">${escapeHtmlInline(args.title)}</p>
-            <p style="margin:0;font-size:14px;color:#475569;line-height:1.6;">${escapeHtmlInline(args.body)}</p>
-          </td>
-        </tr>
-      </table>`,
-      paragraph(
-        `While you're here, see ${escapeHtmlInline(playerFirst)}'s latest coaching highlights and skill progress in their player portal:`,
-        { html: true },
-      ),
-      ctaButton(
-        `View ${args.playerName}'s progress report →`,
-        args.shareUrl,
-      ),
-      divider(),
-      fineprint(
-        `You received this because your child plays on ${args.teamName}. Updates are sent by Coach ${args.coachName} via SportsIQ.`,
-      ),
-    ].join(''),
-  });
-  return { subject, html };
-}
-
-// ── helpers ────────────────────────────────────────────────────────────────
 
 function escapeQuotes(s: string): string {
   return s.replace(/"/g, '&quot;');

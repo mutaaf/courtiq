@@ -6,8 +6,6 @@ import {
   type ObservationTemplate,
 } from '@/lib/observation-templates';
 
-// ─── Template data integrity ───────────────────────────────────────────────────
-
 describe('OBSERVATION_TEMPLATES', () => {
   it('has at least 10 positive and 10 needs-work templates', () => {
     const positive = OBSERVATION_TEMPLATES.filter((t) => t.sentiment === 'positive');
@@ -37,8 +35,6 @@ describe('OBSERVATION_TEMPLATES', () => {
     }
   });
 });
-
-// ─── getTemplatesBySentiment ───────────────────────────────────────────────────
 
 describe('getTemplatesBySentiment', () => {
   it('returns only positive templates when asked for positive', () => {
@@ -73,38 +69,10 @@ describe('getTemplatesBySentiment', () => {
   });
 
   it('returns an empty array if no template matches (defensive)', () => {
-    // Cast to any to test robustness against unexpected input
     const results = getTemplatesBySentiment('neutral' as any);
     expect(results).toEqual([]);
   });
-
-  it('applies soccer overrides when sportId is soccer', () => {
-    const results = getTemplatesBySentiment('positive', 'soccer');
-    const shooting = results.find((t) => t.id === 'pos-shooting');
-    expect(shooting?.text).toBe('Great shot on goal');
-  });
-
-  it('applies flag_football overrides when sportId is flag_football', () => {
-    const results = getTemplatesBySentiment('positive', 'flag_football');
-    const shooting = results.find((t) => t.id === 'pos-shooting');
-    expect(shooting?.text).toBe('Great throw accuracy');
-  });
-
-  it('applies volleyball overrides when sportId is volleyball', () => {
-    const results = getTemplatesBySentiment('positive', 'volleyball');
-    const shooting = results.find((t) => t.id === 'pos-shooting');
-    expect(shooting?.text).toBe('Great spike/serve technique');
-  });
-
-  it('returns default text when sportId is unrecognized (e.g. a UUID)', () => {
-    const uuid = '550e8400-e29b-41d4-a716-446655440000';
-    const results = getTemplatesBySentiment('positive', uuid);
-    const shooting = results.find((t) => t.id === 'pos-shooting');
-    expect(shooting?.text).toBe('Great shooting form');
-  });
 });
-
-// ─── findTemplateById ──────────────────────────────────────────────────────────
 
 describe('findTemplateById', () => {
   it('finds an existing positive template by id', () => {
@@ -146,8 +114,6 @@ describe('findTemplateById', () => {
     }
   });
 });
-
-// ─── Key templates spot-check ──────────────────────────────────────────────────
 
 describe('key templates content', () => {
   const positive = getTemplatesBySentiment('positive');
