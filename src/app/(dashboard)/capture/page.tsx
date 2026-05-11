@@ -72,6 +72,12 @@ export default function CapturePage() {
 
   const setIsRecording = useAppStore((s) => s.setIsRecording);
   const setGlobalRecordingDuration = useAppStore((s) => s.setRecordingDuration);
+  const practiceActive = useAppStore((s) => s.practiceActive);
+  const practiceSessionId = useAppStore((s) => s.practiceSessionId);
+
+  // If no sessionId in the URL but a practice is active, auto-link to it so
+  // observations are never accidentally left unattached to the session.
+  const effectiveSessionId = urlSessionId ?? (practiceActive ? practiceSessionId : null);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -184,7 +190,7 @@ export default function CapturePage() {
             'pending_observations',
             JSON.stringify({
               recording_id: recordingId,
-              session_id: urlSessionId,
+              session_id: effectiveSessionId,
               observations: [],
               transcript: currentTranscript,
               unmatched_names: [],
@@ -224,7 +230,7 @@ export default function CapturePage() {
         'pending_observations',
         JSON.stringify({
           recording_id: recordingId,
-          session_id: urlSessionId,
+          session_id: effectiveSessionId,
           observations: result.observations || [],
           transcript: result.transcript || currentTranscript,
           unmatched_names: result.unmatched_names || [],
@@ -304,7 +310,7 @@ export default function CapturePage() {
 
       trackEvent('capture_record_started', {
         team_id: activeTeam.id,
-        from_session: !!urlSessionId,
+        from_session: !!effectiveSessionId,
       });
 
       // Save recording state to localStorage for recovery
@@ -522,7 +528,7 @@ export default function CapturePage() {
           'pending_observations',
           JSON.stringify({
             recording_id: null,
-            session_id: urlSessionId,
+            session_id: effectiveSessionId,
             observations: result.observations || [],
             transcript: quickNote.trim(),
             unmatched_names: result.unmatched_names || [],
@@ -546,7 +552,7 @@ export default function CapturePage() {
           'pending_observations',
           JSON.stringify({
             recording_id: null,
-            session_id: urlSessionId,
+            session_id: effectiveSessionId,
             observations: [],
             transcript: quickNote.trim(),
             unmatched_names: [],
@@ -563,7 +569,7 @@ export default function CapturePage() {
         'pending_observations',
         JSON.stringify({
           recording_id: null,
-          session_id: urlSessionId,
+          session_id: effectiveSessionId,
           observations: [],
           transcript: quickNote.trim(),
           unmatched_names: [],
@@ -663,7 +669,7 @@ export default function CapturePage() {
         'pending_observations',
         JSON.stringify({
           recording_id: null,
-          session_id: urlSessionId,
+          session_id: effectiveSessionId,
           observations: result.observations || [],
           transcript: uploadTranscript.trim(),
           unmatched_names: result.unmatched_names || [],
@@ -726,12 +732,20 @@ export default function CapturePage() {
           <p className="mt-1 text-sm text-zinc-400">{activeTeam.name}</p>
         </div>
 
-        {/* Session context banner — shown when navigated from a session/player-specific link */}
-        {urlSessionId && (
-          <div className="flex items-center gap-2.5 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3">
-            <span className="text-blue-400 text-sm">📍</span>
-            <p className="text-sm text-blue-300">
-              Observations will be linked to your session
+        {/* Session context banner */}
+        {effectiveSessionId && (
+          <div className={`flex items-center gap-2.5 rounded-xl border px-4 py-3 ${
+            practiceActive && !urlSessionId
+              ? 'border-emerald-500/30 bg-emerald-500/10'
+              : 'border-blue-500/30 bg-blue-500/10'
+          }`}>
+            <span className={`text-sm ${practiceActive && !urlSessionId ? 'text-emerald-400' : 'text-blue-400'}`}>
+              {practiceActive && !urlSessionId ? '🟢' : '📍'}
+            </span>
+            <p className={`text-sm ${practiceActive && !urlSessionId ? 'text-emerald-300' : 'text-blue-300'}`}>
+              {practiceActive && !urlSessionId
+                ? 'Practice in progress — observations linked automatically'
+                : 'Observations will be linked to your session'}
             </p>
           </div>
         )}
@@ -756,7 +770,7 @@ export default function CapturePage() {
                   if (accumulatedObsRef.current.length > 0) {
                     sessionStorage.setItem('pending_observations', JSON.stringify({
                       recording_id: recoveryData.recordingId,
-                      session_id: urlSessionId,
+                      session_id: effectiveSessionId,
                       observations: accumulatedObsRef.current,
                       transcript: '',
                       source: 'voice',
@@ -1044,7 +1058,7 @@ export default function CapturePage() {
             </div>
             <LongAudioDropzone
               teamId={activeTeam?.id ?? ''}
-              sessionId={urlSessionId}
+              sessionId={effectiveSessionId}
               initialFile={longSessionFile}
               onCancel={() => setLongSessionFile(null)}
             />
@@ -1112,7 +1126,7 @@ export default function CapturePage() {
             <QuickTemplates
               teamId={activeTeam.id}
               coachId={coach.id}
-              sessionId={urlSessionId}
+              sessionId={effectiveSessionId}
               preselectPlayerId={urlPlayerId}
               sportId={(activeTeam as any).sport_slug || undefined}
             />
