@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -75,6 +75,44 @@ export default function ReviewPage() {
   const [aiUpgrade, setAiUpgrade] = useState<{ message: string } | null>(null);
   const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Fetch session coverage after save to show "who's next" chips
+  const { data: sessionObservedIds } = useQuery({
+    queryKey: ['review-session-coverage', sessionId],
+    queryFn: async () => {
+      if (!sessionId) return null;
+      const obs = await query<{ player_id: string | null }[]>({
+        table: 'observations',
+        select: 'player_id',
+        filters: { session_id: sessionId },
+      });
+      if (!obs) return new Set<string>();
+      return new Set(obs.filter((o) => o.player_id).map((o) => o.player_id as string));
+    },
+    enabled: !!sessionId && savedCount !== null,
+    staleTime: 0,
+  });
+
+  const { data: rosterPlayers } = useQuery({
+    queryKey: ['review-roster', activeTeam?.id],
+    queryFn: async () => {
+      if (!activeTeam) return [];
+      const players = await query<{ id: string; name: string; jersey_number: number | null }[]>({
+        table: 'players',
+        select: 'id, name, jersey_number',
+        filters: { team_id: activeTeam.id, is_active: true },
+        order: { column: 'name', ascending: true },
+      });
+      return players ?? [];
+    },
+    enabled: !!activeTeam && !!sessionId && savedCount !== null,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const unobservedPlayers = useMemo(() => {
+    if (!sessionObservedIds || !rosterPlayers) return [];
+    return rosterPlayers.filter((p) => !sessionObservedIds.has(p.id)).slice(0, 4);
+  }, [sessionObservedIds, rosterPlayers]);
 
   const isApiKeyError = (msg: string): boolean => {
     const lower = msg.toLowerCase();
@@ -437,6 +475,39 @@ export default function ReviewPage() {
               </div>
             )}
 
+            {/* Next player to observe — shown during active sessions */}
+            {sessionId && unobservedPlayers.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                  Not yet observed this session
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {unobservedPlayers.map((p) => {
+                    const label = p.jersey_number != null
+                      ? `#${p.jersey_number} ${p.name.split(' ')[0]}`
+                      : p.name.split(' ')[0];
+                    return (
+                      <Link
+                        key={p.id}
+                        href={`/capture?sessionId=${sessionId}&playerId=${p.id}&player=${encodeURIComponent(p.name)}`}
+                      >
+                        <span className="inline-flex items-center rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-xs font-medium text-orange-300 hover:bg-orange-500/20 transition-colors touch-manipulation active:scale-95">
+                          {label} →
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {sessionId && unobservedPlayers.length === 0 && rosterPlayers && rosterPlayers.length > 0 && (
+              <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                <span>Every player observed this session — great coverage!</span>
+              </div>
+            )}
+
             {/* CTAs */}
             <div className="flex flex-col gap-2.5 pt-1">
               {sessionId ? (
@@ -451,7 +522,7 @@ export default function ReviewPage() {
                   <Button
                     variant="outline"
                     className="w-full"
-                    onClick={() => router.push('/capture')}
+                    onClick={() => router.push(`/capture?sessionId=${sessionId}`)}
                   >
                     <Mic className="h-4 w-4" />
                     Capture More
