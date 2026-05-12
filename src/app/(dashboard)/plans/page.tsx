@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
@@ -384,6 +384,7 @@ function HuddleScriptRenderer({ data }: { data: HuddleScriptData }) {
 export default function PlansPage() {
   const { activeTeam, coach } = useActiveTeam();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { canAccess } = useTier();
   const canUseGameDayPrep = canAccess('tendencies');
   const qc = useQueryClient();
@@ -448,6 +449,14 @@ export default function PlansPage() {
   // Run Practice modal state
   const [showRunModal, setShowRunModal] = useState(false);
   const [creatingSession, setCreatingSession] = useState(false);
+
+  // Pre-fill prompt from ?drill= URL param (set by drill detail page CTA)
+  useEffect(() => {
+    const drillName = searchParams.get('drill');
+    if (drillName) {
+      setPrompt(`Create a practice plan featuring ${drillName}`);
+    }
+  }, [searchParams]);
 
   const { data: plans, isLoading, refetch: refetchPlans } = useQuery({
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
