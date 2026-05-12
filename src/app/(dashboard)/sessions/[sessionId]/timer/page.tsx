@@ -911,6 +911,7 @@ export default function PracticeTimerPage({
   const { sessionId } = use(params);
   const searchParams = useSearchParams();
   const planId = searchParams.get('planId');
+  const sessionIndexParam = searchParams.get('sessionIndex'); // 1-indexed session within a practice_arc
   const templateIdParam = searchParams.get('templateId');
   const { activeTeam, coach } = useActiveTeam();
 
@@ -964,6 +965,14 @@ export default function PracticeTimerPage({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [loadedPlanTitle, setLoadedPlanTitle] = useState<string | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
+  // Arc context — set when loading a practice_arc session so we can advance arc progress on save
+  const [arcContext, setArcContext] = useState<{
+    planId: string;
+    arcTitle: string;
+    sessionIndex: number;
+    totalSessions: number;
+    nextSessionTitle: string;
+  } | null>(null);
   const [showSwapSheet, setShowSwapSheet] = useState(false);
 
   // Setup state
@@ -1142,7 +1151,14 @@ export default function PracticeTimerPage({
     })
       .then((plan) => {
         if (!plan?.content_structured) return;
-        const s = plan.content_structured as any;
+        const structured = plan.content_structured as any;
+
+        // For practice_arc plans, index into the requested session (1-indexed)
+        const arcSession = (plan.type === 'practice_arc' && sessionIndexParam)
+          ? structured.sessions?.[parseInt(sessionIndexParam) - 1]
+          : null;
+        const s = arcSession ?? structured;
+
         const items: QueueItem[] = [];
 
         if (s.warmup?.name) {
@@ -1187,13 +1203,34 @@ export default function PracticeTimerPage({
 
         if (items.length > 0) {
           setQueue(items);
-          setLoadedPlanTitle(plan.title || 'Practice Plan');
+          // For arc sessions, show "Session N of M — Arc Title" as the loaded label
+          if (arcSession && sessionIndexParam) {
+            const totalSessions = structured.sessions?.length ?? 0;
+            const sessionTitle = arcSession.title ? ` — ${arcSession.title}` : '';
+            setLoadedPlanTitle(
+              `Session ${sessionIndexParam} of ${totalSessions}${sessionTitle}`
+            );
+            // Store arc context so we can advance progress after saving
+            const nextIdx = parseInt(sessionIndexParam) + 1;
+            const nextArcSession = nextIdx <= totalSessions
+              ? structured.sessions?.[nextIdx - 1]
+              : null;
+            setArcContext({
+              planId: plan.id,
+              arcTitle: structured.arc_title || plan.title || 'Practice Series',
+              sessionIndex: parseInt(sessionIndexParam),
+              totalSessions,
+              nextSessionTitle: nextArcSession?.title ?? '',
+            });
+          } else {
+            setLoadedPlanTitle(plan.title || 'Practice Plan');
+          }
         }
       })
       .catch(() => {/* silently ignore */})
       .finally(() => setPlanLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planId]);
+  }, [planId, sessionIndexParam]);
 
   // ── Auto-load template from templateId URL param (from FirstPracticeLauncher) ──
   useEffect(() => {
@@ -1411,6 +1448,23 @@ export default function PracticeTimerPage({
         try {
           localStorage.setItem(`last-practice-queue-${activeTeam.id}`, JSON.stringify(queue));
         } catch { /* ignore */ }
+      }
+      // Advance arc progress so ContinueArcCard shows the next session on the home dashboard
+      if (activeTeam && arcContext && arcContext.sessionIndex < arcContext.totalSessions) {
+        try {
+          const nextSession = arcContext.sessionIndex + 1;
+          localStorage.setItem(`arc-progress-${activeTeam.id}`, JSON.stringify({
+            planId: arcContext.planId,
+            arcTitle: arcContext.arcTitle,
+            nextSession,
+            totalSessions: arcContext.totalSessions,
+            nextSessionTitle: arcContext.nextSessionTitle,
+            savedAt: new Date().toISOString(),
+          }));
+        } catch { /* ignore */ }
+      } else if (activeTeam && arcContext) {
+        // All arc sessions complete — clear progress
+        try { localStorage.removeItem(`arc-progress-${activeTeam.id}`); } catch { /* ignore */ }
       }
       // Clear persisted data — observations are now in the DB
       try {
