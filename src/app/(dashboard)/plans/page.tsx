@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
@@ -384,6 +384,7 @@ function HuddleScriptRenderer({ data }: { data: HuddleScriptData }) {
 export default function PlansPage() {
   const { activeTeam, coach } = useActiveTeam();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { canAccess } = useTier();
   const canUseGameDayPrep = canAccess('tendencies');
   const qc = useQueryClient();
@@ -451,6 +452,10 @@ export default function PlansPage() {
   // When running a specific arc session, this holds its 0-based index.
   const [arcSessionForRun, setArcSessionForRun] = useState<number | null>(null);
 
+  // Auto-open the session picker when the coach taps "Load Session N in Timer"
+  // on the ContinueArcCard home dashboard card (deep-link: ?arcPlanId=&arcSession=).
+  const autoRunTriggeredRef = useRef(false);
+
   const { data: plans, isLoading, refetch: refetchPlans } = useQuery({
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
     queryFn: async () => {
@@ -500,6 +505,23 @@ export default function PlansPage() {
     if (!planTypeFilter) return plans;
     return plans.filter((p) => p.type === planTypeFilter);
   }, [plans, planTypeFilter]);
+
+  // When arriving via ?arcPlanId=&arcSession= (from ContinueArcCard), auto-select
+  // the plan and open the session picker so the coach can run the next arc session
+  // in 1 tap from the home dashboard instead of finding the plan manually.
+  useEffect(() => {
+    if (autoRunTriggeredRef.current || !plans?.length) return;
+    const arcPlanId = searchParams.get('arcPlanId');
+    const arcSessionParam = searchParams.get('arcSession');
+    if (!arcPlanId || arcSessionParam === null) return;
+    const plan = plans.find((p) => p.id === arcPlanId);
+    if (!plan) return;
+    autoRunTriggeredRef.current = true;
+    const sessionIdx = parseInt(arcSessionParam, 10);
+    setSelectedPlan(plan);
+    setArcSessionForRun(isNaN(sessionIdx) ? null : sessionIdx);
+    setShowRunModal(true);
+  }, [plans, searchParams]);
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const { data: todaySessions = [] } = useQuery({
