@@ -927,6 +927,31 @@ export default function PlansPage() {
     }
   }
 
+  async function handleRunArcSession(planId: string, arcSessionIdx: number) {
+    if (!activeTeam || !coach) return;
+    setCreatingSession(true);
+    try {
+      const newSession = await mutate({
+        table: 'sessions',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          type: 'practice',
+          date: new Date().toISOString().slice(0, 10),
+        },
+      });
+      const sessionId = (newSession as any)?.[0]?.id || (newSession as any)?.id;
+      if (sessionId) {
+        router.push(`/sessions/${sessionId}/timer?planId=${planId}&arcSession=${arcSessionIdx}`);
+      }
+    } catch {
+      // ignore — user can try again
+    } finally {
+      setCreatingSession(false);
+    }
+  }
+
   function renderObjectFields(obj: any) {
     if (!obj || typeof obj !== 'object') return String(obj ?? '');
     return (
@@ -1072,6 +1097,22 @@ export default function PlansPage() {
                       <p className="text-xs text-zinc-500 italic">Next: {session.carries_forward}</p>
                     </div>
                   )}
+
+                  {/* Run this session in the timer */}
+                  <div className="pl-8 pt-1">
+                    <button
+                      onClick={() => handleRunArcSession(plan.id, idx)}
+                      disabled={creatingSession}
+                      className={`inline-flex items-center gap-1.5 rounded-xl border border-${accent}-500/30 bg-${accent}-500/10 px-3 py-1.5 text-xs font-semibold text-${accent}-300 hover:bg-${accent}-500/20 transition-colors touch-manipulation active:scale-[0.97] disabled:opacity-50`}
+                    >
+                      {creatingSession ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Timer className="h-3.5 w-3.5" />
+                      )}
+                      Run Session {n} in Timer
+                    </button>
+                  </div>
                 </div>
               );
             })}

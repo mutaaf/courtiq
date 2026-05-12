@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { ChevronRight, Zap, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Timer, X, Loader2 } from 'lucide-react';
+import { useActiveTeam } from '@/hooks/use-active-team';
+import { mutate } from '@/lib/api';
 
 interface ArcProgress {
   planId: string;
@@ -14,9 +16,12 @@ interface ArcProgress {
 }
 
 export function ContinueArcCard({ teamId }: { teamId: string }) {
+  const router = useRouter();
+  const { coach } = useActiveTeam();
   const [arc, setArc] = useState<ArcProgress | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -41,11 +46,39 @@ export function ContinueArcCard({ teamId }: { teamId: string }) {
     try { localStorage.removeItem(`arc-progress-${teamId}`); } catch { /* ignore */ }
   };
 
+  // 0-indexed: nextSession is 1-indexed in display, so arcSessionIdx = nextSession - 1
+  const arcSessionIdx = arc.nextSession - 1;
+
+  async function handleRunSession() {
+    if (!coach || !arc || loading) return;
+    setLoading(true);
+    try {
+      const newSession = await mutate({
+        table: 'sessions',
+        operation: 'insert',
+        data: {
+          team_id: teamId,
+          coach_id: coach.id,
+          type: 'practice',
+          date: new Date().toISOString().slice(0, 10),
+        },
+      });
+      const sessionId = (newSession as any)?.[0]?.id || (newSession as any)?.id;
+      if (sessionId) {
+        router.push(
+          `/sessions/${sessionId}/timer?planId=${arc.planId}&arcSession=${arcSessionIdx}`
+        );
+      }
+    } catch {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-sky-500/25 bg-sky-500/5 p-4">
       <div className="flex items-start gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-500/15">
-          <Zap className="h-4 w-4 text-sky-400" />
+          <Timer className="h-4 w-4 text-sky-400" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-500 mb-0.5">
@@ -53,18 +86,23 @@ export function ContinueArcCard({ teamId }: { teamId: string }) {
           </p>
           <p className="text-sm font-semibold text-zinc-100 leading-snug">{arc.arcTitle}</p>
           <p className="mt-0.5 text-xs text-zinc-400">
-            Session {arc.nextSession} of {arc.totalSessions} — load before next practice
+            Session {arc.nextSession} of {arc.totalSessions} — ready to run
           </p>
           {arc.nextSessionTitle && (
             <p className="mt-0.5 text-xs text-zinc-500 italic truncate">{arc.nextSessionTitle}</p>
           )}
-          <Link
-            href="/plans"
-            className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-sky-500/25 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-300 hover:bg-sky-500/25 transition-colors touch-manipulation active:scale-[0.97]"
+          <button
+            onClick={handleRunSession}
+            disabled={loading}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-sky-500/25 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-300 hover:bg-sky-500/25 transition-colors touch-manipulation active:scale-[0.97] disabled:opacity-50"
           >
-            Load Session {arc.nextSession} in Timer
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Link>
+            {loading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Timer className="h-3.5 w-3.5" />
+            )}
+            {loading ? 'Starting…' : `Start Session ${arc.nextSession} in Timer`}
+          </button>
         </div>
         <button
           onClick={handleDismiss}

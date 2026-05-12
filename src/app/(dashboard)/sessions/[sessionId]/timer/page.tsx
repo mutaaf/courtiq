@@ -912,6 +912,8 @@ export default function PracticeTimerPage({
   const searchParams = useSearchParams();
   const planId = searchParams.get('planId');
   const templateIdParam = searchParams.get('templateId');
+  const arcSessionParam = searchParams.get('arcSession');
+  const arcSessionIdx = arcSessionParam !== null ? parseInt(arcSessionParam, 10) : null;
   const { activeTeam, coach } = useActiveTeam();
 
   // ── Persistence keys ─────────────────────────────────────────────────────
@@ -963,6 +965,8 @@ export default function PracticeTimerPage({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [loadedPlanTitle, setLoadedPlanTitle] = useState<string | null>(null);
+  const [arcTotalSessions, setArcTotalSessions] = useState<number>(0);
+  const [arcSessionTitles, setArcSessionTitles] = useState<string[]>([]);
   const [planLoading, setPlanLoading] = useState(false);
   const [showSwapSheet, setShowSwapSheet] = useState(false);
 
@@ -1145,17 +1149,24 @@ export default function PracticeTimerPage({
         const s = plan.content_structured as any;
         const items: QueueItem[] = [];
 
-        if (s.warmup?.name) {
+        // For practice arc plans, load a specific session's drills via ?arcSession=N
+        const isArc = Array.isArray(s.sessions) && s.sessions.length >= 2;
+        const sessionSrc =
+          isArc && arcSessionIdx !== null && s.sessions[arcSessionIdx]
+            ? s.sessions[arcSessionIdx]
+            : s;
+
+        if (sessionSrc.warmup?.name) {
           items.push({
             id: `warmup-${Date.now()}`,
-            name: s.warmup.name,
-            durationSecs: Math.max(60, (s.warmup.duration_minutes ?? 5) * 60),
+            name: sessionSrc.warmup.name,
+            durationSecs: Math.max(60, (sessionSrc.warmup.duration_minutes ?? 5) * 60),
             cues: [],
-            description: s.warmup.description || '',
+            description: sessionSrc.warmup.description || '',
           });
         }
 
-        (s.drills || []).forEach((d: any, i: number) => {
+        (sessionSrc.drills || []).forEach((d: any, i: number) => {
           items.push({
             id: `plan-drill-${i}-${Date.now()}`,
             name: d.name,
@@ -1165,29 +1176,41 @@ export default function PracticeTimerPage({
           });
         });
 
-        if (s.scrimmage?.duration_minutes) {
+        if (sessionSrc.scrimmage?.duration_minutes) {
           items.push({
             id: `scrimmage-${Date.now()}`,
-            name: s.scrimmage.focus ? `Scrimmage: ${s.scrimmage.focus}` : 'Scrimmage',
-            durationSecs: Math.max(60, s.scrimmage.duration_minutes * 60),
+            name: sessionSrc.scrimmage.focus ? `Scrimmage: ${sessionSrc.scrimmage.focus}` : 'Scrimmage',
+            durationSecs: Math.max(60, sessionSrc.scrimmage.duration_minutes * 60),
             cues: [],
             description: '',
           });
         }
 
-        if (s.cooldown?.duration_minutes) {
+        if (sessionSrc.cooldown?.duration_minutes) {
           items.push({
             id: `cooldown-${Date.now()}`,
             name: 'Cool Down',
-            durationSecs: Math.max(60, s.cooldown.duration_minutes * 60),
+            durationSecs: Math.max(60, sessionSrc.cooldown.duration_minutes * 60),
             cues: [],
-            description: s.cooldown.notes || '',
+            description: sessionSrc.cooldown.notes || '',
           });
         }
 
         if (items.length > 0) {
           setQueue(items);
-          setLoadedPlanTitle(plan.title || 'Practice Plan');
+          // For arc plans, label with session number
+          const arcTitle = isArc && arcSessionIdx !== null
+            ? `${s.arc_title || plan.title || 'Practice Series'} — Session ${arcSessionIdx + 1}`
+            : plan.title || 'Practice Plan';
+          setLoadedPlanTitle(arcTitle);
+        }
+
+        // Store arc metadata so we can write progress after save
+        if (isArc) {
+          setArcTotalSessions(s.sessions.length);
+          setArcSessionTitles(
+            s.sessions.map((sess: any, idx: number) => sess.title || `Session ${sess.session_number ?? idx + 1}`)
+          );
         }
       })
       .catch(() => {/* silently ignore */})
@@ -1410,6 +1433,28 @@ export default function PracticeTimerPage({
       if (activeTeam && queue.length > 0) {
         try {
           localStorage.setItem(`last-practice-queue-${activeTeam.id}`, JSON.stringify(queue));
+        } catch { /* ignore */ }
+      }
+      // Write arc progress so ContinueArcCard prompts the next session
+      if (arcSessionIdx !== null && planId && activeTeam && arcTotalSessions > 0) {
+        try {
+          const nextIdx = arcSessionIdx + 1;
+          if (nextIdx < arcTotalSessions) {
+            localStorage.setItem(
+              `arc-progress-${activeTeam.id}`,
+              JSON.stringify({
+                planId,
+                arcTitle: loadedPlanTitle?.replace(/ — Session \d+$/, '') || 'Practice Series',
+                nextSession: nextIdx + 1, // 1-indexed for display
+                totalSessions: arcTotalSessions,
+                nextSessionTitle: arcSessionTitles[nextIdx] || `Session ${nextIdx + 1}`,
+                savedAt: new Date().toISOString(),
+              })
+            );
+          } else {
+            // All sessions completed — clear the progress card
+            localStorage.removeItem(`arc-progress-${activeTeam.id}`);
+          }
         } catch { /* ignore */ }
       }
       // Clear persisted data — observations are now in the DB
