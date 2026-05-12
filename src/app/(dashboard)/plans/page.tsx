@@ -448,6 +448,8 @@ export default function PlansPage() {
   // Run Practice modal state
   const [showRunModal, setShowRunModal] = useState(false);
   const [creatingSession, setCreatingSession] = useState(false);
+  // When running a specific arc session, this holds its 0-based index.
+  const [arcSessionForRun, setArcSessionForRun] = useState<number | null>(null);
 
   const { data: plans, isLoading, refetch: refetchPlans } = useQuery({
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
@@ -896,9 +898,14 @@ export default function PlansPage() {
     });
   }
 
+  function arcParam(): string {
+    return arcSessionForRun !== null ? `&arcSession=${arcSessionForRun}` : '';
+  }
+
   async function handleRunWithSession(sessionId: string, planId: string) {
-    router.push(`/sessions/${sessionId}/timer?planId=${planId}`);
+    router.push(`/sessions/${sessionId}/timer?planId=${planId}${arcParam()}`);
     setShowRunModal(false);
+    setArcSessionForRun(null);
   }
 
   async function handleCreateAndRun(planId: string) {
@@ -917,8 +924,9 @@ export default function PlansPage() {
       });
       const sessionId = (newSession as any)?.[0]?.id || (newSession as any)?.id;
       if (sessionId) {
-        router.push(`/sessions/${sessionId}/timer?planId=${planId}`);
+        router.push(`/sessions/${sessionId}/timer?planId=${planId}${arcParam()}`);
         setShowRunModal(false);
+        setArcSessionForRun(null);
       }
     } catch {
       // ignore — user can try again
@@ -1072,6 +1080,20 @@ export default function PlansPage() {
                       <p className="text-xs text-zinc-500 italic">Next: {session.carries_forward}</p>
                     </div>
                   )}
+
+                  {/* Run this session in the Practice Timer */}
+                  <div className="pl-8 pt-1">
+                    <button
+                      onClick={() => {
+                        setArcSessionForRun(idx);
+                        setShowRunModal(true);
+                      }}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border border-${accent}-500/30 bg-${accent}-500/10 px-3 py-1.5 text-xs font-semibold text-${accent}-300 hover:bg-${accent}-500/20 active:scale-[0.97] touch-manipulation transition-all`}
+                    >
+                      <Play className="h-3 w-3" />
+                      Run Session {n} in Timer
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -2858,7 +2880,7 @@ export default function PlansPage() {
         {showRunModal && (
           <div
             className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-            onClick={(e) => { if (e.target === e.currentTarget) setShowRunModal(false); }}
+            onClick={(e) => { if (e.target === e.currentTarget) { setShowRunModal(false); setArcSessionForRun(null); } }}
             role="dialog"
             aria-modal="true"
             aria-label="Select session to run practice"
@@ -2867,10 +2889,14 @@ export default function PlansPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Timer className="h-5 w-5 text-orange-500" />
-                  <h2 className="text-lg font-bold">Run Practice</h2>
+                  <h2 className="text-lg font-bold">
+                    {arcSessionForRun !== null
+                      ? `Run Session ${arcSessionForRun + 1}`
+                      : 'Run Practice'}
+                  </h2>
                 </div>
                 <button
-                  onClick={() => setShowRunModal(false)}
+                  onClick={() => { setShowRunModal(false); setArcSessionForRun(null); }}
                   aria-label="Close modal"
                   className="text-zinc-500 hover:text-zinc-300 transition-colors"
                 >
@@ -2878,7 +2904,9 @@ export default function PlansPage() {
                 </button>
               </div>
               <p className="text-sm text-zinc-400">
-                Choose a session to run this plan&apos;s drills as a timed practice.
+                {arcSessionForRun !== null
+                  ? `Choose a practice session to load Session ${arcSessionForRun + 1}'s drills into the timer.`
+                  : `Choose a session to run this plan's drills as a timed practice.`}
               </p>
 
               {todaySessions.length > 0 && (
