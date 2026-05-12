@@ -318,66 +318,6 @@ export function reEngagementEmail(args: { coachName: string; daysQuiet: number }
   return { subject, html };
 }
 
-// ── 10. Announcement alert (sent to parents when coach posts an announcement) ──
-
-export function announcementAlertEmail(args: {
-  parentName: string | null;
-  playerName: string;
-  coachName: string;
-  teamName: string;
-  title: string;
-  body: string;
-  shareUrl: string;
-}): BuiltEmail {
-  const coachFirst = args.coachName.split(' ')[0];
-  const parentFirst = args.parentName ? args.parentName.split(' ')[0] : null;
-  const subject = `📢 ${args.title} — ${args.teamName}`;
-  const html = renderEmail({
-    transactional: true,
-    preview: `${args.title} — ${args.teamName}`,
-    body: [
-      paragraph(`Hi ${parentFirst ?? 'there'},`),
-      heroSection(`Coach ${coachFirst}: ${args.title}`, args.body),
-      paragraph(`View ${args.playerName}'s progress report for the latest updates.`),
-      ctaButton('View progress report', args.shareUrl),
-      divider(),
-      fineprint(`Sent by ${args.coachName} · ${args.teamName}`),
-    ].join(''),
-  });
-  return { subject, html };
-}
-
-// ── 11. Weekly Star parent email (sent when a player is named Player of the Week) ──
-
-export function weeklyStarParentEmail(args: {
-  playerName: string;
-  coachName: string;
-  teamName: string;
-  weekLabel: string;
-  headline: string;
-  achievement: string;
-  shareUrl: string | null;
-}): BuiltEmail {
-  const coachFirst = args.coachName.split(' ')[0];
-  const subject = `⭐ ${args.playerName} is Player of the Week — ${args.teamName}`;
-  const html = renderEmail({
-    transactional: true,
-    preview: `${args.playerName} is Player of the Week · ${args.weekLabel}`,
-    body: [
-      heroSection(
-        `⭐ Player of the Week: ${args.playerName}`,
-        `${args.weekLabel} · ${args.teamName}`,
-      ),
-      paragraph(args.headline),
-      paragraph(args.achievement),
-      args.shareUrl ? ctaButton(`See ${args.playerName}'s full profile`, args.shareUrl) : '',
-      divider(),
-      fineprint(`Coach ${coachFirst} · ${args.coachName} · ${args.teamName}`),
-    ].join(''),
-  });
-  return { subject, html };
-}
-
 // ── helpers ────────────────────────────────────────────────────────────────
 
 function escapeQuotes(s: string): string {

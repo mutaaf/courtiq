@@ -46,13 +46,11 @@ import { WeeklyFocusCard } from '@/components/home/weekly-focus-card';
 import { FreemiumNudge } from '@/components/ui/freemium-nudge';
 import { SeasonalPromo } from '@/components/onboarding/seasonal-promo';
 import { PlayerBreakthroughCard } from '@/components/home/player-breakthrough-card';
-import { PlayerOnARollCard } from '@/components/home/player-on-a-roll-card';
 import { StrugglingPlayerCard } from '@/components/home/struggling-player-card';
 import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot-card';
 import { ContinueArcCard } from '@/components/home/continue-arc-card';
-import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
 
-// ─── Shared reminder helpers ────────────────────────────────────────────
+// ─── Shared reminder helpers ──────────────────────────────────────────────────
 
 const SESSION_REMINDER_EMOJI: Record<string, string> = {
   practice: '🏃',
@@ -103,7 +101,7 @@ async function shareReminder(msg: string, onSuccess: () => void) {
   }
 }
 
-// ─── Today's Session Card ────────────────────────────────────────────
+// ─── Today's Session Card ────────────────────────────────────────────────────
 
 function TodaySessionCard({
   session,
@@ -216,7 +214,7 @@ function TodaySessionCard({
   );
 }
 
-// ─── Upcoming Sessions Card ──────────────────────────────────────────────
+// ─── Upcoming Sessions Card ─────────────────────────────────────────────────
 
 function UpcomingSessionsCard({
   sessions,
@@ -325,7 +323,7 @@ function UpcomingSessionsCard({
   );
 }
 
-// ─── Last Session Card ──────────────────────────────────────────────────
+// ─── Last Session Card ─────────────────────────────────────────────────────────
 
 const SESSION_EMOJI: Record<string, string> = {
   practice: '🏃',
@@ -397,7 +395,7 @@ function LastSessionCard({ session }: {
   );
 }
 
-// ─── Page ──────────────────────────────────────────────────────────────────────────────
+// ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const { activeTeam, coach, aiPlatformAvailable } = useActiveTeam();
@@ -560,18 +558,18 @@ export default function HomePage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Roster for availability warnings + practice coverage
+  // Roster for availability warnings
   const { data: rosterPlayers = [] } = useQuery({
     queryKey: ['home-roster', activeTeam?.id],
     queryFn: async () => {
       if (!activeTeam) return [];
-      return query<{ id: string; name: string; jersey_number: number | null }[]>({
+      return query<{ id: string; name: string }[]>({
         table: 'players',
-        select: 'id, name, jersey_number',
+        select: 'id, name',
         filters: { team_id: activeTeam.id, is_active: true },
       });
     },
-    enabled: !!activeTeam && (todaySessions.length > 0 || practiceActive),
+    enabled: !!activeTeam && todaySessions.length > 0,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -641,7 +639,7 @@ export default function HomePage() {
     };
   }, [recentPracticePlan]);
 
-  // Live observation count + coverage for the active practice session
+  // Live observation count for the active practice session
   const { data: sessionObsStats } = useQuery({
     queryKey: ['session-obs-count', practiceSessionId],
     queryFn: async () => {
@@ -652,26 +650,15 @@ export default function HomePage() {
         filters: { session_id: practiceSessionId },
       });
       if (!obs) return null;
-      const observedSet = new Set(obs.filter((o) => o.player_id).map((o) => o.player_id as string));
-      return {
-        count: obs.length,
-        players: observedSet.size,
-        observedPlayerIds: [...observedSet],
-      };
+      const players = new Set(obs.filter((o) => o.player_id).map((o) => o.player_id)).size;
+      return { count: obs.length, players };
     },
     enabled: !!practiceSessionId && practiceActive,
     refetchInterval: 30_000,
     staleTime: 20_000,
   });
 
-  // Which players haven't been observed yet in the active practice session
-  const unobservedDuringPractice = useMemo(() => {
-    if (!practiceActive || !rosterPlayers.length) return [];
-    const observed = new Set(sessionObsStats?.observedPlayerIds ?? []);
-    return rosterPlayers.filter((p) => !observed.has(p.id));
-  }, [practiceActive, rosterPlayers, sessionObsStats]);
-
-  // ── No team state ────────────────────────────────────────────────────────────────────
+  // ── No team state ─────────────────────────────────────────────────────────
   if (!activeTeam) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center min-h-[60vh]">
@@ -693,7 +680,7 @@ export default function HomePage() {
     );
   }
 
-  // ── Main dashboard ────────────────────────────────────────────────────────────────────
+  // ── Main dashboard ────────────────────────────────────────────────────────
   return (
     <>
     <div className="p-4 lg:p-8 space-y-6 pb-8">
@@ -801,37 +788,6 @@ export default function HomePage() {
               </Link>
             )}
           </div>
-
-          {/* Mid-practice coverage row — who still needs an observation? */}
-          {practiceSessionId && rosterPlayers.length > 0 && (
-            unobservedDuringPractice.length === 0 ? (
-              <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
-                <span aria-hidden="true">✓</span>
-                <span>All {rosterPlayers.length} players observed this session</span>
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-                  Not yet observed ({unobservedDuringPractice.length}/{rosterPlayers.length})
-                </p>
-                <div className="flex gap-2 flex-wrap">
-                  {unobservedDuringPractice.map((p) => {
-                    const label = p.jersey_number != null ? `#${p.jersey_number} ${p.name.split(' ')[0]}` : p.name.split(' ')[0];
-                    const href = practiceSessionId
-                      ? `/capture?sessionId=${practiceSessionId}&playerId=${p.id}&player=${encodeURIComponent(p.name)}`
-                      : `/capture?playerId=${p.id}&player=${encodeURIComponent(p.name)}`;
-                    return (
-                      <Link key={p.id} href={href}>
-                        <span className="inline-flex items-center rounded-full border border-orange-500/30 bg-orange-500/10 px-2.5 py-1 text-xs font-medium text-orange-300 hover:bg-orange-500/20 transition-colors touch-manipulation active:scale-95">
-                          {label}
-                        </span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            )
-          )}
         </div>
       ) : todaySessions.length > 0 ? (
         <TodaySessionCard
@@ -1041,11 +997,6 @@ export default function HomePage() {
         />
       )}
 
-      {/* Player on a Roll — celebrates the player with the longest positive session streak */}
-      {activeTeam && stats && stats.observations >= 5 && (
-        <PlayerOnARollCard teamId={activeTeam.id} />
-      )}
-
       {/* Struggling Player Alert — flags players with repeated needs-work in a skill */}
       {activeTeam && stats && stats.observations >= 5 && (
         <StrugglingPlayerCard teamId={activeTeam.id} />
@@ -1053,16 +1004,6 @@ export default function HomePage() {
 
       {/* Parent Reactions — love notes from parents */}
       {activeTeam && <ParentReactionsCard teamId={activeTeam.id} />}
-
-      {/* Weekly Parent Wrap — one-tap pre-written group chat update summarising the week */}
-      {activeTeam && coach && stats && stats.observations >= 5 && (
-        <WeeklyWrapCard
-          teamId={activeTeam.id}
-          teamName={activeTeam.name}
-          coachName={coach.full_name ?? ''}
-          totalPlayerCount={stats.players}
-        />
-      )}
 
       {/* Upcoming sessions this week */}
       {upcomingSessions.length > 0 && (

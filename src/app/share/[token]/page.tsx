@@ -1,4 +1,3 @@
-import type { Metadata } from 'next';
 import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { ParentViralCTA } from '@/components/share/parent-viral-cta';
 import { ParentReactionForm } from '@/components/share/parent-reaction-form';
@@ -226,7 +225,7 @@ const PROFICIENCY_LEVELS: Record<string, ProficiencyLevel> = {
   },
   got_it: {
     label: 'Got It!',
-    emoji: '⭐',
+    emoji: '\u2B50',
     percent: 75,
     barColor: 'bg-emerald-400',
     bgColor: 'bg-emerald-50',
@@ -301,73 +300,6 @@ function ErrorPage({ isExpired, needsPin }: { isExpired: boolean; needsPin: bool
       </div>
     </div>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Social metadata — rich previews when parents share the link
-// ---------------------------------------------------------------------------
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ token: string }>;
-}): Promise<Metadata> {
-  const { token } = await params;
-  const data = await getShareData(token);
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://youthsportsiq.com';
-  const shareUrl = `${appUrl}/share/${token}`;
-  const ogImageUrl = `${appUrl}/share/${token}/opengraph-image`;
-
-  if (!data || data.error) {
-    return {
-      title: 'Player Progress Report — SportsIQ',
-      openGraph: {
-        title: 'Player Progress Report — SportsIQ',
-        description: 'Coaching intelligence for youth sports.',
-        url: shareUrl,
-        images: [{ url: `${appUrl}/opengraph-image`, width: 1200, height: 630 }],
-      },
-    };
-  }
-
-  const playerName: string = data.player?.nickname || data.player?.name || 'Your Player';
-  const firstName: string = playerName.split(' ')[0];
-  const teamName: string = data.team?.name || 'the team';
-  const obsCount: number = data.totalObservationCount ?? 0;
-  const skillArr: any[] = Array.isArray(data.skillProgress) ? data.skillProgress : [];
-  const improvingCount = skillArr.filter(
-    (s) => s.proficiency_level === 'got_it' || s.proficiency_level === 'game_ready'
-  ).length;
-
-  const statParts: string[] = [];
-  if (obsCount > 0) statParts.push(`${obsCount} coaching observation${obsCount !== 1 ? 's' : ''}`);
-  if (improvingCount > 0)
-    statParts.push(`${improvingCount} skill${improvingCount !== 1 ? 's' : ''} at game level`);
-
-  const title = `${playerName}'s Progress Report — SportsIQ`;
-  const description =
-    statParts.length > 0
-      ? `${statParts.join(' · ')} — see how ${firstName} is growing this season with ${teamName}.`
-      : `See ${playerName}'s coaching report from ${teamName} this season. Powered by SportsIQ.`;
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      type: 'website',
-      url: shareUrl,
-      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: `${playerName}'s SportsIQ Progress Report` }],
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-      images: [ogImageUrl],
-    },
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -507,7 +439,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
               <p className="text-sm text-gray-500">
                 {[player?.position, player?.jersey_number != null ? `#${player.jersey_number}` : null, season]
                   .filter(Boolean)
-                  .join(' · ')}
+                  .join(' \u00B7 ')}
               </p>
             </div>
           </div>
@@ -613,7 +545,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         {featuredHighlight && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-lg">✨</span>
+              <span className="text-lg">{'\u2728'}</span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 This Week&apos;s Highlight
               </h3>
@@ -717,7 +649,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         {sortedSkills.length >= 3 && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-1 flex items-center gap-2">
-              <span className="text-lg" aria-hidden="true">🗘️</span>
+              <span className="text-lg" aria-hidden="true">🕸️</span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Skills at a Glance
               </h3>
@@ -980,7 +912,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             <ul className="space-y-2">
               {celebrations.map((item, i) => (
                 <li key={i} className="flex items-start gap-2.5 text-sm text-gray-700">
-                  <span className="mt-0.5 shrink-0 text-emerald-500">✓</span>
+                  <span className="mt-0.5 shrink-0 text-emerald-500">{'\u2713'}</span>
                   {item}
                 </li>
               ))}
@@ -1052,7 +984,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
               </p>
             )}
             <p className="text-xs text-gray-400">
-              {teamName}{season ? ` · ${season}` : ''}
+              {teamName}{season ? ` \u00B7 ${season}` : ''}
             </p>
           </div>
         )}

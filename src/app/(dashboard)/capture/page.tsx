@@ -31,22 +31,11 @@ export default function CapturePage() {
   // URL context params — read client-side to avoid Suspense requirement
   const [urlSessionId, setUrlSessionId] = useState<string | null>(null);
   const [urlPlayerId, setUrlPlayerId] = useState<string | null>(null);
-  const [urlPlayerName, setUrlPlayerName] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setUrlSessionId(params.get('sessionId'));
     setUrlPlayerId(params.get('playerId') || params.get('player'));
-    // `player` param carries the display name when coming from coverage grid
-    const playerParam = params.get('player');
-    if (playerParam && !playerParam.includes('-')) {
-      // heuristic: UUIDs contain hyphens; a plain name doesn't
-      setUrlPlayerName(playerParam);
-      // On mobile (<640px), auto-open the quick note so the coach can type immediately
-      if (typeof window !== 'undefined' && window.innerWidth < 640) {
-        setShowQuickNote(true);
-      }
-    }
   }, []);
 
   const [captureState, setCaptureState] = useState<CaptureState>('idle');
@@ -742,9 +731,7 @@ export default function CapturePage() {
           <div className="flex items-center gap-2.5 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3">
             <span className="text-blue-400 text-sm">📍</span>
             <p className="text-sm text-blue-300">
-              {urlPlayerName
-                ? <>Capturing for <span className="font-semibold text-blue-200">{urlPlayerName}</span> · linked to session</>
-                : 'Observations will be linked to your session'}
+              Observations will be linked to your session
             </p>
           </div>
         )}
@@ -805,14 +792,6 @@ export default function CapturePage() {
               <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs text-emerald-400">
                 <Check className="h-3.5 w-3.5" />
                 {segmentStatus}
-              </div>
-            )}
-
-            {/* Player focus chip during recording */}
-            {captureState === 'recording' && urlPlayerName && (
-              <div className="flex items-center gap-2 rounded-full bg-blue-500/15 border border-blue-500/25 px-3 py-1.5 text-xs font-medium text-blue-300">
-                <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
-                Capturing for {urlPlayerName}
               </div>
             )}
 
@@ -1083,14 +1062,7 @@ export default function CapturePage() {
               <Card>
                 <CardContent className="space-y-3 p-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-zinc-300">Quick Note</span>
-                      {urlPlayerName && (
-                        <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-medium text-blue-300">
-                          {urlPlayerName}
-                        </span>
-                      )}
-                    </div>
+                    <span className="text-sm font-medium text-zinc-300">Quick Note</span>
                     <button
                       type="button"
                       onClick={() => { setShowQuickNote(false); setQuickNote(''); }}
@@ -1101,7 +1073,7 @@ export default function CapturePage() {
                   </div>
                   <div className="flex gap-2">
                     <Input
-                      placeholder={urlPlayerName ? `What did ${urlPlayerName} do?` : 'e.g., Marcus showed great ball handling today...'}
+                      placeholder="e.g., Marcus showed great ball handling today..."
                       value={quickNote}
                       onChange={(e) => setQuickNote(e.target.value)}
                       onKeyDown={(e) => {

@@ -368,7 +368,7 @@ export default function AssistantPage() {
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voice = useVoiceInput();
 
-  // ── Context data for personalised quick-start suggestions ──────────────
+  // ── Context data for personalised quick-start suggestions ──────────────────
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const sevenDaysAgo = useMemo(
     () => new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10),
@@ -418,7 +418,7 @@ export default function AssistantPage() {
 
   const actionsToShow = dynamicActions ?? QUICK_ACTIONS;
   const isPersonalised = dynamicActions !== null;
-  // ── End context suggestions ───────────────────────────────────────────
+  // ── End context suggestions ─────────────────────────────────────────────────
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
