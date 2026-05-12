@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { ChevronRight, Zap, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ChevronRight, Loader2, Zap, X } from 'lucide-react';
+import { mutate } from '@/lib/api';
+import { useActiveTeam } from '@/hooks/use-active-team';
+import { useAppStore } from '@/lib/store';
 
 interface ArcProgress {
   planId: string;
@@ -14,9 +17,14 @@ interface ArcProgress {
 }
 
 export function ContinueArcCard({ teamId }: { teamId: string }) {
+  const router = useRouter();
+  const { activeTeam, coach } = useActiveTeam();
+  const { setPracticeActive, setPracticeSessionId, setPracticeStartedAt } = useAppStore();
+
   const [arc, setArc] = useState<ArcProgress | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -41,6 +49,36 @@ export function ContinueArcCard({ teamId }: { teamId: string }) {
     try { localStorage.removeItem(`arc-progress-${teamId}`); } catch { /* ignore */ }
   };
 
+  async function handleLoadInTimer() {
+    if (!arc || !activeTeam || !coach || isLoading) return;
+    setIsLoading(true);
+    try {
+      const session = await mutate<{ id: string }>({
+        table: 'sessions',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          type: 'practice',
+          date: new Date().toISOString().split('T')[0],
+          notes: 'Auto-created practice session',
+        },
+        select: 'id',
+      });
+      const id = Array.isArray(session) ? (session as any)[0]?.id : session?.id;
+      if (id) {
+        setPracticeActive(true);
+        setPracticeSessionId(id);
+        setPracticeStartedAt(new Date().toISOString());
+        // nextSession is 1-indexed; arcSession param is 0-indexed
+        router.push(`/sessions/${id}/timer?planId=${arc.planId}&arcSession=${arc.nextSession - 1}`);
+      }
+    } catch (err) {
+      console.warn('Failed to start arc session:', err);
+      setIsLoading(false);
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-sky-500/25 bg-sky-500/5 p-4">
       <div className="flex items-start gap-3">
@@ -58,13 +96,23 @@ export function ContinueArcCard({ teamId }: { teamId: string }) {
           {arc.nextSessionTitle && (
             <p className="mt-0.5 text-xs text-zinc-500 italic truncate">{arc.nextSessionTitle}</p>
           )}
-          <Link
-            href="/plans"
-            className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-sky-500/25 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-300 hover:bg-sky-500/25 transition-colors touch-manipulation active:scale-[0.97]"
+          <button
+            onClick={handleLoadInTimer}
+            disabled={isLoading}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-sky-500/25 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-300 hover:bg-sky-500/25 disabled:opacity-60 transition-colors touch-manipulation active:scale-[0.97]"
           >
-            Load Session {arc.nextSession} in Timer
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Link>
+            {isLoading ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Starting…
+              </>
+            ) : (
+              <>
+                Load Session {arc.nextSession} in Timer
+                <ChevronRight className="h-3.5 w-3.5" />
+              </>
+            )}
+          </button>
         </div>
         <button
           onClick={handleDismiss}
