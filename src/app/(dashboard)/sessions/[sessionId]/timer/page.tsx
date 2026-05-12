@@ -912,6 +912,7 @@ export default function PracticeTimerPage({
   const searchParams = useSearchParams();
   const planId = searchParams.get('planId');
   const templateIdParam = searchParams.get('templateId');
+  const arcSessionParam = searchParams.get('arcSession');
   const { activeTeam, coach } = useActiveTeam();
 
   // ── Persistence keys ─────────────────────────────────────────────────────
@@ -1142,7 +1143,17 @@ export default function PracticeTimerPage({
     })
       .then((plan) => {
         if (!plan?.content_structured) return;
-        const s = plan.content_structured as any;
+        const raw = plan.content_structured as any;
+
+        // If this is a practice arc, route to the requested session index
+        let s = raw;
+        if (arcSessionParam && Array.isArray(raw.sessions)) {
+          const idx = parseInt(arcSessionParam, 10) - 1;
+          if (idx >= 0 && idx < raw.sessions.length) {
+            s = raw.sessions[idx];
+          }
+        }
+
         const items: QueueItem[] = [];
 
         if (s.warmup?.name) {
@@ -1187,7 +1198,8 @@ export default function PracticeTimerPage({
 
         if (items.length > 0) {
           setQueue(items);
-          setLoadedPlanTitle(plan.title || 'Practice Plan');
+          const sessionLabel = arcSessionParam && s.title ? ` · Session ${arcSessionParam}: ${s.title}` : '';
+          setLoadedPlanTitle((plan.title || 'Practice Plan') + sessionLabel);
         }
       })
       .catch(() => {/* silently ignore */})

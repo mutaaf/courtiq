@@ -927,6 +927,50 @@ export default function PlansPage() {
     }
   }
 
+  async function handleRunArcSession(planId: string, sessionNum: number, arc: any) {
+    if (!activeTeam || !coach) return;
+    setCreatingSession(true);
+    try {
+      const newSession = await mutate({
+        table: 'sessions',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          type: 'practice',
+          date: new Date().toISOString().slice(0, 10),
+        },
+      });
+      const sessionId = (newSession as any)?.[0]?.id || (newSession as any)?.id;
+      if (!sessionId) return;
+
+      // Save arc progress so the home dashboard ContinueArcCard can surface it
+      const sessions: any[] = arc.sessions ?? [];
+      const nextSession = sessionNum < sessions.length ? sessionNum + 1 : null;
+      const progressKey = `arc-progress-${activeTeam.id}`;
+      if (nextSession) {
+        localStorage.setItem(progressKey, JSON.stringify({
+          planId,
+          arcTitle: arc.arc_title ?? 'Practice Series',
+          nextSession,
+          totalSessions: sessions.length,
+          nextSessionTitle: sessions[nextSession - 1]?.title ?? `Session ${nextSession}`,
+          sessionTitles: sessions.map((s: any) => s.title ?? ''),
+          savedAt: new Date().toISOString(),
+        }));
+      } else {
+        // Last session completed — clear the progress
+        localStorage.removeItem(progressKey);
+      }
+
+      router.push(`/sessions/${sessionId}/timer?planId=${planId}&arcSession=${sessionNum}`);
+    } catch {
+      // ignore — user can retry
+    } finally {
+      setCreatingSession(false);
+    }
+  }
+
   function renderObjectFields(obj: any) {
     if (!obj || typeof obj !== 'object') return String(obj ?? '');
     return (
@@ -1072,6 +1116,22 @@ export default function PlansPage() {
                       <p className="text-xs text-zinc-500 italic">Next: {session.carries_forward}</p>
                     </div>
                   )}
+
+                  {/* Run Session CTA */}
+                  <div className="pl-8 pt-1">
+                    <button
+                      onClick={() => handleRunArcSession(plan.id, n, arc)}
+                      disabled={creatingSession}
+                      className={`inline-flex items-center gap-1.5 rounded-xl border border-${accent}-500/30 bg-${accent}-500/10 px-3 py-1.5 text-xs font-semibold text-${accent}-300 hover:bg-${accent}-500/20 active:scale-[0.97] touch-manipulation transition-all disabled:opacity-50`}
+                    >
+                      {creatingSession ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Play className="h-3 w-3" />
+                      )}
+                      Run Session {n} in Timer
+                    </button>
+                  </div>
                 </div>
               );
             })}
