@@ -448,6 +448,8 @@ export default function PlansPage() {
   // Run Practice modal state
   const [showRunModal, setShowRunModal] = useState(false);
   const [creatingSession, setCreatingSession] = useState(false);
+  // arcSessionIdx: which session of a practice_arc to run (null = regular practice plan)
+  const [arcSessionIdx, setArcSessionIdx] = useState<number | null>(null);
 
   const { data: plans, isLoading, refetch: refetchPlans } = useQuery({
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
@@ -896,9 +898,40 @@ export default function PlansPage() {
     });
   }
 
+  function buildTimerUrl(sessionId: string, planId: string): string {
+    const url = `/sessions/${sessionId}/timer?planId=${planId}`;
+    return arcSessionIdx !== null ? `${url}&arcSession=${arcSessionIdx}` : url;
+  }
+
+  function saveArcProgress(planId: string) {
+    if (!activeTeam || arcSessionIdx === null || !selectedPlan) return;
+    const arc = selectedPlan.content_structured as any;
+    if (!Array.isArray(arc?.sessions)) return;
+    const total = arc.sessions.length;
+    const nextIdx = arcSessionIdx + 1;
+    if (nextIdx >= total) {
+      // Series complete — clear the card
+      try { localStorage.removeItem(`arc-progress-${activeTeam.id}`); } catch { /* ignore */ }
+      return;
+    }
+    const nextSession = arc.sessions[nextIdx];
+    try {
+      localStorage.setItem(`arc-progress-${activeTeam.id}`, JSON.stringify({
+        planId,
+        arcTitle: arc.arc_title || selectedPlan.title || 'Practice Series',
+        nextSession: nextIdx + 1,
+        totalSessions: total,
+        nextSessionTitle: nextSession?.title || `Session ${nextIdx + 1}`,
+        savedAt: new Date().toISOString(),
+      }));
+    } catch { /* ignore */ }
+  }
+
   async function handleRunWithSession(sessionId: string, planId: string) {
-    router.push(`/sessions/${sessionId}/timer?planId=${planId}`);
+    saveArcProgress(planId);
+    router.push(buildTimerUrl(sessionId, planId));
     setShowRunModal(false);
+    setArcSessionIdx(null);
   }
 
   async function handleCreateAndRun(planId: string) {
@@ -917,8 +950,10 @@ export default function PlansPage() {
       });
       const sessionId = (newSession as any)?.[0]?.id || (newSession as any)?.id;
       if (sessionId) {
-        router.push(`/sessions/${sessionId}/timer?planId=${planId}`);
+        saveArcProgress(planId);
+        router.push(buildTimerUrl(sessionId, planId));
         setShowRunModal(false);
+        setArcSessionIdx(null);
       }
     } catch {
       // ignore — user can try again
@@ -1072,6 +1107,17 @@ export default function PlansPage() {
                       <p className="text-xs text-zinc-500 italic">Next: {session.carries_forward}</p>
                     </div>
                   )}
+
+                  {/* Run Session button */}
+                  <div className="pl-8 pt-1">
+                    <button
+                      onClick={() => { setArcSessionIdx(idx); setShowRunModal(true); }}
+                      className={`inline-flex items-center gap-1.5 rounded-xl bg-${accent}-600 hover:bg-${accent}-500 active:scale-[0.97] touch-manipulation text-white text-xs font-semibold px-3 py-1.5 transition-all`}
+                    >
+                      <Play className="h-3.5 w-3.5" />
+                      Run Session {n}
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -2858,7 +2904,7 @@ export default function PlansPage() {
         {showRunModal && (
           <div
             className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-            onClick={(e) => { if (e.target === e.currentTarget) setShowRunModal(false); }}
+            onClick={(e) => { if (e.target === e.currentTarget) { setShowRunModal(false); setArcSessionIdx(null); } }}
             role="dialog"
             aria-modal="true"
             aria-label="Select session to run practice"
@@ -2867,10 +2913,12 @@ export default function PlansPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Timer className="h-5 w-5 text-orange-500" />
-                  <h2 className="text-lg font-bold">Run Practice</h2>
+                  <h2 className="text-lg font-bold">
+                    {arcSessionIdx !== null ? `Run Session ${arcSessionIdx + 1}` : 'Run Practice'}
+                  </h2>
                 </div>
                 <button
-                  onClick={() => setShowRunModal(false)}
+                  onClick={() => { setShowRunModal(false); setArcSessionIdx(null); }}
                   aria-label="Close modal"
                   className="text-zinc-500 hover:text-zinc-300 transition-colors"
                 >
