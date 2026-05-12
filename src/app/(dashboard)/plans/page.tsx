@@ -927,6 +927,49 @@ export default function PlansPage() {
     }
   }
 
+  // State for arc session run loading (index of session being started, or null)
+  const [runningArcSession, setRunningArcSession] = useState<number | null>(null);
+
+  async function handleRunArcSession(plan: Plan, sessionIndex: number, arc: any) {
+    if (!activeTeam || !coach) return;
+    setRunningArcSession(sessionIndex);
+    try {
+      const newSession = await mutate({
+        table: 'sessions',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          type: 'practice',
+          date: new Date().toISOString().slice(0, 10),
+        },
+      });
+      const sessionId = (newSession as any)?.[0]?.id || (newSession as any)?.id;
+      if (!sessionId) return;
+
+      // Save arc progress so ContinueArcCard can prompt the next session
+      const sessions: any[] = arc.sessions ?? [];
+      const nextSessionIndex = sessionIndex + 1;
+      const nextSessionTitle = sessions[nextSessionIndex]?.title ?? '';
+      try {
+        localStorage.setItem(`arc-progress-${activeTeam.id}`, JSON.stringify({
+          planId: plan.id,
+          arcTitle: arc.arc_title,
+          nextSession: nextSessionIndex + 1,
+          totalSessions: sessions.length,
+          nextSessionTitle,
+          savedAt: new Date().toISOString(),
+        }));
+      } catch { /* ignore localStorage errors */ }
+
+      router.push(`/sessions/${sessionId}/timer?planId=${plan.id}&arcSession=${sessionIndex}`);
+    } catch {
+      // ignore — user can try again
+    } finally {
+      setRunningArcSession(null);
+    }
+  }
+
   function renderObjectFields(obj: any) {
     if (!obj || typeof obj !== 'object') return String(obj ?? '');
     return (
@@ -1072,6 +1115,22 @@ export default function PlansPage() {
                       <p className="text-xs text-zinc-500 italic">Next: {session.carries_forward}</p>
                     </div>
                   )}
+
+                  {/* Run Session button */}
+                  <div className="pl-8 pt-1">
+                    <button
+                      onClick={() => handleRunArcSession(plan, idx, arc)}
+                      disabled={runningArcSession !== null}
+                      className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors touch-manipulation active:scale-[0.97] disabled:opacity-50 border-${accent}-500/30 bg-${accent}-500/10 text-${accent}-300 hover:bg-${accent}-500/20`}
+                    >
+                      {runningArcSession === idx ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Timer className="h-3 w-3" />
+                      )}
+                      Run Session {n}
+                    </button>
+                  </div>
                 </div>
               );
             })}

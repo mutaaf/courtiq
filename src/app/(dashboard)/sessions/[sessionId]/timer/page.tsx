@@ -912,6 +912,8 @@ export default function PracticeTimerPage({
   const searchParams = useSearchParams();
   const planId = searchParams.get('planId');
   const templateIdParam = searchParams.get('templateId');
+  const arcSessionParam = searchParams.get('arcSession');
+  const arcSessionIndex = arcSessionParam !== null ? parseInt(arcSessionParam, 10) : null;
   const { activeTeam, coach } = useActiveTeam();
 
   // ── Persistence keys ─────────────────────────────────────────────────────
@@ -1145,17 +1147,22 @@ export default function PracticeTimerPage({
         const s = plan.content_structured as any;
         const items: QueueItem[] = [];
 
-        if (s.warmup?.name) {
+        // For practice arcs, load the specific session's drills
+        const sessionData = (arcSessionIndex !== null && Array.isArray(s.sessions))
+          ? s.sessions[arcSessionIndex] ?? s
+          : s;
+
+        if (sessionData.warmup?.name) {
           items.push({
             id: `warmup-${Date.now()}`,
-            name: s.warmup.name,
-            durationSecs: Math.max(60, (s.warmup.duration_minutes ?? 5) * 60),
+            name: sessionData.warmup.name,
+            durationSecs: Math.max(60, (sessionData.warmup.duration_minutes ?? 5) * 60),
             cues: [],
-            description: s.warmup.description || '',
+            description: sessionData.warmup.description || '',
           });
         }
 
-        (s.drills || []).forEach((d: any, i: number) => {
+        (sessionData.drills || []).forEach((d: any, i: number) => {
           items.push({
             id: `plan-drill-${i}-${Date.now()}`,
             name: d.name,
@@ -1165,35 +1172,39 @@ export default function PracticeTimerPage({
           });
         });
 
-        if (s.scrimmage?.duration_minutes) {
+        if (sessionData.scrimmage?.duration_minutes) {
           items.push({
             id: `scrimmage-${Date.now()}`,
-            name: s.scrimmage.focus ? `Scrimmage: ${s.scrimmage.focus}` : 'Scrimmage',
-            durationSecs: Math.max(60, s.scrimmage.duration_minutes * 60),
+            name: sessionData.scrimmage.focus ? `Scrimmage: ${sessionData.scrimmage.focus}` : 'Scrimmage',
+            durationSecs: Math.max(60, sessionData.scrimmage.duration_minutes * 60),
             cues: [],
             description: '',
           });
         }
 
-        if (s.cooldown?.duration_minutes) {
+        if (sessionData.cooldown?.duration_minutes) {
           items.push({
             id: `cooldown-${Date.now()}`,
             name: 'Cool Down',
-            durationSecs: Math.max(60, s.cooldown.duration_minutes * 60),
+            durationSecs: Math.max(60, sessionData.cooldown.duration_minutes * 60),
             cues: [],
-            description: s.cooldown.notes || '',
+            description: sessionData.cooldown.notes || '',
           });
         }
 
         if (items.length > 0) {
           setQueue(items);
-          setLoadedPlanTitle(plan.title || 'Practice Plan');
+          // For arc sessions, show the session title + series label
+          const arcSessionTitle = arcSessionIndex !== null && Array.isArray(s.sessions)
+            ? (s.sessions[arcSessionIndex]?.title ?? s.arc_title ?? plan.title)
+            : (plan.title || 'Practice Plan');
+          setLoadedPlanTitle(arcSessionIndex !== null ? `Session ${arcSessionIndex + 1}: ${arcSessionTitle}` : arcSessionTitle);
         }
       })
       .catch(() => {/* silently ignore */})
       .finally(() => setPlanLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planId]);
+  }, [planId, arcSessionIndex]);
 
   // ── Auto-load template from templateId URL param (from FirstPracticeLauncher) ──
   useEffect(() => {
@@ -1877,7 +1888,11 @@ export default function PracticeTimerPage({
       {loadedPlanTitle && !planLoading && (
         <div className="flex items-center gap-2 rounded-lg bg-blue-500/10 border border-blue-500/20 px-4 py-3 text-sm text-blue-300">
           <ClipboardList className="h-4 w-4 shrink-0" />
-          Loaded from plan: <span className="font-medium">{loadedPlanTitle}</span>
+          {arcSessionIndex !== null ? (
+            <>Loaded from practice series: <span className="font-medium">{loadedPlanTitle}</span></>
+          ) : (
+            <>Loaded from plan: <span className="font-medium">{loadedPlanTitle}</span></>
+          )}
         </div>
       )}
 
