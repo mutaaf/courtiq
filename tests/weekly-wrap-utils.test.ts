@@ -17,7 +17,14 @@ import {
   dismissWrap,
   getWeekMondayIso,
   getCutoffIso,
+  parseWrapResult,
+  extractWrapScore,
+  filterSessionsWithResults,
+  formatGameResultLine,
+  buildGameResultsSummary,
+  hasGameResultsThisWeek,
   type WrapObs,
+  type WrapSession,
   type WeeklyWrapMessageParams,
 } from '@/lib/weekly-wrap-utils';
 
@@ -44,6 +51,17 @@ function makeParams(overrides: Partial<WeeklyWrapMessageParams> = {}): WeeklyWra
     topPlayerName: 'Marcus',
     topPositiveCategory: 'dribbling',
     topNeedsWorkCategory: 'defense',
+    ...overrides,
+  };
+}
+
+function makeSession(overrides: Partial<WrapSession> = {}): WrapSession {
+  return {
+    id: 's1',
+    type: 'game',
+    date: new Date().toISOString().split('T')[0],
+    result: 'win 42-38',
+    opponent: 'Tigers',
     ...overrides,
   };
 }
@@ -383,5 +401,264 @@ describe('buildWrapWhatsAppUrl', () => {
   it('URI-encodes the message', () => {
     const url = buildWrapWhatsAppUrl('Hi there! 👋');
     expect(url).toContain(encodeURIComponent('Hi there! 👋'));
+  });
+});
+
+// ─── Game result helpers ──────────────────────────────────────────────────────
+
+describe('parseWrapResult', () => {
+  it('parses "win" → "win"', () => {
+    expect(parseWrapResult('win')).toBe('win');
+    expect(parseWrapResult('w')).toBe('win');
+    expect(parseWrapResult('win 42-38')).toBe('win');
+  });
+
+  it('parses "loss" → "loss"', () => {
+    expect(parseWrapResult('loss')).toBe('loss');
+    expect(parseWrapResult('l')).toBe('loss');
+    expect(parseWrapResult('lose')).toBe('loss');
+    expect(parseWrapResult('loss 28-35')).toBe('loss');
+  });
+
+  it('parses "tie" → "tie"', () => {
+    expect(parseWrapResult('tie')).toBe('tie');
+    expect(parseWrapResult('t')).toBe('tie');
+    expect(parseWrapResult('draw')).toBe('tie');
+    expect(parseWrapResult('tie 21-21')).toBe('tie');
+  });
+
+  it('is case-insensitive', () => {
+    expect(parseWrapResult('WIN')).toBe('win');
+    expect(parseWrapResult('Loss')).toBe('loss');
+  });
+
+  it('returns null for null input', () => {
+    expect(parseWrapResult(null)).toBeNull();
+  });
+
+  it('returns null for unknown strings', () => {
+    expect(parseWrapResult('unknown')).toBeNull();
+    expect(parseWrapResult('')).toBeNull();
+  });
+});
+
+describe('extractWrapScore', () => {
+  it('extracts score from "win 42-38"', () => {
+    expect(extractWrapScore('win 42-38')).toBe('42-38');
+  });
+
+  it('extracts score from "loss 28-35"', () => {
+    expect(extractWrapScore('loss 28-35')).toBe('28-35');
+  });
+
+  it('returns null when no score part', () => {
+    expect(extractWrapScore('win')).toBeNull();
+    expect(extractWrapScore('loss')).toBeNull();
+  });
+
+  it('returns null for null input', () => {
+    expect(extractWrapScore(null)).toBeNull();
+  });
+});
+
+describe('filterSessionsWithResults', () => {
+  it('keeps game sessions with parseable results', () => {
+    const sessions = [makeSession({ result: 'win 42-38' })];
+    expect(filterSessionsWithResults(sessions)).toHaveLength(1);
+  });
+
+  it('excludes practice sessions even with a result string', () => {
+    const sessions = [makeSession({ type: 'practice', result: 'win' })];
+    expect(filterSessionsWithResults(sessions)).toHaveLength(0);
+  });
+
+  it('excludes sessions with null result', () => {
+    const sessions = [makeSession({ result: null })];
+    expect(filterSessionsWithResults(sessions)).toHaveLength(0);
+  });
+
+  it('excludes sessions with unparseable result', () => {
+    const sessions = [makeSession({ result: 'great practice' })];
+    expect(filterSessionsWithResults(sessions)).toHaveLength(0);
+  });
+
+  it('keeps scrimmage and tournament session types', () => {
+    const scrimmage = makeSession({ type: 'scrimmage', result: 'win' });
+    const tournament = makeSession({ type: 'tournament', result: 'loss' });
+    const result = filterSessionsWithResults([scrimmage, tournament]);
+    expect(result).toHaveLength(2);
+  });
+
+  it('returns empty for empty input', () => {
+    expect(filterSessionsWithResults([])).toHaveLength(0);
+  });
+});
+
+describe('formatGameResultLine', () => {
+  it('formats a win with opponent and score', () => {
+    const line = formatGameResultLine(makeSession({ result: 'win 42-38', opponent: 'Tigers' }));
+    expect(line).toContain('🏆');
+    expect(line).toContain('Won');
+    expect(line).toContain('Tigers');
+    expect(line).toContain('42-38');
+  });
+
+  it('formats a loss with opponent and score', () => {
+    const line = formatGameResultLine(makeSession({ result: 'loss 28-35', opponent: 'Eagles' }));
+    expect(line).toContain('😤');
+    expect(line).toContain('Lost');
+    expect(line).toContain('Eagles');
+    expect(line).toContain('28-35');
+  });
+
+  it('formats a tie', () => {
+    const line = formatGameResultLine(makeSession({ result: 'tie 21-21', opponent: 'Bears' }));
+    expect(line).toContain('🤝');
+    expect(line).toContain('Tied');
+    expect(line).toContain('Bears');
+    expect(line).toContain('21-21');
+  });
+
+  it('omits opponent when null', () => {
+    const line = formatGameResultLine(makeSession({ result: 'win', opponent: null }));
+    expect(line).toContain('🏆');
+    expect(line).not.toContain('vs.');
+  });
+
+  it('omits score when result has no score part', () => {
+    const line = formatGameResultLine(makeSession({ result: 'win', opponent: 'Tigers' }));
+    expect(line).not.toContain('(');
+  });
+
+  it('returns empty string for unparseable result', () => {
+    const line = formatGameResultLine(makeSession({ result: 'great game' }));
+    expect(line).toBe('');
+  });
+});
+
+describe('buildGameResultsSummary', () => {
+  it('returns null when no sessions have results', () => {
+    expect(buildGameResultsSummary([])).toBeNull();
+    expect(buildGameResultsSummary([makeSession({ result: null })])).toBeNull();
+    expect(buildGameResultsSummary([makeSession({ type: 'practice' })])).toBeNull();
+  });
+
+  it('returns a single result line for one game', () => {
+    const summary = buildGameResultsSummary([makeSession({ result: 'win 42-38', opponent: 'Tigers' })]);
+    expect(summary).toContain('🏆');
+    expect(summary).toContain('Tigers');
+  });
+
+  it('returns a tally for multiple games', () => {
+    const sessions = [
+      makeSession({ id: 's1', result: 'win 42-38', opponent: 'Tigers' }),
+      makeSession({ id: 's2', result: 'loss 28-35', opponent: 'Eagles' }),
+    ];
+    const summary = buildGameResultsSummary(sessions);
+    expect(summary).toContain('1 win');
+    expect(summary).toContain('1 loss');
+  });
+
+  it('uses 🏆 prefix when wins outnumber losses', () => {
+    const sessions = [
+      makeSession({ id: 's1', result: 'win' }),
+      makeSession({ id: 's2', result: 'win' }),
+      makeSession({ id: 's3', result: 'loss' }),
+    ];
+    expect(buildGameResultsSummary(sessions)).toContain('🏆');
+  });
+
+  it('uses 😤 prefix when losses outnumber wins', () => {
+    const sessions = [
+      makeSession({ id: 's1', result: 'loss' }),
+      makeSession({ id: 's2', result: 'loss' }),
+      makeSession({ id: 's3', result: 'win' }),
+    ];
+    expect(buildGameResultsSummary(sessions)).toContain('😤');
+  });
+
+  it('uses 🤝 prefix for all ties', () => {
+    const sessions = [
+      makeSession({ id: 's1', result: 'tie 1-1' }),
+      makeSession({ id: 's2', result: 'tie 2-2' }),
+    ];
+    expect(buildGameResultsSummary(sessions)).toContain('🤝');
+  });
+});
+
+describe('hasGameResultsThisWeek', () => {
+  it('returns true when a game with result exists', () => {
+    expect(hasGameResultsThisWeek([makeSession({ result: 'win' })])).toBe(true);
+  });
+
+  it('returns false when no sessions', () => {
+    expect(hasGameResultsThisWeek([])).toBe(false);
+  });
+
+  it('returns false when sessions have no result', () => {
+    expect(hasGameResultsThisWeek([makeSession({ result: null })])).toBe(false);
+  });
+
+  it('returns false for practice sessions only', () => {
+    expect(hasGameResultsThisWeek([makeSession({ type: 'practice', result: 'win' })])).toBe(false);
+  });
+});
+
+describe('buildWeeklyWrapMessage with gameSessions', () => {
+  it('includes a game win result line when provided', () => {
+    const msg = buildWeeklyWrapMessage(
+      makeParams({
+        gameSessions: [makeSession({ result: 'win 42-38', opponent: 'Tigers' })],
+      })
+    );
+    expect(msg).toContain('🏆');
+    expect(msg).toContain('Tigers');
+    expect(msg).toContain('42-38');
+  });
+
+  it('includes a game loss result line when provided', () => {
+    const msg = buildWeeklyWrapMessage(
+      makeParams({
+        gameSessions: [makeSession({ result: 'loss 28-35', opponent: 'Eagles' })],
+      })
+    );
+    expect(msg).toContain('😤');
+    expect(msg).toContain('Eagles');
+  });
+
+  it('does not include game result when no game sessions', () => {
+    const msg = buildWeeklyWrapMessage(makeParams({ gameSessions: [] }));
+    expect(msg).not.toContain('🏆');
+    expect(msg).not.toContain('😤');
+    expect(msg).not.toContain('🤝');
+  });
+
+  it('still includes coaching stats alongside game results', () => {
+    const msg = buildWeeklyWrapMessage(
+      makeParams({
+        obsCount: 10,
+        gameSessions: [makeSession({ result: 'win 42-38' })],
+      })
+    );
+    expect(msg).toContain('10');
+    expect(msg).toContain('🏆');
+    expect(msg).toContain('Coach Sarah');
+  });
+});
+
+describe('buildWrapPreview with gameSessions', () => {
+  it('includes a game result in the preview', () => {
+    const preview = buildWrapPreview(
+      makeParams({
+        gameSessions: [makeSession({ result: 'win 42-38', opponent: 'Tigers' })],
+      })
+    );
+    expect(preview).toContain('🏆');
+    expect(preview).toContain('Tigers');
+  });
+
+  it('does not include game result when no sessions', () => {
+    const preview = buildWrapPreview(makeParams({ gameSessions: [] }));
+    expect(preview).not.toContain('🏆');
   });
 });

@@ -13,6 +13,7 @@ import {
   countPositiveWrapObs,
   countTotalObs,
   dismissWrap,
+  filterSessionsWithResults,
   getCutoffIso,
   getTopNeedsWorkWrapCategory,
   getTopPlayerIdByPositive,
@@ -21,11 +22,15 @@ import {
   isWrapDismissed,
   type WrapObs,
   type WrapPlayer,
+  type WrapSession,
 } from '@/lib/weekly-wrap-utils';
 
 interface Session {
   id: string;
+  type: string;
   date: string;
+  result: string | null;
+  opponent: string | null;
 }
 
 interface WeeklyWrapCardProps {
@@ -63,13 +68,13 @@ export function WeeklyWrapCard({
     staleTime: 10 * 60_000,
   });
 
-  // Sessions in the last 7 days
+  // Sessions in the last 7 days (includes result + opponent for game result lines)
   const { data: recentSessions = [] } = useQuery<Session[]>({
     queryKey: ['weekly-wrap-sessions', teamId, cutoff7],
     queryFn: () =>
       query<Session[]>({
         table: 'sessions',
-        select: 'id, date',
+        select: 'id, type, date, result, opponent',
         filters: {
           team_id: teamId,
           date: { op: 'gte', value: cutoff7.split('T')[0] },
@@ -102,12 +107,13 @@ export function WeeklyWrapCard({
     topPlayerName,
     posCount,
     needsCount,
+    hasGameResults,
   } = useMemo(() => {
     const alreadyDismissed = isWrapDismissed(teamId);
     const hasData = hasEnoughDataForWrap(rawObs);
 
     if (!hasData) {
-      return { message: '', preview: '', hasData, alreadyDismissed, topPlayerName: null, posCount: 0, needsCount: 0 };
+      return { message: '', preview: '', hasData, alreadyDismissed, topPlayerName: null, posCount: 0, needsCount: 0, hasGameResults: false };
     }
 
     const topPositiveCategory = getTopPositiveWrapCategory(rawObs);
@@ -120,6 +126,9 @@ export function WeeklyWrapCard({
     const posCount = countPositiveWrapObs(rawObs);
     const needsCount = countNeedsWorkWrapObs(rawObs);
 
+    // Cast to WrapSession — sessions query now includes type, result, opponent
+    const gameSessions = recentSessions as WrapSession[];
+
     const params = {
       teamName,
       coachName,
@@ -130,6 +139,7 @@ export function WeeklyWrapCard({
       topPlayerName,
       topPositiveCategory,
       topNeedsWorkCategory,
+      gameSessions,
     };
 
     return {
@@ -140,6 +150,7 @@ export function WeeklyWrapCard({
       topPlayerName,
       posCount,
       needsCount,
+      hasGameResults: filterSessionsWithResults(gameSessions).length > 0,
     };
   }, [rawObs, recentSessions, players, teamId, teamName, coachName, totalPlayerCount, topPlayerId]);
 
@@ -218,6 +229,11 @@ export function WeeklyWrapCard({
         {needsCount > 0 && (
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-1 text-xs text-amber-400">
             ↑ {needsCount} to improve
+          </span>
+        )}
+        {hasGameResults && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2.5 py-1 text-xs text-violet-400">
+            🏆 game result included
           </span>
         )}
       </div>
