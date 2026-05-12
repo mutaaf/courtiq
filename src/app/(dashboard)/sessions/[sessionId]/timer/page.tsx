@@ -911,6 +911,7 @@ export default function PracticeTimerPage({
   const { sessionId } = use(params);
   const searchParams = useSearchParams();
   const planId = searchParams.get('planId');
+  const arcSessionParam = searchParams.get('arcSession'); // 1-indexed session number within a practice arc
   const templateIdParam = searchParams.get('templateId');
   const { activeTeam, coach } = useActiveTeam();
 
@@ -1145,17 +1146,30 @@ export default function PracticeTimerPage({
         const s = plan.content_structured as any;
         const items: QueueItem[] = [];
 
-        if (s.warmup?.name) {
+        // Resolve the session data: practice_arc plans have a sessions[] array;
+        // regular practice plans have warmup/drills/scrimmage/cooldown at the top level.
+        let sessionData: any = s;
+        const arcSessions: any[] = Array.isArray(s.sessions) ? s.sessions : [];
+        const isArc = arcSessions.length > 0;
+
+        if (isArc) {
+          const targetNum = arcSessionParam ? parseInt(arcSessionParam, 10) : 1;
+          sessionData =
+            arcSessions.find((sess: any) => (sess.session_number ?? 0) === targetNum) ??
+            arcSessions[0];
+        }
+
+        if (sessionData?.warmup?.name) {
           items.push({
             id: `warmup-${Date.now()}`,
-            name: s.warmup.name,
-            durationSecs: Math.max(60, (s.warmup.duration_minutes ?? 5) * 60),
+            name: sessionData.warmup.name,
+            durationSecs: Math.max(60, (sessionData.warmup.duration_minutes ?? 5) * 60),
             cues: [],
-            description: s.warmup.description || '',
+            description: sessionData.warmup.description || '',
           });
         }
 
-        (s.drills || []).forEach((d: any, i: number) => {
+        (sessionData?.drills || []).forEach((d: any, i: number) => {
           items.push({
             id: `plan-drill-${i}-${Date.now()}`,
             name: d.name,
@@ -1165,35 +1179,68 @@ export default function PracticeTimerPage({
           });
         });
 
-        if (s.scrimmage?.duration_minutes) {
+        if (sessionData?.scrimmage?.duration_minutes) {
           items.push({
             id: `scrimmage-${Date.now()}`,
-            name: s.scrimmage.focus ? `Scrimmage: ${s.scrimmage.focus}` : 'Scrimmage',
-            durationSecs: Math.max(60, s.scrimmage.duration_minutes * 60),
+            name: sessionData.scrimmage.focus ? `Scrimmage: ${sessionData.scrimmage.focus}` : 'Scrimmage',
+            durationSecs: Math.max(60, sessionData.scrimmage.duration_minutes * 60),
             cues: [],
             description: '',
           });
         }
 
-        if (s.cooldown?.duration_minutes) {
+        if (sessionData?.cooldown?.duration_minutes) {
           items.push({
             id: `cooldown-${Date.now()}`,
             name: 'Cool Down',
-            durationSecs: Math.max(60, s.cooldown.duration_minutes * 60),
+            durationSecs: Math.max(60, sessionData.cooldown.duration_minutes * 60),
             cues: [],
-            description: s.cooldown.notes || '',
+            description: sessionData.cooldown.notes || '',
           });
         }
 
         if (items.length > 0) {
+          const arcTitle = isArc ? (s.arc_title || plan.title || 'Practice Series') : null;
+          const currentSession = isArc
+            ? (sessionData?.session_number ?? 1)
+            : null;
+          const nextSession = isArc
+            ? (currentSession != null && currentSession < arcSessions.length ? currentSession + 1 : null)
+            : null;
+          const nextSessionTitle = isArc && nextSession != null
+            ? (arcSessions.find((sess: any) => (sess.session_number ?? 0) === nextSession)?.title ?? null)
+            : null;
+
           setQueue(items);
-          setLoadedPlanTitle(plan.title || 'Practice Plan');
+          const sessionLabel = isArc
+            ? `${arcTitle} — Session ${currentSession}`
+            : (plan.title || 'Practice Plan');
+          setLoadedPlanTitle(sessionLabel);
+
+          // Save arc progress to localStorage so ContinueArcCard can surface
+          // the next session on the home dashboard after this session completes.
+          if (isArc && activeTeam && nextSession != null) {
+            try {
+              const progress = {
+                planId,
+                arcTitle,
+                nextSession,
+                totalSessions: arcSessions.length,
+                nextSessionTitle,
+                savedAt: new Date().toISOString(),
+              };
+              localStorage.setItem(`arc-progress-${activeTeam.id}`, JSON.stringify(progress));
+            } catch { /* ignore */ }
+          } else if (isArc && activeTeam) {
+            // All sessions completed — clear the progress key
+            try { localStorage.removeItem(`arc-progress-${activeTeam.id}`); } catch { /* ignore */ }
+          }
         }
       })
       .catch(() => {/* silently ignore */})
       .finally(() => setPlanLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planId]);
+  }, [planId, arcSessionParam]);
 
   // ── Auto-load template from templateId URL param (from FirstPracticeLauncher) ──
   useEffect(() => {
