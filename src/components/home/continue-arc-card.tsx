@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { ChevronRight, Zap, X } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { ChevronRight, Zap, X, Loader2 } from 'lucide-react';
+import { mutate } from '@/lib/api';
 
 interface ArcProgress {
   planId: string;
@@ -13,10 +14,17 @@ interface ArcProgress {
   savedAt: string;
 }
 
-export function ContinueArcCard({ teamId }: { teamId: string }) {
+interface ContinueArcCardProps {
+  teamId: string;
+  coachId?: string;
+}
+
+export function ContinueArcCard({ teamId, coachId }: ContinueArcCardProps) {
+  const router = useRouter();
   const [arc, setArc] = useState<ArcProgress | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -34,12 +42,47 @@ export function ContinueArcCard({ teamId }: { teamId: string }) {
     } catch { /* ignore */ }
   }, [teamId]);
 
-  if (!mounted || !arc || dismissed) return null;
-
-  const handleDismiss = () => {
+  const handleDismiss = useCallback(() => {
     setDismissed(true);
     try { localStorage.removeItem(`arc-progress-${teamId}`); } catch { /* ignore */ }
-  };
+  }, [teamId]);
+
+  // Creates a new practice session and opens the timer pre-loaded with the arc session.
+  const handleLoadInTimer = useCallback(async () => {
+    if (!arc || loading) return;
+    setLoading(true);
+    try {
+      const arcSessionIndex = arc.nextSession - 1; // 0-based for URL param
+      if (coachId) {
+        // Create a fresh session and jump directly to the timer.
+        const newSession = await mutate({
+          table: 'sessions',
+          operation: 'insert',
+          data: {
+            team_id: teamId,
+            coach_id: coachId,
+            type: 'practice',
+            date: new Date().toISOString().slice(0, 10),
+          },
+        });
+        const sessionId = (newSession as any)?.[0]?.id ?? (newSession as any)?.id;
+        if (sessionId) {
+          router.push(
+            `/sessions/${sessionId}/timer?planId=${arc.planId}&arcSession=${arcSessionIndex}`
+          );
+          return;
+        }
+      }
+      // Fallback: go to the Plans page so coach can pick or create a session.
+      router.push('/plans');
+    } catch {
+      router.push('/plans');
+    } finally {
+      setLoading(false);
+    }
+  }, [arc, coachId, loading, router, teamId]);
+
+  if (!mounted || !arc || dismissed) return null;
 
   return (
     <div className="rounded-2xl border border-sky-500/25 bg-sky-500/5 p-4">
@@ -58,13 +101,23 @@ export function ContinueArcCard({ teamId }: { teamId: string }) {
           {arc.nextSessionTitle && (
             <p className="mt-0.5 text-xs text-zinc-500 italic truncate">{arc.nextSessionTitle}</p>
           )}
-          <Link
-            href="/plans"
-            className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-sky-500/25 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-300 hover:bg-sky-500/25 transition-colors touch-manipulation active:scale-[0.97]"
+          <button
+            onClick={handleLoadInTimer}
+            disabled={loading}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-sky-500/25 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-300 hover:bg-sky-500/25 transition-colors touch-manipulation active:scale-[0.97] disabled:opacity-60 disabled:pointer-events-none"
           >
-            Load Session {arc.nextSession} in Timer
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Link>
+            {loading ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Starting…
+              </>
+            ) : (
+              <>
+                Load Session {arc.nextSession} in Timer
+                <ChevronRight className="h-3.5 w-3.5" />
+              </>
+            )}
+          </button>
         </div>
         <button
           onClick={handleDismiss}
