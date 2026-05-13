@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { ParentViralCTA } from '@/components/share/parent-viral-cta';
 import { ParentReactionForm } from '@/components/share/parent-reaction-form';
-import { Megaphone, MessageCircle } from 'lucide-react';
+import { CalendarDays, Megaphone, MessageCircle } from 'lucide-react';
 import {
   buildSeasonStats,
   getImprovingSkills,
@@ -395,6 +395,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     skillProgress,
     recommendedDrills,
     announcements,
+    upcomingSessions,
     totalObservationCount,
     recentObservationActivity,
     achievements,
@@ -460,6 +461,55 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     const area = reportCard.areas_for_improvement[0];
     nextChallenge = typeof area === 'string' ? area : area.skill || area.description || area.name || String(area);
   }
+
+  // Upcoming sessions helpers
+  const SESSION_EMOJI: Record<string, string> = {
+    practice: '🏀',
+    game: '🏆',
+    scrimmage: '⚔️',
+    tournament: '🥇',
+    training: '💪',
+  };
+  const SESSION_LABEL: Record<string, string> = {
+    practice: 'Practice',
+    game: 'Game',
+    scrimmage: 'Scrimmage',
+    tournament: 'Tournament',
+    training: 'Training',
+  };
+
+  function formatSessionDate(dateStr: string, timeStr: string | null): string {
+    const d = new Date(`${dateStr}T12:00:00`); // noon to avoid TZ-shift date-off-by-one
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    const sessionDay = new Date(d);
+    sessionDay.setHours(0, 0, 0, 0);
+
+    let dayLabel: string;
+    if (sessionDay.getTime() === today.getTime()) {
+      dayLabel = 'Today';
+    } else if (sessionDay.getTime() === tomorrow.getTime()) {
+      dayLabel = 'Tomorrow';
+    } else {
+      dayLabel = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    }
+
+    if (!timeStr) return dayLabel;
+
+    // timeStr is "HH:MM:SS" or "HH:MM"
+    const [hh, mm] = timeStr.split(':').map(Number);
+    const period = hh >= 12 ? 'PM' : 'AM';
+    const hour12 = hh % 12 || 12;
+    const minPart = mm > 0 ? `:${String(mm).padStart(2, '0')}` : '';
+    return `${dayLabel} · ${hour12}${minPart} ${period}`;
+  }
+
+  const safeUpcomingSessions: Array<{
+    id: string; type: string; date: string; start_time: string | null;
+    location: string | null; opponent: string | null;
+  }> = Array.isArray(upcomingSessions) ? upcomingSessions : [];
 
   // Get the first recommended drill for home practice
   let homePractice: { name: string; description?: string } | null = null;
@@ -603,6 +653,43 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
                 <div key={ann.id}>
                   <p className="text-sm font-medium text-gray-800">{ann.title}</p>
                   <p className="text-sm text-gray-600 leading-relaxed">{ann.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ─── Upcoming Sessions ─── */}
+        {safeUpcomingSessions.length > 0 && (
+          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm border border-sky-100">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-sky-100">
+                <CalendarDays className="h-3.5 w-3.5 text-sky-600" aria-hidden="true" />
+              </div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-sky-700">
+                Coming Up
+              </h3>
+            </div>
+            <div className="space-y-2.5">
+              {safeUpcomingSessions.map((s) => (
+                <div key={s.id} className="flex items-start gap-3 rounded-xl bg-sky-50 px-3 py-2.5">
+                  <span className="mt-0.5 shrink-0 text-base" aria-hidden="true">
+                    {SESSION_EMOJI[s.type] ?? '📅'}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800">
+                      {SESSION_LABEL[s.type] ?? s.type}
+                      {(s.type === 'game' || s.type === 'scrimmage' || s.type === 'tournament') && s.opponent
+                        ? <span className="font-normal text-gray-600"> vs. {s.opponent}</span>
+                        : null}
+                    </p>
+                    <p className="mt-0.5 text-xs text-sky-700">
+                      {formatSessionDate(s.date, s.start_time)}
+                    </p>
+                    {s.location && (
+                      <p className="mt-0.5 text-xs text-gray-500 truncate">📍 {s.location}</p>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

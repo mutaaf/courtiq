@@ -263,6 +263,28 @@ export async function GET(
       .order('created_at', { ascending: false });
     reportData.announcements = announcements ?? [];
 
+    // Upcoming sessions — show parents when the next practice/game is so
+    // they stop texting the coach "when is practice?". Fetch next 14 days, max 3.
+    const todayDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const twoWeeksDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const { data: upcomingSessions } = await supabase
+      .from('sessions')
+      .select('id, type, date, start_time, location, opponent')
+      .eq('team_id', share.team_id)
+      .gte('date', todayDate)
+      .lte('date', twoWeeksDate)
+      .order('date', { ascending: true })
+      .order('start_time', { ascending: true })
+      .limit(3);
+    reportData.upcomingSessions = (upcomingSessions ?? []).map((s: any) => ({
+      id: s.id,
+      type: s.type,
+      date: s.date,
+      start_time: s.start_time ?? null,
+      location: s.location ?? null,
+      opponent: s.opponent ?? null,
+    }));
+
     // Increment view count
     await supabase
       .from('parent_shares')
