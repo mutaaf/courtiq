@@ -2,7 +2,7 @@
 
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { query, mutate } from '@/lib/api';
 import { useElapsedTime } from '@/hooks/use-elapsed-time';
@@ -25,7 +25,11 @@ import {
   History,
   Star,
   Share2,
+  X,
+  Check,
+  Loader2,
 } from 'lucide-react';
+import { OBSERVATION_TEMPLATES, getTemplatesBySentiment } from '@/lib/observation-templates';
 import type { Session, Plan } from '@/types/database';
 import { useAppStore } from '@/lib/store';
 import { PostPracticeDebrief } from '@/components/capture/post-practice-debrief';
@@ -399,10 +403,67 @@ function LastSessionCard({ session }: {
 
 // ─── Page ──────────────────────────────────────────────────────────────────────────────
 
+type QuickObsPlayer = { id: string; name: string; jersey_number: number | null };
+
 export default function HomePage() {
   const { activeTeam, coach, aiPlatformAvailable } = useActiveTeam();
+  const queryClient = useQueryClient();
   const router = useRouter();
   const [showDebrief, setShowDebrief] = useState(false);
+
+  // ── Quick-Observe bottom sheet (mid-practice coverage row) ──────────────
+  const [qoPlayer, setQoPlayer] = useState<QuickObsPlayer | null>(null);
+  const [qoSentiment, setQoSentiment] = useState<'positive' | 'needs-work'>('positive');
+  const [qoTemplate, setQoTemplate] = useState<string | null>(null);
+  const [qoSaving, setQoSaving] = useState(false);
+  const [qoSaved, setQoSaved] = useState(false);
+
+  function openQO(p: QuickObsPlayer) {
+    setQoPlayer(p);
+    setQoSentiment('positive');
+    setQoTemplate(null);
+    setQoSaved(false);
+  }
+
+  function closeQO() {
+    if (qoSaving) return;
+    setQoPlayer(null);
+    setQoTemplate(null);
+    setQoSentiment('positive');
+    setQoSaved(false);
+  }
+
+  async function saveQO() {
+    if (!activeTeam || !qoPlayer || !practiceSessionId || !qoTemplate) return;
+    const template = OBSERVATION_TEMPLATES.find((t) => t.id === qoTemplate);
+    if (!template) return;
+    setQoSaving(true);
+    try {
+      await mutate({
+        table: 'observations',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          org_id: (activeTeam as any).org_id ?? null,
+          player_name: qoPlayer.name,
+          player_id: qoPlayer.id,
+          session_id: practiceSessionId,
+          text: template.text,
+          sentiment: qoSentiment,
+          category: template.category,
+          source: 'template',
+        },
+      });
+      queryClient.invalidateQueries({ queryKey: ['session-obs-count', practiceSessionId] });
+      queryClient.invalidateQueries({ queryKey: ['home-stats', activeTeam.id] });
+      setQoSaved(true);
+      setTimeout(closeQO, 1200);
+    } catch {
+      // silent — coach can retry
+    } finally {
+      setQoSaving(false);
+    }
+  }
 
   const hasAIKeys = (() => {
     if (aiPlatformAvailable) return true;
@@ -817,15 +878,14 @@ export default function HomePage() {
                 <div className="flex gap-2 flex-wrap">
                   {unobservedDuringPractice.map((p) => {
                     const label = p.jersey_number != null ? `#${p.jersey_number} ${p.name.split(' ')[0]}` : p.name.split(' ')[0];
-                    const href = practiceSessionId
-                      ? `/capture?sessionId=${practiceSessionId}&playerId=${p.id}&player=${encodeURIComponent(p.name)}`
-                      : `/capture?playerId=${p.id}&player=${encodeURIComponent(p.name)}`;
                     return (
-                      <Link key={p.id} href={href}>
-                        <span className="inline-flex items-center rounded-full border border-orange-500/30 bg-orange-500/10 px-2.5 py-1 text-xs font-medium text-orange-300 hover:bg-orange-500/20 transition-colors touch-manipulation active:scale-95">
-                          {label}
-                        </span>
-                      </Link>
+                      <button
+                        key={p.id}
+                        onClick={() => openQO(p)}
+                        className="inline-flex items-center rounded-full border border-orange-500/30 bg-orange-500/10 px-2.5 py-1 text-xs font-medium text-orange-300 hover:bg-orange-500/20 transition-colors touch-manipulation active:scale-95"
+                      >
+                        {label}
+                      </button>
                     );
                   })}
                 </div>
@@ -1081,6 +1141,111 @@ export default function HomePage() {
         sessionId={practiceSessionId}
         onClose={() => setShowDebrief(false)}
       />
+    )}
+
+    {/* ── Quick-Observe bottom sheet ────────────────────────────────────────── */}
+    {qoPlayer && (
+      <>
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 z-40 bg-black/60"
+          onClick={closeQO}
+          aria-hidden="true"
+        />
+        {/* Sheet */}
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Quick observation for ${qoPlayer.name}`}
+          className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-zinc-900 border-t border-zinc-800 p-4 pb-8 space-y-4"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Quick Observation</p>
+              <p className="text-sm font-semibold text-zinc-100">
+                {qoPlayer.jersey_number != null
+                  ? `#${qoPlayer.jersey_number} ${qoPlayer.name}`
+                  : qoPlayer.name}
+              </p>
+            </div>
+            <button
+              aria-label="Close quick observe"
+              onClick={closeQO}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors touch-manipulation"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Sentiment toggle */}
+          <div className="flex gap-2">
+            {(['positive', 'needs-work'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => { setQoSentiment(s); setQoTemplate(null); }}
+                className={`flex-1 rounded-xl py-2.5 text-sm font-medium transition-all touch-manipulation active:scale-[0.97] ${
+                  qoSentiment === s
+                    ? s === 'positive'
+                      ? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-300'
+                      : 'bg-amber-500/20 border border-amber-500/50 text-amber-300'
+                    : 'bg-zinc-800 border border-zinc-700 text-zinc-400'
+                }`}
+              >
+                {s === 'positive' ? '👍 Positive' : '👎 Needs Work'}
+              </button>
+            ))}
+          </div>
+
+          {/* Template chips */}
+          <div className="flex flex-wrap gap-2">
+            {getTemplatesBySentiment(qoSentiment).slice(0, 8).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setQoTemplate(qoTemplate === t.id ? null : t.id)}
+                className={`rounded-xl px-3 py-2 text-xs font-medium transition-all touch-manipulation active:scale-[0.97] ${
+                  qoTemplate === t.id
+                    ? qoSentiment === 'positive'
+                      ? 'bg-emerald-500/25 border border-emerald-500/60 text-emerald-200'
+                      : 'bg-amber-500/25 border border-amber-500/60 text-amber-200'
+                    : 'bg-zinc-800 border border-zinc-700 text-zinc-300'
+                }`}
+              >
+                {t.text}
+              </button>
+            ))}
+          </div>
+
+          {/* Save button */}
+          <button
+            onClick={saveQO}
+            disabled={!qoTemplate || qoSaving || qoSaved}
+            className={`w-full rounded-xl py-3 text-sm font-semibold transition-all touch-manipulation active:scale-[0.98] ${
+              qoSaved
+                ? 'bg-emerald-600 text-white'
+                : qoTemplate
+                  ? qoSentiment === 'positive'
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                    : 'bg-amber-600 hover:bg-amber-500 text-white'
+                  : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+            }`}
+          >
+            {qoSaved ? (
+              <span className="flex items-center justify-center gap-2">
+                <Check className="h-4 w-4" />
+                Saved!
+              </span>
+            ) : qoSaving ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Saving…
+              </span>
+            ) : (
+              'Save Observation'
+            )}
+          </button>
+        </div>
+      </>
     )}
     </>
   );
