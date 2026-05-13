@@ -51,6 +51,7 @@ import { StrugglingPlayerCard } from '@/components/home/struggling-player-card';
 import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot-card';
 import { ContinueArcCard } from '@/components/home/continue-arc-card';
 import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
+import { GameDayCard } from '@/components/home/game-day-card';
 
 // ─── Shared reminder helpers ────────────────────────────────────────────
 
@@ -556,7 +557,12 @@ export default function HomePage() {
       const json = await res.json();
       return json.availability as Record<string, { status: string; reason: string | null }>;
     },
-    enabled: !!activeTeam && todaySessions.length > 0,
+    enabled:
+      !!activeTeam &&
+      (todaySessions.length > 0 ||
+        upcomingSessions.some(
+          (s) => s.type === 'game' || s.type === 'scrimmage' || s.type === 'tournament',
+        )),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -714,6 +720,18 @@ export default function HomePage() {
 
       {/* Birthday Card — upcoming player birthdays, dismissible per day */}
       <BirthdayCard teamId={activeTeam.id} teamName={activeTeam.name} />
+
+      {/* Game Day Card — surfaces 48 h before any game/scrimmage/tournament */}
+      {!practiceActive && (
+        <GameDayCard
+          sessions={[...todaySessions, ...upcomingSessions]}
+          todayStr={todayStr}
+          tomorrowStr={tomorrowStr}
+          teamName={activeTeam.name}
+          coachName={coach?.full_name ?? null}
+          playerAvailability={playerAvailability}
+        />
+      )}
 
       {/* AI Keys Onboarding Banner */}
       {!hasAIKeys && (
