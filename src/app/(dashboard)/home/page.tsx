@@ -2,9 +2,10 @@
 
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { query, mutate } from '@/lib/api';
+import { queryKeys } from '@/lib/query/keys';
 import { useElapsedTime } from '@/hooks/use-elapsed-time';
 import { shouldShowWrapUpNudge } from '@/lib/elapsed-time-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,6 +26,9 @@ import {
   History,
   Star,
   Share2,
+  Trophy,
+  X,
+  Loader2,
 } from 'lucide-react';
 import type { Session, Plan } from '@/types/database';
 import { useAppStore } from '@/lib/store';
@@ -402,7 +406,12 @@ function LastSessionCard({ session }: {
 export default function HomePage() {
   const { activeTeam, coach, aiPlatformAvailable } = useActiveTeam();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [showDebrief, setShowDebrief] = useState(false);
+  const [showGameQuickStart, setShowGameQuickStart] = useState(false);
+  const [gameType, setGameType] = useState<'game' | 'scrimmage' | 'tournament'>('game');
+  const [gameOpponent, setGameOpponent] = useState('');
+  const [startingGame, setStartingGame] = useState(false);
 
   const hasAIKeys = (() => {
     if (aiPlatformAvailable) return true;
@@ -471,6 +480,35 @@ export default function HomePage() {
       }
     } catch (err) {
       console.warn('Failed to start practice with plan:', err);
+    }
+  }
+
+  async function quickStartGame() {
+    if (!activeTeam || !coach || startingGame) return;
+    setStartingGame(true);
+    try {
+      const session = await mutate<{ id: string }>({
+        table: 'sessions',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          type: gameType,
+          date: new Date().toISOString().split('T')[0],
+          opponent: gameOpponent.trim() || null,
+          notes: 'Quick-start game session',
+        },
+        select: 'id',
+      });
+      const id = Array.isArray(session) ? (session as any)[0]?.id : session?.id;
+      if (id) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all(activeTeam.id) });
+        // Go straight to game tracker for games; session detail for scrimmage/tournament
+        router.push(gameType === 'game' ? `/sessions/${id}/game-tracker` : `/sessions/${id}`);
+      }
+    } catch (err) {
+      console.warn('Failed to create game session:', err);
+      setStartingGame(false);
     }
   }
 
@@ -871,6 +909,73 @@ export default function HomePage() {
               </span>
               <ChevronRight className="h-3.5 w-3.5 shrink-0" />
             </button>
+          )}
+
+          {/* Quick Game shortcut */}
+          {!showGameQuickStart ? (
+            <button
+              onClick={() => setShowGameQuickStart(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/5 px-4 py-2.5 text-sm text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 transition-colors touch-manipulation active:scale-[0.98]"
+            >
+              <Trophy className="h-3.5 w-3.5 shrink-0" />
+              <span>Game day? Log a game</span>
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 ml-auto" />
+            </button>
+          ) : (
+            <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Trophy className="h-4 w-4 text-blue-400" />
+                  <span className="text-sm font-semibold text-blue-300">Quick Game Start</span>
+                </div>
+                <button
+                  onClick={() => { setShowGameQuickStart(false); setGameOpponent(''); setGameType('game'); }}
+                  className="rounded-full p-1 text-zinc-500 hover:text-zinc-300 transition-colors touch-manipulation"
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Session type picker */}
+              <div className="flex gap-2">
+                {(['game', 'scrimmage', 'tournament'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setGameType(t)}
+                    className={`flex-1 rounded-lg border py-1.5 text-xs font-medium capitalize transition-colors touch-manipulation ${
+                      gameType === t
+                        ? 'border-blue-500 bg-blue-500/20 text-blue-300'
+                        : 'border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300'
+                    }`}
+                  >
+                    {t === 'game' ? '🏆 Game' : t === 'scrimmage' ? '⚡ Scrimmage' : '🏅 Tournament'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Opponent input */}
+              <input
+                type="text"
+                value={gameOpponent}
+                onChange={(e) => setGameOpponent(e.target.value)}
+                placeholder={gameType === 'tournament' ? 'Tournament name (optional)' : 'vs. Opponent (optional)'}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500 focus:border-blue-500/50 focus:outline-none transition-colors"
+                onKeyDown={(e) => { if (e.key === 'Enter') quickStartGame(); }}
+              />
+
+              <button
+                onClick={quickStartGame}
+                disabled={startingGame}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 hover:bg-blue-500 active:scale-[0.98] transition-all touch-manipulation disabled:opacity-60"
+              >
+                {startingGame ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" />Creating…</>
+                ) : (
+                  <><Trophy className="h-4 w-4" />Go Live</>
+                )}
+              </button>
+            </div>
           )}
         </div>
       )}
