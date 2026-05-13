@@ -103,7 +103,7 @@ try {
 - `Esc` — close modal
 **File**: `src/hooks/use-keyboard-shortcuts.ts` (create if missing)
 
-#### 6. Add `robots.txt` and `sitemap.xml`
+#### ~~6. Add `robots.txt` and `sitemap.xml`~~ ✅ Done (commit 93f439f)
 **Why**: SEO. Free wins.
 **Files**:
 - `public/robots.txt`
@@ -132,7 +132,7 @@ function checkRateLimit(userId: string): boolean {
 }
 ```
 
-#### 8. Add `Content-Security-Policy` Header
+#### ~~8. Add `Content-Security-Policy` Header~~ ✅ Done (commit 93f439f)
 **Why**: Required for any app handling user data.
 **File**: `next.config.js`
 ```js
