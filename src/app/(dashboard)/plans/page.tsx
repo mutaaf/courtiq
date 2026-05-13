@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
@@ -451,6 +451,9 @@ export default function PlansPage() {
   // When running a specific arc session, this holds its 0-based index.
   const [arcSessionForRun, setArcSessionForRun] = useState<number | null>(null);
 
+  const searchParams = useSearchParams();
+  const autoRunTriggeredRef = useRef(false);
+
   const { data: plans, isLoading, refetch: refetchPlans } = useQuery({
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
     queryFn: async () => {
@@ -466,6 +469,21 @@ export default function PlansPage() {
     enabled: !!activeTeam,
     ...CACHE_PROFILES.plans,
   });
+
+  // Deep-link handler: /plans?arcPlanId=...&arcSession=... auto-opens session picker
+  useEffect(() => {
+    if (autoRunTriggeredRef.current || !plans?.length) return;
+    const arcPlanId = searchParams.get('arcPlanId');
+    const arcSessionParam = searchParams.get('arcSession');
+    if (!arcPlanId || arcSessionParam === null) return;
+    const plan = plans.find((p) => p.id === arcPlanId);
+    if (!plan) return;
+    autoRunTriggeredRef.current = true;
+    const sessionIdx = parseInt(arcSessionParam, 10);
+    setSelectedPlan(plan);
+    setArcSessionForRun(isNaN(sessionIdx) ? null : sessionIdx);
+    setShowRunModal(true);
+  }, [plans, searchParams]);
 
   const { data: players } = useQuery({
     queryKey: queryKeys.players.all(activeTeam?.id || ''),
