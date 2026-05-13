@@ -52,7 +52,7 @@ import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot
 import { ContinueArcCard } from '@/components/home/continue-arc-card';
 import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
 
-// ─── Shared reminder helpers ────────────────────────────────────────────
+// ─── Shared reminder helpers ─────────────────────────────────────────
 
 const SESSION_REMINDER_EMOJI: Record<string, string> = {
   practice: '🏃',
@@ -103,7 +103,7 @@ async function shareReminder(msg: string, onSuccess: () => void) {
   }
 }
 
-// ─── Today's Session Card ────────────────────────────────────────────
+// ─── Today's Session Card ──────────────────────────────────
 
 function TodaySessionCard({
   session,
@@ -216,7 +216,7 @@ function TodaySessionCard({
   );
 }
 
-// ─── Upcoming Sessions Card ──────────────────────────────────────────────
+// ─── Upcoming Sessions Card ────────────────────────────────────────────
 
 function UpcomingSessionsCard({
   sessions,
@@ -325,7 +325,7 @@ function UpcomingSessionsCard({
   );
 }
 
-// ─── Last Session Card ──────────────────────────────────────────────────
+// ─── Last Session Card ──────────────────────────────────────────
 
 const SESSION_EMOJI: Record<string, string> = {
   practice: '🏃',
@@ -397,7 +397,7 @@ function LastSessionCard({ session }: {
   );
 }
 
-// ─── Page ──────────────────────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const { activeTeam, coach, aiPlatformAvailable } = useActiveTeam();
@@ -671,7 +671,7 @@ export default function HomePage() {
     return rosterPlayers.filter((p) => !observed.has(p.id));
   }, [practiceActive, rosterPlayers, sessionObsStats]);
 
-  // ── No team state ────────────────────────────────────────────────────────────────────
+  // ── No team state ────────────────────────────────────────────────────────────────────────────────────
   if (!activeTeam) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center min-h-[60vh]">
@@ -693,7 +693,7 @@ export default function HomePage() {
     );
   }
 
-  // ── Main dashboard ────────────────────────────────────────────────────────────────────
+  // ── Main dashboard ──────────────────────────────────────────────────────────────────────────────────
   return (
     <>
     <div className="p-4 lg:p-8 space-y-6 pb-8">
@@ -856,6 +856,29 @@ export default function HomePage() {
               </div>
             </div>
           </button>
+
+          {/* Quick-start for game-day sessions that weren't pre-scheduled */}
+          <div className="grid grid-cols-3 gap-2">
+            <Link href="/sessions/new?type=game">
+              <div className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm font-medium text-zinc-300 hover:border-zinc-700 hover:text-zinc-200 transition-colors touch-manipulation active:scale-[0.97]">
+                <span aria-hidden="true">🏀</span>
+                Game
+              </div>
+            </Link>
+            <Link href="/sessions/new?type=scrimmage">
+              <div className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm font-medium text-zinc-300 hover:border-zinc-700 hover:text-zinc-200 transition-colors touch-manipulation active:scale-[0.97]">
+                <span aria-hidden="true">⚡</span>
+                Scrimmage
+              </div>
+            </Link>
+            <Link href="/sessions/new?type=tournament">
+              <div className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-sm font-medium text-zinc-300 hover:border-zinc-700 hover:text-zinc-200 transition-colors touch-manipulation active:scale-[0.97]">
+                <span aria-hidden="true">🏆</span>
+                Tournament
+              </div>
+            </Link>
+          </div>
+
           {recentPracticePlan && (
             <button
               onClick={() => startPracticeWithPlan(recentPracticePlan.id)}
@@ -977,30 +1000,36 @@ export default function HomePage() {
           </>
         ) : (
           <>
-            <Card>
-              <CardContent className="p-3 sm:p-4 text-center">
-                <p className="text-2xl sm:text-3xl font-bold text-orange-500">
-                  {stats?.players ?? 0}
-                </p>
-                <p className="text-xs text-zinc-400 mt-1">Players</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-3 sm:p-4 text-center">
-                <p className="text-2xl sm:text-3xl font-bold text-blue-500">
-                  {stats?.observations ?? 0}
-                </p>
-                <p className="text-xs text-zinc-400 mt-1">Observations</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-3 sm:p-4 text-center">
-                <p className="text-2xl sm:text-3xl font-bold text-emerald-500">
-                  {stats?.sessions ?? 0}
-                </p>
-                <p className="text-xs text-zinc-400 mt-1">Sessions</p>
-              </CardContent>
-            </Card>
+            <Link href="/roster">
+              <Card className="cursor-pointer hover:border-orange-500/40 transition-colors active:scale-[0.97] touch-manipulation">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <p className="text-2xl sm:text-3xl font-bold text-orange-500">
+                    {stats?.players ?? 0}
+                  </p>
+                  <p className="text-xs text-zinc-400 mt-1">Players</p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/observations">
+              <Card className="cursor-pointer hover:border-blue-500/40 transition-colors active:scale-[0.97] touch-manipulation">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <p className="text-2xl sm:text-3xl font-bold text-blue-500">
+                    {stats?.observations ?? 0}
+                  </p>
+                  <p className="text-xs text-zinc-400 mt-1">Observations</p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/sessions">
+              <Card className="cursor-pointer hover:border-emerald-500/40 transition-colors active:scale-[0.97] touch-manipulation">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <p className="text-2xl sm:text-3xl font-bold text-emerald-500">
+                    {stats?.sessions ?? 0}
+                  </p>
+                  <p className="text-xs text-zinc-400 mt-1">Sessions</p>
+                </CardContent>
+              </Card>
+            </Link>
           </>
         )}
       </div>
