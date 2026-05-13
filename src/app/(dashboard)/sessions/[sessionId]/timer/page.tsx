@@ -79,6 +79,7 @@ import {
 } from '@/lib/announcer-utils';
 import type { PlayerAvailability } from '@/types/database';
 import { getRatingLabel, getRatingColor } from '@/lib/session-quality-utils';
+import { getPhraseByIndex } from '@/lib/coaching-phrases';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -1328,7 +1329,8 @@ export default function PracticeTimerPage({
   useEffect(() => {
     const drill = queueRef.current[currentIdx];
     if (mode === 'running' && drill) {
-      speakRef.current(buildDrillAnnouncement(drill.name, drill.durationSecs, drill.cues[0]));
+      const firstCue = drill.cues[0] || getPhraseByIndex(drill.category, activeTeam?.sport_id, 0) || undefined;
+      speakRef.current(buildDrillAnnouncement(drill.name, drill.durationSecs, firstCue));
     } else if (mode === 'break') {
       speakRef.current(buildBreakAnnouncement());
     } else if (mode === 'done') {
@@ -1687,7 +1689,9 @@ export default function PracticeTimerPage({
     const progress = drill
       ? ((drill.durationSecs - timeLeft) / drill.durationSecs) * 100
       : 0;
-    const currentCue = drill?.cues[cueIdx];
+    const currentCue = drill?.cues[cueIdx] ||
+      getPhraseByIndex(drill?.category, activeTeam?.sport_id, cueIdx) ||
+      undefined;
     const isLowTime = timeLeft <= 30 && timeLeft > 0;
 
     return (
