@@ -26,6 +26,7 @@ import {
   AlertTriangle,
   Sparkles,
   Calendar,
+  Play,
 } from 'lucide-react';
 import Link from 'next/link';
 import { findPlayerByName } from '@/lib/player-match';
@@ -33,6 +34,7 @@ import { localDB } from '@/lib/storage/local-db';
 import { trackEvent } from '@/lib/analytics';
 import type { Sentiment, ObservationSource } from '@/types/database';
 import { AIUpgradePrompt } from '@/components/ui/ai-upgrade-prompt';
+import { useAppStore } from '@/lib/store';
 
 interface ParsedObservation {
   id: string;
@@ -61,6 +63,7 @@ export default function ReviewPage() {
   const router = useRouter();
   const { activeTeam, coach } = useActiveTeam();
   const queryClient = useQueryClient();
+  const practiceActive = useAppStore((s) => s.practiceActive);
 
   const [observations, setObservations] = useState<ParsedObservation[]>([]);
   const [transcript, setTranscript] = useState('');
@@ -82,7 +85,6 @@ export default function ReviewPage() {
   };
 
   useEffect(() => {
-    // Load pending observations from sessionStorage
     const raw = sessionStorage.getItem('pending_observations');
     if (raw) {
       try {
@@ -92,19 +94,16 @@ export default function ReviewPage() {
         setTranscript(data.transcript || '');
         setSource(data.source === 'typed' ? 'typed' : 'voice');
 
-        // Monthly tier limit — show upgrade prompt instead of generic error
         if (data.upgrade && data.error) {
           setAiUpgrade({ message: data.error });
           setLoading(false);
           return;
         }
 
-        // Read error field
         if (data.error) {
           setAiError(data.error);
         }
 
-        // Read unmatched_names field
         if (data.unmatched_names && Array.isArray(data.unmatched_names) && data.unmatched_names.length > 0) {
           setUnmatchedNames(data.unmatched_names);
         }
@@ -204,7 +203,6 @@ export default function ReviewPage() {
     try {
       if (!coach) throw new Error('Not authenticated');
 
-      // Resolve player names to player IDs
       const players = await query<{ id: string; name: string; nickname: string | null; name_variants: string[] | null }[]>({
         table: 'players',
         select: 'id, name, nickname, name_variants',
@@ -237,7 +235,6 @@ export default function ReviewPage() {
         data: rows,
       });
 
-      // Update recording status if applicable
       if (recordingId) {
         await mutate({
           table: 'recordings',
@@ -247,12 +244,10 @@ export default function ReviewPage() {
         });
       }
 
-      // Invalidate relevant queries
       await queryClient.invalidateQueries({
         queryKey: queryKeys.observations.all(activeTeam.id),
       });
 
-      // Clean up sessionStorage
       sessionStorage.removeItem('pending_observations');
 
       const matchedPlayers = rows.filter((r) => r.player_id !== null).length;
@@ -266,11 +261,8 @@ export default function ReviewPage() {
 
       setSavedCount(toSave.length);
     } catch (err: any) {
-      // If offline, fall back to local IndexedDB so the coach doesn't lose work.
-      // The sync engine will push these to the server when connectivity returns.
       if (!navigator.onLine && localDB && coach) {
         try {
-          // Re-resolve players from whatever we have (may be empty array offline)
           const cachedPlayers = await query<{ id: string; name: string; nickname: string | null; name_variants: string[] | null }[]>({
             table: 'players',
             select: 'id, name, nickname, name_variants',
@@ -299,7 +291,6 @@ export default function ReviewPage() {
             });
           }
 
-          // Register BackgroundSync so observations upload the moment network returns
           if ('serviceWorker' in navigator) {
             const reg = await navigator.serviceWorker.ready;
             await (reg as any).sync?.register('sync-observations').catch(() => {});
@@ -327,7 +318,6 @@ export default function ReviewPage() {
     );
   }
 
-  // Monthly AI tier limit — show upgrade prompt in place of review content
   if (aiUpgrade) {
     return (
       <div className="mx-auto max-w-lg space-y-6 p-4 lg:p-8 pb-8">
@@ -365,7 +355,9 @@ export default function ReviewPage() {
                 <Mic className="h-4 w-4" />
                 Capture More
               </Button>
-              <Button onClick={() => router.push('/home')}>Go Home</Button>
+              <Button onClick={() => router.push('/home')}>
+                {practiceActive ? 'Continue Practice' : 'Go Home'}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -437,9 +429,27 @@ export default function ReviewPage() {
               </div>
             )}
 
-            {/* CTAs */}
+            {/* CTAs — context-aware: different actions during vs after practice */}
             <div className="flex flex-col gap-2.5 pt-1">
-              {sessionId ? (
+              {practiceActive ? (
+                <>
+                  <Button
+                    className="w-full bg-emerald-600 hover:bg-emerald-500"
+                    onClick={() => router.push('/home')}
+                  >
+                    <Play className="h-4 w-4" />
+                    Continue Practice
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => router.push('/capture')}
+                  >
+                    <Mic className="h-4 w-4" />
+                    Capture Another
+                  </Button>
+                </>
+              ) : sessionId ? (
                 <>
                   <Button
                     className="w-full"
@@ -474,7 +484,7 @@ export default function ReviewPage() {
               )}
             </div>
 
-            {!sessionId && savedCount > 0 && (
+            {!sessionId && !practiceActive && savedCount > 0 && (
               <p className="text-center text-xs text-zinc-600">
                 Tip: Start a session before practice to unlock AI debrief and parent messages.
               </p>
@@ -493,7 +503,6 @@ export default function ReviewPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-4 lg:p-8 pb-8">
-      {/* Back link */}
       <Link
         href="/capture"
         className="inline-flex items-center gap-1 text-sm text-zinc-400 transition-colors hover:text-zinc-200"
@@ -502,7 +511,6 @@ export default function ReviewPage() {
         Capture
       </Link>
 
-      {/* AI Error Banner */}
       {aiError && (
         <Card className="border-red-500/30 bg-red-500/5">
           <CardContent className="flex items-start gap-3 p-4">
@@ -524,7 +532,6 @@ export default function ReviewPage() {
         </Card>
       )}
 
-      {/* Unmatched Names Warning */}
       {unmatchedNames.length > 0 && (
         <Card className="border-yellow-500/30 bg-yellow-500/5">
           <CardContent className="flex items-start gap-3 p-4">
@@ -544,7 +551,6 @@ export default function ReviewPage() {
         </Card>
       )}
 
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-zinc-100">Review Observations</h1>
@@ -565,7 +571,6 @@ export default function ReviewPage() {
         )}
       </div>
 
-      {/* Transcript */}
       {transcript && (
         <Card>
           <CardHeader>
@@ -584,7 +589,6 @@ export default function ReviewPage() {
         </Card>
       )}
 
-      {/* Observation Cards */}
       {observations.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center p-8 text-center">
@@ -616,7 +620,6 @@ export default function ReviewPage() {
                 }
               >
                 <CardContent className="p-4">
-                  {/* Player & Category */}
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-zinc-100">{obs.player_name}</span>
                     <Badge variant="outline">{obs.category}</Badge>
@@ -640,7 +643,6 @@ export default function ReviewPage() {
                     )}
                   </div>
 
-                  {/* Text / Edit */}
                   {obs.status === 'editing' ? (
                     <div className="mt-3 space-y-2">
                       <Textarea
@@ -666,7 +668,6 @@ export default function ReviewPage() {
                     <p className="mt-2 text-sm text-zinc-300">{obs.text}</p>
                   )}
 
-                  {/* Actions */}
                   {obs.status !== 'editing' && (
                     <div className="mt-3 flex gap-2">
                       <Button
@@ -707,14 +708,12 @@ export default function ReviewPage() {
         </div>
       )}
 
-      {/* Error */}
       {error && (
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
           {error}
         </div>
       )}
 
-      {/* Save All */}
       {activeObs.length > 0 && (
         <div className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] lg:bottom-4 flex justify-end">
           <Button size="lg" onClick={handleSaveAll} disabled={saving} className="shadow-xl">
