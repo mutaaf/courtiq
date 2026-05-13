@@ -447,7 +447,7 @@ export default function HomePage() {
     }
   }
 
-  async function startPracticeWithPlan(planId: string) {
+  async function startPracticeWithPlan(planId: string, arcSession?: number) {
     if (!activeTeam || !coach) return;
     try {
       const session = await mutate<{ id: string }>({
@@ -467,7 +467,8 @@ export default function HomePage() {
         setPracticeActive(true);
         setPracticeSessionId(id);
         setPracticeStartedAt(new Date().toISOString());
-        router.push(`/sessions/${id}/timer?planId=${planId}`);
+        const arcParam = arcSession !== undefined ? `&arcSession=${arcSession}` : '';
+        router.push(`/sessions/${id}/timer?planId=${planId}${arcParam}`);
       }
     } catch (err) {
       console.warn('Failed to start practice with plan:', err);
@@ -919,7 +920,10 @@ export default function HomePage() {
 
       {/* Continue Arc — prompts coach to run the next session in their practice series */}
       {!practiceActive && activeTeam && (
-        <ContinueArcCard teamId={activeTeam.id} />
+        <ContinueArcCard
+          teamId={activeTeam.id}
+          onRun={(planId, arcSession) => startPracticeWithPlan(planId, arcSession)}
+        />
       )}
 
       {/* Last session summary — shown when no today session and practice not active */}

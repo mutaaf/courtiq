@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { ChevronRight, Zap, X } from 'lucide-react';
+import { Zap, X, Loader2 } from 'lucide-react';
 
 interface ArcProgress {
   planId: string;
@@ -13,10 +12,17 @@ interface ArcProgress {
   savedAt: string;
 }
 
-export function ContinueArcCard({ teamId }: { teamId: string }) {
+interface ContinueArcCardProps {
+  teamId: string;
+  /** Called when the coach taps "Run Session N". Home page creates the session and navigates. */
+  onRun?: (planId: string, arcSession: number) => void | Promise<void>;
+}
+
+export function ContinueArcCard({ teamId, onRun }: ContinueArcCardProps) {
   const [arc, setArc] = useState<ArcProgress | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [running, setRunning] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -41,6 +47,17 @@ export function ContinueArcCard({ teamId }: { teamId: string }) {
     try { localStorage.removeItem(`arc-progress-${teamId}`); } catch { /* ignore */ }
   };
 
+  async function handleRun() {
+    if (!arc || running) return;
+    setRunning(true);
+    try {
+      // nextSession is 1-based; arcSession param is 0-based
+      await onRun?.(arc.planId, arc.nextSession - 1);
+    } finally {
+      setRunning(false);
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-sky-500/25 bg-sky-500/5 p-4">
       <div className="flex items-start gap-3">
@@ -53,18 +70,27 @@ export function ContinueArcCard({ teamId }: { teamId: string }) {
           </p>
           <p className="text-sm font-semibold text-zinc-100 leading-snug">{arc.arcTitle}</p>
           <p className="mt-0.5 text-xs text-zinc-400">
-            Session {arc.nextSession} of {arc.totalSessions} — load before next practice
+            Session {arc.nextSession} of {arc.totalSessions}
+            {arc.nextSessionTitle ? ` — ${arc.nextSessionTitle}` : ' — tap to start'}
           </p>
-          {arc.nextSessionTitle && (
-            <p className="mt-0.5 text-xs text-zinc-500 italic truncate">{arc.nextSessionTitle}</p>
-          )}
-          <Link
-            href="/plans"
-            className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-sky-500/25 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-300 hover:bg-sky-500/25 transition-colors touch-manipulation active:scale-[0.97]"
+          <button
+            onClick={handleRun}
+            disabled={running}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-sky-500/25 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-300 hover:bg-sky-500/25 disabled:opacity-60 transition-colors touch-manipulation active:scale-[0.97]"
+            aria-label={`Run Session ${arc.nextSession} of ${arc.arcTitle} in Practice Timer`}
           >
-            Load Session {arc.nextSession} in Timer
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Link>
+            {running ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Starting…
+              </>
+            ) : (
+              <>
+                <Zap className="h-3.5 w-3.5" />
+                Start Session {arc.nextSession} Now
+              </>
+            )}
+          </button>
         </div>
         <button
           onClick={handleDismiss}
