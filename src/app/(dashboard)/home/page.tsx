@@ -2,7 +2,7 @@
 
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { query, mutate } from '@/lib/api';
 import { useElapsedTime } from '@/hooks/use-elapsed-time';
@@ -25,7 +25,13 @@ import {
   History,
   Star,
   Share2,
+  ThumbsUp,
+  ThumbsDown,
+  X,
 } from 'lucide-react';
+import { getTemplatesBySentiment } from '@/lib/observation-templates';
+import type { ObservationTemplate } from '@/lib/observation-templates';
+import { queryKeys } from '@/lib/query/keys';
 import type { Session, Plan } from '@/types/database';
 import { useAppStore } from '@/lib/store';
 import { PostPracticeDebrief } from '@/components/capture/post-practice-debrief';
@@ -402,7 +408,15 @@ function LastSessionCard({ session }: {
 export default function HomePage() {
   const { activeTeam, coach, aiPlatformAvailable } = useActiveTeam();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [showDebrief, setShowDebrief] = useState(false);
+
+  // Inline observation sheet — opened from mid-practice coverage row chips
+  const [inlineObsPlayer, setInlineObsPlayer] = useState<{ id: string; name: string } | null>(null);
+  const [inlineObsSentiment, setInlineObsSentiment] = useState<'positive' | 'needs-work'>('positive');
+  const [inlineObsTemplate, setInlineObsTemplate] = useState<ObservationTemplate | null>(null);
+  const [inlineObsSaving, setInlineObsSaving] = useState(false);
+  const [inlineObsSaved, setInlineObsSaved] = useState<string | null>(null);
 
   const hasAIKeys = (() => {
     if (aiPlatformAvailable) return true;
@@ -471,6 +485,48 @@ export default function HomePage() {
       }
     } catch (err) {
       console.warn('Failed to start practice with plan:', err);
+    }
+  }
+
+  async function saveInlineObs() {
+    if (!inlineObsTemplate || !inlineObsPlayer || !activeTeam || !coach) return;
+    setInlineObsSaving(true);
+    try {
+      await mutate({
+        table: 'observations',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          player_id: inlineObsPlayer.id,
+          session_id: practiceSessionId ?? null,
+          text: inlineObsTemplate.text,
+          sentiment: inlineObsTemplate.sentiment,
+          category: inlineObsTemplate.category,
+          source: 'template',
+          ai_parsed: false,
+          coach_edited: false,
+          is_synced: true,
+        },
+      });
+      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([80, 40, 80]);
+      queryClient.invalidateQueries({ queryKey: queryKeys.observations.all(activeTeam.id) });
+      queryClient.invalidateQueries({ queryKey: ['home-stats', activeTeam.id] });
+      queryClient.invalidateQueries({ queryKey: ['home-pulse', activeTeam.id] });
+      if (practiceSessionId) {
+        queryClient.invalidateQueries({ queryKey: ['session-obs-count', practiceSessionId] });
+      }
+      setInlineObsSaved(inlineObsPlayer.id);
+      setTimeout(() => {
+        setInlineObsSaved(null);
+        setInlineObsPlayer(null);
+        setInlineObsTemplate(null);
+        setInlineObsSentiment('positive');
+      }, 1200);
+    } catch {
+      // keep sheet open so coach can retry
+    } finally {
+      setInlineObsSaving(false);
     }
   }
 
@@ -817,15 +873,25 @@ export default function HomePage() {
                 <div className="flex gap-2 flex-wrap">
                   {unobservedDuringPractice.map((p) => {
                     const label = p.jersey_number != null ? `#${p.jersey_number} ${p.name.split(' ')[0]}` : p.name.split(' ')[0];
-                    const href = practiceSessionId
-                      ? `/capture?sessionId=${practiceSessionId}&playerId=${p.id}&player=${encodeURIComponent(p.name)}`
-                      : `/capture?playerId=${p.id}&player=${encodeURIComponent(p.name)}`;
+                    const isSaved = inlineObsSaved === p.id;
                     return (
-                      <Link key={p.id} href={href}>
-                        <span className="inline-flex items-center rounded-full border border-orange-500/30 bg-orange-500/10 px-2.5 py-1 text-xs font-medium text-orange-300 hover:bg-orange-500/20 transition-colors touch-manipulation active:scale-95">
-                          {label}
-                        </span>
-                      </Link>
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          setInlineObsPlayer({ id: p.id, name: p.name });
+                          setInlineObsSentiment('positive');
+                          setInlineObsTemplate(null);
+                        }}
+                        className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium transition-colors touch-manipulation active:scale-95 ${
+                          isSaved
+                            ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300'
+                            : inlineObsPlayer?.id === p.id
+                              ? 'border-orange-500/50 bg-orange-500/20 text-orange-200'
+                              : 'border-orange-500/30 bg-orange-500/10 text-orange-300 hover:bg-orange-500/20'
+                        }`}
+                      >
+                        {isSaved ? '✓ ' : ''}{label}
+                      </button>
                     );
                   })}
                 </div>
@@ -1074,6 +1140,91 @@ export default function HomePage() {
       )}
 
     </div>
+
+    {/* Inline observation sheet — opens when coach taps a player chip in coverage row */}
+    {inlineObsPlayer && (
+      <div
+        className="fixed inset-0 z-40 flex items-end"
+        onClick={(e) => { if (e.target === e.currentTarget) setInlineObsPlayer(null); }}
+      >
+        <div className="w-full rounded-t-2xl border-t border-zinc-800 bg-zinc-950 p-4 pb-10 space-y-4 shadow-2xl">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold">
+              Observe{' '}
+              <span className="text-orange-400">
+                {inlineObsPlayer.name.split(' ')[0]}
+              </span>
+            </p>
+            <button
+              onClick={() => setInlineObsPlayer(null)}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 transition-colors"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4 text-zinc-400" />
+            </button>
+          </div>
+
+          {/* Sentiment toggle */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setInlineObsSentiment('positive'); setInlineObsTemplate(null); }}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-2.5 text-sm font-medium transition-colors ${
+                inlineObsSentiment === 'positive'
+                  ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                  : 'border-zinc-700 bg-zinc-900 text-zinc-400 hover:bg-zinc-800'
+              }`}
+            >
+              <ThumbsUp className="h-3.5 w-3.5" />
+              Positive
+            </button>
+            <button
+              onClick={() => { setInlineObsSentiment('needs-work'); setInlineObsTemplate(null); }}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-2.5 text-sm font-medium transition-colors ${
+                inlineObsSentiment === 'needs-work'
+                  ? 'border-amber-500/40 bg-amber-500/15 text-amber-300'
+                  : 'border-zinc-700 bg-zinc-900 text-zinc-400 hover:bg-zinc-800'
+              }`}
+            >
+              <ThumbsDown className="h-3.5 w-3.5" />
+              Needs Work
+            </button>
+          </div>
+
+          {/* Template chips — top 6 for the selected sentiment */}
+          <div className="flex flex-wrap gap-2">
+            {getTemplatesBySentiment(inlineObsSentiment).slice(0, 6).map((tpl) => (
+              <button
+                key={tpl.id}
+                onClick={() => setInlineObsTemplate(tpl)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  inlineObsTemplate?.id === tpl.id
+                    ? inlineObsSentiment === 'positive'
+                      ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300'
+                      : 'border-amber-500/50 bg-amber-500/20 text-amber-300'
+                    : 'border-zinc-700 bg-zinc-800 text-zinc-300 hover:border-zinc-600'
+                }`}
+              >
+                {tpl.emoji} {tpl.text}
+              </button>
+            ))}
+          </div>
+
+          {/* Save button */}
+          <Button
+            onClick={saveInlineObs}
+            disabled={!inlineObsTemplate || inlineObsSaving}
+            className="w-full"
+          >
+            {inlineObsSaving
+              ? 'Saving…'
+              : inlineObsTemplate
+                ? `Save — ${inlineObsTemplate.text}`
+                : 'Pick an observation above'}
+          </Button>
+        </div>
+      </div>
+    )}
 
     {/* Post-practice debrief modal */}
     {showDebrief && practiceSessionId && (
