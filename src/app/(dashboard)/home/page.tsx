@@ -50,6 +50,7 @@ import { PlayerOnARollCard } from '@/components/home/player-on-a-roll-card';
 import { StrugglingPlayerCard } from '@/components/home/struggling-player-card';
 import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot-card';
 import { ContinueArcCard } from '@/components/home/continue-arc-card';
+import { ArcCompleteCard } from '@/components/home/arc-complete-card';
 import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
 
 // ─── Shared reminder helpers ────────────────────────────────────────────
@@ -920,6 +921,11 @@ export default function HomePage() {
       {/* Continue Arc — prompts coach to run the next session in their practice series */}
       {!practiceActive && activeTeam && (
         <ContinueArcCard teamId={activeTeam.id} />
+      )}
+
+      {/* Arc Complete — celebration card after the final session in a practice series */}
+      {!practiceActive && activeTeam && (
+        <ArcCompleteCard teamId={activeTeam.id} />
       )}
 
       {/* Last session summary — shown when no today session and practice not active */}

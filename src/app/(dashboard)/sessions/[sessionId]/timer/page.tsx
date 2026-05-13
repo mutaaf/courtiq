@@ -1220,8 +1220,17 @@ export default function PracticeTimerPage({
                 }));
               } catch { /* ignore */ }
             } else {
-              // All sessions completed — clear the arc progress card.
-              try { localStorage.removeItem(`arc-progress-${activeTeam.id}`); } catch { /* ignore */ }
+              // All sessions completed — clear the progress card and write a
+              // completion record so ArcCompleteCard can show a celebration.
+              try {
+                localStorage.removeItem(`arc-progress-${activeTeam.id}`);
+                localStorage.setItem(`arc-complete-${activeTeam.id}`, JSON.stringify({
+                  planId,
+                  arcTitle,
+                  totalSessions,
+                  completedAt: new Date().toISOString(),
+                }));
+              } catch { /* ignore */ }
             }
           }
         }
