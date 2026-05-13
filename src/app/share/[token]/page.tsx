@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { ParentViralCTA } from '@/components/share/parent-viral-cta';
 import { ParentReactionForm } from '@/components/share/parent-reaction-form';
+import { ShareReportButton } from '@/components/share/share-report-button';
 import { Megaphone, MessageCircle } from 'lucide-react';
 import {
   buildSeasonStats,
@@ -527,6 +528,15 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
                 <> We&apos;re excited to share this update with you!</>
               )}
             </p>
+          </div>
+
+          {/* Share this report — lets parents forward to family */}
+          <div className="mt-4">
+            <ShareReportButton
+              firstName={firstName}
+              teamName={teamName}
+              coachName={coachName}
+            />
           </div>
         </div>
 
