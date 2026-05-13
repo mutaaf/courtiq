@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { ChevronRight, Zap, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { ChevronRight, Zap, X, Timer, AlertCircle } from 'lucide-react';
+import { mutate } from '@/lib/api';
+import { queryKeys } from '@/lib/query/keys';
 
 interface ArcProgress {
   planId: string;
@@ -13,10 +16,21 @@ interface ArcProgress {
   savedAt: string;
 }
 
-export function ContinueArcCard({ teamId }: { teamId: string }) {
+interface ContinueArcCardProps {
+  teamId: string;
+  coachId?: string;
+  todaySessionId?: string | null;
+}
+
+export function ContinueArcCard({ teamId, coachId, todaySessionId }: ContinueArcCardProps) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+
   const [arc, setArc] = useState<ArcProgress | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -41,6 +55,47 @@ export function ContinueArcCard({ teamId }: { teamId: string }) {
     try { localStorage.removeItem(`arc-progress-${teamId}`); } catch { /* ignore */ }
   };
 
+  // arcSession is 0-based index; arc.nextSession is 1-based display number
+  const arcSessionIndex = arc.nextSession - 1;
+  const timerUrl = (sessionId: string) =>
+    `/sessions/${sessionId}/timer?planId=${arc.planId}&arcSession=${arcSessionIndex}`;
+
+  async function handleRun() {
+    setError(false);
+    setLoading(true);
+    try {
+      // If there's already a session today, use it
+      if (todaySessionId) {
+        router.push(timerUrl(todaySessionId));
+        return;
+      }
+      // Otherwise create a new practice session
+      if (!coachId) {
+        // No coachId available — fall back to plans page
+        router.push('/plans');
+        return;
+      }
+      const session = await mutate<any[]>({
+        table: 'sessions',
+        operation: 'insert',
+        data: {
+          team_id: teamId,
+          coach_id: coachId,
+          type: 'practice',
+          date: new Date().toISOString().split('T')[0],
+        },
+        select: 'id',
+      });
+      const sessionId = Array.isArray(session) ? session[0]?.id : (session as any)?.id;
+      if (!sessionId) throw new Error('No session ID returned');
+      queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all(teamId) });
+      router.push(timerUrl(sessionId));
+    } catch {
+      setError(true);
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-sky-500/25 bg-sky-500/5 p-4">
       <div className="flex items-start gap-3">
@@ -53,18 +108,36 @@ export function ContinueArcCard({ teamId }: { teamId: string }) {
           </p>
           <p className="text-sm font-semibold text-zinc-100 leading-snug">{arc.arcTitle}</p>
           <p className="mt-0.5 text-xs text-zinc-400">
-            Session {arc.nextSession} of {arc.totalSessions} — load before next practice
+            Session {arc.nextSession} of {arc.totalSessions} — ready to run
           </p>
           {arc.nextSessionTitle && (
             <p className="mt-0.5 text-xs text-zinc-500 italic truncate">{arc.nextSessionTitle}</p>
           )}
-          <Link
-            href="/plans"
-            className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-sky-500/25 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-300 hover:bg-sky-500/25 transition-colors touch-manipulation active:scale-[0.97]"
+
+          {error && (
+            <p className="mt-2 flex items-center gap-1.5 text-xs text-red-400">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              Couldn&apos;t create session — try from Plans
+            </p>
+          )}
+
+          <button
+            onClick={handleRun}
+            disabled={loading}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-sky-500/25 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-300 hover:bg-sky-500/25 transition-colors touch-manipulation active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Load Session {arc.nextSession} in Timer
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Link>
+            {loading ? (
+              <>
+                <Timer className="h-3.5 w-3.5 animate-pulse" />
+                Starting…
+              </>
+            ) : (
+              <>
+                Load Session {arc.nextSession} in Timer
+                <ChevronRight className="h-3.5 w-3.5" />
+              </>
+            )}
+          </button>
         </div>
         <button
           onClick={handleDismiss}

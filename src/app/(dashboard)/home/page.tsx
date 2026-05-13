@@ -919,7 +919,11 @@ export default function HomePage() {
 
       {/* Continue Arc — prompts coach to run the next session in their practice series */}
       {!practiceActive && activeTeam && (
-        <ContinueArcCard teamId={activeTeam.id} />
+        <ContinueArcCard
+          teamId={activeTeam.id}
+          coachId={coach?.id}
+          todaySessionId={todaySessions[0]?.id ?? null}
+        />
       )}
 
       {/* Last session summary — shown when no today session and practice not active */}
