@@ -917,7 +917,7 @@ export default function HomePage() {
                     : 'Team';
                   const icon = obs.sentiment === 'positive'
                     ? '✅'
-                    : obs.sentiment === 'needs_work'
+                    : obs.sentiment === 'needs-work'
                     ? '⚠️'
                     : '·';
                   const snippet = obs.text.length > 48
