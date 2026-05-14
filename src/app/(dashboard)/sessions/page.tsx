@@ -79,7 +79,7 @@ export default function SessionsPage() {
       }
       const data = await query<any[]>({
         table: 'sessions',
-        select: 'id, type, date, start_time, location, opponent, result, curriculum_week, quality_rating, observations:observations(count)',
+        select: 'id, type, date, start_time, location, opponent, result, curriculum_week, quality_rating, coach_debrief_text, observations:observations(count)',
         filters,
         order: { column: 'date', ascending: false },
       });
@@ -265,6 +265,15 @@ export default function SessionsPage() {
                             </span>
                           )}
                         </div>
+
+                        {/* Coach notes preview — one-line italic reminder of what the coach noted */}
+                        {session.coach_debrief_text && (
+                          <p className="text-xs text-zinc-500 italic truncate mt-0.5">
+                            {session.coach_debrief_text.length > 70
+                              ? session.coach_debrief_text.slice(0, 70) + '…'
+                              : session.coach_debrief_text}
+                          </p>
+                        )}
 
                         {/* Inline quick-result entry: only for game types without a result */}
                         {isGame && !parsedResult && (

@@ -345,7 +345,7 @@ const SESSION_LABEL: Record<string, string> = {
 };
 
 function LastSessionCard({ session }: {
-  session: { id: string; type: string; date: string; quality_rating?: number | null; observations?: [{ count: number }] };
+  session: { id: string; type: string; date: string; quality_rating?: number | null; coach_debrief_text?: string | null; observations?: [{ count: number }] };
 }) {
   const obsCount = session.observations?.[0]?.count ?? 0;
   const emoji = SESSION_EMOJI[session.type] ?? '📋';
@@ -386,6 +386,13 @@ function LastSessionCard({ session }: {
               ? `${obsCount} observation${obsCount !== 1 ? 's' : ''} captured`
               : 'No observations — tap to add'}
           </p>
+          {session.coach_debrief_text && (
+            <p className="text-xs text-zinc-600 italic mt-0.5 line-clamp-1">
+              {session.coach_debrief_text.length > 55
+                ? session.coach_debrief_text.slice(0, 55) + '…'
+                : session.coach_debrief_text}
+            </p>
+          )}
         </div>
         <Link href={`/sessions/${session.id}`} className="shrink-0">
           <Button size="sm" variant="outline" className="gap-1.5">
@@ -595,7 +602,7 @@ export default function HomePage() {
       const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000).toISOString().split('T')[0];
       const sessions = await query<any[]>({
         table: 'sessions',
-        select: 'id, type, date, quality_rating, observations:observations(count)',
+        select: 'id, type, date, quality_rating, coach_debrief_text, observations:observations(count)',
         filters: {
           team_id: activeTeam.id,
           date: { op: 'lt', value: today },
