@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { query, mutate } from '@/lib/api';
 import { useElapsedTime } from '@/hooks/use-elapsed-time';
 import { shouldShowWrapUpNudge } from '@/lib/elapsed-time-utils';
+import { formatSkillLabel } from '@/lib/skill-trend-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -724,6 +725,39 @@ export default function HomePage() {
     staleTime: 20_000,
   });
 
+  // Top needs-work skill per player (last 30 days) — shown as focus hint on coverage chips
+  const since30d = useMemo(() => new Date(Date.now() - 30 * 86_400_000).toISOString(), []);
+  const { data: playerFocusMap = {} } = useQuery({
+    queryKey: ['practice-player-focus', activeTeam?.id],
+    queryFn: async () => {
+      if (!activeTeam) return {};
+      const obs = await query<{ player_id: string | null; category: string | null }[]>({
+        table: 'observations',
+        select: 'player_id, category',
+        filters: {
+          team_id: activeTeam.id,
+          sentiment: 'needs-work',
+          created_at: { op: 'gte', value: since30d },
+        },
+      });
+      if (!obs) return {};
+      const counts: Record<string, Record<string, number>> = {};
+      for (const o of obs) {
+        if (!o.player_id || !o.category || o.category === 'general') continue;
+        counts[o.player_id] ??= {};
+        counts[o.player_id][o.category] = (counts[o.player_id][o.category] ?? 0) + 1;
+      }
+      const result: Record<string, string> = {};
+      for (const [pid, cats] of Object.entries(counts)) {
+        const top = Object.entries(cats).sort((a, b) => b[1] - a[1])[0];
+        if (top) result[pid] = top[0];
+      }
+      return result;
+    },
+    enabled: !!activeTeam && practiceActive,
+    staleTime: 30 * 60_000,
+  });
+
   // Which players haven't been observed yet in the active practice session
   const unobservedDuringPractice = useMemo(() => {
     if (!practiceActive || !rosterPlayers.length) return [];
@@ -891,10 +925,15 @@ export default function HomePage() {
                     const href = practiceSessionId
                       ? `/capture?sessionId=${practiceSessionId}&playerId=${p.id}&player=${encodeURIComponent(p.name)}`
                       : `/capture?playerId=${p.id}&player=${encodeURIComponent(p.name)}`;
+                    const focusCat = playerFocusMap[p.id];
+                    const focusLabel = focusCat ? formatSkillLabel(focusCat) : null;
                     return (
                       <Link key={p.id} href={href}>
-                        <span className="inline-flex items-center rounded-full border border-orange-500/30 bg-orange-500/10 px-2.5 py-1 text-xs font-medium text-orange-300 hover:bg-orange-500/20 transition-colors touch-manipulation active:scale-95">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-orange-500/30 bg-orange-500/10 px-2.5 py-1 text-xs font-medium text-orange-300 hover:bg-orange-500/20 transition-colors touch-manipulation active:scale-95">
                           {label}
+                          {focusLabel && (
+                            <span className="text-orange-400/55 font-normal">· {focusLabel}</span>
+                          )}
                         </span>
                       </Link>
                     );
