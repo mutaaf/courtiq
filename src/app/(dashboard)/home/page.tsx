@@ -54,6 +54,7 @@ import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot
 import { ContinueArcCard } from '@/components/home/continue-arc-card';
 import { ArcCompleteCard } from '@/components/home/arc-complete-card';
 import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
+import { GoalDeadlineCard } from '@/components/home/goal-deadline-card';
 
 // ─── Live capture feed helper ─────────────────────────────────────────
 
@@ -1284,6 +1285,9 @@ export default function HomePage() {
 
       {/* Team Wins Feed — recent badges + achieved goals */}
       {activeTeam && <TeamWinsCard teamId={activeTeam.id} />}
+
+      {/* Goal Deadline Alert — active player goals due within 7 days or overdue */}
+      {activeTeam && <GoalDeadlineCard teamId={activeTeam.id} />}
 
       {/* Player Breakthrough — celebrates when a player flips from needs-work to improving */}
       {activeTeam && stats && stats.observations >= 5 && (
