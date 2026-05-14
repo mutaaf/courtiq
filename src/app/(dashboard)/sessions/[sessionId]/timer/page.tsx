@@ -58,6 +58,7 @@ import {
   type PracticeTemplate,
   type TemplateDrill,
 } from '@/lib/practice-templates';
+import { getPhraseByIndex, hasPhrases } from '@/lib/coaching-phrases';
 import { OBSERVATION_TEMPLATES } from '@/lib/observation-templates';
 import {
   getPlayerFocusForCategory,
@@ -1604,6 +1605,26 @@ export default function PracticeTimerPage({
       .slice(0, 3);
   }, [drills, needsWorkObs, queue]);
 
+  // ── Coaching phrase fallback ─────────────────────────────────────────────
+  // When the current drill has no teaching cues, surface a sport- and
+  // category-specific phrase from the static coaching-phrases library so
+  // coaches always have something concrete to SAY to players.
+  const sportSlug = (coach?.organizations as any)?.sport_config?.default_sport_slug ?? 'basketball';
+
+  const fallbackCue = useMemo(() => {
+    const drill = queue[currentIdx];
+    if (!drill || drill.cues.length > 0) return null; // real cues available — no fallback needed
+    const nameLower = drill.name.toLowerCase();
+    // Infer a structural category from the drill name when no category is stored
+    let cat: string | undefined = drill.category;
+    if (!cat) {
+      if (nameLower.includes('warm')) cat = 'warmup';
+      else if (nameLower.includes('scrimmage') || nameLower.includes('game')) cat = 'scrimmage';
+    }
+    if (!hasPhrases(cat, sportSlug)) return null;
+    return getPhraseByIndex(cat, sportSlug, cueIdx);
+  }, [queue, currentIdx, cueIdx, sportSlug]);
+
   // ── Practice templates ───────────────────────────────────────────────────
   const availableTemplates = rankTemplates(
     getTemplatesForSport(activeTeam?.sport_id || ''),
@@ -1687,7 +1708,7 @@ export default function PracticeTimerPage({
     const progress = drill
       ? ((drill.durationSecs - timeLeft) / drill.durationSecs) * 100
       : 0;
-    const currentCue = drill?.cues[cueIdx];
+    const currentCue = drill?.cues[cueIdx] || fallbackCue;
     const isLowTime = timeLeft <= 30 && timeLeft > 0;
 
     return (

@@ -1090,7 +1090,11 @@ export default function HomePage() {
 
       {/* Drill of the Day — deterministic drill targeting the team's top skill gap */}
       {!isLoadingStats && stats && stats.observations >= 5 && (
-        <DrillOfDayCard teamId={activeTeam.id} sportId={activeTeam.sport_id} />
+        <DrillOfDayCard
+          teamId={activeTeam.id}
+          sportId={activeTeam.sport_id}
+          sportSlug={(coach as any)?.organizations?.sport_config?.default_sport_slug ?? 'basketball'}
+        />
       )}
 
       {/* Getting Started checklist — shown until first 3 actions are complete */}

@@ -17,11 +17,13 @@ import {
   buildDrillViewUrl,
 } from '@/lib/drill-of-day-utils';
 import { getWeeklyFocus } from '@/lib/weekly-focus-utils';
+import { getPhraseForDay, hasPhrases } from '@/lib/coaching-phrases';
 import type { Drill } from '@/types/database';
 
 interface DrillOfDayCardProps {
   teamId: string;
   sportId: string;
+  sportSlug?: string;
 }
 
 interface ObsRow {
@@ -48,7 +50,7 @@ function computeTopNeedsWorkCategory(obs: ObsRow[]): string | null {
   return topCat || null;
 }
 
-export function DrillOfDayCard({ teamId, sportId }: DrillOfDayCardProps) {
+export function DrillOfDayCard({ teamId, sportId, sportSlug = 'basketball' }: DrillOfDayCardProps) {
   const today = useMemo(() => new Date(), []);
   const [dismissed, setDismissed] = useState(false);
   const [weeklyFocusCategory, setWeeklyFocusCategory] = useState<string | null>(null);
@@ -128,6 +130,13 @@ export function DrillOfDayCard({ teamId, sportId }: DrillOfDayCardProps) {
   const categoryLabel = getDrillCategoryLabel(topCategory);
   const viewUrl = buildDrillViewUrl(topCategory);
 
+  // When the drill has no specific cues, surface a sport-category phrase coaches can use on the court
+  const daySeed = Math.floor(Date.now() / 86_400_000);
+  const coachingPhrase =
+    cues.length === 0 && hasPhrases(topCategory, sportSlug)
+      ? getPhraseForDay(topCategory, sportSlug, daySeed)
+      : null;
+
   return (
     <div className="rounded-2xl border border-teal-500/20 bg-teal-500/5 p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -168,7 +177,7 @@ export function DrillOfDayCard({ teamId, sportId }: DrillOfDayCardProps) {
         )}
       </div>
 
-      {cues.length > 0 && (
+      {(cues.length > 0 || coachingPhrase) && (
         <div className="space-y-1">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
             Key coaching cues
@@ -179,6 +188,12 @@ export function DrillOfDayCard({ teamId, sportId }: DrillOfDayCardProps) {
               <p className="text-xs text-zinc-300">{cue}</p>
             </div>
           ))}
+          {coachingPhrase && (
+            <div className="flex items-start gap-1.5">
+              <span className="mt-0.5 text-teal-500">›</span>
+              <p className="text-xs text-zinc-300">{coachingPhrase}</p>
+            </div>
+          )}
         </div>
       )}
 
