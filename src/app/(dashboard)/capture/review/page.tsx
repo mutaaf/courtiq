@@ -55,6 +55,12 @@ interface RosterPlayer {
   name_variants: string[] | null;
 }
 
+const REVIEW_CATEGORIES = [
+  'shooting', 'defense', 'dribbling', 'passing', 'hustle',
+  'awareness', 'teamwork', 'footwork', 'attitude', 'leadership',
+  'conditioning', 'offense', 'rebounding', 'iq', 'effort', 'general',
+];
+
 const sentimentVariant: Record<Sentiment, 'success' | 'destructive' | 'secondary'> = {
   positive: 'success',
   'needs-work': 'destructive',
@@ -198,6 +204,12 @@ export default function ReviewPage() {
   const updateSentiment = (id: string, sentiment: Sentiment) => {
     setObservations((prev) =>
       prev.map((obs) => (obs.id === id ? { ...obs, sentiment } : obs))
+    );
+  };
+
+  const updateCategory = (id: string, category: string) => {
+    setObservations((prev) =>
+      prev.map((obs) => (obs.id === id ? { ...obs, category } : obs))
     );
   };
 
@@ -686,7 +698,16 @@ export default function ReviewPage() {
                     ) : (
                       <span className="font-semibold text-zinc-100">{obs.player_name}</span>
                     )}
-                    <Badge variant="outline">{obs.category}</Badge>
+                    <select
+                      value={obs.category}
+                      onChange={(e) => updateCategory(obs.id, e.target.value)}
+                      className="bg-zinc-800 border border-zinc-700 rounded-md px-1.5 py-0.5 text-xs text-zinc-300 capitalize cursor-pointer focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                      aria-label="Skill category"
+                    >
+                      {REVIEW_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat} className="capitalize">{cat}</option>
+                      ))}
+                    </select>
                     <button
                       type="button"
                       onClick={() => {
