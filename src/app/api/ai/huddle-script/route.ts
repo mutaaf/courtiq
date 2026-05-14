@@ -122,6 +122,7 @@ export async function POST(request: Request) {
     const { data: plan } = await admin.from('plans').insert({
       team_id: teamId,
       coach_id: user.id,
+      session_id: sessionId,
       ai_interaction_id: result.interactionId,
       type: 'huddle_script',
       title: `Huddle Script — ${sessionLabel.split(' — ')[0]} · ${sessionDateShort}`,

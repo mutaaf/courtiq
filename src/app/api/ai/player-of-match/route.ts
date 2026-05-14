@@ -148,6 +148,7 @@ export async function POST(request: Request) {
       .insert({
         team_id: teamId,
         coach_id: user.id,
+        session_id: sessionId,
         ai_interaction_id: result.interactionId,
         type: 'player_of_match',
         title: `Player of the Match — ${candidate.player_name} (${sessionLabel})`,

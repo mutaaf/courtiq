@@ -448,6 +448,26 @@ function GameRecapCard({
   const [expanded, setExpanded] = useState(true);
   const [copied, setCopied] = useState(false);
 
+  const { data: savedRecapRows } = useQuery<any[]>({
+    queryKey: ['session-plan', sessionId, 'game_recap'],
+    queryFn: () => query<any[]>({
+      table: 'plans',
+      filters: { team_id: teamId, type: 'game_recap', session_id: sessionId },
+      order: { column: 'created_at', ascending: false },
+      limit: 1,
+    }),
+    staleTime: 5 * 60 * 1000,
+    enabled: !recap,
+  });
+  useEffect(() => {
+    if (savedRecapRows?.length && !recap) {
+      try {
+        const d = savedRecapRows[0].content_structured ?? JSON.parse(savedRecapRows[0].content);
+        if (d?.title) setRecap(d as GameRecapResult);
+      } catch { /* ignore */ }
+    }
+  }, [savedRecapRows, recap]);
+
   async function handleGenerate() {
     setIsGenerating(true);
     setError(null);
@@ -1150,6 +1170,27 @@ function PlayerSessionMessagesCard({
   const [emailSending, setEmailSending] = useState(false);
   const [emailResult, setEmailResult] = useState<{ sent: number; skipped: number } | null>(null);
 
+  // Auto-load the most recently saved plan for this session so coaches don't regenerate on return visits
+  const { data: savedMsgRows } = useQuery<any[]>({
+    queryKey: ['session-plan', sessionId, 'player_messages'],
+    queryFn: () => query<any[]>({
+      table: 'plans',
+      filters: { team_id: teamId, type: 'player_messages', session_id: sessionId },
+      order: { column: 'created_at', ascending: false },
+      limit: 1,
+    }),
+    staleTime: 5 * 60 * 1000,
+    enabled: !messages,
+  });
+  useEffect(() => {
+    if (savedMsgRows?.length && !messages) {
+      try {
+        const d = savedMsgRows[0].content_structured ?? JSON.parse(savedMsgRows[0].content);
+        if (d?.messages) setMessages(d as PlayerSessionMessagesResult);
+      } catch { /* ignore */ }
+    }
+  }, [savedMsgRows, messages]);
+
   // Fetch roster contacts (email + phone) — only once messages are generated
   const { data: rosterContacts = [] } = useQuery<ParentEmailPlayer[]>({
     queryKey: ['roster-contacts', teamId],
@@ -1513,6 +1554,26 @@ function TeamGroupMessageCard({
   const [shared, setShared] = useState(false);
   const [editedMessage, setEditedMessage] = useState('');
 
+  const { data: savedGroupMsgRows } = useQuery<any[]>({
+    queryKey: ['session-plan', sessionId, 'team_group_message'],
+    queryFn: () => query<any[]>({
+      table: 'plans',
+      filters: { team_id: teamId, type: 'team_group_message', session_id: sessionId },
+      order: { column: 'created_at', ascending: false },
+      limit: 1,
+    }),
+    staleTime: 5 * 60 * 1000,
+    enabled: !result,
+  });
+  useEffect(() => {
+    if (savedGroupMsgRows?.length && !result) {
+      try {
+        const d = savedGroupMsgRows[0].content_structured ?? JSON.parse(savedGroupMsgRows[0].content);
+        if (d?.message) { setResult(d as TeamGroupMessageResult); setEditedMessage(d.message); }
+      } catch { /* ignore */ }
+    }
+  }, [savedGroupMsgRows, result]);
+
   async function handleGenerate() {
     setIsGenerating(true);
     setError(null);
@@ -1717,6 +1778,26 @@ function HuddleScriptCard({
   const [script, setScript] = useState<HuddleScript | null>(null);
   const [copied, setCopied] = useState(false);
   const [nextSessionHint, setNextSessionHint] = useState('');
+
+  const { data: savedHuddleRows } = useQuery<any[]>({
+    queryKey: ['session-plan', sessionId, 'huddle_script'],
+    queryFn: () => query<any[]>({
+      table: 'plans',
+      filters: { team_id: teamId, type: 'huddle_script', session_id: sessionId },
+      order: { column: 'created_at', ascending: false },
+      limit: 1,
+    }),
+    staleTime: 5 * 60 * 1000,
+    enabled: !script,
+  });
+  useEffect(() => {
+    if (savedHuddleRows?.length && !script) {
+      try {
+        const d = savedHuddleRows[0].content_structured ?? JSON.parse(savedHuddleRows[0].content);
+        if (d?.huddle_script) setScript(d as HuddleScript);
+      } catch { /* ignore */ }
+    }
+  }, [savedHuddleRows, script]);
 
   async function handleGenerate() {
     setIsGenerating(true);
@@ -2019,6 +2100,26 @@ function PlayerOfMatchCard({
   const [expanded, setExpanded] = useState(true);
   const [copied, setCopied] = useState(false);
 
+  const { data: savedPomRows } = useQuery<any[]>({
+    queryKey: ['session-plan', sessionId, 'player_of_match'],
+    queryFn: () => query<any[]>({
+      table: 'plans',
+      filters: { team_id: teamId, type: 'player_of_match', session_id: sessionId },
+      order: { column: 'created_at', ascending: false },
+      limit: 1,
+    }),
+    staleTime: 5 * 60 * 1000,
+    enabled: !result,
+  });
+  useEffect(() => {
+    if (savedPomRows?.length && !result) {
+      try {
+        const d = savedPomRows[0].content_structured ?? JSON.parse(savedPomRows[0].content);
+        if (d?.player_name) setResult(d as PlayerOfMatch);
+      } catch { /* ignore */ }
+    }
+  }, [savedPomRows, result]);
+
   async function handleGenerate() {
     setIsGenerating(true);
     setError(null);
@@ -2190,6 +2291,26 @@ function TeamTalkCard({
   const [result, setResult] = useState<TeamTalk | null>(null);
   const [expanded, setExpanded] = useState(true);
   const [copied, setCopied] = useState(false);
+
+  const { data: savedTalkRows } = useQuery<any[]>({
+    queryKey: ['session-plan', sessionId, 'team_talk'],
+    queryFn: () => query<any[]>({
+      table: 'plans',
+      filters: { team_id: teamId, type: 'team_talk', session_id: sessionId },
+      order: { column: 'created_at', ascending: false },
+      limit: 1,
+    }),
+    staleTime: 5 * 60 * 1000,
+    enabled: !result,
+  });
+  useEffect(() => {
+    if (savedTalkRows?.length && !result) {
+      try {
+        const d = savedTalkRows[0].content_structured ?? JSON.parse(savedTalkRows[0].content);
+        if (d?.script) setResult(d as TeamTalk);
+      } catch { /* ignore */ }
+    }
+  }, [savedTalkRows, result]);
 
   async function handleGenerate() {
     setIsGenerating(true);
