@@ -3014,6 +3014,9 @@ export default function SessionDetailPage() {
   const [qoSaving, setQoSaving] = useState(false);
   const [qoSaved, setQoSaved] = useState(false);
 
+  // Quick Update — zero-AI instant session summary share
+  const [quickShareState, setQuickShareState] = useState<'idle' | 'shared' | 'copied'>('idle');
+
   const { data: session, isLoading: sessionLoading } = useQuery({
     queryKey: ['session', sessionId],
     queryFn: async () => {
@@ -3218,6 +3221,79 @@ export default function SessionDetailPage() {
     } finally {
       setQoSaving(false);
     }
+  }
+
+  function buildQuickSessionSummary(): string {
+    if (!session || !activeTeam) return '';
+    const SESSION_EMOJI: Record<string, string> = {
+      practice: '🏃', game: '🏆', scrimmage: '⚡', tournament: '🏅', training: '💪',
+    };
+    const SESSION_LABEL: Record<string, string> = {
+      practice: 'Practice', game: 'Game', scrimmage: 'Scrimmage', tournament: 'Tournament', training: 'Training',
+    };
+    const emoji = SESSION_EMOJI[session.type] ?? '📋';
+    const typeLabel = SESSION_LABEL[session.type] ?? session.type;
+    const date = new Date(session.date + 'T00:00:00').toLocaleDateString('en-US', {
+      weekday: 'long', month: 'short', day: 'numeric',
+    });
+
+    // One positive highlight per player (most recent first)
+    const seen = new Set<string>();
+    const highlights: { name: string; text: string }[] = [];
+    for (const obs of (observations ?? [])) {
+      if (obs.sentiment !== 'positive' || !obs.player_id || seen.has(obs.player_id)) continue;
+      const playerName = obs.players?.name ?? rosterPlayers.find((p: Player) => p.id === obs.player_id)?.name;
+      if (!playerName) continue;
+      seen.add(obs.player_id);
+      const snippet = obs.text.length > 60 ? obs.text.slice(0, 57) + '…' : obs.text;
+      highlights.push({ name: playerName, text: snippet });
+    }
+
+    // Top needs-work categories
+    const catCounts = new Map<string, number>();
+    for (const obs of (observations ?? [])) {
+      if (obs.sentiment === 'needs-work' && obs.category && obs.category !== 'general') {
+        catCounts.set(obs.category, (catCounts.get(obs.category) ?? 0) + 1);
+      }
+    }
+    const focusAreas = [...catCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([cat]) => cat.charAt(0).toUpperCase() + cat.slice(1));
+
+    let msg = `${emoji} ${typeLabel} · ${date}`;
+    if (session.opponent) msg += `\nvs ${session.opponent}`;
+    msg += '\n';
+    if (highlights.length > 0) {
+      msg += '\n✅ Highlights today:\n';
+      for (const { name, text } of highlights) msg += `• ${name} — ${text}\n`;
+    }
+    if (focusAreas.length > 0) {
+      msg += `\n📈 We're working on: ${focusAreas.join(', ')}\n`;
+    }
+    const first = coach?.full_name?.split(' ')[0] ?? 'Coach';
+    msg += `\n— ${first}, ${activeTeam.name}`;
+    return msg.trim();
+  }
+
+  async function handleQuickShare() {
+    const msg = buildQuickSessionSummary();
+    if (!msg) return;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ text: msg });
+        setQuickShareState('shared');
+      } else {
+        await navigator.clipboard.writeText(msg);
+        setQuickShareState('copied');
+      }
+    } catch {
+      try {
+        await navigator.clipboard.writeText(msg);
+        setQuickShareState('copied');
+      } catch { /* ignore */ }
+    }
+    setTimeout(() => setQuickShareState('idle'), 2500);
   }
 
   function formatDate(dateStr: string) {
@@ -3534,6 +3610,15 @@ export default function SessionDetailPage() {
       {/* Jump-to nav — horizontal scroll chips for quick access to key sections */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
         <span className="shrink-0 text-[11px] font-medium text-zinc-600 mr-0.5">Jump to:</span>
+        {/* Quick Update — zero-AI instant parent summary, no scroll needed */}
+        <button
+          onClick={handleQuickShare}
+          disabled={obsLoading || !observations?.some((o) => o.sentiment === 'positive')}
+          className="shrink-0 flex items-center gap-1 rounded-full border border-teal-600/40 bg-teal-500/10 px-2.5 py-1 text-[11px] text-teal-400 hover:border-teal-500/60 hover:bg-teal-500/15 transition-colors touch-manipulation active:scale-95 disabled:opacity-40"
+          aria-label="Quick parent update — share session highlights instantly without AI"
+        >
+          {quickShareState === 'shared' ? '✓ Sent!' : quickShareState === 'copied' ? '✓ Copied!' : '⚡ Quick Update'}
+        </button>
         <button
           onClick={() => document.getElementById('ai-debrief-section')?.scrollIntoView({ behavior: 'smooth' })}
           className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-orange-500/50 hover:text-orange-400 transition-colors touch-manipulation active:scale-95"
