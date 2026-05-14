@@ -443,7 +443,11 @@ export default function ReviewPage() {
                 <>
                   <Button
                     className="w-full"
-                    onClick={() => router.push(`/sessions/${sessionId}`)}
+                    onClick={() =>
+                      router.push(
+                        `/sessions/${sessionId}?fromPractice=1&obsCount=${savedCount}&playerCount=${uniquePlayers}`
+                      )
+                    }
                   >
                     <Sparkles className="h-4 w-4" />
                     AI Debrief &amp; Parent Updates

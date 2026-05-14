@@ -25,6 +25,7 @@ import {
   History,
   Star,
   Share2,
+  CheckCircle2,
 } from 'lucide-react';
 import type { Session, Plan } from '@/types/database';
 import { useAppStore } from '@/lib/store';
@@ -345,13 +346,15 @@ const SESSION_LABEL: Record<string, string> = {
 };
 
 function LastSessionCard({ session }: {
-  session: { id: string; type: string; date: string; quality_rating?: number | null; coach_debrief_text?: string | null; observations?: [{ count: number }] };
+  session: { id: string; type: string; date: string; quality_rating?: number | null; coach_debrief_text?: string | null; coach_debrief_extracts?: unknown; observations?: [{ count: number }] };
 }) {
   const obsCount = session.observations?.[0]?.count ?? 0;
   const emoji = SESSION_EMOJI[session.type] ?? '📋';
   const label = SESSION_LABEL[session.type] ?? session.type;
   const rating = session.quality_rating;
   const hasRating = rating != null && rating >= 1 && rating <= 5;
+  const hasAiDebrief = session.coach_debrief_extracts != null;
+  const showDebriefCta = !hasAiDebrief && obsCount >= 3;
 
   const daysDiff = Math.round(
     (Date.now() - new Date(session.date + 'T12:00:00').getTime()) / 86_400_000
@@ -360,46 +363,77 @@ function LastSessionCard({ session }: {
 
   return (
     <Card className="border-zinc-800">
-      <CardContent className="flex items-center gap-3 p-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-lg">
-          {emoji}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
-            Last session · {dateLabel}
-          </p>
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-semibold text-zinc-200">{label}</p>
-            {hasRating && (
-              <div className="flex items-center gap-0.5" title={`Rated ${rating}/5`}>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`h-3 w-3 ${i < rating! ? 'text-amber-400 fill-amber-400' : 'text-zinc-700'}`}
-                  />
-                ))}
-              </div>
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-lg">
+            {emoji}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+              Last session · {dateLabel}
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-semibold text-zinc-200">{label}</p>
+              {hasRating && (
+                <div className="flex items-center gap-0.5" title={`Rated ${rating}/5`}>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`h-3 w-3 ${i < rating! ? 'text-amber-400 fill-amber-400' : 'text-zinc-700'}`}
+                    />
+                  ))}
+                </div>
+              )}
+              {hasAiDebrief && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+                  <CheckCircle2 className="h-3 w-3" />
+                  AI done
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              {obsCount > 0
+                ? `${obsCount} observation${obsCount !== 1 ? 's' : ''} captured`
+                : 'No observations — tap to add'}
+            </p>
+            {session.coach_debrief_text && (
+              <p className="text-xs text-zinc-600 italic mt-0.5 line-clamp-1">
+                {session.coach_debrief_text.length > 55
+                  ? session.coach_debrief_text.slice(0, 55) + '…'
+                  : session.coach_debrief_text}
+              </p>
             )}
           </div>
-          <p className="text-xs text-zinc-500 mt-0.5">
-            {obsCount > 0
-              ? `${obsCount} observation${obsCount !== 1 ? 's' : ''} captured`
-              : 'No observations — tap to add'}
-          </p>
-          {session.coach_debrief_text && (
-            <p className="text-xs text-zinc-600 italic mt-0.5 line-clamp-1">
-              {session.coach_debrief_text.length > 55
-                ? session.coach_debrief_text.slice(0, 55) + '…'
-                : session.coach_debrief_text}
-            </p>
+        </div>
+
+        <div className="flex gap-2">
+          {showDebriefCta ? (
+            <>
+              <Link
+                href={`/sessions/${session.id}?fromPractice=1&obsCount=${obsCount}`}
+                className="flex-1"
+              >
+                <Button size="sm" className="w-full gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  AI Debrief
+                </Button>
+              </Link>
+              <Link href={`/sessions/${session.id}`} className="shrink-0">
+                <Button size="sm" variant="outline" className="gap-1.5">
+                  <History className="h-3.5 w-3.5" />
+                  View
+                </Button>
+              </Link>
+            </>
+          ) : (
+            <Link href={`/sessions/${session.id}`} className="flex-1">
+              <Button size="sm" variant="outline" className="w-full gap-1.5">
+                <History className="h-3.5 w-3.5" />
+                View Session
+              </Button>
+            </Link>
           )}
         </div>
-        <Link href={`/sessions/${session.id}`} className="shrink-0">
-          <Button size="sm" variant="outline" className="gap-1.5">
-            <History className="h-3.5 w-3.5" />
-            View
-          </Button>
-        </Link>
       </CardContent>
     </Card>
   );
@@ -602,7 +636,7 @@ export default function HomePage() {
       const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000).toISOString().split('T')[0];
       const sessions = await query<any[]>({
         table: 'sessions',
-        select: 'id, type, date, quality_rating, coach_debrief_text, observations:observations(count)',
+        select: 'id, type, date, quality_rating, coach_debrief_text, coach_debrief_extracts, observations:observations(count)',
         filters: {
           team_id: activeTeam.id,
           date: { op: 'lt', value: today },
