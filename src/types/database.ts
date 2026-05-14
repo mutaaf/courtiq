@@ -371,6 +371,7 @@ export interface Plan {
   team_id: string;
   coach_id: string;
   player_id: string | null;
+  session_id: string | null;
   ai_interaction_id: string | null;
   type: PlanType;
   title: string | null;

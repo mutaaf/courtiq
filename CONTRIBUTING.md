@@ -446,6 +446,9 @@ NO code changes needed — it's all env-var driven.
 - [x] **ArcCompleteCard** — emerald home dashboard celebration card shown for 7 days after a coach completes all sessions in a Practice Arc; reads `arc-complete-{teamId}` from localStorage (written by the timer's arc progress tracker); dismissible; links to Plans page to review the completed arc
 - [x] **ContinueArcCard** — prompts coach to run the next session in an in-progress Practice Arc; reads arc progress from localStorage; "Start Session N Now" creates a practice session and opens the Practice Timer with the arc session's drills pre-loaded (one tap, no form filling); loading spinner + inline error state; dismissible; shown on home page when no practice is active
 
+### P63 — Session AI Persistence
+- [x] **Session-specific AI plans persist between visits** — six session detail AI cards (Player Messages, Game Recap, Team Group Message, Huddle Script, Player of Match, Team Talk) previously lost all generated content when a coach navigated away, requiring expensive re-generation on every return visit; `session_id` column added to the `plans` table (migration 032) and populated by all six API routes; each card component now fires a TanStack Query on mount (enabled only while state is null, 5-min staleTime) to load the most recent saved plan for this session — if the coach generated messages yesterday and comes back today to resend to a new parent, the messages are instantly available without hitting the AI again; auto-populate sets state from `content_structured ?? JSON.parse(content)` so the card renders identically to freshly-generated content; zero new API routes, UI changes, or additional data fetches beyond the single plan lookup; zero tests to update since pure infrastructure wiring
+
 ---
 
 ## Architecture Rules
