@@ -3312,6 +3312,10 @@ export default function SessionDetailPage() {
 
   const savedDebrief = session.coach_debrief_extracts as SessionDebriefResult | null;
 
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+  const isSessionUpcoming = new Date(session.date + 'T00:00:00') >= todayMidnight;
+
   return (
     <>
     <div className="p-4 lg:p-8 space-y-6 pb-8 max-w-3xl mx-auto">
@@ -3629,16 +3633,16 @@ export default function SessionDetailPage() {
         <PracticeReminderCard session={session} teamName={activeTeam.name} />
       )}
 
-      {/* Pre-Session AI Briefing */}
-      {activeTeam && (
+      {/* Pre-Session AI Briefing — only for upcoming/today sessions */}
+      {activeTeam && isSessionUpcoming && (
         <PreSessionBriefingCard
           sessionId={sessionId}
           teamId={activeTeam.id}
         />
       )}
 
-      {/* Opening Team Talk — AI-written motivational script for any session */}
-      {activeTeam && (
+      {/* Opening Team Talk — only for upcoming/today sessions */}
+      {activeTeam && isSessionUpcoming && (
         <TeamTalkCard
           sessionId={sessionId}
           teamId={activeTeam.id}
