@@ -455,6 +455,7 @@ export default function HomePage() {
   const { activeTeam, coach, aiPlatformAvailable } = useActiveTeam();
   const router = useRouter();
   const [showDebrief, setShowDebrief] = useState(false);
+  const [midPracticeShared, setMidPracticeShared] = useState(false);
 
   const hasAIKeys = (() => {
     if (aiPlatformAvailable) return true;
@@ -713,11 +714,23 @@ export default function HomePage() {
       });
       if (!obs) return null;
       const observedSet = new Set(obs.filter((o) => o.player_id).map((o) => o.player_id as string));
+      const positiveObs = obs.filter((o) => o.sentiment === 'positive');
+      const catCounts: Record<string, number> = {};
+      for (const o of positiveObs) {
+        if (o.category && o.category !== 'general') {
+          catCounts[o.category] = (catCounts[o.category] ?? 0) + 1;
+        }
+      }
+      const topCategory = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+      const positivePlayerIds = [...new Set(positiveObs.filter((o) => o.player_id).map((o) => o.player_id as string))];
       return {
         count: obs.length,
         players: observedSet.size,
         observedPlayerIds: [...observedSet],
         recentObs: obs.slice(0, 3),
+        positiveCount: positiveObs.length,
+        topCategory,
+        positivePlayerIds,
       };
     },
     enabled: !!practiceSessionId && practiceActive,
@@ -757,6 +770,16 @@ export default function HomePage() {
     enabled: !!activeTeam && practiceActive,
     staleTime: 30 * 60_000,
   });
+
+  // Session momentum — positive ratio label + emoji shown during active practice
+  const sessionMomentum = useMemo(() => {
+    if (!sessionObsStats || sessionObsStats.count < 3) return null;
+    const pct = Math.round((sessionObsStats.positiveCount / sessionObsStats.count) * 100);
+    if (pct >= 70) return { pct, emoji: '🔥', label: 'Great session', colorClass: 'text-emerald-400' };
+    if (pct >= 50) return { pct, emoji: '💪', label: 'Good session', colorClass: 'text-blue-400' };
+    if (pct >= 30) return { pct, emoji: '📝', label: 'Mixed session', colorClass: 'text-amber-400' };
+    return { pct, emoji: '⚠️', label: 'Keep going', colorClass: 'text-zinc-400' };
+  }, [sessionObsStats]);
 
   // Which players haven't been observed yet in the active practice session
   const unobservedDuringPractice = useMemo(() => {
@@ -981,6 +1004,75 @@ export default function HomePage() {
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Session Momentum + Mid-Practice Parent Update */}
+          {sessionMomentum && (
+            <div className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <span aria-hidden="true">{sessionMomentum.emoji}</span>
+                <span className={`text-sm font-medium ${sessionMomentum.colorClass}`}>
+                  {sessionMomentum.label}
+                </span>
+                <span className="text-xs text-zinc-600">
+                  {sessionMomentum.pct}% positive
+                  {sessionObsStats?.topCategory ? ` · ${formatSkillLabel(sessionObsStats.topCategory)}` : ''}
+                </span>
+              </div>
+              {sessionObsStats && sessionObsStats.positiveCount >= 2 && (
+                <button
+                  onClick={async () => {
+                    const coachFirst = coach?.full_name?.split(' ')[0] ?? 'Coach';
+                    const teamName = activeTeam?.name ?? 'Team';
+                    const positiveNames = (sessionObsStats.positivePlayerIds ?? [])
+                      .slice(0, 2)
+                      .map((id) => playerNameById[id])
+                      .filter(Boolean) as string[];
+                    const topCatLabel = sessionObsStats.topCategory
+                      ? formatSkillLabel(sessionObsStats.topCategory)
+                      : null;
+
+                    let msg = `🏀 Quick practice update from ${teamName}!\n\n`;
+                    if (positiveNames.length >= 2) {
+                      msg += `${positiveNames[0]} & ${positiveNames[1]} are looking great out there`;
+                    } else if (positiveNames.length === 1) {
+                      msg += `${positiveNames[0]} is looking great out there`;
+                    } else {
+                      msg += `${sessionObsStats.positiveCount} great coaching moments so far`;
+                    }
+                    msg += ` across ${sessionObsStats.players} player${sessionObsStats.players !== 1 ? 's' : ''}.`;
+                    if (topCatLabel) msg += `\n\nFocusing on ${topCatLabel} today 🎯`;
+                    msg += `\n\n— Coach ${coachFirst}`;
+
+                    try {
+                      if (navigator.share) {
+                        await navigator.share({ text: msg });
+                      } else {
+                        await navigator.clipboard.writeText(msg);
+                      }
+                    } catch {
+                      // dismissed or unavailable
+                    }
+                    setMidPracticeShared(true);
+                    setTimeout(() => setMidPracticeShared(false), 3000);
+                  }}
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg bg-teal-500/15 px-2.5 py-1.5 text-xs font-medium text-teal-400 hover:bg-teal-500/25 active:scale-95 transition-all touch-manipulation"
+                  aria-label="Send mid-practice parent update"
+                >
+                  {midPracticeShared ? (
+                    <>
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span>Sent!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="h-3.5 w-3.5" />
+                      <span>Parent update</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           )}
         </div>
