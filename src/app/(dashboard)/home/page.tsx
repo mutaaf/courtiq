@@ -54,7 +54,16 @@ import { ContinueArcCard } from '@/components/home/continue-arc-card';
 import { ArcCompleteCard } from '@/components/home/arc-complete-card';
 import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
 
-// ─── Shared reminder helpers ────────────────────────────────────────────
+// ─── Live capture feed helper ─────────────────────────────────────────
+
+function formatLiveTimeAgo(iso: string): string {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins === 1) return '1m ago';
+  return `${mins}m ago`;
+}
+
+// ─── Shared reminder helpers ──────────────────────────────────────────────
 
 const SESSION_REMINDER_EMOJI: Record<string, string> = {
   practice: '🏃',
@@ -105,7 +114,7 @@ async function shareReminder(msg: string, onSuccess: () => void) {
   }
 }
 
-// ─── Today's Session Card ────────────────────────────────────────────
+// ─── Today's Session Card ───────────────────────────────────────
 
 function TodaySessionCard({
   session,
@@ -327,7 +336,7 @@ function UpcomingSessionsCard({
   );
 }
 
-// ─── Last Session Card ──────────────────────────────────────────────────
+// ─── Last Session Card ────────────────────────────────────────────────
 
 const SESSION_EMOJI: Record<string, string> = {
   practice: '🏃',
@@ -439,7 +448,7 @@ function LastSessionCard({ session }: {
   );
 }
 
-// ─── Page ──────────────────────────────────────────────────────────────────────────────
+// ─── Page ────────────────────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const { activeTeam, coach, aiPlatformAvailable } = useActiveTeam();
@@ -688,10 +697,18 @@ export default function HomePage() {
     queryKey: ['session-obs-count', practiceSessionId],
     queryFn: async () => {
       if (!practiceSessionId) return null;
-      const obs = await query<{ player_id: string | null }[]>({
+      const obs = await query<{
+        id: string;
+        player_id: string | null;
+        text: string;
+        sentiment: string;
+        category: string;
+        created_at: string;
+      }[]>({
         table: 'observations',
-        select: 'player_id',
+        select: 'id, player_id, text, sentiment, category, created_at',
         filters: { session_id: practiceSessionId },
+        order: { column: 'created_at', ascending: false },
       });
       if (!obs) return null;
       const observedSet = new Set(obs.filter((o) => o.player_id).map((o) => o.player_id as string));
@@ -699,6 +716,7 @@ export default function HomePage() {
         count: obs.length,
         players: observedSet.size,
         observedPlayerIds: [...observedSet],
+        recentObs: obs.slice(0, 3),
       };
     },
     enabled: !!practiceSessionId && practiceActive,
@@ -713,7 +731,18 @@ export default function HomePage() {
     return rosterPlayers.filter((p) => !observed.has(p.id));
   }, [practiceActive, rosterPlayers, sessionObsStats]);
 
-  // ── No team state ────────────────────────────────────────────────────────────────────
+  // Player display name lookup for live captures feed
+  const playerNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    rosterPlayers.forEach((p) => {
+      map[p.id] = p.jersey_number != null
+        ? `#${p.jersey_number} ${p.name.split(' ')[0]}`
+        : p.name.split(' ')[0];
+    });
+    return map;
+  }, [rosterPlayers]);
+
+  // ── No team state ────────────────────────────────────────────────────────────────────────────────────
   if (!activeTeam) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center min-h-[60vh]">
@@ -735,7 +764,7 @@ export default function HomePage() {
     );
   }
 
-  // ── Main dashboard ────────────────────────────────────────────────────────────────────
+  // ── Main dashboard ──────────────────────────────────────────────────────────────────────────────────────
   return (
     <>
     <div className="p-4 lg:p-8 space-y-6 pb-8">
@@ -873,6 +902,47 @@ export default function HomePage() {
                 </div>
               </div>
             )
+          )}
+
+          {/* Live captures feed — last 3 observations so coaches see their work landing */}
+          {sessionObsStats && sessionObsStats.recentObs.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                Recent captures
+              </p>
+              <div className="space-y-1.5">
+                {sessionObsStats.recentObs.map((obs) => {
+                  const playerLabel = obs.player_id
+                    ? (playerNameById[obs.player_id] ?? 'Player')
+                    : 'Team';
+                  const icon = obs.sentiment === 'positive'
+                    ? '✅'
+                    : obs.sentiment === 'needs_work'
+                    ? '⚠️'
+                    : '·';
+                  const snippet = obs.text.length > 48
+                    ? obs.text.slice(0, 48) + '…'
+                    : obs.text;
+                  return (
+                    <div
+                      key={obs.id}
+                      className="flex items-start gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-xs"
+                    >
+                      <span className="shrink-0 mt-px leading-none" aria-hidden="true">{icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium text-zinc-300">{playerLabel}</span>
+                        {snippet && (
+                          <span className="ml-1.5 text-zinc-500">{snippet}</span>
+                        )}
+                      </div>
+                      <span className="shrink-0 tabular-nums text-zinc-600">
+                        {formatLiveTimeAgo(obs.created_at)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
       ) : todaySessions.length > 0 ? (
