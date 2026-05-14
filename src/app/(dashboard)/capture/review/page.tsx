@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,12 +37,22 @@ import { AIUpgradePrompt } from '@/components/ui/ai-upgrade-prompt';
 interface ParsedObservation {
   id: string;
   player_name: string;
+  /** undefined = use AI fuzzy match, null = team/no player, string = specific player ID */
+  player_id_override?: string | null;
   category: string;
   sentiment: Sentiment;
   text: string;
   skill_id?: string | null;
   status: 'pending' | 'confirmed' | 'editing' | 'discarded';
   editText?: string;
+}
+
+interface RosterPlayer {
+  id: string;
+  name: string;
+  jersey_number: number | null;
+  nickname: string | null;
+  name_variants: string[] | null;
 }
 
 const sentimentVariant: Record<Sentiment, 'success' | 'destructive' | 'secondary'> = {
@@ -75,6 +85,19 @@ export default function ReviewPage() {
   const [aiUpgrade, setAiUpgrade] = useState<{ message: string } | null>(null);
   const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Roster for player reassignment picker
+  const { data: rosterPlayers = [] } = useQuery<RosterPlayer[]>({
+    queryKey: ['roster-for-review', activeTeam?.id],
+    queryFn: () =>
+      query<RosterPlayer[]>({
+        table: 'players',
+        select: 'id, name, jersey_number, nickname, name_variants',
+        filters: { team_id: activeTeam!.id, is_active: true },
+      }).then((r) => r ?? []),
+    enabled: !!activeTeam,
+    staleTime: 5 * 60_000,
+  });
 
   const isApiKeyError = (msg: string): boolean => {
     const lower = msg.toLowerCase();
@@ -178,6 +201,23 @@ export default function ReviewPage() {
     );
   };
 
+  // Manually reassign an observation to a different player
+  const updatePlayer = (id: string, playerId: string | null, playerName: string) => {
+    setObservations((prev) =>
+      prev.map((obs) =>
+        obs.id === id ? { ...obs, player_name: playerName, player_id_override: playerId } : obs
+      )
+    );
+  };
+
+  // Derive the best roster match for the AI-detected player name
+  const getPlayerSelectValue = (obs: ParsedObservation): string => {
+    if (obs.player_id_override !== undefined) {
+      return obs.player_id_override ?? '';
+    }
+    return findPlayerByName(obs.player_name, rosterPlayers) ?? '';
+  };
+
   const confirmAll = () => {
     setObservations((prev) =>
       prev.map((obs) =>
@@ -217,7 +257,9 @@ export default function ReviewPage() {
       const rows = toSave.map((obs) => ({
         team_id: activeTeam.id,
         coach_id: coach.id,
-        player_id: findPlayerId(obs.player_name),
+        player_id: obs.player_id_override !== undefined
+          ? obs.player_id_override
+          : findPlayerId(obs.player_name),
         session_id: sessionId,
         recording_id: recordingId,
         category: obs.category,
@@ -280,7 +322,9 @@ export default function ReviewPage() {
           for (const obs of toSave) {
             await localDB.observations.add({
               localId: crypto.randomUUID(),
-              playerId: findPlayerByName(obs.player_name, cachedPlayers ?? []),
+              playerId: obs.player_id_override !== undefined
+                ? obs.player_id_override
+                : findPlayerByName(obs.player_name, cachedPlayers ?? []),
               teamId: activeTeam.id,
               coachId: coach.id,
               sessionId,
@@ -621,8 +665,27 @@ export default function ReviewPage() {
               >
                 <CardContent className="p-4">
                   {/* Player & Category */}
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-zinc-100">{obs.player_name}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {rosterPlayers.length > 0 ? (
+                      <select
+                        value={getPlayerSelectValue(obs)}
+                        onChange={(e) => {
+                          const p = rosterPlayers.find((r) => r.id === e.target.value);
+                          updatePlayer(obs.id, e.target.value || null, p?.name ?? 'Team');
+                        }}
+                        className="font-semibold text-zinc-100 bg-zinc-900 border border-orange-500/30 rounded-md px-2 py-0.5 text-sm cursor-pointer focus:outline-none focus:ring-1 focus:ring-orange-500 max-w-[180px]"
+                        aria-label="Assign observation to player"
+                      >
+                        <option value="">Team (no player)</option>
+                        {rosterPlayers.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.jersey_number != null ? `#${p.jersey_number} ` : ''}{p.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="font-semibold text-zinc-100">{obs.player_name}</span>
+                    )}
                     <Badge variant="outline">{obs.category}</Badge>
                     <button
                       type="button"
