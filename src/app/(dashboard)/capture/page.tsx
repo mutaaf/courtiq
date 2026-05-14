@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { mutate } from '@/lib/api';
+import { mutate, query } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -83,6 +84,45 @@ export default function CapturePage() {
 
   const setIsRecording = useAppStore((s) => s.setIsRecording);
   const setGlobalRecordingDuration = useAppStore((s) => s.setRecordingDuration);
+
+  // Fetch player's recent observations for coaching brief when player is pre-selected
+  const since30d = useMemo(() => new Date(Date.now() - 30 * 86_400_000).toISOString(), []);
+  const { data: playerRecentObs } = useQuery({
+    queryKey: ['capture-player-brief', urlPlayerId],
+    queryFn: async () => {
+      if (!urlPlayerId) return null;
+      const obs = await query<{ id: string; text: string; sentiment: string; category: string | null; created_at: string }[]>({
+        table: 'observations',
+        select: 'id, text, sentiment, category, created_at',
+        filters: { player_id: urlPlayerId, created_at: { op: 'gte', value: since30d } },
+        order: { column: 'created_at', ascending: false },
+        limit: 10,
+      });
+      return obs ?? null;
+    },
+    // Only run when urlPlayerId looks like a UUID (not a plain player name)
+    enabled: !!urlPlayerId && urlPlayerId.includes('-') && urlPlayerId.length > 20,
+    staleTime: 5 * 60_000,
+  });
+
+  // Derive coaching brief from recent observations
+  const playerCoachingBrief = useMemo(() => {
+    if (!playerRecentObs || playerRecentObs.length === 0) return null;
+    const lastObs = playerRecentObs[0];
+    // Top needs-work category
+    const needsWorkCounts: Record<string, number> = {};
+    for (const o of playerRecentObs) {
+      if (o.sentiment === 'needs-work' && o.category && o.category !== 'general') {
+        needsWorkCounts[o.category] = (needsWorkCounts[o.category] ?? 0) + 1;
+      }
+    }
+    const topNeedsWork = Object.entries(needsWorkCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    // Time label
+    const ageMs = Date.now() - new Date(lastObs.created_at).getTime();
+    const ageDays = Math.floor(ageMs / 86_400_000);
+    const ageLabel = ageDays === 0 ? 'Today' : ageDays === 1 ? 'Yesterday' : `${ageDays}d ago`;
+    return { lastObs, topNeedsWork, ageLabel };
+  }, [playerRecentObs]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -746,6 +786,38 @@ export default function CapturePage() {
                 ? <>Capturing for <span className="font-semibold text-blue-200">{urlPlayerName}</span> · linked to session</>
                 : 'Observations will be linked to your session'}
             </p>
+          </div>
+        )}
+
+        {/* Coaching brief — player context when tapped from practice coverage chips */}
+        {urlPlayerId && playerCoachingBrief && (
+          <div className="rounded-xl border border-zinc-700/60 bg-zinc-900/60 px-4 py-3 space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Coaching Brief</p>
+            <div className="flex items-start gap-2">
+              <span className="shrink-0 mt-0.5 text-sm leading-none">
+                {playerCoachingBrief.lastObs.sentiment === 'positive' ? '✅' : playerCoachingBrief.lastObs.sentiment === 'needs-work' ? '⚠️' : '·'}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm leading-snug ${playerCoachingBrief.lastObs.sentiment === 'positive' ? 'text-emerald-300' : playerCoachingBrief.lastObs.sentiment === 'needs-work' ? 'text-amber-300' : 'text-zinc-300'}`}>
+                  {playerCoachingBrief.lastObs.text.length > 72 ? playerCoachingBrief.lastObs.text.slice(0, 72) + '…' : playerCoachingBrief.lastObs.text}
+                </p>
+                <p className="text-[11px] text-zinc-500 mt-0.5">{playerCoachingBrief.ageLabel}</p>
+              </div>
+            </div>
+            {playerCoachingBrief.topNeedsWork && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-zinc-500">Focus:</span>
+                <span className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[11px] font-medium text-amber-400 capitalize">
+                  {playerCoachingBrief.topNeedsWork.replace(/-/g, ' ')}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+        {urlPlayerId && playerRecentObs && playerRecentObs.length === 0 && (
+          <div className="flex items-center gap-2 rounded-xl border border-zinc-700/40 bg-zinc-900/40 px-4 py-2.5">
+            <span className="text-zinc-500 text-xs">🌱</span>
+            <p className="text-xs text-zinc-500">First observation for this player — what do you notice?</p>
           </div>
         )}
 
