@@ -53,6 +53,7 @@ import { PlayerGoalsPanel } from '@/components/player/player-goals-panel';
 import { PlayerNotesPanel } from '@/components/player/player-notes-panel';
 import { countHighlighted } from '@/lib/observation-highlights';
 import { OBSERVATION_TEMPLATES, getTemplatesBySentiment } from '@/lib/observation-templates';
+import { useAppStore } from '@/lib/store';
 import type { Player, Observation, PlayerSkillProficiency, Plan, Sentiment, ParentShare } from '@/types/database';
 import type { PlayerAttendanceStat } from '@/app/api/attendance-stats/route';
 import {
@@ -464,6 +465,9 @@ export default function PlayerDetailPage({
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
 
+  const practiceActive = useAppStore((s) => s.practiceActive);
+  const practiceSessionId = useAppStore((s) => s.practiceSessionId);
+
   // Report card state
   const [reportCardLoading, setReportCardLoading] = useState(false);
   const [reportCardError, setReportCardError] = useState<string | null>(null);
@@ -690,6 +694,7 @@ export default function PlayerDetailPage({
     const text = qoText.trim() || template?.text || '';
     if (!text) return;
     setQoSaving(true);
+    const sessionId = practiceActive && practiceSessionId ? practiceSessionId : null;
     try {
       await mutate({
         table: 'observations',
@@ -703,10 +708,14 @@ export default function PlayerDetailPage({
           sentiment: qoSentiment,
           category: template?.category || 'general',
           source: 'template',
+          ...(sessionId && { session_id: sessionId }),
         },
       });
       qc.invalidateQueries({ queryKey: queryKeys.observations.player(playerId) });
       qc.invalidateQueries({ queryKey: queryKeys.observations.all(activeTeam.id) });
+      if (sessionId) {
+        qc.invalidateQueries({ queryKey: ['session-obs-count', sessionId] });
+      }
       setQoSaved(true);
       setTimeout(() => {
         setQoSaved(false);
