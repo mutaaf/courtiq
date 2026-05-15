@@ -172,10 +172,10 @@ export default function PhotoCapturePage() {
       const players = await queryClient.fetchQuery({
         queryKey: queryKeys.players.all(activeTeam.id),
         queryFn: () =>
-          query<{ id: string; name: string; nickname: string | null; name_variants: string[] | null }[]>({
+          query<{ id: string; name: string; nickname: string | null; name_variants: string[] | null; jersey_number: number | null }[]>({
             table: 'players',
             filters: { team_id: activeTeam.id, is_active: true },
-            select: 'id,name,nickname,name_variants',
+            select: 'id,name,jersey_number,nickname,name_variants',
           }),
       });
 
