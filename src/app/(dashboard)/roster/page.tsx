@@ -133,7 +133,7 @@ export default function RosterPage() {
       return map;
     },
     enabled: !!activeTeam,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   // Fetch latest availability record per player
@@ -146,7 +146,7 @@ export default function RosterPage() {
       return json.availability ?? {};
     },
     enabled: !!activeTeam,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 2 * 60 * 1000,
   });
 
   const positions = useMemo(() => {
@@ -178,28 +178,26 @@ export default function RosterPage() {
         const aDate = lastObsMap[a.id] ?? '';
         const bDate = lastObsMap[b.id] ?? '';
         if (!aDate && !bDate) return a.name.localeCompare(b.name);
-        if (!aDate) return -1; // never observed → highest priority
+        if (!aDate) return -1;
         if (!bDate) return 1;
-        return aDate.localeCompare(bDate); // oldest last observation first
+        return aDate.localeCompare(bDate);
       });
     } else if (sortMode === 'momentum') {
       result.sort((a, b) => {
         const aScore = momentumMap[a.id]?.score ?? -1;
         const bScore = momentumMap[b.id]?.score ?? -1;
         if (aScore === bScore) return a.name.localeCompare(b.name);
-        return aScore - bScore; // lowest momentum first
+        return aScore - bScore;
       });
     }
     return result;
   }, [filtered, sortMode, lastObsMap, momentumMap]);
 
-  // Summary: players with a non-available status
   const unavailableCount = useMemo(
     () => players.filter((p) => availabilityMap[p.id]?.status && availabilityMap[p.id].status !== 'available').length,
     [players, availabilityMap],
   );
 
-  // Players with no parent phone — used to show the collect-contacts prompt
   const missingContactCount = useMemo(
     () => players.filter((p) => !p.parent_phone).length,
     [players],
@@ -240,7 +238,6 @@ export default function RosterPage() {
               <span className="hidden sm:inline">{selectMode ? `${selectedIds.size} selected` : 'Select'}</span>
             </Button>
           )}
-          {/* Mobile: compact add button */}
           <Link href="/roster/add" className="sm:hidden">
             <Button size="sm">
               <Plus className="h-4 w-4" />
@@ -278,7 +275,6 @@ export default function RosterPage() {
         </div>
       </div>
 
-      {/* Availability Summary Strip — shown when any player is unavailable */}
       {unavailableCount > 0 && (
         <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
           <ShieldAlert className="h-5 w-5 flex-shrink-0 text-amber-400" />
@@ -300,7 +296,6 @@ export default function RosterPage() {
         </div>
       )}
 
-      {/* Collect parent contacts — shown when players have no phone numbers */}
       {players.length > 0 && missingContactCount > 0 && (
         <div className="flex items-center justify-between gap-4 rounded-xl border border-teal-500/30 bg-teal-500/5 px-4 py-3">
           <div className="min-w-0 flex-1">
@@ -327,17 +322,14 @@ export default function RosterPage() {
         </div>
       )}
 
-      {/* Parent Engagement Panel — shown once there are players */}
       {players.length > 0 && activeTeam && (
         <ParentEngagementPanel teamId={activeTeam.id} />
       )}
 
-      {/* Team Attendance Panel — shown once attendance has been tracked */}
       {players.length > 0 && activeTeam && (
         <TeamAttendancePanel teamId={activeTeam.id} />
       )}
 
-      {/* Search & Filter - sticky on mobile */}
       {players.length > 0 && (
         <div className="sticky top-0 z-10 -mx-4 bg-zinc-950/95 backdrop-blur-sm px-4 py-2 sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -378,7 +370,6 @@ export default function RosterPage() {
         </div>
       )}
 
-      {/* Mobile quick actions — Import & Photo Import */}
       {players.length > 0 && (
         <div className="flex sm:hidden gap-2">
           <Link href="/roster/import" className="flex-1">
@@ -404,7 +395,6 @@ export default function RosterPage() {
         </div>
       )}
 
-      {/* Player Grid */}
       {isLoading ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -468,12 +458,13 @@ export default function RosterPage() {
               availability={availabilityMap[player.id] ?? null}
               teamId={activeTeam.id}
               momentum={momentumMap[player.id] ?? null}
+              coachName={coach?.full_name ?? null}
+              teamName={activeTeam.name}
             />
           ))}
         </div>
       )}
 
-      {/* Bulk Actions Bar */}
       {selectMode && coach && activeTeam && (
         <BulkActionsBar
           selectedPlayers={players.filter((p) => selectedIds.has(p.id))}
