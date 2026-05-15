@@ -25,7 +25,7 @@ You run every hour. Here's how to be effective.
 
 ### P0 — Critical Fixes (do these first if they exist)
 - [ ] Fix any TypeScript errors
-- [ ] Fix any failing tests
+- [x] **Fix any failing tests** — 14 tests across three files were failing on Node.js 25.x. Two root causes: (1) Node.js 25 ships an experimental native `localStorage` global (`--experimental-webstorage`) that lacks `clear()` and shadowed jsdom's proper `Storage` implementation in vitest's forked child processes; fixed by adding `execArgv: ['--no-experimental-webstorage']` to `vitest.config.ts` so every forked worker disables the native storage and jsdom takes over; (2) `buildMatchSessionLabel` in `src/lib/player-of-match-utils.ts` parsed ISO date strings like `2025-04-28` as UTC midnight, causing an off-by-one day display in negative-UTC-offset timezones; fixed by appending `T00:00:00` so the date is parsed as local time. All 3417 tests now pass with 0 failures.
 - [ ] Fix any lint errors
 - [ ] Fix any runtime errors reported in recent commits
 - [ ] Fix any build failures (`npm run build`)

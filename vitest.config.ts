@@ -16,5 +16,8 @@ export default defineConfig({
     },
     exclude: ['**/node_modules/**', '**/e2e/**', '**/*.spec.ts'],
     pool: 'forks',
+    // Node.js 25+ ships a native localStorage (--experimental-webstorage) that
+    // lacks `clear()`. Disable it in forked workers so jsdom's Storage is used.
+    execArgv: ['--no-experimental-webstorage'],
   },
 });
