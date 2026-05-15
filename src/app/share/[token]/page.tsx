@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { ParentViralCTA } from '@/components/share/parent-viral-cta';
 import { ParentReactionForm } from '@/components/share/parent-reaction-form';
+import { ParentContactForm } from '@/components/share/parent-contact-form';
 import { ShareReportButton } from '@/components/share/share-report-button';
 import { Megaphone, MessageCircle } from 'lucide-react';
 import {
@@ -402,6 +403,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     latestSessionMessage,
     skillChallenge,
     playerGoals,
+    hasParentContact,
   } = data;
 
   const playerName = player?.nickname || player?.name || 'your player';
@@ -1075,6 +1077,17 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             coachName={coachName}
           />
         </div>
+
+        {/* ─── Parent Contact Collection ─── */}
+        {/* Shown only when coach doesn't yet have this parent's phone number */}
+        {!hasParentContact && (
+          <ParentContactForm
+            shareToken={token}
+            playerFirstName={firstName}
+            coachName={coachName}
+            teamName={teamName}
+          />
+        )}
 
         {/* ─── Viral CTA ─── */}
         <div className="mx-4 mt-6">
