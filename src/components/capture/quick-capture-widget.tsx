@@ -236,10 +236,10 @@ export function QuickCaptureWidget() {
         }
 
         const players = await query<
-          { id: string; name: string; nickname: string | null; name_variants: string[] | null }[]
+          { id: string; name: string; nickname: string | null; name_variants: string[] | null; jersey_number: number | null }[]
         >({
           table: 'players',
-          select: 'id, name, nickname, name_variants',
+          select: 'id, name, jersey_number, nickname, name_variants',
           filters: { team_id: activeTeam.id, is_active: true },
         });
 
