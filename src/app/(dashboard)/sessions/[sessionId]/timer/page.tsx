@@ -1456,6 +1456,20 @@ export default function PracticeTimerPage({
     setMode('break');
   };
 
+  const handleAdjustTime = (deltaSecs: number) => {
+    setTimeLeft((prev) => {
+      const next = Math.max(10, prev + deltaSecs);
+      // Keep durationSecs in sync so the progress bar stays 0–100%
+      setQueue((q) =>
+        q.map((d, i) =>
+          i === currentIdx ? { ...d, durationSecs: Math.max(10, d.durationSecs + deltaSecs) } : d
+        )
+      );
+      return next;
+    });
+    if (navigator.vibrate) navigator.vibrate(30);
+  };
+
   const handleBreakSave = (note: string, playerId?: string, playerName?: string, sentiment: Sentiment = 'positive', category?: string) => {
     const drill = queue[currentIdx];
     setNotes((prev) => [
@@ -1868,6 +1882,24 @@ export default function PracticeTimerPage({
             >
               {fmt(timeLeft)}
             </span>
+          </div>
+
+          {/* Time adjustment buttons */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => handleAdjustTime(-60)}
+              className="flex items-center gap-1 rounded-full bg-zinc-800 hover:bg-zinc-700 active:scale-95 transition-all touch-manipulation px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200"
+              aria-label="Subtract 1 minute"
+            >
+              −1 min
+            </button>
+            <button
+              onClick={() => handleAdjustTime(120)}
+              className="flex items-center gap-1 rounded-full bg-zinc-800 hover:bg-zinc-700 active:scale-95 transition-all touch-manipulation px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200"
+              aria-label="Add 2 minutes"
+            >
+              +2 min
+            </button>
           </div>
 
           {/* Coaching cue */}
