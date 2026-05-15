@@ -480,6 +480,9 @@ export default function PlayerDetailPage({
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareSent, setShareSent] = useState(false);
+  const [coachNote, setCoachNote] = useState('');
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [noteSaved, setNoteSaved] = useState(false);
 
   // Skill challenge state
   const [challengeLoading, setChallengeLoading] = useState(false);
@@ -599,7 +602,7 @@ export default function PlayerDetailPage({
     queryFn: async () => {
       const shares = await query<ParentShare[]>({
         table: 'parent_shares',
-        select: 'id, share_token, view_count, last_viewed_at, expires_at, created_at',
+        select: 'id, share_token, view_count, last_viewed_at, expires_at, created_at, custom_message',
         filters: { player_id: playerId, is_active: true },
         order: { column: 'created_at', ascending: false },
         limit: 1,
@@ -616,7 +619,30 @@ export default function PlayerDetailPage({
     if (existingShare && !shareUrl) {
       setShareUrl(`${window.location.origin}/share/${existingShare.share_token}`);
     }
+    if (existingShare) {
+      setCoachNote(existingShare.custom_message ?? '');
+    }
   }, [existingShare, shareUrl]);
+
+  async function handleSaveNote() {
+    if (!existingShare) return;
+    setNoteSaving(true);
+    try {
+      await mutate({
+        table: 'parent_shares',
+        operation: 'update',
+        data: { custom_message: coachNote.trim() || null },
+        filters: { id: existingShare.id },
+      });
+      setNoteSaved(true);
+      setTimeout(() => setNoteSaved(false), 2500);
+      qc.invalidateQueries({ queryKey: ['player-share-existing', playerId] });
+    } catch {
+      // silent — note save is best-effort
+    } finally {
+      setNoteSaving(false);
+    }
+  }
 
   // Attendance stats for this player
   const { data: attendanceStat } = useQuery<PlayerAttendanceStat>({
@@ -918,6 +944,7 @@ export default function PlayerDetailPage({
           teamId: activeTeam.id,
           playerId: player.id,
           expirationDays: 30,
+          customMessage: coachNote.trim() || undefined,
         }),
       });
       if (!res.ok) {
@@ -2455,6 +2482,7 @@ export default function PlayerDetailPage({
           )}
 
           {shareUrl ? (
+            <>
             <Card>
               <CardContent className="p-6 space-y-4">
                 <div className="flex items-center gap-3">
@@ -2522,6 +2550,45 @@ export default function PlayerDetailPage({
                 </Button>
               </CardContent>
             </Card>
+
+            {/* ── Coach's Note ─────────────────────────────────────── */}
+            <Card>
+              <CardContent className="p-4 space-y-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-zinc-200">Coach&apos;s Note</h4>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    A personal message shown on {player.name.split(' ')[0]}&apos;s parent portal.
+                  </p>
+                </div>
+                <textarea
+                  value={coachNote}
+                  onChange={(e) => { setCoachNote(e.target.value); setNoteSaved(false); }}
+                  rows={3}
+                  maxLength={400}
+                  placeholder={`e.g. "Marcus worked so hard on his layups today — really proud of his effort and attitude!"`}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-orange-500/50 resize-none"
+                  aria-label="Coach's personal note to parent"
+                />
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] text-zinc-600">{coachNote.length}/400</p>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveNote}
+                    disabled={noteSaving}
+                    className={noteSaved ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}
+                  >
+                    {noteSaving ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : noteSaved ? (
+                      <><CheckCircle2 className="h-3 w-3 mr-1" /> Saved</>
+                    ) : (
+                      'Save Note'
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+            </>
           ) : (
             <Card>
               <CardContent className="flex flex-col items-center p-8 text-center">
