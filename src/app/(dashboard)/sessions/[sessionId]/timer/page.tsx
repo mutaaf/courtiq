@@ -46,6 +46,7 @@ import {
   Target,
   Volume2,
   VolumeX,
+  Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Drill, Player, Session, Plan } from '@/types/database';
@@ -80,6 +81,13 @@ import {
 } from '@/lib/announcer-utils';
 import type { PlayerAvailability } from '@/types/database';
 import { getRatingLabel, getRatingColor } from '@/lib/session-quality-utils';
+import {
+  buildGroupsForDrill,
+  hasSkillDataForGrouping,
+  buildGroupingBasisLabel,
+  formatGroupPlayerLabel,
+  type DrillGroup,
+} from '@/lib/player-grouping-utils';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -166,6 +174,8 @@ function BreakScreen({
   onSkip,
   capturedPlayerIds,
   lastObsByPlayer = {},
+  playerGroups,
+  groupsLabel,
 }: {
   drillJustFinished: string;
   drillCategory?: string;
@@ -175,11 +185,14 @@ function BreakScreen({
   onSkip: () => void;
   capturedPlayerIds?: Set<string>;
   lastObsByPlayer?: Record<string, LastObsInfo>;
+  playerGroups?: DrillGroup[];
+  groupsLabel?: string;
 }) {
   const [note, setNote] = useState('');
   const [selectedPlayer, setSelectedPlayer] = useState<string>('');
   const [sentiment, setSentiment] = useState<Sentiment>('positive');
   const [templateCategory, setTemplateCategory] = useState<string | undefined>(undefined);
+  const [showGroups, setShowGroups] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const voice = useVoiceInput();
 
@@ -476,6 +489,65 @@ function BreakScreen({
         <p className="text-xs text-zinc-600 text-center">
           ⌘+Enter to save quickly
         </p>
+
+        {/* Smart player groups — for the next drill */}
+        {playerGroups && playerGroups.length > 1 && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowGroups((v) => !v)}
+              className="w-full flex items-center justify-between gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors touch-manipulation"
+            >
+              <span className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-blue-400" />
+                <span className="font-medium text-zinc-300">
+                  Groups for {nextDrillName ?? 'next drill'}
+                </span>
+                {groupsLabel && (
+                  <span className="text-xs text-zinc-600 hidden sm:inline">
+                    · {groupsLabel}
+                  </span>
+                )}
+              </span>
+              {showGroups ? (
+                <ChevronUp className="h-4 w-4 shrink-0" />
+              ) : (
+                <ChevronDown className="h-4 w-4 shrink-0" />
+              )}
+            </button>
+
+            {showGroups && (
+              <div className="mt-2 grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(playerGroups.length, 2)}, 1fr)` }}>
+                {playerGroups.map((group) => (
+                  <div
+                    key={group.label}
+                    className={`rounded-xl border p-3 ${group.colorClass}`}
+                  >
+                    <p className="text-xs font-bold uppercase tracking-wider mb-2 opacity-80">
+                      {group.label}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {group.players.map((p) => (
+                        <span
+                          key={p.id}
+                          className="inline-block rounded-full bg-zinc-900/60 px-2.5 py-1 text-xs font-medium text-zinc-200"
+                        >
+                          {formatGroupPlayerLabel(p)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {showGroups && groupsLabel && (
+              <p className="mt-1.5 text-center text-xs text-zinc-600 sm:hidden">
+                {groupsLabel}
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1687,6 +1759,22 @@ export default function PracticeTimerPage({
     const drill = queue[currentIdx];
     const nextDrill = queue[currentIdx + 1];
     const capturedPlayerIds = new Set(notes.filter(n => n.playerId).map(n => n.playerId!));
+    // Build balanced groups for the next drill using obs history (already fetched).
+    const nextCategory = nextDrill?.category;
+    const obsForGrouping = recentObs.map((o) => ({
+      player_id: o.player_id,
+      category: o.category,
+      sentiment: o.sentiment,
+    }));
+    const playerGroups = nextDrill
+      ? buildGroupsForDrill(presentPlayers, nextCategory, obsForGrouping)
+      : undefined;
+    const hasData = nextDrill
+      ? hasSkillDataForGrouping(presentPlayers, nextCategory, obsForGrouping)
+      : false;
+    const groupsLabel = nextDrill
+      ? buildGroupingBasisLabel(nextCategory, hasData)
+      : undefined;
     return (
       <BreakScreen
         drillJustFinished={drill?.name ?? ''}
@@ -1697,6 +1785,8 @@ export default function PracticeTimerPage({
         onSkip={handleBreakSkip}
         capturedPlayerIds={capturedPlayerIds}
         lastObsByPlayer={lastObsByPlayer}
+        playerGroups={playerGroups}
+        groupsLabel={groupsLabel}
       />
     );
   }
