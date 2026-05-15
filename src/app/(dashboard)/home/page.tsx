@@ -32,6 +32,7 @@ import {
   X,
   Check,
   Loader2,
+  BarChart2,
 } from 'lucide-react';
 import type { Session, Plan } from '@/types/database';
 import { useAppStore } from '@/lib/store';
@@ -61,7 +62,7 @@ import { ArcCompleteCard } from '@/components/home/arc-complete-card';
 import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
 import { GoalDeadlineCard } from '@/components/home/goal-deadline-card';
 
-// ─── Live capture feed helper ─────────────────────────────────────────
+// ─── Live capture feed helper ──────────────────────────────────────────────────
 
 function formatLiveTimeAgo(iso: string): string {
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
@@ -70,7 +71,7 @@ function formatLiveTimeAgo(iso: string): string {
   return `${mins}m ago`;
 }
 
-// ─── Shared reminder helpers ──────────────────────────────────────────────
+// ─── Shared reminder helpers ──────────────────────────────────────────────────────
 
 const SESSION_REMINDER_EMOJI: Record<string, string> = {
   practice: '🏃',
@@ -121,7 +122,7 @@ async function shareReminder(msg: string, onSuccess: () => void) {
   }
 }
 
-// ─── Today's Session Card ───────────────────────────────────────
+// ─── Today's Session Card ──────────────────────────────────────────────
 
 function TodaySessionCard({
   session,
@@ -210,6 +211,14 @@ function TodaySessionCard({
             </Button>
           </Link>
         )}
+        {(session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
+          <Link href={`/sessions/${session.id}/game-tracker`}>
+            <Button size="sm" variant="outline" className="shrink-0 gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300">
+              <BarChart2 className="h-4 w-4" />
+              Stats
+            </Button>
+          </Link>
+        )}
         <Link href={`/capture?sessionId=${session.id}`}>
           <Button size="sm" variant="outline" className="shrink-0" aria-label="Capture observation">
             <Mic className="h-4 w-4" />
@@ -234,7 +243,7 @@ function TodaySessionCard({
   );
 }
 
-// ─── Upcoming Sessions Card ──────────────────────────────────────────────
+// ─── Upcoming Sessions Card ──────────────────────────────────────────────────────
 
 function UpcomingSessionsCard({
   sessions,
@@ -343,7 +352,7 @@ function UpcomingSessionsCard({
   );
 }
 
-// ─── Last Session Card ────────────────────────────────────────────────
+// ─── Last Session Card ──────────────────────────────────────────────────────────
 
 const SESSION_EMOJI: Record<string, string> = {
   practice: '🏃',
@@ -455,7 +464,7 @@ function LastSessionCard({ session }: {
   );
 }
 
-// ─── Page ────────────────────────────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const { activeTeam, coach, aiPlatformAvailable } = useActiveTeam();
@@ -464,7 +473,6 @@ export default function HomePage() {
   const [showDebrief, setShowDebrief] = useState(false);
   const [midPracticeShared, setMidPracticeShared] = useState(false);
 
-  // Inline quick-observe state (for unobserved player chips mid-practice)
   const [qoPlayer, setQoPlayer] = useState<{ id: string; name: string; jersey_number: number | null } | null>(null);
   const [qoSentiment, setQoSentiment] = useState<'positive' | 'needs-work'>('positive');
   const [qoTemplate, setQoTemplate] = useState<string | null>(null);
@@ -588,7 +596,6 @@ export default function HomePage() {
     setQoSentiment('positive');
   }
 
-  // Core stats
   const { data: stats, isLoading: isLoadingStats } = useQuery({
     queryKey: ['home-stats', activeTeam?.id],
     queryFn: async () => {
@@ -619,7 +626,6 @@ export default function HomePage() {
     enabled: !!activeTeam,
   });
 
-  // Today's and upcoming sessions
   const { todayStr, tomorrowStr, in7DaysStr } = useMemo(() => {
     const now = Date.now();
     return {
@@ -674,7 +680,6 @@ export default function HomePage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Roster for availability warnings + practice coverage
   const { data: rosterPlayers = [] } = useQuery({
     queryKey: ['home-roster', activeTeam?.id],
     queryFn: async () => {
@@ -699,7 +704,6 @@ export default function HomePage() {
       .map((p) => ({ name: p.name, status: playerAvailability[p.id].status }));
   }, [rosterPlayers, playerAvailability]);
 
-  // Most recent past session (for "Last Session" card — shown when no active practice or today session)
   const { data: lastSession } = useQuery({
     queryKey: ['last-session', activeTeam?.id],
     queryFn: async () => {
@@ -724,7 +728,6 @@ export default function HomePage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Most recent practice plan (last 7 days) — powers the "Run last plan" CTA
   const { data: recentPracticePlan } = useQuery({
     queryKey: ['home-recent-practice-plan', activeTeam?.id],
     queryFn: async () => {
@@ -755,7 +758,6 @@ export default function HomePage() {
     };
   }, [recentPracticePlan]);
 
-  // Live observation count + coverage for the active practice session
   const { data: sessionObsStats } = useQuery({
     queryKey: ['session-obs-count', practiceSessionId],
     queryFn: async () => {
@@ -799,7 +801,6 @@ export default function HomePage() {
     staleTime: 20_000,
   });
 
-  // Top needs-work skill per player (last 30 days) — shown as focus hint on coverage chips
   const since30d = useMemo(() => new Date(Date.now() - 30 * 86_400_000).toISOString(), []);
   const { data: playerFocusMap = {} } = useQuery({
     queryKey: ['practice-player-focus', activeTeam?.id],
@@ -832,7 +833,6 @@ export default function HomePage() {
     staleTime: 30 * 60_000,
   });
 
-  // Session momentum — positive ratio label + emoji shown during active practice
   const sessionMomentum = useMemo(() => {
     if (!sessionObsStats || sessionObsStats.count < 3) return null;
     const pct = Math.round((sessionObsStats.positiveCount / sessionObsStats.count) * 100);
@@ -842,14 +842,12 @@ export default function HomePage() {
     return { pct, emoji: '⚠️', label: 'Keep going', colorClass: 'text-zinc-400' };
   }, [sessionObsStats]);
 
-  // Which players haven't been observed yet in the active practice session
   const unobservedDuringPractice = useMemo(() => {
     if (!practiceActive || !rosterPlayers.length) return [];
     const observed = new Set(sessionObsStats?.observedPlayerIds ?? []);
     return rosterPlayers.filter((p) => !observed.has(p.id));
   }, [practiceActive, rosterPlayers, sessionObsStats]);
 
-  // Player display name lookup for live captures feed
   const playerNameById = useMemo(() => {
     const map: Record<string, string> = {};
     rosterPlayers.forEach((p) => {
@@ -860,7 +858,6 @@ export default function HomePage() {
     return map;
   }, [rosterPlayers]);
 
-  // ── No team state ────────────────────────────────────────────────────────────────────────────────────
   if (!activeTeam) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center min-h-[60vh]">
@@ -882,11 +879,9 @@ export default function HomePage() {
     );
   }
 
-  // ── Main dashboard ──────────────────────────────────────────────────────────────────────────────────────
   return (
     <>
     <div className="p-4 lg:p-8 space-y-6 pb-8">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">{activeTeam.name}</h1>
         <p className="text-zinc-400">
@@ -901,10 +896,8 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* Birthday Card — upcoming player birthdays, dismissible per day */}
       <BirthdayCard teamId={activeTeam.id} teamName={activeTeam.name} />
 
-      {/* AI Keys Onboarding Banner */}
       {!hasAIKeys && (
         <Card className="border-orange-500/30 bg-gradient-to-r from-orange-500/10 to-orange-500/5 p-4">
           <div className="flex items-start gap-3">
@@ -927,7 +920,6 @@ export default function HomePage() {
         </Card>
       )}
 
-      {/* Session CTA — End Practice / Today's Session / Start Practice */}
       {practiceActive ? (
         <div className="space-y-3">
           <button
@@ -961,7 +953,6 @@ export default function HomePage() {
             </div>
           </button>
 
-          {/* Wrap-up nudge — appears after 40 min to prompt cool-down */}
           {showWrapUpNudge && (
             <div className="flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
               <span aria-hidden="true">⏰</span>
@@ -969,7 +960,6 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Practice quick actions */}
           <div className="grid grid-cols-2 gap-3">
             <Link href={practiceSessionId ? `/capture?sessionId=${practiceSessionId}` : '/capture'}>
               <div className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3 hover:border-zinc-700 transition-colors touch-manipulation active:scale-[0.97]">
@@ -991,7 +981,6 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Mid-practice coverage row — who still needs an observation? */}
           {practiceSessionId && rosterPlayers.length > 0 && (
             unobservedDuringPractice.length === 0 ? (
               <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
@@ -1026,7 +1015,6 @@ export default function HomePage() {
             )
           )}
 
-          {/* Live captures feed — last 3 observations so coaches see their work landing */}
           {sessionObsStats && sessionObsStats.recentObs.length > 0 && (
             <div className="space-y-1.5">
               <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
@@ -1067,7 +1055,6 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Session Momentum + Mid-Practice Parent Update */}
           {sessionMomentum && (
             <div className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/50 px-3 py-2.5">
               <div className="flex items-center gap-2">
@@ -1178,7 +1165,6 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Quick actions */}
       <div className="grid grid-cols-3 gap-3">
         <Link href="/capture">
           <Card className="cursor-pointer transition-colors hover:border-orange-500/50 active:scale-[0.97] touch-manipulation">
@@ -1212,7 +1198,6 @@ export default function HomePage() {
         </Link>
       </div>
 
-      {/* Pre-Practice Quick Brief — top skill gap + neglected players */}
       {!practiceActive && activeTeam && stats && stats.observations >= 5 && (
         <PrePracticeSnapshotCard
           teamId={activeTeam.id}
@@ -1220,27 +1205,22 @@ export default function HomePage() {
         />
       )}
 
-      {/* Continue Arc — prompts coach to run the next session in their practice series */}
       {!practiceActive && activeTeam && (
         <ContinueArcCard teamId={activeTeam.id} />
       )}
 
-      {/* Arc Complete — celebration card after the final session in a practice series */}
       {!practiceActive && activeTeam && (
         <ArcCompleteCard teamId={activeTeam.id} />
       )}
 
-      {/* Last session summary — shown when no today session and practice not active */}
       {!practiceActive && todaySessions.length === 0 && lastSession && (
         <LastSessionCard session={lastSession} />
       )}
 
-      {/* Daily Focus — which player needs attention today (shown when enough data exists) */}
       {!practiceActive && !isLoadingStats && stats && stats.sessions > 0 && (
         <DailyFocusCard teamId={activeTeam.id} />
       )}
 
-      {/* Drill of the Day — deterministic drill targeting the team's top skill gap */}
       {!isLoadingStats && stats && stats.observations >= 5 && (
         <DrillOfDayCard
           teamId={activeTeam.id}
@@ -1249,7 +1229,6 @@ export default function HomePage() {
         />
       )}
 
-      {/* Getting Started checklist — shown until first 3 actions are complete */}
       {!isLoadingStats && stats && coach && (
         <GettingStartedCard
           players={stats.players}
@@ -1259,7 +1238,6 @@ export default function HomePage() {
         />
       )}
 
-      {/* First Practice Launcher — shown once to new coaches with 0 sessions */}
       {!practiceActive && !isLoadingStats && stats?.sessions === 0 && coach && (
         <FirstPracticeLauncher
           teamId={activeTeam.id}
@@ -1269,12 +1247,10 @@ export default function HomePage() {
         />
       )}
 
-      {/* Seasonal promo — new season kickoff (first 21 days of Sept/Jan/Apr) */}
       {!isLoadingStats && stats && (
         <SeasonalPromo playerCount={stats.players} />
       )}
 
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         {isLoadingStats ? (
           <>
@@ -1317,38 +1293,30 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* Freemium nudge — contextual upgrade prompt for free-tier coaches */}
       {stats && (
         <FreemiumNudge playerCount={stats.players} observationCount={stats.observations} />
       )}
 
-      {/* Weekly Team Focus — coach declares a skill theme for the week */}
       {activeTeam && stats && stats.sessions >= 1 && (
         <WeeklyFocusCard teamId={activeTeam.id} />
       )}
 
-      {/* Team skill trends — week-over-week per-category signals */}
       {activeTeam && stats && stats.observations >= 5 && (
         <TeamSkillTrendsCard teamId={activeTeam.id} />
       )}
 
-      {/* Coaching streak tracker */}
       {activeTeam && stats && (
         <StreakCard teamId={activeTeam.id} observationCount={stats.observations} />
       )}
 
-      {/* AI Coach Insights — personalized proactive tips, cached 4 hours */}
       {activeTeam && stats && (
         <AICoachingTipsCard teamId={activeTeam.id} observationCount={stats.observations} />
       )}
 
-      {/* Team Wins Feed — recent badges + achieved goals */}
       {activeTeam && <TeamWinsCard teamId={activeTeam.id} />}
 
-      {/* Goal Deadline Alert — active player goals due within 7 days or overdue */}
       {activeTeam && <GoalDeadlineCard teamId={activeTeam.id} />}
 
-      {/* Player Breakthrough — celebrates when a player flips from needs-work to improving */}
       {activeTeam && stats && stats.observations >= 5 && (
         <PlayerBreakthroughCard
           teamId={activeTeam.id}
@@ -1356,20 +1324,16 @@ export default function HomePage() {
         />
       )}
 
-      {/* Player on a Roll — celebrates the player with the longest positive session streak */}
       {activeTeam && stats && stats.observations >= 5 && (
         <PlayerOnARollCard teamId={activeTeam.id} />
       )}
 
-      {/* Struggling Player Alert — flags players with repeated needs-work in a skill */}
       {activeTeam && stats && stats.observations >= 5 && (
         <StrugglingPlayerCard teamId={activeTeam.id} />
       )}
 
-      {/* Parent Reactions — love notes from parents */}
       {activeTeam && <ParentReactionsCard teamId={activeTeam.id} />}
 
-      {/* Weekly Parent Wrap — one-tap pre-written group chat update summarising the week */}
       {activeTeam && coach && stats && stats.observations >= 5 && (
         <WeeklyWrapCard
           teamId={activeTeam.id}
@@ -1379,7 +1343,6 @@ export default function HomePage() {
         />
       )}
 
-      {/* Upcoming sessions this week */}
       {upcomingSessions.length > 0 && (
         <UpcomingSessionsCard
           sessions={upcomingSessions}
@@ -1390,7 +1353,6 @@ export default function HomePage() {
 
     </div>
 
-    {/* Inline quick-observe bottom sheet — opens when a coach taps an unobserved player chip */}
     {qoPlayer && (
       <>
         <div
@@ -1404,7 +1366,6 @@ export default function HomePage() {
           aria-label={`Quick observation for ${qoPlayer.name}`}
           className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-zinc-900 border-t border-zinc-800 p-4 pb-10 space-y-4"
         >
-          {/* Header */}
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-zinc-500 font-medium">Quick Observation</p>
@@ -1426,7 +1387,6 @@ export default function HomePage() {
             </button>
           </div>
 
-          {/* Sentiment toggle */}
           <div className="flex gap-2">
             {(['positive', 'needs-work'] as const).map((s) => (
               <button
@@ -1445,7 +1405,6 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* Template chips */}
           <div className="flex flex-wrap gap-2">
             {getTemplatesBySentiment(qoSentiment).slice(0, 8).map((t) => (
               <button
@@ -1464,7 +1423,6 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* Optional free-text note */}
           <Textarea
             placeholder="Add a specific note (optional)…"
             value={qoText}
@@ -1473,7 +1431,6 @@ export default function HomePage() {
             className="text-sm resize-none"
           />
 
-          {/* Save button */}
           <Button
             onClick={handleHomeQuickObsSave}
             disabled={qoSaving || qoSaved || (!qoTemplate && !qoText.trim())}
@@ -1499,7 +1456,6 @@ export default function HomePage() {
       </>
     )}
 
-    {/* Post-practice debrief modal */}
     {showDebrief && practiceSessionId && (
       <PostPracticeDebrief
         sessionId={practiceSessionId}
