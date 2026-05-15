@@ -3,7 +3,9 @@
 import { useState, useRef, useEffect, useMemo, type ReactNode } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery } from '@tanstack/react-query';
-import { query } from '@/lib/api';
+import { query, mutate } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+import { useAppStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import {
   Sparkles,
@@ -25,6 +27,7 @@ import {
   CalendarDays,
   Users,
   Zap,
+  Play,
 } from 'lucide-react';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 import { UpgradeGate } from '@/components/ui/upgrade-gate';
@@ -355,12 +358,18 @@ function buildDynamicSuggestions(
 }
 
 export default function AssistantPage() {
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, coach } = useActiveTeam();
+  const router = useRouter();
+  const setPracticeActive = useAppStore((s) => s.setPracticeActive);
+  const setPracticeSessionId = useAppStore((s) => s.setPracticeSessionId);
+  const setPracticeStartedAt = useAppStore((s) => s.setPracticeStartedAt);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedDrillIds, setSavedDrillIds] = useState<Set<string>>(new Set());
+  const [savedPlanIds, setSavedPlanIds] = useState<Record<string, string>>({});
+  const [runningPlanId, setRunningPlanId] = useState<string | null>(null);
   const [copiedReportIds, setCopiedReportIds] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -380,21 +389,21 @@ export default function AssistantPage() {
     queryFn: async () => {
       if (!activeTeam) return null;
       const [sessions, obs, players] = await Promise.all([
-        query<Array<{ id: string; type: string; date: string; opponent: string | null }>>({
+        query<Array<{ id: string; type: string; date: string; opponent: string | null }}>({
           table: 'sessions',
           select: 'id,type,date,opponent',
           filters: { team_id: activeTeam.id, date: { op: 'gte', value: sevenDaysAgo } },
           order: { column: 'date', ascending: true },
           limit: 20,
         }),
-        query<Array<{ player_id: string | null; category: string | null; sentiment: string; created_at: string }>>({
+        query<Array<{ player_id: string | null; category: string | null; sentiment: string; created_at: string }}>({
           table: 'observations',
           select: 'player_id,category,sentiment,created_at',
           filters: { team_id: activeTeam.id },
           order: { column: 'created_at', ascending: false },
           limit: 60,
         }),
-        query<Array<{ id: string; name: string }>>({
+        query<Array<{ id: string; name: string }}>({
           table: 'players',
           select: 'id,name',
           filters: { team_id: activeTeam.id, is_active: true },
@@ -585,22 +594,60 @@ export default function AssistantPage() {
   };
 
   const saveAsPlan = async (message: ChatMessage) => {
-    if (!activeTeam || !message.structured_data) return;
+    if (!activeTeam || !message.structured_data || savedPlanIds[message.id]) return;
     try {
-      const res = await fetch('/api/plans', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          teamId: activeTeam.id,
-          type: message.type === 'drill' ? 'practice' : message.type === 'report' ? 'parent_report' : 'custom',
+      const planType = message.type === 'drill' ? 'practice'
+        : message.type === 'report' ? 'parent_report'
+        : 'custom';
+      const result = await mutate<{ id: string }>({
+        table: 'plans',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          type: planType,
           title: (message.structured_data as any).title || `${message.type} - ${new Date().toLocaleDateString()}`,
           content: JSON.stringify(message.structured_data),
           content_structured: message.structured_data,
-        }),
+        },
+        select: 'id',
       });
-      if (!res.ok) throw new Error('Failed to save');
+      const planId = Array.isArray(result) ? (result as any)[0]?.id : (result as any)?.id;
+      if (planId) {
+        setSavedPlanIds((prev) => ({ ...prev, [message.id]: planId }));
+        showToast('Plan saved — find it in Plans page!');
+      }
     } catch {
-      setError('Failed to save plan');
+      showToast('Failed to save plan', false);
+    }
+  };
+
+  const runPractice = async (planId: string) => {
+    if (!activeTeam || !coach || runningPlanId) return;
+    setRunningPlanId(planId);
+    try {
+      const session = await mutate<{ id: string }>({
+        table: 'sessions',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          type: 'practice',
+          date: new Date().toISOString().split('T')[0],
+          notes: 'Created from AI Assistant',
+        },
+        select: 'id',
+      });
+      const sessionId = Array.isArray(session) ? (session as any)[0]?.id : (session as any)?.id;
+      if (sessionId) {
+        setPracticeActive(true);
+        setPracticeSessionId(sessionId);
+        setPracticeStartedAt(new Date().toISOString());
+        router.push(`/sessions/${sessionId}/timer?planId=${planId}`);
+      }
+    } catch {
+      showToast('Could not start practice. Try again.', false);
+    } finally {
+      setRunningPlanId(null);
     }
   };
 
@@ -706,11 +753,41 @@ export default function AssistantPage() {
             <div className="mt-2 flex flex-wrap gap-2">
               <button
                 onClick={() => saveAsPlan(message)}
-                className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-700 transition-colors"
+                disabled={!!savedPlanIds[message.id]}
+                className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-700 transition-colors disabled:opacity-60"
               >
-                <Save className="h-3 w-3" />
-                Save as Plan
+                {savedPlanIds[message.id] ? (
+                  <>
+                    <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                    <span className="text-emerald-400">Saved!</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-3 w-3" />
+                    Save as Plan
+                  </>
+                )}
               </button>
+              {/* Run Practice — shown after a plan is saved */}
+              {message.type === 'plan' && savedPlanIds[message.id] && (
+                <button
+                  onClick={() => runPractice(savedPlanIds[message.id])}
+                  disabled={!!runningPlanId}
+                  className="flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/30 transition-colors disabled:opacity-60"
+                >
+                  {runningPlanId === savedPlanIds[message.id] ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Starting…
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-3 w-3" />
+                      Run Practice
+                    </>
+                  )}
+                </button>
+              )}
               {message.type === 'report' && (
                 <button
                   onClick={() => shareWithParents(message)}
