@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2, Star } from 'lucide-react';
+import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2, Star, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { RecurringSessionsPanel } from '@/components/sessions/recurring-sessions-panel';
@@ -119,11 +119,20 @@ export default function SessionsPage() {
   }
 
   function formatDate(dateStr: string) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    d.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((today.getTime() - d.getTime()) / 86_400_000);
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays > 0 && diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays >= 7 && diffDays < 14) return 'Last week';
+    if (diffDays < 0 && diffDays > -7) return `In ${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? 's' : ''}`;
     return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
-      year: 'numeric',
     });
   }
 
@@ -217,6 +226,15 @@ export default function SessionsPage() {
             const parsedResult = parseResult(effectiveResult);
             const isGame = isGameType(session.type);
             const isSavingThis = savingResult?.sessionId === session.id;
+            // Debrief pending: past session, ≥3 obs, no AI debrief yet
+            const sessionDaysAgo = Math.round(
+              (Date.now() - new Date(session.date + 'T00:00:00').getTime()) / 86_400_000
+            );
+            const debriefPending =
+              sessionDaysAgo > 0 &&
+              sessionDaysAgo <= 14 &&
+              obsCount >= 3 &&
+              !session.coach_debrief_text;
 
             return (
               <Link key={session.id} href={`/sessions/${session.id}`}>
@@ -300,6 +318,19 @@ export default function SessionsPage() {
                               );
                             })}
                           </div>
+                        )}
+
+                        {/* Debrief pending — amber nudge for past sessions with enough obs but no AI debrief */}
+                        {debriefPending && (
+                          <Link
+                            href={`/sessions/${session.id}?fromPractice=1&obsCount=${obsCount}&playerCount=0`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-400 hover:border-amber-500/50 hover:bg-amber-500/15 transition-colors touch-manipulation active:scale-95 mt-1"
+                            aria-label="AI debrief pending — tap to generate"
+                          >
+                            <Sparkles className="h-3 w-3" />
+                            AI debrief pending
+                          </Link>
                         )}
                       </div>
                       <div className="flex flex-col items-end gap-1.5 shrink-0 ml-3">
