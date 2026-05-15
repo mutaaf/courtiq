@@ -79,7 +79,7 @@ export default function SessionsPage() {
       }
       const data = await query<any[]>({
         table: 'sessions',
-        select: 'id, type, date, start_time, location, opponent, result, curriculum_week, quality_rating, coach_debrief_text, observations:observations(count)',
+        select: 'id, type, date, start_time, location, opponent, result, curriculum_week, quality_rating, coach_debrief_text, coach_debrief_extracts, observations:observations(count)',
         filters,
         order: { column: 'date', ascending: false },
       });
@@ -234,7 +234,26 @@ export default function SessionsPage() {
               sessionDaysAgo > 0 &&
               sessionDaysAgo <= 14 &&
               obsCount >= 3 &&
-              !session.coach_debrief_text;
+              !session.coach_debrief_extracts;
+
+            // AI debrief summary for sessions that already have a debrief
+            const debriefData = session.coach_debrief_extracts as {
+              session_summary?: string;
+              overall_tone?: 'great' | 'good' | 'developing' | 'struggling';
+            } | null;
+            const aiSummary = debriefData?.session_summary
+              ? debriefData.session_summary.length > 72
+                ? debriefData.session_summary.slice(0, 72) + '…'
+                : debriefData.session_summary
+              : null;
+            const toneColor =
+              debriefData?.overall_tone === 'great' || debriefData?.overall_tone === 'good'
+                ? 'text-emerald-400'
+                : debriefData?.overall_tone === 'developing'
+                ? 'text-amber-400'
+                : debriefData?.overall_tone === 'struggling'
+                ? 'text-red-400'
+                : 'text-zinc-400';
 
             return (
               <Link key={session.id} href={`/sessions/${session.id}`}>
@@ -290,6 +309,14 @@ export default function SessionsPage() {
                             {session.coach_debrief_text.length > 70
                               ? session.coach_debrief_text.slice(0, 70) + '…'
                               : session.coach_debrief_text}
+                          </p>
+                        )}
+
+                        {/* AI debrief summary — shown when AI debrief exists */}
+                        {aiSummary && (
+                          <p className={`flex items-center gap-1 text-xs truncate mt-0.5 ${toneColor}`}>
+                            <Sparkles className="h-3 w-3 shrink-0" />
+                            {aiSummary}
                           </p>
                         )}
 
