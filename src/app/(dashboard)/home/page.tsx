@@ -2,8 +2,10 @@
 
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
+import { OBSERVATION_TEMPLATES, getTemplatesBySentiment } from '@/lib/observation-templates';
+import { Textarea } from '@/components/ui/textarea';
 import { query, mutate } from '@/lib/api';
 import { useElapsedTime } from '@/hooks/use-elapsed-time';
 import { shouldShowWrapUpNudge } from '@/lib/elapsed-time-utils';
@@ -27,6 +29,9 @@ import {
   Star,
   Share2,
   CheckCircle2,
+  X,
+  Check,
+  Loader2,
 } from 'lucide-react';
 import type { Session, Plan } from '@/types/database';
 import { useAppStore } from '@/lib/store';
@@ -455,8 +460,17 @@ function LastSessionCard({ session }: {
 export default function HomePage() {
   const { activeTeam, coach, aiPlatformAvailable } = useActiveTeam();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [showDebrief, setShowDebrief] = useState(false);
   const [midPracticeShared, setMidPracticeShared] = useState(false);
+
+  // Inline quick-observe state (for unobserved player chips mid-practice)
+  const [qoPlayer, setQoPlayer] = useState<{ id: string; name: string; jersey_number: number | null } | null>(null);
+  const [qoSentiment, setQoSentiment] = useState<'positive' | 'needs-work'>('positive');
+  const [qoTemplate, setQoTemplate] = useState<string | null>(null);
+  const [qoText, setQoText] = useState('');
+  const [qoSaving, setQoSaving] = useState(false);
+  const [qoSaved, setQoSaved] = useState(false);
 
   const hasAIKeys = (() => {
     if (aiPlatformAvailable) return true;
@@ -526,6 +540,52 @@ export default function HomePage() {
     } catch (err) {
       console.warn('Failed to start practice with plan:', err);
     }
+  }
+
+  async function handleHomeQuickObsSave() {
+    if (!activeTeam || !qoPlayer || !practiceSessionId) return;
+    const template = OBSERVATION_TEMPLATES.find((t) => t.id === qoTemplate);
+    const text = qoText.trim() || template?.text || '';
+    if (!text) return;
+    setQoSaving(true);
+    try {
+      await mutate({
+        table: 'observations',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          org_id: activeTeam.org_id,
+          player_name: qoPlayer.name,
+          player_id: qoPlayer.id,
+          session_id: practiceSessionId,
+          text,
+          sentiment: qoSentiment,
+          category: template?.category || 'general',
+          source: 'template',
+        },
+      });
+      queryClient.invalidateQueries({ queryKey: ['session-obs-count', practiceSessionId] });
+      setQoSaved(true);
+      setTimeout(() => {
+        setQoSaved(false);
+        setQoPlayer(null);
+        setQoTemplate(null);
+        setQoText('');
+        setQoSentiment('positive');
+      }, 1400);
+    } catch {
+      // silent — save button stays enabled for retry
+    } finally {
+      setQoSaving(false);
+    }
+  }
+
+  function dismissQo() {
+    if (qoSaving) return;
+    setQoPlayer(null);
+    setQoTemplate(null);
+    setQoText('');
+    setQoSentiment('positive');
   }
 
   // Core stats
@@ -946,20 +1006,19 @@ export default function HomePage() {
                 <div className="flex gap-2 flex-wrap">
                   {unobservedDuringPractice.map((p) => {
                     const label = p.jersey_number != null ? `#${p.jersey_number} ${p.name.split(' ')[0]}` : p.name.split(' ')[0];
-                    const href = practiceSessionId
-                      ? `/capture?sessionId=${practiceSessionId}&playerId=${p.id}&player=${encodeURIComponent(p.name)}`
-                      : `/capture?playerId=${p.id}&player=${encodeURIComponent(p.name)}`;
                     const focusCat = playerFocusMap[p.id];
                     const focusLabel = focusCat ? formatSkillLabel(focusCat) : null;
                     return (
-                      <Link key={p.id} href={href}>
-                        <span className="inline-flex items-center gap-1 rounded-full border border-orange-500/30 bg-orange-500/10 px-2.5 py-1 text-xs font-medium text-orange-300 hover:bg-orange-500/20 transition-colors touch-manipulation active:scale-95">
-                          {label}
-                          {focusLabel && (
-                            <span className="text-orange-400/55 font-normal">· {focusLabel}</span>
-                          )}
-                        </span>
-                      </Link>
+                      <button
+                        key={p.id}
+                        onClick={() => { setQoPlayer(p); setQoSentiment('positive'); setQoTemplate(null); setQoText(''); }}
+                        className="inline-flex items-center gap-1 rounded-full border border-orange-500/30 bg-orange-500/10 px-2.5 py-1 text-xs font-medium text-orange-300 hover:bg-orange-500/20 transition-colors touch-manipulation active:scale-95"
+                      >
+                        {label}
+                        {focusLabel && (
+                          <span className="text-orange-400/55 font-normal">· {focusLabel}</span>
+                        )}
+                      </button>
                     );
                   })}
                 </div>
@@ -1330,6 +1389,115 @@ export default function HomePage() {
       )}
 
     </div>
+
+    {/* Inline quick-observe bottom sheet — opens when a coach taps an unobserved player chip */}
+    {qoPlayer && (
+      <>
+        <div
+          className="fixed inset-0 z-40 bg-black/60"
+          onClick={dismissQo}
+          aria-hidden="true"
+        />
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Quick observation for ${qoPlayer.name}`}
+          className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-zinc-900 border-t border-zinc-800 p-4 pb-10 space-y-4"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-zinc-500 font-medium">Quick Observation</p>
+              <p className="text-sm font-semibold text-zinc-100">
+                {qoPlayer.jersey_number != null ? `#${qoPlayer.jersey_number} ` : ''}{qoPlayer.name}
+              </p>
+              {playerFocusMap[qoPlayer.id] && (
+                <p className="text-xs text-amber-400 mt-0.5">
+                  Focus: {formatSkillLabel(playerFocusMap[qoPlayer.id])}
+                </p>
+              )}
+            </div>
+            <button
+              aria-label="Close"
+              onClick={dismissQo}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Sentiment toggle */}
+          <div className="flex gap-2">
+            {(['positive', 'needs-work'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => { setQoSentiment(s); setQoTemplate(null); }}
+                className={`flex-1 rounded-xl py-2.5 text-sm font-medium transition-all touch-manipulation active:scale-[0.97] ${
+                  qoSentiment === s
+                    ? s === 'positive'
+                      ? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-300'
+                      : 'bg-amber-500/20 border border-amber-500/50 text-amber-300'
+                    : 'bg-zinc-800 border border-zinc-700 text-zinc-400'
+                }`}
+              >
+                {s === 'positive' ? '👍 Positive' : '👎 Needs Work'}
+              </button>
+            ))}
+          </div>
+
+          {/* Template chips */}
+          <div className="flex flex-wrap gap-2">
+            {getTemplatesBySentiment(qoSentiment).slice(0, 8).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => { setQoTemplate(qoTemplate === t.id ? null : t.id); setQoText(''); }}
+                className={`rounded-xl px-3 py-2 text-xs font-medium transition-all touch-manipulation active:scale-[0.97] ${
+                  qoTemplate === t.id
+                    ? qoSentiment === 'positive'
+                      ? 'bg-emerald-500/25 border border-emerald-500/60 text-emerald-200'
+                      : 'bg-amber-500/25 border border-amber-500/60 text-amber-200'
+                    : 'bg-zinc-800 border border-zinc-700 text-zinc-300'
+                }`}
+              >
+                {t.text}
+              </button>
+            ))}
+          </div>
+
+          {/* Optional free-text note */}
+          <Textarea
+            placeholder="Add a specific note (optional)…"
+            value={qoText}
+            onChange={(e) => { setQoText(e.target.value); if (e.target.value) setQoTemplate(null); }}
+            rows={2}
+            className="text-sm resize-none"
+          />
+
+          {/* Save button */}
+          <Button
+            onClick={handleHomeQuickObsSave}
+            disabled={qoSaving || qoSaved || (!qoTemplate && !qoText.trim())}
+            className={`w-full h-12 text-base font-semibold transition-all ${
+              qoSaved ? 'bg-emerald-500 hover:bg-emerald-500' : ''
+            }`}
+          >
+            {qoSaved ? (
+              <>
+                <Check className="h-5 w-5" />
+                Saved!
+              </>
+            ) : qoSaving ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Saving…
+              </>
+            ) : (
+              'Save Observation'
+            )}
+          </Button>
+        </div>
+      </>
+    )}
 
     {/* Post-practice debrief modal */}
     {showDebrief && practiceSessionId && (
