@@ -329,6 +329,342 @@ const SOCCER_U12: PracticeTemplate = {
   ],
 };
 
+// ─── Volleyball Templates ─────────────────────────────────────────────────────
+
+const VOLLEYBALL_U12: PracticeTemplate = {
+  id: 'vball-u12-45',
+  name: 'Volleyball Basics',
+  sport: 'volleyball',
+  ageLabel: 'Ages 9–12',
+  totalMins: 45,
+  description: 'Passing, setting, and serving fundamentals with a mini-game finish.',
+  tags: ['beginner', 'fundamentals', 'medium'],
+  drills: [
+    {
+      name: 'Passing Circle Warm-Up',
+      durationMins: 7,
+      cues: [
+        'Platform first — flat forearms together before the ball arrives',
+        'Bend your knees and move your feet to get under the ball early',
+        'Aim your pass to shoulder height — consistent target for your setter',
+        'Call "mine!" loud and clear so everyone knows who has it',
+      ],
+      description: 'Players stand in a circle and forearm-pass to each other. Focus on platform position and footwork.',
+    },
+    {
+      name: 'Serving Station',
+      durationMins: 10,
+      cues: [
+        'Toss the ball slightly in front of your hitting shoulder — not over your head',
+        'Contact at your highest point with a flat, firm hand',
+        'Step with your opposite foot as you serve — get your whole body into it',
+        'Aim for the back third of the court — depth beats power at this age',
+      ],
+      description: 'Half the team at the service line, half on the other side to retrieve. Rotate every 3 serves.',
+    },
+    {
+      name: 'Setting Introduction',
+      durationMins: 10,
+      cues: [
+        'High hands above your forehead — make a triangle with your thumbs and fingers',
+        'Push with both hands equally — no spinning the ball',
+        'Get under the ball, don\'t reach for it',
+        'Set it high so your attacker has time to approach',
+      ],
+      description: 'Coach tosses to setter position; players practice overhead setting in pairs.',
+    },
+    {
+      name: '3v3 Mini Volley',
+      durationMins: 18,
+      cues: [
+        'Three contacts every time — pass, set, attack or over',
+        'Talk between every single contact — "mine", "yours", "help"',
+        'Celebrate every rally — high-fives build chemistry',
+        'Coach: rotate teams every 5 points so everyone plays together',
+      ],
+      description: 'Small-sided game across a lower net (or rope). Three-hit rule enforced.',
+    },
+  ],
+};
+
+const VOLLEYBALL_U16: PracticeTemplate = {
+  id: 'vball-u16-60',
+  name: 'Volleyball Competition Prep',
+  sport: 'volleyball',
+  ageLabel: 'Ages 13–18',
+  totalMins: 60,
+  description: 'Serve receive, attack combinations, blocking, and competitive scrimmage.',
+  tags: ['intermediate', 'competitive', 'long'],
+  drills: [
+    {
+      name: 'Dynamic Warm-Up',
+      durationMins: 5,
+      cues: [
+        'Shuffle laterally — you will do this a hundred times tonight',
+        'Arm circles and shoulder rolls — protect your joints',
+        'Talk to each other even during warm-up — build the habit now',
+      ],
+      description: 'Jog the court perimeter, lateral shuffles, arm swings, and light ball pepper in pairs.',
+    },
+    {
+      name: 'Serve Receive Passing',
+      durationMins: 12,
+      cues: [
+        'Read the server\'s toss before the ball crosses the net',
+        'Move your feet first — platform is the last thing you set, not the first',
+        'Target: setter\'s hands, every single pass. Aim for consistency not perfection',
+        'Call the ball every time, even when it\'s obviously yours',
+      ],
+      description: 'Server serves from the service line; back-row players pass to a setter target position.',
+    },
+    {
+      name: 'Setting & Attacking Combos',
+      durationMins: 13,
+      cues: [
+        'Attackers: three-step approach outside-right-left, explode off both feet',
+        'Arm swing starts from behind the ear — full extension through contact',
+        'Setters: release the ball at the peak of your jump set, not on the way down',
+        'Read the block — line shot when the block is outside, angle when it\'s in',
+      ],
+      description: 'Setter runs a quick-set to middle and an outside combination. Attackers rotate through both positions.',
+    },
+    {
+      name: 'Blocking Footwork',
+      durationMins: 10,
+      cues: [
+        'Start square to the net — never get caught sideways',
+        'Lead with a shuffle step, not a cross-step, when moving one spot',
+        'Jump straight up — don\'t float into the net',
+        'Penetrate the hands over the net on contact — take their angle away',
+      ],
+      description: 'Middle blocker closes to outside in 2-step, 3-step patterns. Ball tossed at the antenna for timing.',
+    },
+    {
+      name: 'Competitive Scrimmage',
+      durationMins: 15,
+      cues: [
+        'Play every point like the score is tied — compete on every rally',
+        'Losing team: one lap or 5 push-ups — keep stakes real',
+        'Coach: call timeout to fix a pattern you see repeated twice',
+        'Finish with a team cheer — end on positive energy',
+      ],
+      description: '6v6 (or 4v4) full game to 15 points, rally scoring. Rotate servers each point.',
+    },
+    {
+      name: 'Team Talk',
+      durationMins: 5,
+      cues: [
+        'Name one thing the team did well today — be specific',
+        'Name one thing to fix before the next match — just one',
+        'Ask players: "What did you personally work on today?"',
+        'Confirm next session time and what to expect',
+      ],
+      description: 'Bring the team in. Coach shares observations, players share wins and areas to improve.',
+    },
+  ],
+};
+
+// ─── Flag Football Templates ──────────────────────────────────────────────────
+
+const FLAG_FOOTBALL_U8: PracticeTemplate = {
+  id: 'ffb-u8-30',
+  name: 'Flag Football Intro',
+  sport: 'flagfootball',
+  ageLabel: 'Ages 6–8',
+  totalMins: 30,
+  description: 'Flag pulling, throwing, catching, and a fun mini-game for brand-new players.',
+  tags: ['beginner', 'fundamentals', 'short'],
+  drills: [
+    {
+      name: 'Flag Freeze Tag',
+      durationMins: 7,
+      cues: [
+        'Go for the flags — both hips, grab quick!',
+        'Ball-carrier: change direction to escape, keep the flags on',
+        'When your flag is pulled, freeze instantly — that\'s the rule in a game too',
+        'Have fun — this is the most fun drill in flag football',
+      ],
+      description: 'Players wear flags. 2–3 "it" players try to pull everyone\'s flags. Tagged players freeze until freed by a teammate.',
+    },
+    {
+      name: 'Throw & Catch Pairs',
+      durationMins: 8,
+      cues: [
+        'Make a diamond with your thumbs and fingers — that\'s your catching frame',
+        'Watch the ball all the way into your hands — eyes on the nose of the ball',
+        'Thrower: step toward your target with your front foot as you release',
+        'Short passes first — get the feel before you go deep',
+      ],
+      description: 'Partners 5 yards apart throwing and catching. Move back 2 yards every 3 successful catches.',
+    },
+    {
+      name: 'Simple Routes',
+      durationMins: 8,
+      cues: [
+        'Run hard off the line — make your defender think you\'re going deep',
+        'Button hook: run out 5 steps, plant your outside foot, turn back for the ball',
+        'Go route: run straight as fast as you can and look up over your shoulder',
+        'QB: say "hike" clearly so your center knows when to snap',
+      ],
+      description: 'Walk through button hook and go route. Then QB snaps from center and throws to a receiver running one of the two routes.',
+    },
+    {
+      name: '3v3 Mini Game',
+      durationMins: 7,
+      cues: [
+        'Offense: spread out — give the QB targets to throw to',
+        'Defense: one person rushes the QB after "three Mississippi", others cover',
+        'No-run rule reminds: in flag football, we throw! No running with the ball after the snap',
+        'Celebrate every TD AND every flag pull equally — both sides matter',
+      ],
+      description: '3v3 flag game across 30 yards. 4 downs to score, then switch possession.',
+    },
+  ],
+};
+
+const FLAG_FOOTBALL_U12: PracticeTemplate = {
+  id: 'ffb-u12-45',
+  name: 'Flag Football Fundamentals',
+  sport: 'flagfootball',
+  ageLabel: 'Ages 9–12',
+  totalMins: 45,
+  description: 'Route running, QB mechanics, coverage fundamentals, and competitive scrimmage.',
+  tags: ['intermediate', 'fundamentals', 'medium'],
+  drills: [
+    {
+      name: 'Dynamic Warm-Up',
+      durationMins: 5,
+      cues: [
+        'High knees and butt kicks — get those hips warm',
+        'Lateral shuffles: stay low, don\'t cross your feet',
+        'Sprint 10 yards at 70% — not full speed yet, just awaken the muscles',
+      ],
+      description: 'Jog, high knees, lateral shuffle, and two short acceleration sprints.',
+    },
+    {
+      name: 'Route Tree Intro',
+      durationMins: 10,
+      cues: [
+        'Sell every route — run the same way for the first 3 steps no matter what route you\'re running',
+        'Slant: 3 steps upfield, plant your outside foot, break 45° inside',
+        'Out route: 5 steps upfield, plant, break sharp toward the sideline',
+        'The break is where you beat the defender — make it clean and sudden',
+      ],
+      description: 'Walk-through then full-speed reps of slant, out, and comeback routes. QB tosses to each receiver after the break.',
+    },
+    {
+      name: 'QB Drop & Receivers Combo',
+      durationMins: 12,
+      cues: [
+        'QB 3-step drop: catch the snap, drop back three steps, plant, set your feet',
+        'Eyes down the field — look off the defender before throwing to your real target',
+        'Release quickly: flag football QBs don\'t have much protection, get rid of it',
+        'Receivers: run to where the QB can throw you open, not where the QB is standing',
+      ],
+      description: 'Two receivers run different routes; QB reads primary vs secondary and throws within 3 seconds.',
+    },
+    {
+      name: 'Flag Pulling Defense',
+      durationMins: 8,
+      cues: [
+        'Stay between the ball-carrier and the end zone — position beats speed',
+        'Two-hand grab on the flags — commit to both hips, not just one',
+        'Don\'t dive early — wait until you\'re close enough to guarantee the pull',
+        'After a pull: hold the flags up high so the ref sees the stop',
+      ],
+      description: '1-on-1 flag pulling. Carrier runs in a 10-yard corridor; defender approaches and pulls flags.',
+    },
+    {
+      name: '4v4 Scrimmage',
+      durationMins: 10,
+      cues: [
+        'Offense: run a real play from the huddle — no winging it',
+        'Defense: communicate pre-snap — man or zone, point it out',
+        'Every possession starts at midfield, 4 downs to score',
+        'Coach: stop play to point out excellent decisions (not just big plays)',
+      ],
+      description: '4v4 game with full snap, routes, and flag pulling. Coach officiates and calls teaching moments.',
+    },
+  ],
+};
+
+const FLAG_FOOTBALL_U16: PracticeTemplate = {
+  id: 'ffb-u16-60',
+  name: 'Flag Football Game Prep',
+  sport: 'flagfootball',
+  ageLabel: 'Ages 13–18',
+  totalMins: 60,
+  description: 'Advanced route combinations, red zone execution, rush defense, and full competitive scrimmage.',
+  tags: ['advanced', 'competitive', 'long'],
+  drills: [
+    {
+      name: 'Warm-Up & Alignment Review',
+      durationMins: 5,
+      cues: [
+        'Every rep starts with perfect alignment and a solid stance',
+        'Review last session\'s one thing to fix — focus it before you rep it',
+        'Dynamic stretch: leg swings, hip rotations, 3 acceleration bursts',
+      ],
+      description: 'Dynamic warm-up followed by a quick verbal review of the alignment schemes from last session.',
+    },
+    {
+      name: 'Route Combinations',
+      durationMins: 12,
+      cues: [
+        'Mesh route: inside receivers cross low, outside goes to vacated space — timing is everything',
+        'Slant-flat combo: slant pulls the linebacker inside, flat route opens behind them',
+        'Attack the part of the field the defense gives you — read pre-snap',
+        'QB: go through your progression — look off the safety before committing',
+      ],
+      description: 'Run mesh and slant-flat combos at full speed. Focus on timing between QB release and receiver break.',
+    },
+    {
+      name: 'Red Zone Execution',
+      durationMins: 10,
+      cues: [
+        'Compressed field means tight windows — every route must be precise',
+        'Fade to the back corner: run outside the corner\'s frame, don\'t round it',
+        'Quick slant gets the ball out fast before the rush hits the QB',
+        'If you score in practice, you\'ll score in the game — rep it to own it',
+      ],
+      description: 'Offense starts on the 15-yard line, 3 plays to score. Rotate offense and defense. Score = 1 point; stop = 1 point.',
+    },
+    {
+      name: 'Rush Defense Reads',
+      durationMins: 10,
+      cues: [
+        'Rusher: delay one step to see where the QB looks, then attack that side',
+        'Coverage: when rush gets close, press your receiver — take away the easy throw',
+        'Zone coverage: eyes on QB not receiver — break on the ball\'s flight path',
+        'Trust your teammates — don\'t leave your zone to help or you open up a bigger gap',
+      ],
+      description: 'Defense practices 1-rusher stunts and zone adjustments. QB runs 3-step drops against the rush.',
+    },
+    {
+      name: 'Full Scrimmage',
+      durationMins: 18,
+      cues: [
+        'Play with full competitive intensity — this is game prep',
+        'Offense: huddle between every play, call a real play',
+        'Defense: communicate the coverage before every snap — no silent plays',
+        'Coach: let it run without stopping unless you see a safety or repeated error',
+      ],
+      description: '5v5 or 6v6 full scrimmage from the 50-yard line. Complete offensive possessions, change on turnovers or scores.',
+    },
+    {
+      name: 'Debrief & Game-Plan Preview',
+      durationMins: 5,
+      cues: [
+        'Name two things the offense did well and one to clean up',
+        'Name two things the defense did well and one to clean up',
+        'Preview one play to install next session — give them something to think about',
+        'Finish on energy — team chant or handshake',
+      ],
+      description: 'Bring the team in. Coach delivers observations, sets up the next session\'s focus.',
+    },
+  ],
+};
+
 // ─── Generic Template ────────────────────────────────────────────────────────
 
 const FIRST_PRACTICE: PracticeTemplate = {
@@ -395,6 +731,11 @@ export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
   BASKETBALL_U16,
   SOCCER_U8,
   SOCCER_U12,
+  VOLLEYBALL_U12,
+  VOLLEYBALL_U16,
+  FLAG_FOOTBALL_U8,
+  FLAG_FOOTBALL_U12,
+  FLAG_FOOTBALL_U16,
 ];
 
 // ─── Utility Functions ───────────────────────────────────────────────────────
