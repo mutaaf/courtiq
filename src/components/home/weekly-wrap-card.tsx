@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Send, X, Copy, Check, MessageSquare } from 'lucide-react';
+import { Send, X, Copy, Check, MessageSquare, Pencil, CheckCheck } from 'lucide-react';
 import { query } from '@/lib/api';
 import {
   buildWeeklyWrapMessage,
@@ -43,6 +43,8 @@ export function WeeklyWrapCard({
 }: WeeklyWrapCardProps) {
   const [dismissed, setDismissed] = useState(false);
   const [shareState, setShareState] = useState<'idle' | 'copied' | 'sent'>('idle');
+  const [editMode, setEditMode] = useState(false);
+  const [editedMessage, setEditedMessage] = useState('');
 
   const cutoff7 = useMemo(() => getCutoffIso(7), []);
 
@@ -143,6 +145,12 @@ export function WeeklyWrapCard({
     };
   }, [rawObs, recentSessions, players, teamId, teamName, coachName, totalPlayerCount, topPlayerId]);
 
+  // Sync the editable buffer when the computed message becomes available or refreshes.
+  // Data has a 10-min staleTime so this never fires during an active editing session.
+  useEffect(() => {
+    if (message) setEditedMessage(message);
+  }, [message]);
+
   if (!hasData || alreadyDismissed || dismissed) return null;
 
   function handleDismiss() {
@@ -151,9 +159,11 @@ export function WeeklyWrapCard({
   }
 
   async function handleShare() {
+    setEditMode(false);
+    const textToSend = editedMessage || message;
     if (navigator.share) {
       try {
-        await navigator.share({ text: message });
+        await navigator.share({ text: textToSend });
         setShareState('sent');
         setTimeout(() => setShareState('idle'), 2500);
         return;
@@ -161,14 +171,15 @@ export function WeeklyWrapCard({
         // fall through to WhatsApp
       }
     }
-    window.open(buildWrapWhatsAppUrl(message), '_blank', 'noopener');
+    window.open(buildWrapWhatsAppUrl(textToSend), '_blank', 'noopener');
     setShareState('sent');
     setTimeout(() => setShareState('idle'), 2500);
   }
 
   async function handleCopy() {
+    const textToSend = editedMessage || message;
     try {
-      await navigator.clipboard.writeText(message);
+      await navigator.clipboard.writeText(textToSend);
     } catch {
       // ignore
     }
@@ -185,7 +196,7 @@ export function WeeklyWrapCard({
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wider text-violet-400">
-            This Week's Update
+            This Week&#39;s Update
           </p>
           <p className="text-sm font-bold text-zinc-100 mt-0.5 leading-snug">
             Send a quick update to parent group chat
@@ -222,13 +233,41 @@ export function WeeklyWrapCard({
         )}
       </div>
 
-      {/* Message preview */}
-      <div className="rounded-xl bg-zinc-900/60 border border-zinc-800 px-3 py-2.5">
-        <p className="text-xs text-zinc-500 mb-1">Message preview</p>
-        <p className="text-xs text-zinc-300 leading-relaxed line-clamp-3">
-          {preview}
-        </p>
-      </div>
+      {/* Message — editable before sending */}
+      {editMode ? (
+        <div className="space-y-2">
+          <textarea
+            value={editedMessage}
+            onChange={(e) => setEditedMessage(e.target.value)}
+            rows={9}
+            aria-label="Edit parent update message"
+            className="w-full rounded-xl bg-zinc-900/80 border border-violet-500/40 px-3 py-2.5 text-xs text-zinc-200 leading-relaxed resize-none focus:outline-none focus:ring-1 focus:ring-violet-500 placeholder:text-zinc-600"
+          />
+          <button
+            onClick={() => setEditMode(false)}
+            className="flex items-center gap-1.5 text-xs font-medium text-violet-400 hover:text-violet-300 transition-colors"
+          >
+            <CheckCheck className="h-3.5 w-3.5" />
+            Done editing
+          </button>
+        </div>
+      ) : (
+        <div className="relative rounded-xl bg-zinc-900/60 border border-zinc-800 px-3 py-2.5 group">
+          <p className="text-[10px] font-medium text-zinc-500 mb-1.5 uppercase tracking-wider">
+            Parent update · tap ✏️ to personalise
+          </p>
+          <p className="text-xs text-zinc-300 leading-relaxed whitespace-pre-wrap line-clamp-4">
+            {editedMessage || preview}
+          </p>
+          <button
+            onClick={() => setEditMode(true)}
+            className="absolute top-2 right-2 rounded-md p-1.5 text-zinc-600 hover:text-violet-400 hover:bg-violet-500/10 transition-colors touch-manipulation"
+            aria-label="Edit message before sending"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex gap-2">
