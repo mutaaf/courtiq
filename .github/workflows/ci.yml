@@ -20,8 +20,10 @@ jobs:
           node-version: 22
           cache: 'npm'
       - run: npm ci
-      - run: npm run lint
-      - run: npx tsc --noEmit
+      - name: ESLint
+        run: npm run lint
+      - name: TypeScript
+        run: npx tsc --noEmit
 
   unit-tests:
     runs-on: ubuntu-latest
