@@ -196,6 +196,28 @@ function BreakScreen({
   const textRef = useRef<HTMLTextAreaElement>(null);
   const voice = useVoiceInput();
 
+  // ── Auto-advance countdown ────────────────────────────────────────────────
+  const AUTO_ADVANCE_SECS = 60;
+  const [countdown, setCountdown] = useState(AUTO_ADVANCE_SECS);
+  // Pause when coach is actively composing an observation
+  const countdownPaused = note.trim() !== '' || voice.isRecording;
+  const onSkipRef = useRef(onSkip);
+  useEffect(() => { onSkipRef.current = onSkip; }, [onSkip]);
+
+  // Tick down every second while not paused
+  useEffect(() => {
+    if (countdownPaused || countdown <= 0) return;
+    const id = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [countdown, countdownPaused]);
+
+  // Fire skip when countdown reaches zero
+  useEffect(() => {
+    if (countdown <= 0 && !countdownPaused) {
+      onSkipRef.current();
+    }
+  }, [countdown, countdownPaused]);
+
   useEffect(() => {
     textRef.current?.focus();
   }, []);
@@ -234,10 +256,24 @@ function BreakScreen({
   })();
 
   return (
-    <div className="flex flex-col min-h-screen bg-zinc-950 p-6">
+    <div className="relative flex flex-col min-h-screen bg-zinc-950 p-6">
+      {/* Auto-advance progress bar — drains from full to empty over 60 s */}
+      <div className="absolute top-0 left-0 right-0 h-1 bg-zinc-800 overflow-hidden">
+        <div
+          className="h-full bg-amber-500/60 transition-all duration-1000 ease-linear"
+          style={{ width: `${(countdown / AUTO_ADVANCE_SECS) * 100}%` }}
+        />
+      </div>
+
       <div className="flex items-center justify-between mb-8">
         <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-sm px-3 py-1">
           Break
+          {countdown > 0 && !countdownPaused && (
+            <span className="ml-1.5 text-amber-400/70 font-normal">{countdown}s</span>
+          )}
+          {countdownPaused && countdown > 0 && (
+            <span className="ml-1.5 text-zinc-500 font-normal">paused</span>
+          )}
         </Badge>
         {nextDrillName && (
           <span className="text-xs text-zinc-500">
