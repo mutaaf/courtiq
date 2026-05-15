@@ -220,7 +220,7 @@ export default function RosterSetupPage() {
                       placeholder={`Player ${i + 1}`}
                     />
                     {players.length > 1 && (
-                      <Button variant="ghost" size="icon" onClick={() => removeRow(i)}>
+                      <Button variant="ghost" size="icon" onClick={() => removeRow(i)} aria-label="Remove player">
                         <X className="h-4 w-4" />
                       </Button>
                     )}

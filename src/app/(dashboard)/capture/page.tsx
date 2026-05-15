@@ -1184,6 +1184,7 @@ export default function CapturePage() {
                       size="icon"
                       onClick={handleQuickNote}
                       disabled={!quickNote.trim() || quickNoteSending}
+                      aria-label="Submit note"
                     >
                       {quickNoteSending ? (
                         <Loader2 className="h-4 w-4 animate-spin" />

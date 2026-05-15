@@ -2847,7 +2847,7 @@ export default function PlansPage() {
       <div className="p-4 lg:p-8 space-y-6 max-w-3xl mx-auto">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => setSelectedPlan(null)}>
+            <Button variant="ghost" size="icon" onClick={() => setSelectedPlan(null)} aria-label="Close plan">
               <X className="h-5 w-5" />
             </Button>
             <div>
@@ -2882,6 +2882,7 @@ export default function PlansPage() {
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Delete plan"
               className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
               onClick={() => {
                 if (confirm('Delete this plan? This cannot be undone.')) {
@@ -3054,6 +3055,7 @@ export default function PlansPage() {
               onClick={() => generateFromPrompt(prompt)}
               disabled={!prompt.trim() || generating || !activeTeam}
               size="icon"
+              aria-label="Generate plan"
               className="h-11 w-11 shrink-0 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-30"
             >
               {generating ? (

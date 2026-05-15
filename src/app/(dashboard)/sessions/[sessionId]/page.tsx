@@ -3520,7 +3520,7 @@ export default function SessionDetailPage() {
       <div className="space-y-3">
         <div className="flex items-center gap-3">
           <Link href="/sessions" className="shrink-0">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" aria-label="Back to sessions">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
