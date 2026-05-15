@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
@@ -12,11 +12,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Clock, Users, Filter, BarChart3, X, ChevronRight, Sparkles, Loader2, Wand2, CheckCircle2, Target, AlertTriangle, Star } from 'lucide-react';
+import { Search, Clock, Users, Filter, BarChart3, X, ChevronRight, Sparkles, Loader2, Wand2, CheckCircle2, Target, AlertTriangle, Star, Plus, Check } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Drill, Observation } from '@/types/database';
 import { isFavorited, filterToFavorites, parseFavoritedDrills } from '@/lib/drill-favorites-utils';
+import { useAppStore } from '@/lib/store';
 
 const DRILL_CATEGORIES = [
   'Offense', 'Defense', 'Conditioning', 'Fundamentals', 'Passing', 'Shooting', 'Dribbling', 'Teamwork',
@@ -180,6 +181,64 @@ export default function DrillsPage() {
 
   const hasActiveFilters = categoryFilter || ageFilter || search || showFavoritesOnly;
 
+  // ─── Practice queue integration ──────────────────────────────────────────────
+  const { practiceActive, practiceSessionId } = useAppStore((s) => ({
+    practiceActive: s.practiceActive,
+    practiceSessionId: s.practiceSessionId,
+  }));
+
+  // Tracks which drill IDs are already in the current practice queue (from localStorage)
+  const [queuedDrillIds, setQueuedDrillIds] = useState<Set<string>>(new Set());
+  // Tracks which drill IDs were just added (for 2.5 s "Added ✓" feedback)
+  const [justAddedIds, setJustAddedIds] = useState<Set<string>>(new Set());
+
+  // Re-read queue from localStorage whenever practice state changes
+  useEffect(() => {
+    if (!practiceActive || !practiceSessionId) {
+      setQueuedDrillIds(new Set());
+      return;
+    }
+    try {
+      const key = `practice-timer-queue-v1-${practiceSessionId}`;
+      const raw = localStorage.getItem(key);
+      const queue: { drillId?: string }[] = raw ? JSON.parse(raw) : [];
+      setQueuedDrillIds(new Set(queue.map((q) => q.drillId).filter(Boolean) as string[]));
+    } catch {
+      setQueuedDrillIds(new Set());
+    }
+  }, [practiceActive, practiceSessionId]);
+
+  function handleAddToQueue(e: React.MouseEvent, drill: Drill) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!practiceSessionId) return;
+    const key = `practice-timer-queue-v1-${practiceSessionId}`;
+    try {
+      const raw = localStorage.getItem(key);
+      const existing: { id: string; name: string; durationSecs: number; cues: string[]; drillId?: string; skill_category?: string }[] = raw ? JSON.parse(raw) : [];
+      existing.push({
+        id: `drill-${drill.id}-${Date.now()}`,
+        name: drill.name,
+        durationSecs: (drill.duration_minutes ?? 5) * 60,
+        cues: drill.teaching_cues ?? [],
+        drillId: drill.id,
+        skill_category: drill.category,
+      });
+      localStorage.setItem(key, JSON.stringify(existing));
+      setQueuedDrillIds((prev) => new Set([...prev, drill.id]));
+      setJustAddedIds((prev) => new Set([...prev, drill.id]));
+      setTimeout(() => {
+        setJustAddedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(drill.id);
+          return next;
+        });
+      }, 2500);
+    } catch {
+      // Silently ignore storage errors
+    }
+  }
+
   async function handleBuildDrill() {
     if (!activeTeam || !builderDesc.trim()) return;
     setBuilding(true);
@@ -248,6 +307,16 @@ export default function DrillsPage() {
         </Button>
       </div>
 
+      {/* Practice-active context banner */}
+      {practiceActive && (
+        <div className="flex items-center gap-2 rounded-lg border border-orange-500/20 bg-orange-500/5 px-3 py-2">
+          <span className="flex h-2 w-2 rounded-full bg-orange-500 animate-pulse shrink-0" />
+          <p className="text-xs text-orange-300 font-medium">
+            Practice in progress — tap <strong>Add to current practice</strong> on any drill to add it to your queue
+          </p>
+        </div>
+      )}
+
       {/* Skill Gap Recommendations */}
       {!isLoading && topGaps.length > 0 && recommendedDrills.length > 0 && (
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-3 min-w-0">
@@ -271,7 +340,10 @@ export default function DrillsPage() {
             </p>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-1 snap-x min-w-0">
-            {recommendedDrills.map((drill) => (
+            {recommendedDrills.map((drill) => {
+              const inQueue = queuedDrillIds.has(drill.id);
+              const justAdded = justAddedIds.has(drill.id);
+              return (
               <Link
                 key={drill.id}
                 href={`/drills/${drill.id}`}
@@ -302,11 +374,34 @@ export default function DrillsPage() {
                       )}
                     </div>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-zinc-600 shrink-0 mt-0.5" />
+                  {practiceActive ? (
+                    <button
+                      onClick={(e) => handleAddToQueue(e, drill)}
+                      aria-label={inQueue ? 'Already in practice queue' : 'Add to practice queue'}
+                      disabled={inQueue}
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors touch-manipulation mt-0.5 ${
+                        justAdded
+                          ? 'bg-emerald-500/20 text-emerald-400'
+                          : inQueue
+                          ? 'bg-zinc-700 text-zinc-500 cursor-default'
+                          : 'bg-orange-500/15 text-orange-400 hover:bg-orange-500/25'
+                      }`}
+                    >
+                      {justAdded ? <Check className="h-3.5 w-3.5" /> : inQueue ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                    </button>
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-zinc-600 shrink-0 mt-0.5" />
+                  )}
                 </div>
               </Link>
-            ))}
+              );
+            })}
           </div>
+          {practiceActive && (
+            <p className="text-[10px] text-zinc-600 ml-8">
+              Tap <Plus className="inline h-2.5 w-2.5" /> to add any drill to your current practice queue
+            </p>
+          )}
         </div>
       )}
 
@@ -475,9 +570,11 @@ export default function DrillsPage() {
           {filtered.map((drill) => {
             const favorited = isFavorited(drill.id, favoriteIds);
             const toggling = togglingFavorite === drill.id;
+            const inQueue = queuedDrillIds.has(drill.id);
+            const justAdded = justAddedIds.has(drill.id);
             return (
             <Link key={drill.id} href={`/drills/${drill.id}`}>
-              <Card className={`h-full cursor-pointer transition-colors hover:border-orange-500/40 active:scale-[0.98] touch-manipulation ${favorited ? 'border-amber-500/30' : ''}`}>
+              <Card className={`h-full cursor-pointer transition-colors hover:border-orange-500/40 active:scale-[0.98] touch-manipulation ${favorited ? 'border-amber-500/30' : practiceActive && inQueue ? 'border-emerald-500/30' : ''}`}>
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -487,6 +584,12 @@ export default function DrillsPage() {
                           <span className="inline-flex items-center gap-0.5 rounded-full bg-orange-500/15 px-1.5 py-0.5 text-[9px] font-medium text-orange-400">
                             <Sparkles className="h-2.5 w-2.5" />
                             AI
+                          </span>
+                        )}
+                        {practiceActive && inQueue && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400">
+                            <Check className="h-2.5 w-2.5" />
+                            In queue
                           </span>
                         )}
                       </div>
@@ -538,6 +641,28 @@ export default function DrillsPage() {
                       </span>
                     ))}
                   </div>
+                  {practiceActive && (
+                    <button
+                      onClick={(e) => handleAddToQueue(e, drill)}
+                      aria-label={inQueue ? 'Already in practice queue' : 'Add to current practice queue'}
+                      disabled={inQueue}
+                      className={`w-full flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium transition-colors touch-manipulation ${
+                        justAdded
+                          ? 'bg-emerald-500/20 text-emerald-400'
+                          : inQueue
+                          ? 'bg-zinc-800 text-zinc-500 cursor-default'
+                          : 'bg-orange-500/15 text-orange-400 hover:bg-orange-500/25 active:scale-[0.97]'
+                      }`}
+                    >
+                      {justAdded ? (
+                        <><Check className="h-3.5 w-3.5" /> Added to practice!</>
+                      ) : inQueue ? (
+                        <><Check className="h-3.5 w-3.5" /> In practice queue</>
+                      ) : (
+                        <><Plus className="h-3.5 w-3.5" /> Add to current practice</>
+                      )}
+                    </button>
+                  )}
                 </CardContent>
               </Card>
             </Link>
