@@ -39,10 +39,11 @@ export async function GET(
       return NextResponse.json({ error: 'PIN required', pinRequired: true }, { status: 403 });
     }
 
-    // Get player info (include parent_name for personalized greeting)
+    // Get player info (include parent_name for personalized greeting;
+    // parent_phone used to decide whether to show the contact-collection form)
     const { data: player } = await supabase
       .from('players')
-      .select('id, name, nickname, position, jersey_number, photo_url, parent_name')
+      .select('id, name, nickname, position, jersey_number, photo_url, parent_name, parent_phone')
       .eq('id', share.player_id)
       .single();
 
@@ -84,6 +85,9 @@ export async function GET(
       coachName: coach?.full_name,
       branding,
       customMessage: share.custom_message,
+      // True when the player already has a parent phone on file; the share
+      // portal uses this to hide the contact-collection form for known parents.
+      hasParentContact: !!player?.parent_phone,
     };
 
     if (share.include_report_card) {
