@@ -664,7 +664,7 @@ export default function LandingContent() {
               },
               {
                 q: 'What sports do you support?',
-                a: 'Basketball, flag football, and soccer are fully supported today. More sports are added regularly based on coach feedback.',
+                a: 'Basketball, flag football, soccer, and volleyball are fully supported today. More sports are added regularly based on coach feedback.',
               },
               {
                 q: 'Can I cancel anytime?',
@@ -698,7 +698,8 @@ export default function LandingContent() {
               {[
                 { emoji: '\u{1F3C0}', name: 'Basketball' },
                 { emoji: '\u{1F3C8}', name: 'Flag Football' },
-                { emoji: '\u26BD', name: 'Soccer' },
+                { emoji: '⚽', name: 'Soccer' },
+                { emoji: '\u{1F3D0}', name: 'Volleyball' },
               ].map((s) => (
                 <div key={s.name} className="flex flex-col items-center gap-1.5">
                   <span className="text-3xl">{s.emoji}</span>
