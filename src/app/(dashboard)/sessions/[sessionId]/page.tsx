@@ -3780,6 +3780,20 @@ export default function SessionDetailPage() {
         >
           📣 Group Chat
         </button>
+        <button
+          onClick={() => document.getElementById('huddle-section')?.scrollIntoView({ behavior: 'smooth' })}
+          className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-lime-500/50 hover:text-lime-400 transition-colors touch-manipulation active:scale-95"
+        >
+          🎤 Huddle
+        </button>
+        {(session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
+          <button
+            onClick={() => document.getElementById('halftime-section')?.scrollIntoView({ behavior: 'smooth' })}
+            className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-purple-500/50 hover:text-purple-400 transition-colors touch-manipulation active:scale-95"
+          >
+            🔄 Halftime
+          </button>
+        )}
       </div>
 
       {/* Practice Complete Banner — shown when arriving from practice timer */}
@@ -4018,11 +4032,13 @@ export default function SessionDetailPage() {
 
       {/* Half-Time Adjustments — game/scrimmage/tournament only */}
       {activeTeam && (session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
-        <HalftimeAdjustmentsCard
-          sessionId={sessionId}
-          teamId={activeTeam.id}
-          opponent={session.opponent}
-        />
+        <div id="halftime-section">
+          <HalftimeAdjustmentsCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+            opponent={session.opponent}
+          />
+        </div>
       )}
 
       {/* Game Recap — game/scrimmage/tournament only */}
@@ -4081,11 +4097,13 @@ export default function SessionDetailPage() {
 
       {/* Huddle Script — 30-second end-of-practice script to read to the team */}
       {activeTeam && (
-        <HuddleScriptCard
-          sessionId={sessionId}
-          teamId={activeTeam.id}
-          observationCount={observations?.length || 0}
-        />
+        <div id="huddle-section">
+          <HuddleScriptCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+            observationCount={observations?.length || 0}
+          />
+        </div>
       )}
 
       {/* Media Upload Section */}
