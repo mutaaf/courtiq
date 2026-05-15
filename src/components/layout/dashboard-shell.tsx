@@ -82,6 +82,9 @@ export function DashboardShell({ coach, children }: Props) {
   const practiceActive = useAppStore((s) => s.practiceActive);
   const practiceStartedAt = useAppStore((s) => s.practiceStartedAt);
   const practiceSessionId = useAppStore((s) => s.practiceSessionId);
+  const setPracticeActive = useAppStore((s) => s.setPracticeActive);
+  const setPracticeSessionId = useAppStore((s) => s.setPracticeSessionId);
+  const setPracticeStartedAt = useAppStore((s) => s.setPracticeStartedAt);
   const [practiceElapsed, setPracticeElapsed] = useState('');
   const [showPracticeMini, setShowPracticeMini] = useState(false);
   const [showNudge, setShowNudge] = useState(false);
@@ -108,6 +111,18 @@ export function DashboardShell({ coach, children }: Props) {
     });
     return () => { cancelled = true; };
   }, [coach?.id, coach?.organizations]);
+
+  // Auto-expire stale practice sessions (>4 hours old) so coaches aren't
+  // stuck on "End Practice" mode the next morning if they forgot to end it.
+  useEffect(() => {
+    if (!practiceActive || !practiceStartedAt) return;
+    const elapsedMs = Date.now() - new Date(practiceStartedAt).getTime();
+    if (elapsedMs > 4 * 60 * 60 * 1000) {
+      setPracticeActive(false);
+      setPracticeSessionId(null);
+      setPracticeStartedAt(null);
+    }
+  }, [practiceActive, practiceStartedAt, setPracticeActive, setPracticeSessionId, setPracticeStartedAt]);
 
   // Practice timer
   useEffect(() => {
@@ -451,7 +466,7 @@ export function DashboardShell({ coach, children }: Props) {
                 </div>
                 <div className="flex gap-2">
                   <Link
-                    href="/capture"
+                    href={practiceSessionId ? `/capture?sessionId=${practiceSessionId}` : '/capture'}
                     className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-orange-500/20 px-3 py-2 text-xs font-medium text-orange-400 hover:bg-orange-500/30 active:scale-95 touch-manipulation"
                   >
                     <Mic className="h-3.5 w-3.5" />
