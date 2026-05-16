@@ -61,6 +61,7 @@ import { ContinueArcCard } from '@/components/home/continue-arc-card';
 import { ArcCompleteCard } from '@/components/home/arc-complete-card';
 import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
 import { GoalDeadlineCard } from '@/components/home/goal-deadline-card';
+import { QuickWinsCard } from '@/components/home/quick-wins-card';
 
 // ─── Live capture feed helper ──────────────────────────────────────────────────
 
@@ -1299,6 +1300,16 @@ export default function HomePage() {
 
       {activeTeam && stats && stats.sessions >= 1 && (
         <WeeklyFocusCard teamId={activeTeam.id} />
+      )}
+
+      {!practiceActive && activeTeam && stats && stats.observations >= 5 && stats.sessions >= 1 && (
+        <QuickWinsCard
+          teamId={activeTeam.id}
+          lastSession={lastSession ?? null}
+          obsCount={stats.observations}
+          sessionCount={stats.sessions}
+          planGeneratedThisWeek={!!recentPracticePlan}
+        />
       )}
 
       {activeTeam && stats && stats.observations >= 5 && (
