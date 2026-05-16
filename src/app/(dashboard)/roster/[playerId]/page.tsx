@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { query, mutate } from '@/lib/api';
@@ -463,7 +464,12 @@ export default function PlayerDetailPage({
   const { playerId } = use(params);
   const { activeTeam, coach } = useActiveTeam();
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const searchParams = useSearchParams();
+  const validTabs: Tab[] = ['overview', 'observations', 'report-card', 'media', 'share', 'challenges', 'storyline', 'self-assessment', 'goals', 'notes'];
+  const tabParam = searchParams.get('tab') as Tab | null;
+  const [activeTab, setActiveTab] = useState<Tab>(
+    tabParam && validTabs.includes(tabParam) ? tabParam : 'overview'
+  );
 
   const practiceActive = useAppStore((s) => s.practiceActive);
   const practiceSessionId = useAppStore((s) => s.practiceSessionId);
@@ -484,6 +490,7 @@ export default function PlayerDetailPage({
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareSent, setShareSent] = useState(false);
+  const [followUpSent, setFollowUpSent] = useState(false);
 
   // Skill challenge state
   const [challengeLoading, setChallengeLoading] = useState(false);
@@ -972,6 +979,32 @@ export default function PlayerDetailPage({
     } catch {
       // Fallback
     }
+  }
+
+  const parentViewedRecently = useMemo(() => {
+    if (!existingShare?.last_viewed_at) return false;
+    return Date.now() - new Date(existingShare.last_viewed_at).getTime() < 24 * 60 * 60 * 1000;
+  }, [existingShare?.last_viewed_at]);
+
+  async function handleFollowUp() {
+    if (!player) return;
+    const coachFirst = coach?.full_name?.split(' ')[0] ?? 'Coach';
+    const team = activeTeam?.name ?? 'the team';
+    const msg = `Hi! Just noticed you had a chance to look at ${player.name}'s progress report — hope it was helpful! Happy to chat about their development any time. — ${coachFirst}, ${team}`;
+    const digits = player.parent_phone?.replace(/\D/g, '') ?? '';
+    try {
+      if (digits) {
+        window.open(`https://wa.me/${digits}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+      } else if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ text: msg });
+      } else {
+        await navigator.clipboard.writeText(msg);
+      }
+    } catch {
+      // Dismissed — no action needed
+    }
+    setFollowUpSent(true);
+    setTimeout(() => setFollowUpSent(false), 2500);
   }
 
   if (playerLoading) {
@@ -2456,6 +2489,26 @@ export default function PlayerDetailPage({
       {activeTab === 'share' && (
         <UpgradeGate feature="parent_sharing" featureLabel="Parent Sharing">
         <div className="space-y-4">
+          {parentViewedRecently && player && (
+            <div className="flex items-start gap-3 rounded-xl border border-pink-500/30 bg-pink-500/10 p-4">
+              <span className="text-xl shrink-0 mt-0.5" aria-hidden>👀</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-pink-300">
+                  {player.name.split(' ')[0]}&apos;s parent viewed the report recently
+                </p>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Great moment to send a quick &ldquo;did you have any questions?&rdquo; follow-up.
+                </p>
+                <button
+                  onClick={handleFollowUp}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-pink-500/20 border border-pink-500/30 px-3 py-1.5 text-xs font-medium text-pink-300 hover:bg-pink-500/30 transition-colors touch-manipulation active:scale-95"
+                >
+                  {followUpSent ? '✓ Sent!' : (player.parent_phone ? '💬 Send WhatsApp follow-up' : '📋 Copy follow-up message')}
+                </button>
+              </div>
+            </div>
+          )}
+
           {shareLinkError && (
             <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
               <AlertCircle className="h-4 w-4 shrink-0" />
