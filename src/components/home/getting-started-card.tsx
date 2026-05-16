@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCircle2, Circle, Users, Mic, ClipboardList, X, ChevronRight } from 'lucide-react';
+import { CheckCircle2, Circle, Users, Mic, ClipboardList, X, ChevronRight, History } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
 
@@ -145,6 +145,17 @@ export function GettingStartedCard({ players, sessions, observations, teamId }: 
             );
           })}
         </div>
+
+        {/* Mid-season catch-up hint — only shown when no sessions have been created */}
+        {sessions === 0 && (
+          <div className="mx-3 mb-3 pt-3 border-t border-zinc-800 flex items-center justify-center gap-1.5">
+            <History className="h-3 w-3 text-zinc-600" />
+            <span className="text-xs text-zinc-600">Coaching before joining? </span>
+            <Link href="/sessions/backfill" className="text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-colors touch-manipulation">
+              Import past sessions
+            </Link>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
