@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2, Star, Sparkles } from 'lucide-react';
+import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2, Star, Sparkles, Trophy, Share2, X } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { RecurringSessionsPanel } from '@/components/sessions/recurring-sessions-panel';
@@ -60,14 +60,66 @@ const RESULT_BUTTONS: { outcome: ResultValue; label: string; classes: string }[]
   },
 ];
 
+type WinCelebration = {
+  teamName: string;
+  opponent: string | null;
+  sessionType: string;
+  coachName: string | null;
+};
+
+function buildWinMessage(c: WinCelebration): string {
+  const vs = c.opponent ? ` against ${c.opponent}` : '';
+  const coach = c.coachName ? `\n— Coach ${c.coachName.split(' ')[0]}` : '';
+  const emoji = c.sessionType === 'tournament' ? '🏅' : '🏆';
+  return `${emoji} ${c.teamName} won${vs} today! Great team effort — every player stepped up.${coach}`;
+}
+
 export default function SessionsPage() {
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, coach } = useActiveTeam();
   const queryClient = useQueryClient();
   const [typeFilter, setTypeFilter] = useState<SessionType | 'all'>('all');
   // Optimistic result overrides keyed by session ID
   const [localResults, setLocalResults] = useState<Record<string, string>>({});
   // Tracks which session + outcome is currently being saved
   const [savingResult, setSavingResult] = useState<{ sessionId: string; outcome: ResultValue } | null>(null);
+  // Win celebration bottom sheet
+  const [celebration, setCelebration] = useState<WinCelebration | null>(null);
+  const [shareState, setShareState] = useState<'idle' | 'shared'>('idle');
+  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-dismiss celebration after 6 seconds
+  useEffect(() => {
+    if (celebration) {
+      dismissTimer.current = setTimeout(() => setCelebration(null), 6000);
+    }
+    return () => {
+      if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    };
+  }, [celebration]);
+
+  function dismissCelebration() {
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    setCelebration(null);
+    setShareState('idle');
+  }
+
+  async function handleShareWin() {
+    if (!celebration) return;
+    const text = buildWinMessage(celebration);
+    if (navigator.share) {
+      try {
+        await navigator.share({ text });
+        setShareState('shared');
+        setTimeout(dismissCelebration, 1500);
+      } catch {
+        // user cancelled share
+      }
+    } else {
+      await navigator.clipboard.writeText(text);
+      setShareState('shared');
+      setTimeout(dismissCelebration, 1500);
+    }
+  }
 
   const { data: sessions, isLoading, refetch } = useQuery({
     queryKey: [...queryKeys.sessions.all(activeTeam?.id || ''), typeFilter],
@@ -89,7 +141,12 @@ export default function SessionsPage() {
     ...CACHE_PROFILES.sessions,
   });
 
-  async function handleQuickResult(e: React.MouseEvent, sessionId: string, outcome: ResultValue) {
+  async function handleQuickResult(
+    e: React.MouseEvent,
+    sessionId: string,
+    outcome: ResultValue,
+    sessionMeta: { opponent: string | null; type: string },
+  ) {
     e.preventDefault();
     e.stopPropagation();
     if (savingResult) return;
@@ -106,6 +163,16 @@ export default function SessionsPage() {
         filters: { id: sessionId },
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all(activeTeam?.id || '') });
+
+      if (outcome === 'win' && activeTeam) {
+        setShareState('idle');
+        setCelebration({
+          teamName: activeTeam.name,
+          opponent: sessionMeta.opponent,
+          sessionType: sessionMeta.type,
+          coachName: coach?.full_name ?? null,
+        });
+      }
     } catch {
       // Rollback optimistic update on failure
       setLocalResults((prev) => {
@@ -333,7 +400,12 @@ export default function SessionsPage() {
                                 <button
                                   key={outcome}
                                   disabled={!!savingResult}
-                                  onClick={(e) => handleQuickResult(e, session.id, outcome)}
+                                  onClick={(e) =>
+                                    handleQuickResult(e, session.id, outcome, {
+                                      opponent: session.opponent,
+                                      type: session.type,
+                                    })
+                                  }
                                   aria-label={`Log ${outcome}`}
                                   className={`flex h-7 w-8 items-center justify-center rounded-md text-xs font-bold transition-all touch-manipulation disabled:opacity-50 ${classes}`}
                                 >
@@ -389,6 +461,73 @@ export default function SessionsPage() {
       {/* Team Announcements */}
       <AnnouncementsPanel />
     </div>
+
+    {/* Win Celebration Bottom Sheet */}
+    {celebration && (
+      <>
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 z-40 bg-black/50"
+          onClick={dismissCelebration}
+          aria-hidden="true"
+        />
+        {/* Sheet */}
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Win celebration"
+          className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl bg-zinc-900 border-t border-zinc-800 p-6 pb-10 animate-in slide-in-from-bottom duration-300"
+        >
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/20">
+                <Trophy className="h-6 w-6 text-emerald-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">
+                  {celebration.sessionType === 'tournament' ? 'Tournament win! 🏅' : 'Victory logged! 🏆'}
+                </h2>
+                <p className="text-sm text-zinc-400">
+                  {celebration.opponent
+                    ? `${celebration.teamName} beat ${celebration.opponent}`
+                    : celebration.teamName}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={dismissCelebration}
+              aria-label="Dismiss"
+              className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors touch-manipulation"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="rounded-xl bg-zinc-800/60 border border-zinc-700/50 p-4 mb-4">
+            <p className="text-sm text-zinc-300 leading-relaxed">
+              {buildWinMessage(celebration)}
+            </p>
+          </div>
+
+          <Button
+            onClick={handleShareWin}
+            className="w-full h-12 text-base bg-emerald-600 hover:bg-emerald-500 text-white"
+          >
+            {shareState === 'shared' ? (
+              <>✓ Sent!</>
+            ) : (
+              <>
+                <Share2 className="h-5 w-5" />
+                Share with Parents
+              </>
+            )}
+          </Button>
+          <p className="text-center text-xs text-zinc-600 mt-3">
+            Opens your native share sheet · WhatsApp, SMS, or copy
+          </p>
+        </div>
+      </>
+    )}
     </PullToRefresh>
   );
 }
