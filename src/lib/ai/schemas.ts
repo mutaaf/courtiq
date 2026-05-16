@@ -467,3 +467,17 @@ export const practiceArcSchema = z.object({
 
 export type PracticeArc = z.infer<typeof practiceArcSchema>;
 export type PracticeArcSession = z.infer<typeof practiceArcSessionSchema>;
+
+// ── Season Letter (personal end-of-season letter to a player's family) ───────
+
+export const seasonLetterSchema = z.object({
+  player_name: z.string().min(1),
+  season_label: z.string().min(3),
+  letter: z.string().min(100),              // 3-4 warm paragraphs, coach's voice
+  highlight_moment: z.string().min(20),     // One standout positive moment from observations
+  growth_note: z.string().min(10),          // One area where they genuinely improved
+  off_season_challenge: z.string().min(10), // One specific skill to work on over the break
+  coach_name: z.string().min(1),
+});
+
+export type SeasonLetter = z.infer<typeof seasonLetterSchema>;
