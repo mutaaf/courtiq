@@ -3138,6 +3138,12 @@ export default function SessionDetailPage() {
   // Quick Update — zero-AI instant session summary share
   const [quickShareState, setQuickShareState] = useState<'idle' | 'shared' | 'copied'>('idle');
 
+  // Session notes / focus — editable inline
+  const [sessionNotes, setSessionNotes] = useState('');
+  const [sessionNotesInitialized, setSessionNotesInitialized] = useState(false);
+  const [sessionNotesSaved, setSessionNotesSaved] = useState(false);
+  const sessionNotesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const { data: session, isLoading: sessionLoading } = useQuery({
     queryKey: ['session', sessionId],
     queryFn: async () => {
@@ -3150,6 +3156,10 @@ export default function SessionDetailPage() {
       if (!debriefInitialized && data) {
         setDebrief(data.coach_debrief_text || '');
         setDebriefInitialized(true);
+      }
+      if (!sessionNotesInitialized && data) {
+        setSessionNotes(data.notes || '');
+        setSessionNotesInitialized(true);
       }
       return data;
     },
@@ -3259,6 +3269,20 @@ export default function SessionDetailPage() {
         table: 'sessions',
         operation: 'update',
         data: { coach_debrief_text: text },
+        filters: { id: sessionId },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
+    },
+  });
+
+  const sessionNotesMutation = useMutation({
+    mutationFn: async (text: string) => {
+      await mutate({
+        table: 'sessions',
+        operation: 'update',
+        data: { notes: text || null },
         filters: { id: sessionId },
       });
     },
@@ -3725,6 +3749,55 @@ export default function SessionDetailPage() {
 
             return null;
           })()}
+
+          {/* Session focus / pre-practice notes — editable inline */}
+          {sessionNotesInitialized && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <Target className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                  Session focus
+                </span>
+                {sessionNotesSaved && (
+                  <span className="flex items-center gap-1 text-[11px] text-emerald-500 ml-auto">
+                    <Check className="h-2.5 w-2.5" /> Saved
+                  </span>
+                )}
+              </div>
+              <textarea
+                value={sessionNotes}
+                placeholder="Add a focus or agenda for this session…"
+                rows={sessionNotes ? Math.max(2, Math.ceil(sessionNotes.length / 60)) : 1}
+                className="w-full rounded-lg border border-zinc-700/60 bg-zinc-800/40 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/20 resize-none transition-colors"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSessionNotes(val);
+                  setSessionNotesSaved(false);
+                  if (sessionNotesTimer.current) clearTimeout(sessionNotesTimer.current);
+                  sessionNotesTimer.current = setTimeout(() => {
+                    sessionNotesMutation.mutate(val, {
+                      onSuccess: () => {
+                        setSessionNotesSaved(true);
+                        setTimeout(() => setSessionNotesSaved(false), 2000);
+                      },
+                    });
+                  }, 1200);
+                }}
+                onBlur={() => {
+                  if (sessionNotesTimer.current) {
+                    clearTimeout(sessionNotesTimer.current);
+                    sessionNotesTimer.current = null;
+                  }
+                  sessionNotesMutation.mutate(sessionNotes, {
+                    onSuccess: () => {
+                      setSessionNotesSaved(true);
+                      setTimeout(() => setSessionNotesSaved(false), 2000);
+                    },
+                  });
+                }}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 
