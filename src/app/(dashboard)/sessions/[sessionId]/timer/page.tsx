@@ -111,6 +111,13 @@ import {
   type SavedQueueItem,
   type SavedQueue as SavedQueueEntry,
 } from '@/lib/saved-queue-utils';
+import {
+  recordDrillRun,
+  getDrillRunRecord,
+  sortDrillsByFreshness,
+  formatLastRun,
+  buildRunCountLabel,
+} from '@/lib/drill-run-history-utils';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -1705,6 +1712,9 @@ export default function PracticeTimerPage({
       setCurrentIdx(next);
       setMode('running');
       startTimerForDrill(next, queue);
+      if (activeTeam?.id && queue[next]?.drillId) {
+        recordDrillRun(activeTeam.id, queue[next].drillId);
+      }
     }
   };
 
@@ -1713,6 +1723,9 @@ export default function PracticeTimerPage({
     setCurrentIdx(0);
     setMode('running');
     startTimerForDrill(0, queue);
+    if (activeTeam?.id && queue[0]?.drillId) {
+      recordDrillRun(activeTeam.id, queue[0].drillId);
+    }
   };
 
   // ── Save observations ────────────────────────────────────────────────────
@@ -1910,9 +1923,10 @@ export default function PracticeTimerPage({
     if (showFavoritesOnly) {
       list = list.filter((d) => isFavorited(d.id, favoriteIds));
     } else if (!drillSearch) {
-      // Favorites first, then well-rated drills, then others, poorly-rated last
+      // Favorites first, then well-rated, then fresh (never/rarely run), poorly-rated last
       list = sortWithFavoritesFirst(list, favoriteIds);
       if (activeTeam?.id) {
+        list = sortDrillsByFreshness(list, activeTeam.id);
         list = sortDrillsByRating(list, activeTeam.id);
       }
     }
@@ -2734,6 +2748,7 @@ export default function PracticeTimerPage({
                 filteredDrills.slice(0, 30).map((drill) => {
                   const starred = isFavorited(drill.id, favoriteIds);
                   const rating = activeTeam?.id ? getDrillRating(activeTeam.id, drill.id) : null;
+                  const runRecord = activeTeam?.id ? getDrillRunRecord(activeTeam.id, drill.id) : null;
                   return (
                     <button
                       key={drill.id}
@@ -2751,7 +2766,14 @@ export default function PracticeTimerPage({
                       )}
                       <div className="flex-1 min-w-0">
                         <p className={`text-sm truncate ${rating === 'down' ? 'text-zinc-500' : 'text-zinc-200'}`}>{drill.name}</p>
-                        <p className="text-xs text-zinc-500">{drill.category}</p>
+                        <p className="text-xs text-zinc-500">
+                          {drill.category}
+                          {runRecord && (
+                            <span className="ml-1.5 text-zinc-600">
+                              · {formatLastRun(runRecord.lastUsedAt)} · {buildRunCountLabel(runRecord.count)}
+                            </span>
+                          )}
+                        </p>
                       </div>
                       <span className="text-xs text-zinc-600 shrink-0">
                         {drill.duration_minutes ?? 10} min
