@@ -1097,8 +1097,14 @@ export default function PracticeTimerPage({
     } catch { return true; }
   });
 
+  const [bgAdjustMsg, setBgAdjustMsg] = useState<string | null>(null);
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cueIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Track wall-clock time when page goes hidden so we can compensate on return.
+  const hiddenAtRef = useRef<number | null>(null);
+  // Mirror timeLeft in a ref so visibility handler can read it synchronously.
+  const timeLeftRef = useRef(0);
   // Stable refs so the announcement effect can read latest values without
   // being re-triggered by note/queue mutations during a drill.
   const queueRef = useRef(queue);
@@ -1491,6 +1497,46 @@ export default function PracticeTimerPage({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, currentIdx]);
+
+  // Keep timeLeftRef in sync so the visibility handler can read it synchronously.
+  useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
+
+  // Page Visibility: compensate for time elapsed while the app was backgrounded.
+  // Mobile browsers throttle or freeze setInterval when the screen locks, so the
+  // countdown would fall behind real time. On return we subtract wall-clock elapsed.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (mode !== 'running' || isPaused) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        hiddenAtRef.current = Date.now();
+      } else if (hiddenAtRef.current !== null) {
+        const elapsedSecs = Math.floor((Date.now() - hiddenAtRef.current) / 1000);
+        hiddenAtRef.current = null;
+        if (elapsedSecs < 1) return;
+
+        const adjusted = timeLeftRef.current - elapsedSecs;
+        if (adjusted <= 0) {
+          clearIntervals();
+          setTimeLeft(0);
+          setMode('break');
+        } else {
+          setTimeLeft(adjusted);
+          if (elapsedSecs >= 10) {
+            const mins = Math.floor(elapsedSecs / 60);
+            const secs = elapsedSecs % 60;
+            const label = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+            setBgAdjustMsg(`Timer adjusted ${label} for background`);
+            setTimeout(() => setBgAdjustMsg(null), 3000);
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [mode, isPaused, clearIntervals]);
 
   // Auto-persist captured notes so they survive accidental app closes
   useEffect(() => {
@@ -1951,6 +1997,13 @@ export default function PracticeTimerPage({
             style={{ width: `${progress}%` }}
           />
         </div>
+
+        {/* Background compensation notice */}
+        {bgAdjustMsg && (
+          <div className="mx-5 mt-2 rounded-lg bg-amber-500/15 border border-amber-500/30 px-3 py-1.5 text-xs text-amber-400 text-center">
+            {bgAdjustMsg}
+          </div>
+        )}
 
         {/* Main content */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 gap-8">
