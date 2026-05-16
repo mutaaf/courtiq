@@ -4,6 +4,7 @@ import { ParentViralCTA } from '@/components/share/parent-viral-cta';
 import { ParentReactionForm } from '@/components/share/parent-reaction-form';
 import { ParentContactForm } from '@/components/share/parent-contact-form';
 import { ShareReportButton } from '@/components/share/share-report-button';
+import { ProgressTrendChart } from '@/components/share/progress-trend-chart';
 import { Megaphone, MessageCircle } from 'lucide-react';
 import {
   buildSeasonStats,
@@ -23,7 +24,6 @@ import {
   formatStreakCount,
 } from '@/lib/player-growth-streak-utils';
 
-// ---------------------------------------------------------------------------
 // Skill Radar Chart — pure SVG, server-component safe, light-mode
 // ---------------------------------------------------------------------------
 
@@ -761,6 +761,9 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             )}
           </div>
         )}
+
+        {/* ─── Weekly Progress Trend ─── */}
+        {safeObs.length >= 6 && <ProgressTrendChart obs={safeObs} firstName={firstName} />}
 
         {/* ─── Skill Radar Chart ─── */}
         {sortedSkills.length >= 3 && (
