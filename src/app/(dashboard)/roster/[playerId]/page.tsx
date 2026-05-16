@@ -1603,7 +1603,14 @@ export default function PlayerDetailPage({
           {activeTeam && (
             <>
               <div className="lg:col-span-2">
-                <PlayerGoalsPanel playerId={playerId} teamId={activeTeam.id} />
+                <PlayerGoalsPanel
+                  playerId={playerId}
+                  teamId={activeTeam.id}
+                  playerName={player.name}
+                  coachName={coach?.full_name ?? undefined}
+                  teamName={activeTeam.name}
+                  parentPhone={player.parent_phone}
+                />
               </div>
               <div className="lg:col-span-2">
                 <PlayerNotesPanel playerId={playerId} teamId={activeTeam.id} />
