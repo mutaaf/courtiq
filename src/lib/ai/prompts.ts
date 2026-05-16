@@ -703,6 +703,63 @@ export const PROMPT_REGISTRY = {
     ].filter(Boolean).join('\n'),
   }),
 
+  seasonLetter: (params: PromptParams & {
+    playerName: string;
+    firstName: string;
+    seasonLabel: string;
+    coachName: string;
+    totalObs: number;
+    positiveObsCount: number;
+    topStrength: string;
+    topGrowthArea: string;
+    highlightObservations: string[];
+    growthObservations: string[];
+    badges: string[];
+    sessionCount: number;
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You are a warm, genuine volunteer youth sports coach writing a heartfelt personal letter to one player\'s family at the end of the season.',
+      '',
+      'Rules for the letter:',
+      '- Write in the coach\'s first-person voice ("I wanted to write a personal note…")',
+      '- 3–4 paragraphs. Natural, warm, specific — NOT a form letter or report card.',
+      '- Paragraph 1: Personal opening — thank the family for trusting you with their child, reference the season by name.',
+      '- Paragraph 2: 1–2 specific, memorable moments drawn DIRECTLY from the highlight observations provided. Quote or paraphrase them naturally. Name the player by first name.',
+      '- Paragraph 3: Acknowledge growth — what they worked on and how they improved. Be honest but encouraging. If there are needs-work observations, reframe them as growth.',
+      '- Paragraph 4: Off-season encouragement and personal close — one specific thing to practice, thanks to the family, and hope to see them next season.',
+      '- Tone: warm, genuine, specific, coach-y but not overly formal. Like a note you\'d write to a friend\'s kid.',
+      '- Do NOT use generic phrases like "worked hard", "great season", "pleasure to coach". Make every sentence specific.',
+      '- highlight_moment: 1 specific standout observation from the data (quote it naturally, past tense).',
+      '- growth_note: 1 honest sentence about where they improved — specific to the data.',
+      '- off_season_challenge: 1 actionable, specific skill to practice over the off-season (tied to their growth area).',
+    ].join('\n'),
+    user: [
+      `Coach: ${params.coachName || 'Coach'}`,
+      `Team: ${params.teamName || 'the team'} (${params.ageGroup || 'youth'} ${params.sportName || 'basketball'})`,
+      `Player: ${params.playerName}`,
+      `Season: ${params.seasonLabel}`,
+      `Observations: ${params.totalObs} total (${params.positiveObsCount} positive)`,
+      `Sessions attended: ${params.sessionCount}`,
+      `Top strength category: ${params.topStrength}`,
+      `Top growth area: ${params.topGrowthArea}`,
+      '',
+      params.highlightObservations.length > 0 ? [
+        'Positive observations (use these for specific moments in the letter):',
+        params.highlightObservations.map((o, i) => `${i + 1}. "${o}"`).join('\n'),
+      ].join('\n') : '',
+      params.growthObservations.length > 0 ? [
+        '',
+        'Needs-work observations (use to show growth arc — what they worked on):',
+        params.growthObservations.map((o, i) => `${i + 1}. "${o}"`).join('\n'),
+      ].join('\n') : '',
+      params.badges.length > 0 ? `\nAchievements earned: ${params.badges.join(', ')}` : '',
+      '',
+      'Write the personal end-of-season letter as JSON:',
+      '{ "player_name": "string", "season_label": "string", "letter": "string (3-4 paragraphs, newline between each)", "highlight_moment": "string (1 specific standout moment from data)", "growth_note": "string (1 honest sentence about improvement)", "off_season_challenge": "string (1 specific actionable skill)", "coach_name": "string" }',
+    ].filter(Boolean).join('\n'),
+  }),
+
   coachReflection: (params: PromptParams & {
     sessionDate: string;
     sessionType: string;
