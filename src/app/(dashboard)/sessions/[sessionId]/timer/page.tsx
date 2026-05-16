@@ -99,6 +99,18 @@ import {
   getRatingAriaLabel,
   type DrillRating,
 } from '@/lib/drill-rating-utils';
+import {
+  listSavedQueues,
+  saveQueue,
+  deleteQueue,
+  hasSavedQueues,
+  isValidQueueName,
+  formatQueueDuration,
+  getQueuePreview,
+  formatSavedAt,
+  type SavedQueueItem,
+  type SavedQueue as SavedQueueEntry,
+} from '@/lib/saved-queue-utils';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -1146,6 +1158,13 @@ export default function PracticeTimerPage({
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [loadedTemplateName, setLoadedTemplateName] = useState<string | null>(null);
   const [lastPracticeQueue, setLastPracticeQueue] = useState<QueueItem[] | null>(null);
+  const [showSavedQueues, setShowSavedQueues] = useState(false);
+  const [showSaveForm, setShowSaveForm] = useState(false);
+  const [saveFormName, setSaveFormName] = useState('');
+  const [savedQueues, setSavedQueues] = useState<SavedQueueEntry[]>(() => {
+    if (!activeTeam?.id || typeof window === 'undefined') return [];
+    return listSavedQueues(activeTeam.id);
+  });
 
   const [audioEnabled, setAudioEnabled] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
@@ -1792,6 +1811,40 @@ export default function PracticeTimerPage({
     setQueue((prev) => prev.filter((d) => d.id !== id));
   };
 
+  // ── Saved queue templates ─────────────────────────────────────────────────
+  const handleSaveQueue = () => {
+    if (!activeTeam?.id || !isValidQueueName(saveFormName) || queue.length === 0) return;
+    const items: SavedQueueItem[] = queue.map((q) => ({
+      id: q.id,
+      drillId: q.drillId,
+      name: q.name,
+      durationSecs: q.durationSecs,
+      cues: q.cues,
+      description: q.description,
+      category: q.category,
+    }));
+    saveQueue(activeTeam.id, saveFormName, items);
+    setSavedQueues(listSavedQueues(activeTeam.id));
+    setSaveFormName('');
+    setShowSaveForm(false);
+  };
+
+  const handleLoadSavedQueue = (entry: SavedQueueEntry) => {
+    const items: QueueItem[] = entry.items.map((i) => ({
+      ...i,
+      id: `${i.id}-${Date.now()}`,
+    }));
+    setQueue(items);
+    setShowSavedQueues(false);
+    setLoadedTemplateName(entry.name);
+  };
+
+  const handleDeleteSavedQueue = (queueId: string) => {
+    if (!activeTeam?.id) return;
+    deleteQueue(activeTeam.id, queueId);
+    setSavedQueues(listSavedQueues(activeTeam.id));
+  };
+
   const moveQueueItem = (id: string, direction: 'up' | 'down') => {
     setQueue((prev) => {
       const idx = prev.findIndex((d) => d.id === id);
@@ -2360,6 +2413,69 @@ export default function PracticeTimerPage({
         </button>
       )}
 
+      {/* My Saved Templates */}
+      {queue.length === 0 && !planLoading && savedQueues.length > 0 && (
+        <div className="space-y-3">
+          <button
+            onClick={() => setShowSavedQueues((v) => !v)}
+            className="flex items-center gap-2 w-full rounded-xl border border-dashed border-orange-700/50 bg-orange-500/5 px-4 py-3 text-sm font-medium text-orange-400 hover:bg-orange-500/10 transition-colors"
+            aria-expanded={showSavedQueues}
+          >
+            <Save className="h-4 w-4 shrink-0" />
+            <span className="flex-1 text-left">My Saved Templates</span>
+            <span className="text-xs text-orange-600 font-normal">
+              {showSavedQueues ? 'Close' : `${savedQueues.length} saved`}
+            </span>
+          </button>
+
+          {showSavedQueues && (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 overflow-hidden">
+              <div className="divide-y divide-zinc-800">
+                {savedQueues.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="flex items-start gap-3 px-4 py-4 group"
+                  >
+                    <button
+                      onClick={() => handleLoadSavedQueue(entry)}
+                      className="flex-1 flex items-start gap-3 text-left hover:opacity-80 transition-opacity"
+                    >
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-500/15 group-hover:bg-orange-500/25 transition-colors mt-0.5">
+                        <Save className="h-4 w-4 text-orange-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-zinc-100">
+                            {entry.name}
+                          </span>
+                          <span className="text-xs text-zinc-500">
+                            {entry.items.length} drill{entry.items.length !== 1 ? 's' : ''} · {formatQueueDuration(entry.items)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-400 mt-0.5">
+                          {getQueuePreview(entry).join(' → ')}
+                          {entry.items.length > 3 ? ` +${entry.items.length - 3} more` : ''}
+                        </p>
+                        <p className="text-[10px] text-zinc-600 mt-1">
+                          Saved {formatSavedAt(entry.savedAt)}
+                        </p>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteSavedQueue(entry.id)}
+                      aria-label={`Delete ${entry.name} template`}
+                      className="shrink-0 text-zinc-700 hover:text-red-400 transition-colors mt-1"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Template Picker */}
       {queue.length === 0 && !planLoading && (
         <div className="space-y-3">
@@ -2433,11 +2549,49 @@ export default function PracticeTimerPage({
             Drill Queue
           </h2>
           {queue.length > 0 && (
-            <span className="text-xs text-zinc-500">
-              Total: {fmt(totalDuration(queue))}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-zinc-500">
+                Total: {fmt(totalDuration(queue))}
+              </span>
+              <button
+                onClick={() => { setShowSaveForm((v) => !v); setSaveFormName(''); }}
+                aria-label="Save queue as template"
+                className="flex items-center gap-1 text-xs text-zinc-500 hover:text-orange-400 transition-colors"
+              >
+                <Save className="h-3.5 w-3.5" />
+                Save
+              </button>
+            </div>
           )}
         </div>
+
+        {showSaveForm && queue.length > 0 && (
+          <div className="flex items-center gap-2 rounded-xl border border-orange-500/30 bg-orange-500/5 px-3 py-2">
+            <input
+              type="text"
+              placeholder="Template name…"
+              value={saveFormName}
+              onChange={(e) => setSaveFormName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSaveQueue(); if (e.key === 'Escape') setShowSaveForm(false); }}
+              maxLength={60}
+              autoFocus
+              className="flex-1 bg-transparent text-sm text-zinc-200 placeholder-zinc-600 outline-none"
+            />
+            <button
+              onClick={handleSaveQueue}
+              disabled={!isValidQueueName(saveFormName)}
+              className="text-xs font-medium text-orange-400 hover:text-orange-300 disabled:opacity-40 disabled:cursor-default transition-colors"
+            >
+              Save
+            </button>
+            <button
+              onClick={() => setShowSaveForm(false)}
+              className="text-zinc-600 hover:text-zinc-400 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
         {queue.length === 0 ? (
           <div className="space-y-3">
