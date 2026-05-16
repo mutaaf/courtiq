@@ -47,6 +47,7 @@ import {
   Volume2,
   VolumeX,
   Users,
+  BookOpen,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Drill, Player, Session, Plan } from '@/types/database';
@@ -1230,6 +1231,38 @@ export default function PracticeTimerPage({
   });
   const favoriteIds: string[] = favoritesData?.favorites ?? [];
 
+  // Fetch the most recent session that has a completed AI debrief — used in setup
+  // to show coaches exactly what to focus on in THIS practice based on last time.
+  const { data: lastDebriefSession } = useQuery({
+    queryKey: ['timer-last-debrief', activeTeam?.id],
+    queryFn: async () => {
+      if (!activeTeam) return null;
+      const data = await query<Session[]>({
+        table: 'sessions',
+        select: 'id, date, coach_debrief_extracts',
+        filters: {
+          team_id: activeTeam.id,
+          coach_debrief_extracts: { op: 'neq', value: null },
+        },
+        order: { column: 'date', ascending: false },
+        limit: 2,
+      });
+      return (data || []).find((s) => s.id !== sessionId) ?? null;
+    },
+    enabled: !!activeTeam,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const lastDebriefInsights = useMemo(() => {
+    if (!lastDebriefSession?.coach_debrief_extracts) return null;
+    const debrief = lastDebriefSession.coach_debrief_extracts as any;
+    const focuses: Array<{ focus: string; suggested_drill?: string }> =
+      (debrief.next_practice_focus || []).slice(0, 2);
+    const recurring: string[] = (debrief.recurring_focus_areas || []).slice(0, 3);
+    if (focuses.length === 0 && recurring.length === 0) return null;
+    return { date: lastDebriefSession.date as string, focuses, recurring };
+  }, [lastDebriefSession]);
+
   // Build a lookup of the most recent observation per player for break-screen context.
   // Current-session notes take priority over DB observations so coaches see the most
   // relevant context ("You just said Marcus was doing great — is he still on a roll?").
@@ -2147,6 +2180,50 @@ export default function PracticeTimerPage({
             </span>{' '}
             {absentPlayers.length === 1 ? 'is' : 'are'} marked unavailable and won&apos;t appear in your observation picker.
           </span>
+        </div>
+      )}
+
+      {/* From Last Session insights */}
+      {lastDebriefInsights && (
+        <div className="rounded-xl border border-indigo-700/30 bg-indigo-500/5 px-4 py-3 space-y-2">
+          <div className="flex items-center gap-1.5">
+            <BookOpen className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+            <span className="text-xs font-semibold text-indigo-300 uppercase tracking-wide">
+              From last session ·{' '}
+              {new Date(lastDebriefInsights.date + 'T00:00:00').toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+              })}
+            </span>
+          </div>
+          {lastDebriefInsights.focuses.length > 0 && (
+            <div className="space-y-1">
+              {lastDebriefInsights.focuses.map((f, i) => (
+                <div key={i} className="flex items-start gap-1.5 text-xs text-zinc-300">
+                  <ChevronRight className="h-3.5 w-3.5 text-indigo-400 shrink-0 mt-0.5" />
+                  <span>
+                    <span className="font-medium">{f.focus}</span>
+                    {f.suggested_drill && (
+                      <span className="text-zinc-500"> · try {f.suggested_drill}</span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {lastDebriefInsights.recurring.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+              <span className="text-xs text-zinc-600">Recurring:</span>
+              {lastDebriefInsights.recurring.map((skill) => (
+                <span
+                  key={skill}
+                  className="text-xs px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                >
+                  {skill}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
