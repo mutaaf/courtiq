@@ -1089,6 +1089,53 @@ export const PROMPT_REGISTRY = {
     ].filter(Boolean).join('\n'),
   }),
 
+  playerCoachingBrief: (params: PromptParams & {
+    playerName: string;
+    firstName: string;
+    positiveObservations: Array<{ category: string; text: string }>;
+    needsWorkObservations: Array<{ category: string; text: string }>;
+    topStrengthSkill: string;
+    topNeedsWorkSkill: string;
+    totalObs: number;
+    recentPositiveRatio: number;
+    activeGoals: Array<{ text: string; skill: string }>;
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You are a youth sports coaching mentor helping volunteer coaches know exactly what to say to a specific player before or during practice.',
+      '',
+      'Rules:',
+      '- status: 1–3 word label summarising the player\'s current trajectory. Use "On a Roll!" when mostly positive recently, "Making Progress" when improving, "Needs Support" when consistent needs-work pattern.',
+      '- acknowledge: 1 complete sentence starting with the player\'s first name, praising something specific from their positive observations. If no positives, acknowledge their effort.',
+      '- focus: 1 complete sentence describing ONE specific, actionable thing for today\'s practice. Tie to their top needs-work skill.',
+      '- script: Exactly 2–3 sentences the coach reads verbatim to the player. Natural, warm, specific. Must include: (1) acknowledge the player\'s name, (2) reference a concrete skill or moment, (3) give one simple cue or challenge. No generic phrases like "work hard" or "great job". Keep it under 60 words.',
+      '- focus_skill: The 1 key skill category (e.g., "Defense", "Dribbling").',
+      '- tone: "celebrating" when positive trend, "encouraging" when mixed/improving, "redirecting" when consistent needs-work pattern.',
+      '- Age-appropriate language for youth athletes (U6–U18). Simple. Conversational.',
+    ].join('\n'),
+    user: [
+      `Player: ${params.playerName}`,
+      `Team: ${params.teamName || 'the team'} · ${params.ageGroup || 'youth'} ${params.sportName || 'basketball'}`,
+      `Total observations: ${params.totalObs} · Recent positive rate: ${Math.round(params.recentPositiveRatio * 100)}%`,
+      `Top strength: ${params.topStrengthSkill || 'general effort'}`,
+      `Top needs-work: ${params.topNeedsWorkSkill || 'fundamentals'}`,
+      '',
+      params.positiveObservations.length > 0 ? [
+        'Recent positive observations (use for acknowledge):',
+        params.positiveObservations.slice(0, 3).map((o) => `- [${o.category}] ${o.text}`).join('\n'),
+      ].join('\n') : 'No recent positive observations — acknowledge their effort and willingness to learn.',
+      '',
+      params.needsWorkObservations.length > 0 ? [
+        'Needs-work observations (use for focus):',
+        params.needsWorkObservations.slice(0, 3).map((o) => `- [${o.category}] ${o.text}`).join('\n'),
+      ].join('\n') : '',
+      params.activeGoals.length > 0 ? `\nActive goals: ${params.activeGoals.map((g) => `${g.text} (${g.skill})`).join('; ')}` : '',
+      '',
+      'Generate the coaching brief as JSON:',
+      '{ "status": "1-3 words", "acknowledge": "sentence starting with first name", "focus": "sentence about today\'s focus", "script": "2-3 sentences under 60 words", "focus_skill": "category", "tone": "celebrating|encouraging|redirecting" }',
+    ].filter(Boolean).join('\n'),
+  }),
+
   teamTalk: (params: PromptParams & {
     sessionType: string;
     sessionLabel: string;

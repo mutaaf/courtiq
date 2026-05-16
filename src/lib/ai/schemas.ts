@@ -481,3 +481,16 @@ export const seasonLetterSchema = z.object({
 });
 
 export type SeasonLetter = z.infer<typeof seasonLetterSchema>;
+
+// ── Player Coaching Brief (what to say to a specific player before practice) ─
+
+export const coachingBriefSchema = z.object({
+  status: z.string(),                          // "On a Roll!", "Making Progress", "Needs Support"
+  acknowledge: z.string(),                     // Sentence starting with player's first name
+  focus: z.string(),                           // One specific thing to focus on today
+  script: z.string(),                          // 2–3 sentence verbatim script for the coach to read
+  focus_skill: z.string(),                     // Skill category (e.g., "Defense")
+  tone: z.enum(['celebrating', 'encouraging', 'redirecting']),
+});
+
+export type CoachingBrief = z.infer<typeof coachingBriefSchema>;
