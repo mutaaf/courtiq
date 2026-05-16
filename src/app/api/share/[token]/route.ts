@@ -175,6 +175,18 @@ export async function GET(
       reportData.recommendedDrills = drills;
     }
 
+    // Always fetch coach-starred (★) observations — the moments the coach
+    // deliberately curated as the player's best. Shown as "Coach's Best Moments"
+    // on the parent portal regardless of share settings.
+    const { data: starredObs } = await supabase
+      .from('observations')
+      .select('category, sentiment, text, created_at')
+      .eq('player_id', share.player_id)
+      .eq('is_highlighted', true)
+      .order('created_at', { ascending: false })
+      .limit(5);
+    reportData.starredObservations = starredObs ?? [];
+
     // Always fetch earned achievement badges — shown on the parent portal
     // regardless of share settings to celebrate the player's milestones.
     const { data: achievements } = await supabase
