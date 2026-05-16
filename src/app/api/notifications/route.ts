@@ -146,7 +146,7 @@ export async function GET(request: Request) {
         type: 'unobserved_player',
         title: `${(player as any).name} needs attention`,
         body: 'No observations recorded in the last 14 days.',
-        href: `/roster/${(player as any).id}`,
+        href: `/roster/${(player as any).id}?tab=observations`,
         priority: 'medium',
         timestamp: new Date(now - 14 * day).toISOString(),
       });
@@ -167,7 +167,7 @@ export async function GET(request: Request) {
         ? `${playerName}'s goal is overdue`
         : `${playerName}'s goal due in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`,
       body: (goal as any).goal_text as string,
-      href: `/roster/${(goal as any).player_id}`,
+      href: `/roster/${(goal as any).player_id}?tab=goals`,
       priority: daysLeft <= 1 ? 'high' : 'medium',
       timestamp: ((goal as any).target_date as string) + 'T00:00:00.000Z',
     });
@@ -200,7 +200,7 @@ export async function GET(request: Request) {
       type: 'achievement_earned',
       title: `${playerName} earned a badge!`,
       body: `Awarded the "${badgeName}" badge.`,
-      href: `/roster/${(ach as any).player_id}`,
+      href: `/roster/${(ach as any).player_id}?tab=overview`,
       priority: 'low',
       timestamp: (ach as any).earned_at as string,
     });
@@ -220,7 +220,7 @@ export async function GET(request: Request) {
       type: 'birthday_today',
       title: `🎂 ${playerName}'s birthday!`,
       body: `${playerName}${ageText} — send a birthday message to the family.`,
-      href: `/roster/${(player as any).id}`,
+      href: `/roster/${(player as any).id}?tab=share`,
       priority: 'high',
       timestamp: new Date().toISOString(),
     });
@@ -238,7 +238,7 @@ export async function GET(request: Request) {
       body: viewCount > 1
         ? `Opened ${viewCount} times — they're engaged! Consider sending a personal message.`
         : 'Great moment to send a follow-up via WhatsApp.',
-      href: `/roster/${(share as any).player_id}`,
+      href: `/roster/${(share as any).player_id}?tab=share`,
       priority: 'low',
       timestamp: viewedAt,
     });
