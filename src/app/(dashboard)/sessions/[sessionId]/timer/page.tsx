@@ -88,6 +88,7 @@ import {
   formatGroupPlayerLabel,
   type DrillGroup,
 } from '@/lib/player-grouping-utils';
+import { isFavorited, sortWithFavoritesFirst } from '@/lib/drill-favorites-utils';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -1082,6 +1083,7 @@ export default function PracticeTimerPage({
   const [customName, setCustomName] = useState('');
   const [customDuration, setCustomDuration] = useState('10');
   const [showDrillPicker, setShowDrillPicker] = useState(false);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [loadedTemplateName, setLoadedTemplateName] = useState<string | null>(null);
   const [lastPracticeQueue, setLastPracticeQueue] = useState<QueueItem[] | null>(null);
@@ -1216,6 +1218,17 @@ export default function PracticeTimerPage({
     enabled: !!activeTeam,
     staleTime: 5 * 60 * 1000,
   });
+
+  const { data: favoritesData } = useQuery({
+    queryKey: ['drill-favorites'],
+    queryFn: async () => {
+      const res = await fetch('/api/drill-favorites');
+      if (!res.ok) return { favorites: [] as string[] };
+      return res.json() as Promise<{ favorites: string[] }>;
+    },
+    staleTime: 60 * 1000,
+  });
+  const favoriteIds: string[] = favoritesData?.favorites ?? [];
 
   // Build a lookup of the most recent observation per player for break-screen context.
   // Current-session notes take priority over DB observations so coaches see the most
@@ -1696,12 +1709,21 @@ export default function PracticeTimerPage({
   };
 
   // ── Filtered drills ──────────────────────────────────────────────────────
-  const filteredDrills = drills.filter(
-    (d) =>
-      !drillSearch ||
-      d.name.toLowerCase().includes(drillSearch.toLowerCase()) ||
-      d.category.toLowerCase().includes(drillSearch.toLowerCase())
-  );
+  // Favorites sort to the top when no search is active; favorites-only toggle filters further.
+  const filteredDrills = useMemo(() => {
+    let list = drills.filter(
+      (d) =>
+        !drillSearch ||
+        d.name.toLowerCase().includes(drillSearch.toLowerCase()) ||
+        d.category.toLowerCase().includes(drillSearch.toLowerCase())
+    );
+    if (showFavoritesOnly) {
+      list = list.filter((d) => isFavorited(d.id, favoriteIds));
+    } else if (!drillSearch) {
+      list = sortWithFavoritesFirst(list, favoriteIds);
+    }
+    return list;
+  }, [drills, drillSearch, showFavoritesOnly, favoriteIds]);
 
   // ── Skill-gap drill suggestions for the empty queue screen ───────────────
   // Uses already-fetched needsWorkObs + drills — no extra API call.
@@ -2330,38 +2352,60 @@ export default function PracticeTimerPage({
 
         {showDrillPicker && (
           <div className="border border-zinc-800 rounded-xl bg-zinc-900/50 overflow-hidden">
-            <div className="p-3 border-b border-zinc-800">
+            <div className="p-3 border-b border-zinc-800 space-y-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
                 <Input
                   placeholder="Search drills…"
                   value={drillSearch}
-                  onChange={(e) => setDrillSearch(e.target.value)}
+                  onChange={(e) => { setDrillSearch(e.target.value); setShowFavoritesOnly(false); }}
                   className="pl-9 h-9 text-sm bg-zinc-800 border-zinc-700"
                   autoFocus
                 />
               </div>
+              {favoriteIds.length > 0 && (
+                <button
+                  onClick={() => { setShowFavoritesOnly((v) => !v); setDrillSearch(''); }}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors touch-manipulation ${
+                    showFavoritesOnly
+                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                      : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-amber-500/40 hover:text-amber-400'
+                  }`}
+                >
+                  <Star className={`h-3 w-3 ${showFavoritesOnly ? 'fill-amber-400 text-amber-400' : 'text-zinc-500'}`} />
+                  Favorites ({favoriteIds.length})
+                </button>
+              )}
             </div>
             <div className="max-h-60 overflow-y-auto divide-y divide-zinc-800">
               {filteredDrills.length === 0 ? (
-                <p className="text-sm text-zinc-500 p-4 text-center">No drills found</p>
+                <p className="text-sm text-zinc-500 p-4 text-center">
+                  {showFavoritesOnly ? 'No favorites yet — star drills in the Drill Library' : 'No drills found'}
+                </p>
               ) : (
-                filteredDrills.slice(0, 30).map((drill) => (
-                  <button
-                    key={drill.id}
-                    onClick={() => addFromLibrary(drill)}
-                    className="flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-zinc-800 transition-colors group"
-                  >
-                    <Dumbbell className="h-4 w-4 text-zinc-600 group-hover:text-orange-500 transition-colors shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-zinc-200 truncate">{drill.name}</p>
-                      <p className="text-xs text-zinc-500">{drill.category}</p>
-                    </div>
-                    <span className="text-xs text-zinc-600 shrink-0">
-                      {drill.duration_minutes ?? 10} min
-                    </span>
-                  </button>
-                ))
+                filteredDrills.slice(0, 30).map((drill) => {
+                  const starred = isFavorited(drill.id, favoriteIds);
+                  return (
+                    <button
+                      key={drill.id}
+                      onClick={() => addFromLibrary(drill)}
+                      className="flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-zinc-800 transition-colors group"
+                    >
+                      {starred ? (
+                        <Star className="h-4 w-4 fill-amber-400 text-amber-400 shrink-0" />
+                      ) : (
+                        <Dumbbell className="h-4 w-4 text-zinc-600 group-hover:text-orange-500 transition-colors shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-zinc-200 truncate">{drill.name}</p>
+                        <p className="text-xs text-zinc-500">{drill.category}</p>
+                      </div>
+                      <span className="text-xs text-zinc-600 shrink-0">
+                        {drill.duration_minutes ?? 10} min
+                      </span>
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>
