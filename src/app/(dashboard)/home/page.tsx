@@ -524,6 +524,33 @@ export default function HomePage() {
     }
   }
 
+  async function startPracticeWithTimer() {
+    if (!activeTeam || !coach) return;
+    try {
+      const session = await mutate<{ id: string }>({
+        table: 'sessions',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          type: 'practice',
+          date: new Date().toISOString().split('T')[0],
+          notes: 'Auto-created practice session',
+        },
+        select: 'id',
+      });
+      const id = Array.isArray(session) ? (session as any)[0]?.id : session?.id;
+      if (id) {
+        setPracticeActive(true);
+        setPracticeSessionId(id);
+        setPracticeStartedAt(new Date().toISOString());
+        router.push(`/sessions/${id}/timer`);
+      }
+    } catch (err) {
+      console.warn('Failed to start practice with timer:', err);
+    }
+  }
+
   async function startPracticeWithPlan(planId: string) {
     if (!activeTeam || !coach) return;
     try {
@@ -1147,7 +1174,7 @@ export default function HomePage() {
               </div>
             </div>
           </button>
-          {recentPracticePlan && (
+          {recentPracticePlan ? (
             <button
               onClick={() => startPracticeWithPlan(recentPracticePlan.id)}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-2.5 text-sm text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 transition-colors touch-manipulation active:scale-[0.98]"
@@ -1160,6 +1187,15 @@ export default function HomePage() {
                 {planDrillCount > 0 && ` · ${planDrillCount} drill${planDrillCount !== 1 ? 's' : ''}`}
                 {planDurationMin > 0 && ` · ${planDurationMin} min`}
               </span>
+              <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+            </button>
+          ) : (
+            <button
+              onClick={startPracticeWithTimer}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/5 px-4 py-2.5 text-sm text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 transition-colors touch-manipulation active:scale-[0.98]"
+            >
+              <Timer className="h-3.5 w-3.5 shrink-0" />
+              <span>Use Practice Timer</span>
               <ChevronRight className="h-3.5 w-3.5 shrink-0" />
             </button>
           )}
