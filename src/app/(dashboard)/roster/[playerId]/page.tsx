@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useEffect, useMemo } from 'react';
+import { use, useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useActiveTeam } from '@/hooks/use-active-team';
@@ -524,6 +524,11 @@ export default function PlayerDetailPage({
   const [qoSaving, setQoSaving] = useState(false);
   const [qoSaved, setQoSaved] = useState(false);
 
+  // Photo upload
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
   const { data: player, isLoading: playerLoading } = useQuery({
     queryKey: queryKeys.players.detail(playerId),
     queryFn: async () => {
@@ -694,6 +699,30 @@ export default function PlayerDetailPage({
       ...templates.filter((t) => !topCats.includes(t.category)),
     ].slice(0, 8);
   }, [qoSentiment, sortedCategories]);
+
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoUploading(true);
+    setPhotoError(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('player_id', playerId);
+      const res = await fetch('/api/player-photo', { method: 'POST', body: fd });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setPhotoError(data.error ?? 'Upload failed');
+      } else {
+        await qc.invalidateQueries({ queryKey: queryKeys.players.detail(playerId) });
+      }
+    } catch {
+      setPhotoError('Upload failed');
+    } finally {
+      setPhotoUploading(false);
+      if (photoInputRef.current) photoInputRef.current.value = '';
+    }
+  }
 
   async function handleQuickObsSave() {
     if (!activeTeam || !player) return;
@@ -1290,7 +1319,28 @@ export default function PlayerDetailPage({
       {/* Player Header */}
       <Card>
         <CardContent className="flex items-center gap-5 p-6">
-          <PlayerAvatar photoUrl={player.photo_url} name={player.name} size={80} />
+          <div className="relative shrink-0">
+            <PlayerAvatar photoUrl={player.photo_url} name={player.name} size={80} />
+            <button
+              onClick={() => photoInputRef.current?.click()}
+              disabled={photoUploading}
+              aria-label={player.photo_url ? 'Change player photo' : 'Add player photo'}
+              className="absolute inset-0 flex items-center justify-center rounded-full bg-black/0 hover:bg-black/50 transition-colors group touch-manipulation"
+            >
+              {photoUploading ? (
+                <Loader2 className="h-6 w-6 animate-spin text-white" />
+              ) : (
+                <Camera className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+              )}
+            </button>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handlePhotoChange}
+              className="sr-only"
+            />
+          </div>
           <div className="flex-1">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-zinc-100">{player.name}</h1>
@@ -1310,6 +1360,9 @@ export default function PlayerDetailPage({
               <p className="mt-1 text-sm text-zinc-500">
                 &ldquo;{player.nickname}&rdquo;
               </p>
+            )}
+            {photoError && (
+              <p className="mt-1 text-xs text-red-400">{photoError}</p>
             )}
           </div>
           <div className="flex flex-col items-end gap-2">
