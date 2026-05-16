@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ProgressTrendChart } from '@/components/share/progress-trend-chart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mock data — realistic season data for demo player "Marcus Johnson"
@@ -31,6 +32,62 @@ const SEASON_STATS = {
   recentObs: 12,
   mostActive: 'Dribbling',
 };
+
+// Realistic 10-week observation history showing Marcus's improvement arc.
+// Week offsets from "now" in days: 70, 63, 56, 49, 42, 35, 28, 21, 14, 7 (each ~midpoint).
+function daysAgo(d: number): string {
+  return new Date(Date.now() - d * 24 * 60 * 60 * 1000).toISOString();
+}
+const DEMO_OBS_HISTORY = [
+  // Week 10 (oldest) — early season, mixed results
+  { sentiment: 'positive', created_at: daysAgo(67) },
+  { sentiment: 'needs-work', created_at: daysAgo(66) },
+  { sentiment: 'needs-work', created_at: daysAgo(65) },
+  // Week 9 — improving slightly
+  { sentiment: 'positive', created_at: daysAgo(60) },
+  { sentiment: 'positive', created_at: daysAgo(59) },
+  { sentiment: 'needs-work', created_at: daysAgo(58) },
+  { sentiment: 'needs-work', created_at: daysAgo(57) },
+  // Week 8 — steady
+  { sentiment: 'positive', created_at: daysAgo(53) },
+  { sentiment: 'positive', created_at: daysAgo(52) },
+  { sentiment: 'needs-work', created_at: daysAgo(51) },
+  // Week 7 — breakthrough week
+  { sentiment: 'positive', created_at: daysAgo(45) },
+  { sentiment: 'positive', created_at: daysAgo(44) },
+  { sentiment: 'positive', created_at: daysAgo(43) },
+  { sentiment: 'needs-work', created_at: daysAgo(43) },
+  // Week 6 — strong
+  { sentiment: 'positive', created_at: daysAgo(38) },
+  { sentiment: 'positive', created_at: daysAgo(37) },
+  { sentiment: 'positive', created_at: daysAgo(36) },
+  // Week 5 — slightly dipped (game week)
+  { sentiment: 'positive', created_at: daysAgo(30) },
+  { sentiment: 'needs-work', created_at: daysAgo(29) },
+  { sentiment: 'needs-work', created_at: daysAgo(29) },
+  { sentiment: 'positive', created_at: daysAgo(28) },
+  // Week 4 — bouncing back
+  { sentiment: 'positive', created_at: daysAgo(23) },
+  { sentiment: 'positive', created_at: daysAgo(22) },
+  { sentiment: 'positive', created_at: daysAgo(22) },
+  { sentiment: 'needs-work', created_at: daysAgo(21) },
+  // Week 3 — excellent
+  { sentiment: 'positive', created_at: daysAgo(16) },
+  { sentiment: 'positive', created_at: daysAgo(16) },
+  { sentiment: 'positive', created_at: daysAgo(15) },
+  { sentiment: 'positive', created_at: daysAgo(15) },
+  // Week 2 — strong
+  { sentiment: 'positive', created_at: daysAgo(9) },
+  { sentiment: 'positive', created_at: daysAgo(9) },
+  { sentiment: 'positive', created_at: daysAgo(8) },
+  { sentiment: 'needs-work', created_at: daysAgo(8) },
+  // Week 1 (most recent) — great week
+  { sentiment: 'positive', created_at: daysAgo(3) },
+  { sentiment: 'positive', created_at: daysAgo(3) },
+  { sentiment: 'positive', created_at: daysAgo(2) },
+  { sentiment: 'positive', created_at: daysAgo(2) },
+  { sentiment: 'needs-work', created_at: daysAgo(2) },
+];
 
 const SKILLS_ON_RISE = ['Dribbling', 'Defense', 'Teamwork'];
 
@@ -295,6 +352,9 @@ export default function DemoReportPage() {
             Most practised: <span className="font-semibold text-gray-700">{SEASON_STATS.mostActive}</span>
           </p>
         </div>
+
+        {/* ─── Weekly Progress Trend ─── */}
+        <ProgressTrendChart obs={DEMO_OBS_HISTORY} firstName={PLAYER.firstName} />
 
         {/* ─── Skill Radar ─── */}
         <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
