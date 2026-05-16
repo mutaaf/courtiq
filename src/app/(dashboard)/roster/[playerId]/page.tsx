@@ -524,6 +524,20 @@ export default function PlayerDetailPage({
   const [qoSaving, setQoSaving] = useState(false);
   const [qoSaved, setQoSaved] = useState(false);
 
+  // Coaching Brief bottom sheet
+  const [showBrief, setShowBrief] = useState(false);
+  const [briefData, setBriefData] = useState<{
+    status: string;
+    acknowledge: string;
+    focus: string;
+    script: string;
+    focus_skill: string;
+    tone: 'celebrating' | 'encouraging' | 'redirecting';
+  } | null>(null);
+  const [briefLoading, setBriefLoading] = useState(false);
+  const [briefError, setBriefError] = useState<string | null>(null);
+  const [briefCopied, setBriefCopied] = useState(false);
+
   // Photo upload
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -764,6 +778,42 @@ export default function PlayerDetailPage({
       // silent — save button stays enabled for retry
     } finally {
       setQoSaving(false);
+    }
+  }
+
+  async function handleGetBrief() {
+    if (!activeTeam || !player) return;
+    setShowBrief(true);
+    setBriefLoading(true);
+    setBriefError(null);
+    setBriefData(null);
+    try {
+      const res = await fetch('/api/ai/coaching-brief', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id, playerId: player.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate coaching brief');
+      }
+      const data = await res.json();
+      setBriefData(data.brief);
+    } catch (err: any) {
+      setBriefError(err.message || 'Something went wrong. Try again.');
+    } finally {
+      setBriefLoading(false);
+    }
+  }
+
+  async function handleCopyScript() {
+    if (!briefData) return;
+    try {
+      await navigator.clipboard.writeText(briefData.script);
+      setBriefCopied(true);
+      setTimeout(() => setBriefCopied(false), 2000);
+    } catch {
+      // clipboard unavailable
     }
   }
 
@@ -1373,6 +1423,16 @@ export default function PlayerDetailPage({
             >
               <Plus className="h-3.5 w-3.5 mr-1" />
               Observe
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-violet-500/40 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300"
+              onClick={handleGetBrief}
+              title="Get an AI coaching brief for this player"
+            >
+              <Sparkles className="h-3.5 w-3.5 mr-1" />
+              Brief
             </Button>
             <Link href={`/roster/${playerId}/edit`}>
               <Button size="sm" variant="outline">Edit</Button>
@@ -2783,6 +2843,124 @@ export default function PlayerDetailPage({
                 'Save Observation'
               )}
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Coaching Brief Bottom Sheet ─────────────────────────────────────── */}
+      {showBrief && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setShowBrief(false)}
+          />
+          {/* Sheet */}
+          <div className="relative rounded-t-2xl bg-zinc-900 border-t border-zinc-800 p-5 space-y-4 max-h-[85vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-violet-400 font-medium uppercase tracking-wide">AI Coaching Brief</p>
+                <h2 className="text-base font-bold text-zinc-100">{player?.name}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBrief(false)}
+                className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {briefLoading && (
+              <div className="flex flex-col items-center gap-3 py-8">
+                <Loader2 className="h-7 w-7 animate-spin text-violet-400" />
+                <p className="text-sm text-zinc-400">Analysing {player?.name?.split(' ')[0]}&apos;s observations…</p>
+              </div>
+            )}
+
+            {briefError && (
+              <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4">
+                <p className="text-sm text-red-400">{briefError}</p>
+                <button
+                  type="button"
+                  onClick={handleGetBrief}
+                  className="mt-2 text-xs text-red-400 underline"
+                >
+                  Try again
+                </button>
+              </div>
+            )}
+
+            {briefData && !briefLoading && (
+              <div className="space-y-4">
+                {/* Status chip */}
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${
+                    briefData.tone === 'celebrating'
+                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                      : briefData.tone === 'encouraging'
+                      ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                      : 'bg-orange-500/15 text-orange-400 border border-orange-500/30'
+                  }`}>
+                    {briefData.tone === 'celebrating' ? '🔥' : briefData.tone === 'encouraging' ? '💪' : '🎯'}
+                    {briefData.status}
+                  </span>
+                  {briefData.focus_skill && (
+                    <span className="rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-400">
+                      {briefData.focus_skill}
+                    </span>
+                  )}
+                </div>
+
+                {/* Acknowledge + Focus */}
+                <div className="space-y-2">
+                  <div className="rounded-xl bg-zinc-800/60 p-3">
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-500">Acknowledge</p>
+                    <p className="text-sm text-zinc-200 leading-relaxed">{briefData.acknowledge}</p>
+                  </div>
+                  <div className="rounded-xl bg-zinc-800/60 p-3">
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-amber-500">Today&apos;s Focus</p>
+                    <p className="text-sm text-zinc-200 leading-relaxed">{briefData.focus}</p>
+                  </div>
+                </div>
+
+                {/* Script */}
+                <div className="rounded-xl border border-violet-500/25 bg-violet-500/10 p-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-400">What to say</p>
+                    <button
+                      type="button"
+                      onClick={handleCopyScript}
+                      className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-violet-400 hover:bg-violet-500/15 transition-colors"
+                    >
+                      {briefCopied ? (
+                        <>
+                          <Check className="h-3 w-3" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3" />
+                          Copy
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-sm text-zinc-100 leading-relaxed italic">&ldquo;{briefData.script}&rdquo;</p>
+                </div>
+
+                {/* Regenerate */}
+                <button
+                  type="button"
+                  onClick={handleGetBrief}
+                  className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm text-zinc-400 hover:border-zinc-600 hover:text-zinc-300 transition-colors"
+                >
+                  Regenerate brief
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
