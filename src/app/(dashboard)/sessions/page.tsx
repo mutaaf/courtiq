@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2, Star, Sparkles, Trophy, Share2, X } from 'lucide-react';
+import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2, Star, Sparkles, Trophy, Share2, X, History } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { RecurringSessionsPanel } from '@/components/sessions/recurring-sessions-panel';
@@ -222,12 +222,20 @@ export default function SessionsPage() {
             {sessions?.length || 0} session{sessions?.length !== 1 ? 's' : ''} recorded
           </p>
         </div>
-        <Link href="/sessions/new">
-          <Button className="h-12 px-5 sm:h-10 sm:px-4 text-base sm:text-sm">
-            <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
-            New Session
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/sessions/backfill" title="Catch up — add past sessions you coached before joining SportsIQ">
+            <Button variant="outline" size="sm" className="hidden sm:inline-flex h-10 px-3 text-sm text-zinc-400 border-zinc-700 hover:text-zinc-200 hover:border-zinc-600">
+              <History className="h-4 w-4" />
+              Catch up
+            </Button>
+          </Link>
+          <Link href="/sessions/new">
+            <Button className="h-12 px-5 sm:h-10 sm:px-4 text-base sm:text-sm">
+              <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
+              New Session
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Type filter */}
@@ -279,6 +287,15 @@ export default function SessionsPage() {
                   <Mic className="h-5 w-5 sm:h-4 sm:w-4" />
                   Quick Capture
                 </Button>
+              </Link>
+            </div>
+            <div className="mt-6 pt-6 border-t border-zinc-800 w-full text-center">
+              <p className="text-xs text-zinc-600 mb-2">Coaching before you joined SportsIQ?</p>
+              <Link href="/sessions/backfill">
+                <button className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-colors touch-manipulation">
+                  <History className="h-3.5 w-3.5" />
+                  Import past sessions &rarr;
+                </button>
               </Link>
             </div>
           </CardContent>
