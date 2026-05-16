@@ -394,6 +394,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     developmentCard,
     highlights,
     featuredHighlight,
+    starredObservations,
     skillProgress,
     recommendedDrills,
     announcements,
@@ -405,6 +406,8 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     playerGoals,
     hasParentContact,
   } = data;
+
+  const safeStarred: any[] = starredObservations ?? [];
 
   const playerName = player?.nickname || player?.name || 'your player';
   const firstName = playerName.split(' ')[0];
@@ -621,8 +624,42 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           </div>
         )}
 
-        {/* ─── Featured Highlight ─── */}
-        {featuredHighlight && (
+        {/* ─── Coach's Best Moments (starred observations) ─── */}
+        {safeStarred.length > 0 && (
+          <div className="mx-4 mt-4 rounded-2xl bg-amber-50 border border-amber-100 p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-lg">⭐</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-600">
+                Coach&apos;s Best Moments
+              </h3>
+            </div>
+            <div className="space-y-4">
+              {safeStarred.map((obs: any, i: number) => (
+                <div key={i} className="border-l-2 border-amber-300 pl-4">
+                  <p className="text-sm leading-relaxed text-gray-800 italic">
+                    &ldquo;{obs.text}&rdquo;
+                  </p>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    {obs.category && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                        {obs.category.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-400">
+                      {new Date(obs.created_at).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ─── Featured Highlight (fallback when no starred observations) ─── */}
+        {safeStarred.length === 0 && featuredHighlight && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
               <span className="text-lg">✨</span>

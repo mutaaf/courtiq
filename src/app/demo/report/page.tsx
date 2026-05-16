@@ -83,6 +83,24 @@ const SEASON_GOALS = [
   },
 ];
 
+const STARRED_OBS = [
+  {
+    text: "Outstanding defensive hustle — slid his feet perfectly and drew a charge in the final minutes. The whole team erupted. That's the kind of IQ you can't teach.",
+    category: 'Defense',
+    created_at: '2025-04-22T18:30:00Z',
+  },
+  {
+    text: "Best dribbling session I've seen from Marcus all season. Figure-8 at full speed with zero turnovers — the other kids were watching and asking how he does it.",
+    category: 'Dribbling',
+    created_at: '2025-04-08T18:15:00Z',
+  },
+  {
+    text: "Called a timeout play himself when the team was confused — exactly what a point guard should do. Real leadership moment.",
+    category: 'Leadership',
+    created_at: '2025-03-25T18:00:00Z',
+  },
+];
+
 const HOME_CHALLENGE = {
   title: 'Figure-8 Ball Handling Challenge',
   minutes: 5,
@@ -475,6 +493,31 @@ export default function DemoReportPage() {
               </li>
             ))}
           </ul>
+        </div>
+
+        {/* ─── Coach's Best Moments ─── */}
+        <div className="mx-4 mt-4 rounded-2xl bg-amber-50 border border-amber-100 p-5 shadow-sm">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-lg">⭐</span>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-600">Coach&apos;s Best Moments</h3>
+          </div>
+          <div className="space-y-4">
+            {STARRED_OBS.map((obs, i) => (
+              <div key={i} className="border-l-2 border-amber-300 pl-4">
+                <p className="text-sm leading-relaxed text-gray-800 italic">
+                  &ldquo;{obs.text}&rdquo;
+                </p>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                    {obs.category}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {new Date(obs.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* ─── Recent Observations ─── */}
