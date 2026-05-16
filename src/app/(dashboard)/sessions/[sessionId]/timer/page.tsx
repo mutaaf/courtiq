@@ -90,6 +90,15 @@ import {
   type DrillGroup,
 } from '@/lib/player-grouping-utils';
 import { isFavorited, sortWithFavoritesFirst } from '@/lib/drill-favorites-utils';
+import {
+  getDrillRating,
+  toggleDrillRating,
+  sortDrillsByRating,
+  getRatingIcon,
+  formatRatingPrompt,
+  getRatingAriaLabel,
+  type DrillRating,
+} from '@/lib/drill-rating-utils';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -169,6 +178,8 @@ function buildQuickParentUpdate(notes: CapturedNote[], coachFirstName: string, t
 
 function BreakScreen({
   drillJustFinished,
+  drillId,
+  teamId,
   drillCategory,
   nextDrillName,
   players,
@@ -180,6 +191,8 @@ function BreakScreen({
   groupsLabel,
 }: {
   drillJustFinished: string;
+  drillId?: string;
+  teamId?: string;
   drillCategory?: string;
   nextDrillName?: string;
   players: Player[];
@@ -197,6 +210,18 @@ function BreakScreen({
   const [showGroups, setShowGroups] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const voice = useVoiceInput();
+
+  // Drill rating state — persisted in localStorage per teamId:drillId
+  const [drillRating, setDrillRatingState] = useState<DrillRating | null>(() => {
+    if (!teamId || !drillId) return null;
+    return getDrillRating(teamId, drillId);
+  });
+
+  const handleRateDrill = (rating: DrillRating) => {
+    if (!teamId || !drillId) return;
+    const next = toggleDrillRating(teamId, drillId, rating);
+    setDrillRatingState(next);
+  };
 
   // ── Auto-advance countdown ────────────────────────────────────────────────
   const AUTO_ADVANCE_SECS = 60;
@@ -289,9 +314,42 @@ function BreakScreen({
           <h2 className="text-2xl font-bold text-zinc-100 mb-1">
             What did you observe?
           </h2>
-          <p className="text-sm text-zinc-500">
-            Drill just finished: <span className="text-zinc-300">{drillJustFinished}</span>
-          </p>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-sm text-zinc-500 shrink-0">
+              Drill: <span className="text-zinc-300">{drillJustFinished}</span>
+            </p>
+            {drillId && teamId && (
+              <div className="flex items-center gap-1.5 ml-auto">
+                <span className="text-[10px] text-zinc-600">{formatRatingPrompt('')}</span>
+                <button
+                  type="button"
+                  aria-label={getRatingAriaLabel('up', drillRating)}
+                  aria-pressed={drillRating === 'up'}
+                  onClick={() => handleRateDrill('up')}
+                  className={`flex h-7 w-7 items-center justify-center rounded-lg text-base transition-all touch-manipulation ${
+                    drillRating === 'up'
+                      ? 'bg-emerald-500/25 ring-1 ring-emerald-500/50 scale-110'
+                      : 'bg-zinc-800 hover:bg-zinc-700'
+                  }`}
+                >
+                  👍
+                </button>
+                <button
+                  type="button"
+                  aria-label={getRatingAriaLabel('down', drillRating)}
+                  aria-pressed={drillRating === 'down'}
+                  onClick={() => handleRateDrill('down')}
+                  className={`flex h-7 w-7 items-center justify-center rounded-lg text-base transition-all touch-manipulation ${
+                    drillRating === 'down'
+                      ? 'bg-red-500/25 ring-1 ring-red-500/50 scale-110'
+                      : 'bg-zinc-800 hover:bg-zinc-700'
+                  }`}
+                >
+                  👎
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Sentiment toggle */}
@@ -1799,10 +1857,14 @@ export default function PracticeTimerPage({
     if (showFavoritesOnly) {
       list = list.filter((d) => isFavorited(d.id, favoriteIds));
     } else if (!drillSearch) {
+      // Favorites first, then well-rated drills, then others, poorly-rated last
       list = sortWithFavoritesFirst(list, favoriteIds);
+      if (activeTeam?.id) {
+        list = sortDrillsByRating(list, activeTeam.id);
+      }
     }
     return list;
-  }, [drills, drillSearch, showFavoritesOnly, favoriteIds]);
+  }, [drills, drillSearch, showFavoritesOnly, favoriteIds, activeTeam?.id]);
 
   // ── Skill-gap drill suggestions for the empty queue screen ───────────────
   // Uses already-fetched needsWorkObs + drills — no extra API call.
@@ -1929,6 +1991,8 @@ export default function PracticeTimerPage({
     return (
       <BreakScreen
         drillJustFinished={drill?.name ?? ''}
+        drillId={drill?.drillId}
+        teamId={activeTeam?.id}
         drillCategory={drill?.category}
         nextDrillName={nextDrill?.name}
         players={presentPlayers}
@@ -2515,6 +2579,7 @@ export default function PracticeTimerPage({
               ) : (
                 filteredDrills.slice(0, 30).map((drill) => {
                   const starred = isFavorited(drill.id, favoriteIds);
+                  const rating = activeTeam?.id ? getDrillRating(activeTeam.id, drill.id) : null;
                   return (
                     <button
                       key={drill.id}
@@ -2523,11 +2588,15 @@ export default function PracticeTimerPage({
                     >
                       {starred ? (
                         <Star className="h-4 w-4 fill-amber-400 text-amber-400 shrink-0" />
+                      ) : rating === 'up' ? (
+                        <span className="shrink-0 text-base leading-none" aria-label="Works for your team">👍</span>
+                      ) : rating === 'down' ? (
+                        <span className="shrink-0 text-base leading-none opacity-40" aria-label="Needs adjustment">👎</span>
                       ) : (
                         <Dumbbell className="h-4 w-4 text-zinc-600 group-hover:text-orange-500 transition-colors shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-zinc-200 truncate">{drill.name}</p>
+                        <p className={`text-sm truncate ${rating === 'down' ? 'text-zinc-500' : 'text-zinc-200'}`}>{drill.name}</p>
                         <p className="text-xs text-zinc-500">{drill.category}</p>
                       </div>
                       <span className="text-xs text-zinc-600 shrink-0">
