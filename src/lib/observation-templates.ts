@@ -4,9 +4,9 @@
  * fixed sentiment and skill category so no AI segmentation is required.
  *
  * Sport-specific sets are provided for basketball (default), soccer, volleyball,
- * flag football, baseball, softball, lacrosse, swimming, and tennis. Coaches see
- * templates relevant to their sport, improving category accuracy and making
- * one-tap capture feel tailored.
+ * flag football, baseball, softball, lacrosse, swimming, tennis, and gymnastics.
+ * Coaches see templates relevant to their sport, improving category accuracy and
+ * making one-tap capture feel tailored.
  */
 
 export type TemplateSentiment = 'positive' | 'needs-work';
@@ -236,6 +236,33 @@ const TENNIS_TEMPLATES: ObservationTemplate[] = [
   { id: 'tn-nw-condition',    text: 'Conditioning concerns',       sentiment: 'needs-work', category: 'conditioning', emoji: '💪' },
 ];
 
+// ── Gymnastics ────────────────────────────────────────────────────────────────
+
+const GYMNASTICS_TEMPLATES: ObservationTemplate[] = [
+  // Positive
+  { id: 'gym-pos-tumbling',     text: 'Strong tumbling pass',          sentiment: 'positive',   category: 'shooting',     emoji: '🤸' },
+  { id: 'gym-pos-balance',      text: 'Excellent balance',              sentiment: 'positive',   category: 'awareness',    emoji: '🎯' },
+  { id: 'gym-pos-form',         text: 'Great body form and control',    sentiment: 'positive',   category: 'footwork',     emoji: '👟' },
+  { id: 'gym-pos-landing',      text: 'Clean landing, stuck it!',       sentiment: 'positive',   category: 'footwork',     emoji: '⚡' },
+  { id: 'gym-pos-bars',         text: 'Strong bar routine',             sentiment: 'positive',   category: 'shooting',     emoji: '🏅' },
+  { id: 'gym-pos-flexibility',  text: 'Outstanding flexibility',        sentiment: 'positive',   category: 'conditioning', emoji: '💪' },
+  { id: 'gym-pos-hustle',       text: 'Outstanding effort',             sentiment: 'positive',   category: 'hustle',       emoji: '🔥' },
+  { id: 'gym-pos-focus',        text: 'Excellent focus and poise',      sentiment: 'positive',   category: 'attitude',     emoji: '⭐' },
+  { id: 'gym-pos-teamwork',     text: 'Great team support',             sentiment: 'positive',   category: 'teamwork',     emoji: '📣' },
+  { id: 'gym-pos-leader',       text: 'Showed leadership',              sentiment: 'positive',   category: 'leadership',   emoji: '🏆' },
+  // Needs work
+  { id: 'gym-nw-tumbling',      text: 'Tumbling technique needs work',  sentiment: 'needs-work', category: 'shooting',     emoji: '🤸' },
+  { id: 'gym-nw-balance',       text: 'Balance needs work',             sentiment: 'needs-work', category: 'awareness',    emoji: '🎯' },
+  { id: 'gym-nw-form',          text: 'Body form needs attention',      sentiment: 'needs-work', category: 'footwork',     emoji: '👟' },
+  { id: 'gym-nw-landing',       text: 'Landing needs more control',     sentiment: 'needs-work', category: 'footwork',     emoji: '⚡' },
+  { id: 'gym-nw-bars',          text: 'Bar skills need focus',          sentiment: 'needs-work', category: 'shooting',     emoji: '🏅' },
+  { id: 'gym-nw-flexibility',   text: 'Flexibility needs work',         sentiment: 'needs-work', category: 'conditioning', emoji: '💪' },
+  { id: 'gym-nw-hustle',        text: 'Needs more effort',              sentiment: 'needs-work', category: 'hustle',       emoji: '🔥' },
+  { id: 'gym-nw-focus',         text: 'Focus and concentration',        sentiment: 'needs-work', category: 'attitude',     emoji: '⭐' },
+  { id: 'gym-nw-teamwork',      text: 'Communication breakdown',        sentiment: 'needs-work', category: 'teamwork',     emoji: '📣' },
+  { id: 'gym-nw-condition',     text: 'Conditioning concerns',          sentiment: 'needs-work', category: 'conditioning', emoji: '💪' },
+];
+
 // ── Sport lookup map ──────────────────────────────────────────────────────────
 
 const SPORT_TEMPLATES: Record<string, ObservationTemplate[]> = {
@@ -247,6 +274,7 @@ const SPORT_TEMPLATES: Record<string, ObservationTemplate[]> = {
   lacrosse: LACROSSE_TEMPLATES,
   swimming: SWIMMING_TEMPLATES,
   tennis: TENNIS_TEMPLATES,
+  gymnastics: GYMNASTICS_TEMPLATES,
   // basketball maps to the default OBSERVATION_TEMPLATES (handled in the function)
 };
 
@@ -260,6 +288,7 @@ export const ALL_OBSERVATION_TEMPLATES: ObservationTemplate[] = [
   ...LACROSSE_TEMPLATES,
   ...SWIMMING_TEMPLATES,
   ...TENNIS_TEMPLATES,
+  ...GYMNASTICS_TEMPLATES,
 ];
 
 // ── Public helpers ────────────────────────────────────────────────────────────
