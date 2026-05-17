@@ -36,6 +36,7 @@ export function QuickCaptureWidget() {
   const [liveTranscript, setLiveTranscript] = useState('');
   const [savedCount, setSavedCount] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [savedPreview, setSavedPreview] = useState<Array<{ playerName: string; sentiment: string; text: string }>>([]);
 
   const transcriptRef = useRef('');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -93,6 +94,7 @@ export function QuickCaptureWidget() {
     setLiveTranscript('');
     setErrorMsg(null);
     setSavedCount(0);
+    setSavedPreview([]);
     transcriptRef.current = '';
     audioChunksRef.current = [];
   }, []);
@@ -278,6 +280,13 @@ export function QuickCaptureWidget() {
         }
 
         setSavedCount(rows.length);
+        setSavedPreview(
+          observations.map((obs: any) => ({
+            playerName: obs.player_name || 'Team',
+            sentiment: obs.sentiment || 'neutral',
+            text: (obs.text || '').slice(0, 60),
+          }))
+        );
         setWidgetState('success');
 
         if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
@@ -285,7 +294,7 @@ export function QuickCaptureWidget() {
         autoCloseTimerRef.current = setTimeout(() => {
           setIsOpen(false);
           resetVoiceState();
-        }, 2500);
+        }, 3500);
       } catch (err: any) {
         setWidgetState('error');
         setErrorMsg(err.message || 'Failed to save observations.');
@@ -519,16 +528,38 @@ export function QuickCaptureWidget() {
                 )}
 
                 {widgetState === 'success' && (
-                  <div className="flex flex-col items-center gap-4 py-6">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20">
-                      <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+                  <div className="flex flex-col gap-3 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
+                        <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-zinc-100">
+                          {savedCount} observation{savedCount !== 1 ? 's' : ''} saved!
+                        </p>
+                        <p className="text-xs text-zinc-500">Closing in a moment…</p>
+                      </div>
                     </div>
-                    <div className="text-center">
-                      <p className="text-sm font-semibold text-zinc-100">
-                        {savedCount} observation{savedCount !== 1 ? 's' : ''} saved!
-                      </p>
-                      <p className="mt-1 text-xs text-zinc-500">Closing in a moment…</p>
-                    </div>
+                    {savedPreview.length > 0 && (
+                      <div className="space-y-1.5">
+                        {savedPreview.slice(0, 4).map((obs, i) => (
+                          <div
+                            key={i}
+                            className="flex items-start gap-2 rounded-xl bg-zinc-800/60 px-3 py-2"
+                          >
+                            <span className="mt-0.5 text-sm leading-none" aria-hidden="true">
+                              {obs.sentiment === 'positive' ? '✅' : obs.sentiment === 'needs-work' ? '⚠️' : '·'}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-medium text-zinc-300">
+                                {obs.playerName}
+                              </p>
+                              <p className="truncate text-xs text-zinc-500">{obs.text}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
