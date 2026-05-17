@@ -665,6 +665,131 @@ const FLAG_FOOTBALL_U16: PracticeTemplate = {
   ],
 };
 
+// ─── Lacrosse Templates ───────────────────────────────────────────────────────
+
+const LACROSSE_U10: PracticeTemplate = {
+  id: 'lacrosse-u10-30',
+  name: 'Lacrosse Fundamentals',
+  sport: 'lacrosse',
+  ageLabel: 'Ages 6–10',
+  totalMins: 30,
+  description: 'Cradling, passing, catching, and a fun game for brand-new lacrosse players.',
+  tags: ['beginner', 'fundamentals', 'short'],
+  drills: [
+    {
+      name: 'Cradling Warm-Up',
+      durationMins: 6,
+      cues: [
+        'Top hand does the work — bottom hand guides',
+        'Keep the stick in front of your body to protect it',
+        'Try to feel the ball at the top of the pocket — not the middle',
+        'Eyes up while cradling — look around, not at your stick',
+      ],
+      description: 'Each player with a ball, walk and cradle around cones. Progress to a light jog when comfortable.',
+    },
+    {
+      name: 'Partner Catch & Pass',
+      durationMins: 8,
+      cues: [
+        'Step toward your target when you throw — power starts with your feet',
+        'Make a window with your gloves to show your partner where to throw',
+        'Soft hands — give a little when the ball hits the pocket',
+        'Lead your partner — throw where they\'re going, not where they are',
+      ],
+      description: 'Partners 5 yards apart passing and catching. Move back 2 yards every 3 successful exchanges.',
+    },
+    {
+      name: 'Cone Dodge Course',
+      durationMins: 8,
+      cues: [
+        'Plant your outside foot hard before each dodge — explode in the new direction',
+        'Keep the ball in the pocket between cones — tight cradle',
+        'Speed up between cones, slow down for the turn',
+        'Encourage every attempt — the stick is new, mistakes are expected!',
+      ],
+      description: 'Players weave through a line of cones while cradling. Reverse direction and return.',
+    },
+    {
+      name: 'Bucket Shooting Game',
+      durationMins: 8,
+      cues: [
+        'Aim for the corners — that\'s where goals are scored',
+        'Hips into the shot — rotate your whole body, not just your arms',
+        'Fake first if a defender is close — then shoot',
+        'Cheer for everyone — celebrate the shot attempt, not just the goal',
+      ],
+      description: 'Line of players take turns shooting at a goal or bucket from 5 yards. Count goals, celebrate effort.',
+    },
+  ],
+};
+
+const LACROSSE_U13: PracticeTemplate = {
+  id: 'lacrosse-u13-45',
+  name: 'Lacrosse Skill Builder',
+  sport: 'lacrosse',
+  ageLabel: 'Ages 11–14',
+  totalMins: 45,
+  description: 'Ground balls, passing patterns, shooting mechanics, and 3v3 transition play.',
+  tags: ['intermediate', 'balanced', 'medium'],
+  drills: [
+    {
+      name: 'Stick Skills Warm-Up',
+      durationMins: 7,
+      cues: [
+        'Wall ball rule: 100 reps a day makes you a great stick handler',
+        'Quick release after the catch — don\'t hold the ball',
+        'Work your weak hand too — don\'t skip it',
+        'Stay athletic: feet moving, weight on the balls of your feet',
+      ],
+      description: 'Partner quick-stick passing 8 yards apart — catch and throw in one motion. Progress to behind-the-back catches.',
+    },
+    {
+      name: 'Ground Ball Battles',
+      durationMins: 8,
+      cues: [
+        'Scoop low — get your stick under the ball before you pick it up',
+        'Body position: put your body between the defender and the ball',
+        'Sprint to the ball — first to arrive usually wins',
+        'Win the ground ball, then immediately look to pass',
+      ],
+      description: 'Coach rolls ball out, two players race to scoop it up. Winner gets to keep possession, loser plays defense.',
+    },
+    {
+      name: 'Shooting From Angles',
+      durationMins: 10,
+      cues: [
+        'Off-stick side is the goalie\'s weak side — aim there',
+        'Low shots are hardest to save — bounce shots work',
+        'Quick release: catch the pass and shoot in one motion',
+        'Hips forward, follow through past your hip — full rotation',
+      ],
+      description: 'Line feeds from behind the goal. Attacker catches, dodges once, and shoots from a 45-degree angle.',
+    },
+    {
+      name: '3v3 Transition',
+      durationMins: 12,
+      cues: [
+        'Clear immediately when you get the ball — sprint upfield',
+        'Two outlets — the ball-carrier always has two passing options',
+        'Weak-side cutter: when someone drives, cut to the open space',
+        'Defense: force them to their off hand — make them uncomfortable',
+      ],
+      description: '3v3 half-field. On a save or ground ball, teams transition immediately — no reset. Coach counts fast breaks.',
+    },
+    {
+      name: 'Team Talk',
+      durationMins: 8,
+      cues: [
+        'Name one player who won a key ground ball today — be specific',
+        'Name one thing to work on before the next practice',
+        'Ask players: "What was the hardest part today?"',
+        'Confirm next session and preview one drill they\'ll run',
+      ],
+      description: 'Bring the team in. Coach shares observations, players share wins and areas to improve.',
+    },
+  ],
+};
+
 // ─── Generic Template ────────────────────────────────────────────────────────
 
 const FIRST_PRACTICE: PracticeTemplate = {
@@ -736,6 +861,8 @@ export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
   FLAG_FOOTBALL_U8,
   FLAG_FOOTBALL_U12,
   FLAG_FOOTBALL_U16,
+  LACROSSE_U10,
+  LACROSSE_U13,
 ];
 
 // ─── Utility Functions ───────────────────────────────────────────────────────

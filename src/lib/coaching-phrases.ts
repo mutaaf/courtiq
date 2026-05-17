@@ -5,7 +5,7 @@
  * (e.g. warmup, scrimmage, AI-generated drills, custom drills).
  */
 
-export type SportSlug = 'basketball' | 'soccer' | 'flagfootball' | 'volleyball';
+export type SportSlug = 'basketball' | 'soccer' | 'flagfootball' | 'volleyball' | 'lacrosse';
 
 // Canonical category names (normalised to lowercase for matching)
 const CATEGORY_ALIASES: Record<string, string> = {
@@ -36,6 +36,11 @@ const CATEGORY_ALIASES: Record<string, string> = {
   'route running': 'awareness',
   'flag pulling': 'defense',
   'catching': 'passing',
+  'cradle': 'dribbling',
+  'cradling': 'dribbling',
+  'ground ball': 'hustle',
+  'groundball': 'hustle',
+  'dodging': 'footwork',
 };
 
 // Phrases keyed by [sportSlug][normalisedCategory]
@@ -244,6 +249,57 @@ const SPORT_PHRASES: Record<string, Record<string, string[]>> = {
     leadership: [
       "Talk your team through every moment — lead with your voice",
       "Pick someone up after a mistake — that's team culture",
+    ],
+  },
+
+  lacrosse: {
+    dribbling: [
+      "Top hand does the work, bottom hand guides — feel the rhythm",
+      "Eyes up while cradling — look for teammates, not at your stick",
+      "Tight cradle when guarded, loose cradle when you have space",
+      "Protect the ball — keep your body between the stick and the defender",
+    ],
+    passing: [
+      "Step toward your target — power comes from your feet and hips",
+      "Lead your teammate — throw where they're going, not where they are",
+      "Quick release: catch and throw in one motion — don't hold it",
+      "Both hands on the stick until release — control first",
+    ],
+    shooting: [
+      "Pick a corner, aim low — low shots are hardest to save",
+      "Hips into the shot — full body rotation, not just your arms",
+      "Off-stick side is the goalie's weakness — aim there",
+      "Fake first if a defender is close — get them moving, then shoot",
+    ],
+    defense: [
+      "Keep your stick up between your player and the goal",
+      "Check the stick, not the body — body checks are a foul",
+      "Force them to their off hand — make them uncomfortable",
+      "Don't lunge — stay on your feet, move your feet to stay in front",
+    ],
+    hustle: [
+      "Ground balls win games — sprint to every loose ball",
+      "Scoop low — get under it before you pick it up",
+      "Transition: when you get the ball, look upfield immediately",
+      "First to the ball wins it — want it more than they do",
+    ],
+    footwork: [
+      "Plant your outside foot hard before each dodge — explode in the new direction",
+      "Roll dodge: get your body between the defender and the ball",
+      "Quick choppy steps beat big lunges in tight spaces",
+      "Stay on the balls of your feet — never flat-footed",
+    ],
+    awareness: [
+      "Head up while cradling — know where your teammates are before you catch",
+      "Weak-side cutter: when someone drives, cut to the open space",
+      "Two outlets — the ball carrier always needs two passing options",
+      "Read the defense first: is your player in front or behind?",
+    ],
+    teamwork: [
+      "Move without the ball — don't watch, get open",
+      "Call for it — 'I'm open!' helps your teammate make a quick decision",
+      "Triangle offense: always two outlets when you have the ball",
+      "When we move together, the defense can't stop all of us",
     ],
   },
 };

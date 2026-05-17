@@ -664,7 +664,7 @@ export default function LandingContent() {
               },
               {
                 q: 'What sports do you support?',
-                a: 'Basketball, flag football, soccer, and volleyball are fully supported today. More sports are added regularly based on coach feedback.',
+                a: 'Basketball, soccer, volleyball, flag football, baseball, softball, and lacrosse are fully supported with sport-specific observation templates and practice drills. More sports are added regularly based on coach feedback.',
               },
               {
                 q: 'Can I cancel anytime?',

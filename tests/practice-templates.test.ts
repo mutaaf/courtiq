@@ -87,8 +87,19 @@ describe('getTemplatesForSport', () => {
   });
 
   it('returns generic templates for an unknown sport', () => {
-    const result = getTemplatesForSport('lacrosse');
+    const result = getTemplatesForSport('underwater-hockey');
     expect(result.every((t) => t.sport === '')).toBe(true);
+  });
+
+  it('returns lacrosse templates for lacrosse', () => {
+    const result = getTemplatesForSport('lacrosse');
+    expect(result.some((t) => t.sport === 'lacrosse')).toBe(true);
+  });
+
+  it('returns multiple lacrosse templates', () => {
+    const result = getTemplatesForSport('lacrosse');
+    const sportSpecific = result.filter((t) => t.sport === 'lacrosse');
+    expect(sportSpecific.length).toBeGreaterThanOrEqual(2);
   });
 
   it('is case-insensitive', () => {
