@@ -5,7 +5,7 @@
  * (e.g. warmup, scrimmage, AI-generated drills, custom drills).
  */
 
-export type SportSlug = 'basketball' | 'soccer' | 'flagfootball' | 'volleyball' | 'lacrosse' | 'swimming' | 'tennis';
+export type SportSlug = 'basketball' | 'soccer' | 'flagfootball' | 'volleyball' | 'lacrosse' | 'swimming' | 'tennis' | 'gymnastics';
 
 // Canonical category names (normalised to lowercase for matching)
 const CATEGORY_ALIASES: Record<string, string> = {
@@ -61,6 +61,28 @@ const CATEGORY_ALIASES: Record<string, string> = {
   'volleys': 'passing',
   'composure': 'attitude',
   'rally': 'passing',
+  // gymnastics
+  'tumbling': 'shooting',
+  'handstand': 'shooting',
+  'handstands': 'shooting',
+  'cartwheel': 'shooting',
+  'cartwheels': 'shooting',
+  'back walkover': 'shooting',
+  'back walkovers': 'shooting',
+  'roundoff': 'shooting',
+  'back handspring': 'shooting',
+  'beam': 'awareness',
+  'balance beam': 'awareness',
+  'bars': 'shooting',
+  'uneven bars': 'shooting',
+  'vault': 'shooting',
+  'landing': 'footwork',
+  'pointed toes': 'footwork',
+  'body shape': 'footwork',
+  'split': 'conditioning',
+  'splits': 'conditioning',
+  'flexibility': 'conditioning',
+  'stretching': 'conditioning',
 };
 
 // Phrases keyed by [sportSlug][normalisedCategory]
@@ -395,6 +417,48 @@ const SPORT_PHRASES: Record<string, Record<string, string[]>> = {
       "When we move together, the defense can't stop all of us",
     ],
   },
+  gymnastics: {
+    shooting: [
+      "Tight body, engaged core — every skill starts with a strong shape",
+      "Arms drive the skill — reach hard and pull tight on the way around",
+      "Spot your landing: find your point on the mat before your feet hit",
+      "Round-off should be your most powerful skill — punch the ground hard",
+      "Hollow body from start to finish — no banana back",
+    ],
+    awareness: [
+      "Spot a point on the wall — find it every time and your balance will hold",
+      "Feel the beam under your feet, don't look down — trust your body",
+      "Slow your breathing: calm body, calm balance",
+      "Your arms are your rudder — use them to stay centred",
+    ],
+    footwork: [
+      "Stick the landing — squeeze your feet and hips together on impact",
+      "Pointed toes tell the judges you mean it — lead with those feet",
+      "Step-kick-step into every tumbling pass — your approach matters",
+      "Land with soft knees — absorb the impact, don't crash it",
+    ],
+    conditioning: [
+      "Flexibility is strength — a little further every day adds up over a season",
+      "Hollow holds build every skill — commit to those 30 seconds",
+      "Your core is your foundation — if it's weak, everything wobbles",
+      "Stretch after, not through, the pain — consistent work beats forcing",
+    ],
+    hustle: [
+      "Give your best every pass — effort is the one thing always in your control",
+      "Perfect practice makes perfect — don't sleepwalk through a rep",
+      "One more rep when you think you're done — that's where champions are made",
+    ],
+    teamwork: [
+      "Cheer loud for your teammates — their nerves are just like yours",
+      "Help each other warm up — spotting is an act of trust",
+      "A great team environment means every athlete performs better",
+    ],
+    attitude: [
+      "Fear means you care — feel it, then do the skill anyway",
+      "Shake off the fall: reset, refocus, and try again — that's gymnastics",
+      "Focus on what you can control: your shape, your effort, your attitude",
+    ],
+  },
 };
 
 // Generic phrases available for any sport
@@ -571,7 +635,8 @@ export function getPhraseLabelForCategory(
     sportKey === 'flagfootball' ? 'Flag football' :
     sportKey === 'volleyball' ? 'Volleyball' :
     sportKey === 'swimming' ? 'Swimming' :
-    sportKey === 'tennis' ? 'Tennis' : null;
+    sportKey === 'tennis' ? 'Tennis' :
+    sportKey === 'gymnastics' ? 'Gymnastics' : null;
 
   if (inSport && sportName) {
     const label = cat.charAt(0).toUpperCase() + cat.slice(1);

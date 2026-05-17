@@ -1093,6 +1093,140 @@ const TENNIS_SKILLS_BUILDER: PracticeTemplate = {
   ],
 };
 
+// ─── Gymnastics Templates ────────────────────────────────────────────────────
+
+const GYMNASTICS_BEGINNERS: PracticeTemplate = {
+  id: 'gymnastics-beginners-30',
+  name: 'Gymnastics Fundamentals',
+  sport: 'gymnastics',
+  ageLabel: 'All ages',
+  totalMins: 30,
+  description: 'Warm-up, basic body shapes, cartwheel practice, and balance beam walking.',
+  tags: ['beginner', 'fundamentals', 'short'],
+  drills: [
+    {
+      name: 'Warm-Up & Stretch',
+      durationMins: 5,
+      cues: [
+        'Jog laps and shake out your arms — get your body warm',
+        'Star jumps and tuck jumps — wake up every muscle',
+        'Butterfly stretch: push your knees gently toward the floor',
+        'Reach for the sky, then touch your toes — feel the length in your spine',
+      ],
+      description: 'Light cardio around the floor, followed by seated stretching focusing on hips, hamstrings, and shoulders.',
+    },
+    {
+      name: 'Basic Body Shapes',
+      durationMins: 7,
+      cues: [
+        'Tuck: knees to chest, squeeze tight — small and round',
+        'Straddle: legs wide, toes pointed, back straight — not collapsed',
+        'Hollow: arms overhead, lower back pressed flat — no arch at all',
+        'Arch: belly down, chest up, legs straight and squeezed together',
+      ],
+      description: 'Gymnasts practise the four foundational shapes on the floor mat. Coach checks body tension and toe point.',
+    },
+    {
+      name: 'Cartwheel Practice',
+      durationMins: 10,
+      cues: [
+        'Start in a lunge: lead hand and lead foot same side (right-right or left-left)',
+        'Arms straight, reach through the sky like you\'re climbing a ladder',
+        'One hand, other hand, one foot, other foot — rhythm counts',
+        'Land in a lunge with arms up: stick every cartwheel like it\'s a skill in a routine',
+      ],
+      description: 'Individual cartwheel reps on a straight line on the floor mat. Coach spots newer gymnasts hand-over-hand.',
+    },
+    {
+      name: 'Balance Beam Walk',
+      durationMins: 6,
+      cues: [
+        'Eyes forward — pick a spot on the wall and stare at it',
+        'Arms out and slightly raised — they\'re your rudder for balance',
+        'Step heel-to-toe: feel the beam under each foot before shifting weight',
+        'Slow and controlled beats rushing — beam is a patience skill',
+      ],
+      description: 'Gymnasts walk the length of the low beam. Progress to relevé (tip-toe) walk and quarter-turn for stronger athletes.',
+    },
+    {
+      name: 'Cool-Down Circle',
+      durationMins: 2,
+      cues: [
+        'One thing you did well today — say it out loud',
+        'One thing to focus on next time',
+        'Celebrate every small win — gymnastics is a long journey',
+      ],
+      description: 'Athletes sit in a circle. Coach gives brief individual feedback and closes practice with an encouraging team moment.',
+    },
+  ],
+};
+
+const GYMNASTICS_SKILLS_BUILDER: PracticeTemplate = {
+  id: 'gymnastics-skills-45',
+  name: 'Gymnastics Skills Builder',
+  sport: 'gymnastics',
+  ageLabel: 'Ages 9–14',
+  totalMins: 45,
+  description: 'Tumbling progressions, apparatus rotations, and strength conditioning.',
+  tags: ['intermediate', 'balanced', 'medium'],
+  drills: [
+    {
+      name: 'Dynamic Warm-Up',
+      durationMins: 7,
+      cues: [
+        'High knees, butt kicks, and side shuffles — get your hips loose',
+        'Bear crawls across the mat — core on, back flat',
+        'Handstand kicks against the wall: 5 each, hold each kick for 2 seconds',
+        'Hollow-body rock: press your lower back into the mat the whole time',
+      ],
+      description: 'Movement prep circuit: jogging patterns, core activation, and handstand wall-kicks. No passive stretching yet.',
+    },
+    {
+      name: 'Tumbling Progressions',
+      durationMins: 12,
+      cues: [
+        'Round-off: snap your feet together at the top — land like one foot',
+        'Back walkover: open your chest early, push the floor away with your lead foot',
+        'Punch board (if available): arms drive up, jump off your heels — height first',
+        'Tight, tight, tight — no skill works without a tight body',
+      ],
+      description: 'Gymnasts cycle through progressions for their current level: forward roll → back walkover → round-off → round-off back-handspring. Coach spots individual athletes.',
+    },
+    {
+      name: 'Apparatus Rotations',
+      durationMins: 15,
+      cues: [
+        'Bars: long body on the hang — shoulders active, no shrug',
+        'Beam: chin up, look ahead — never look down at your feet',
+        'Floor (skills only): full extension at the top of every jump and leap',
+        'Reset between skills: breathe, stand tall, set your shape before you go',
+      ],
+      description: 'Three stations (bars / beam / floor tumbling) with 5 minutes each. Athletes rotate on the coach\'s signal. Coach circulates to spot.',
+    },
+    {
+      name: 'Strength & Flexibility',
+      durationMins: 8,
+      cues: [
+        'Hollow holds: 30 seconds, lower back glued to the mat — no breaks',
+        'Pike stretch: reach past your toes, not just to them — breathe into the stretch',
+        'V-ups: slow down on the way up — control beats momentum',
+        'Split holds: relax your hips into the floor — every practice a little further',
+      ],
+      description: 'Conditioning circuit: hollow holds, V-ups, and shoulder flexibility. Ends with a 2-minute seated split stretch to cool the muscles.',
+    },
+    {
+      name: 'Team Debrief',
+      durationMins: 3,
+      cues: [
+        'What\'s the one technical fix you\'re taking home from today?',
+        'Name a teammate who helped you or cheered you on',
+        'Preview next session: "Next time we\'re working on..."',
+      ],
+      description: 'Athletes share one takeaway each. Coach highlights two or three specific improvements observed during practice. Closes on a positive note.',
+    },
+  ],
+};
+
 // ─── Template Registry ───────────────────────────────────────────────────────
 
 export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
@@ -1113,6 +1247,8 @@ export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
   SWIMMING_SKILLS_BUILDER,
   TENNIS_FUNDAMENTALS,
   TENNIS_SKILLS_BUILDER,
+  GYMNASTICS_BEGINNERS,
+  GYMNASTICS_SKILLS_BUILDER,
 ];
 
 // ─── Utility Functions ───────────────────────────────────────────────────────
