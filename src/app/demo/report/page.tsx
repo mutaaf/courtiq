@@ -280,6 +280,15 @@ export default function DemoReportPage() {
               <p className="text-sm text-gray-500">
                 {PLAYER.position} &middot; #{PLAYER.jersey} &middot; {TEAM.season}
               </p>
+              <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs text-gray-400">Coach {TEAM.coach.split(' ')[0]}</span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200">
+                  <svg className="h-3 w-3 shrink-0" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <path d="M6 1L7.5 4.5L11 5L8.5 7.5L9 11L6 9.5L3 11L3.5 7.5L1 5L4.5 4.5L6 1Z" fill="currentColor" />
+                  </svg>
+                  SportsIQ Certified
+                </span>
+              </div>
             </div>
           </div>
 
