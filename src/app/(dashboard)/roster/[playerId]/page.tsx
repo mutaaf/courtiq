@@ -54,6 +54,7 @@ import { PlayerGoalsPanel } from '@/components/player/player-goals-panel';
 import { PlayerNotesPanel } from '@/components/player/player-notes-panel';
 import { countHighlighted } from '@/lib/observation-highlights';
 import { findTemplateById, getTemplatesBySentiment } from '@/lib/observation-templates';
+import { getSportEmoji } from '@/lib/sport-utils';
 import { useAppStore } from '@/lib/store';
 import type { Player, Observation, PlayerSkillProficiency, Plan, Sentiment, ParentShare } from '@/types/database';
 import type { PlayerAttendanceStat } from '@/app/api/attendance-stats/route';
@@ -901,7 +902,7 @@ export default function PlayerDetailPage({
     if (!challengeData) return;
     const challenges = Array.isArray(challengeData.challenges) ? challengeData.challenges : [];
     const lines = [
-      `🏀 ${challengeData.week_label ?? 'Weekly'} Skill Challenges for ${player?.name ?? 'your player'}`,
+      `${getSportEmoji(sportSlug)} ${challengeData.week_label ?? 'Weekly'} Skill Challenges for ${player?.name ?? 'your player'}`,
       '',
       ...challenges.flatMap((c: any, i: number) => [
         `Challenge ${i + 1}: ${c.title} (${c.skill_area})`,

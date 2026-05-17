@@ -10,6 +10,7 @@ import { query, mutate } from '@/lib/api';
 import { useElapsedTime } from '@/hooks/use-elapsed-time';
 import { shouldShowWrapUpNudge } from '@/lib/elapsed-time-utils';
 import { formatSkillLabel } from '@/lib/skill-trend-utils';
+import { getSportEmoji } from '@/lib/sport-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -1108,7 +1109,7 @@ export default function HomePage() {
                       ? formatSkillLabel(sessionObsStats.topCategory)
                       : null;
 
-                    let msg = `🏀 Quick practice update from ${teamName}!\n\n`;
+                    let msg = `${getSportEmoji(sportSlug)} Quick practice update from ${teamName}!\n\n`;
                     if (positiveNames.length >= 2) {
                       msg += `${positiveNames[0]} & ${positiveNames[1]} are looking great out there`;
                     } else if (positiveNames.length === 1) {
