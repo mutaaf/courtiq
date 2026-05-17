@@ -3,9 +3,9 @@
  * log during practice or games without speaking or typing. Each template has a
  * fixed sentiment and skill category so no AI segmentation is required.
  *
- * Sport-specific sets are provided for basketball (default), soccer, and
- * flag football. Coaches see templates relevant to their sport, improving
- * category accuracy and making one-tap capture feel tailored.
+ * Sport-specific sets are provided for basketball (default), soccer, volleyball,
+ * flag football, baseball, and softball. Coaches see templates relevant to their
+ * sport, improving category accuracy and making one-tap capture feel tailored.
  */
 
 export type TemplateSentiment = 'positive' | 'needs-work';
@@ -127,12 +127,41 @@ const FLAG_FOOTBALL_TEMPLATES: ObservationTemplate[] = [
   { id: 'ff-nw-condition',  text: 'Conditioning concerns',      sentiment: 'needs-work', category: 'conditioning', emoji: '💪' },
 ];
 
+// ── Baseball / Softball ───────────────────────────────────────────────────────
+
+const BASEBALL_SOFTBALL_TEMPLATES: ObservationTemplate[] = [
+  // Positive
+  { id: 'bb-pos-hitting',     text: 'Strong at-bat',              sentiment: 'positive',   category: 'shooting',    emoji: '🎯' },
+  { id: 'bb-pos-throw',       text: 'Accurate throw to base',     sentiment: 'positive',   category: 'passing',     emoji: '🤝' },
+  { id: 'bb-pos-fielding',    text: 'Great glove work',           sentiment: 'positive',   category: 'defense',     emoji: '🛡️' },
+  { id: 'bb-pos-baserunning', text: 'Smart baserunning',          sentiment: 'positive',   category: 'footwork',    emoji: '👟' },
+  { id: 'bb-pos-hustle',      text: 'Outstanding hustle',         sentiment: 'positive',   category: 'hustle',      emoji: '🔥' },
+  { id: 'bb-pos-position',    text: 'Excellent field position',   sentiment: 'positive',   category: 'awareness',   emoji: '👁️' },
+  { id: 'bb-pos-pitching',    text: 'Strong pitching effort',     sentiment: 'positive',   category: 'shooting',    emoji: '⚡' },
+  { id: 'bb-pos-teamwork',    text: 'Great team support',         sentiment: 'positive',   category: 'teamwork',    emoji: '📣' },
+  { id: 'bb-pos-attitude',    text: 'Coachable attitude',         sentiment: 'positive',   category: 'attitude',    emoji: '⭐' },
+  { id: 'bb-pos-leader',      text: 'Showed leadership',          sentiment: 'positive',   category: 'leadership',  emoji: '🏆' },
+  // Needs work
+  { id: 'bb-nw-hitting',      text: 'Batting mechanics',          sentiment: 'needs-work', category: 'shooting',    emoji: '🎯' },
+  { id: 'bb-nw-throw',        text: 'Throwing accuracy',          sentiment: 'needs-work', category: 'passing',     emoji: '🤝' },
+  { id: 'bb-nw-fielding',     text: 'Fielding needs work',        sentiment: 'needs-work', category: 'defense',     emoji: '🛡️' },
+  { id: 'bb-nw-baserunning',  text: 'Baserunning decisions',      sentiment: 'needs-work', category: 'footwork',    emoji: '👟' },
+  { id: 'bb-nw-hustle',       text: 'Needs more effort',          sentiment: 'needs-work', category: 'hustle',      emoji: '🔥' },
+  { id: 'bb-nw-position',     text: 'Field positioning',          sentiment: 'needs-work', category: 'awareness',   emoji: '👁️' },
+  { id: 'bb-nw-pitching',     text: 'Pitching mechanics',         sentiment: 'needs-work', category: 'shooting',    emoji: '⚡' },
+  { id: 'bb-nw-teamwork',     text: 'Communication breakdown',    sentiment: 'needs-work', category: 'teamwork',    emoji: '📣' },
+  { id: 'bb-nw-attitude',     text: 'Coachability concerns',      sentiment: 'needs-work', category: 'attitude',    emoji: '⭐' },
+  { id: 'bb-nw-condition',    text: 'Conditioning concerns',      sentiment: 'needs-work', category: 'conditioning', emoji: '💪' },
+];
+
 // ── Sport lookup map ──────────────────────────────────────────────────────────
 
 const SPORT_TEMPLATES: Record<string, ObservationTemplate[]> = {
   soccer: SOCCER_TEMPLATES,
   flag_football: FLAG_FOOTBALL_TEMPLATES,
   volleyball: VOLLEYBALL_TEMPLATES,
+  baseball: BASEBALL_SOFTBALL_TEMPLATES,
+  softball: BASEBALL_SOFTBALL_TEMPLATES,
   // basketball maps to the default OBSERVATION_TEMPLATES (handled in the function)
 };
 
@@ -142,6 +171,7 @@ export const ALL_OBSERVATION_TEMPLATES: ObservationTemplate[] = [
   ...SOCCER_TEMPLATES,
   ...VOLLEYBALL_TEMPLATES,
   ...FLAG_FOOTBALL_TEMPLATES,
+  ...BASEBALL_SOFTBALL_TEMPLATES,
 ];
 
 // ── Public helpers ────────────────────────────────────────────────────────────

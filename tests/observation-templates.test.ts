@@ -253,6 +253,90 @@ describe('getTemplatesBySentiment — flag_football', () => {
   });
 });
 
+// ─── getTemplatesBySentiment — baseball ───────────────────────────────────────
+
+describe('getTemplatesBySentiment — baseball', () => {
+  it('returns 10 positive baseball templates', () => {
+    const results = getTemplatesBySentiment('positive', 'baseball');
+    expect(results.length).toBe(10);
+    for (const t of results) expect(t.sentiment).toBe('positive');
+  });
+
+  it('returns 10 needs-work baseball templates', () => {
+    const results = getTemplatesBySentiment('needs-work', 'baseball');
+    expect(results.length).toBe(10);
+    for (const t of results) expect(t.sentiment).toBe('needs-work');
+  });
+
+  it('baseball templates differ from generic templates', () => {
+    const bb = getTemplatesBySentiment('positive', 'baseball');
+    const generic = getTemplatesBySentiment('positive');
+    expect(bb).not.toEqual(generic);
+  });
+
+  it('baseball templates have IDs starting with "bb-"', () => {
+    const all = [
+      ...getTemplatesBySentiment('positive', 'baseball'),
+      ...getTemplatesBySentiment('needs-work', 'baseball'),
+    ];
+    for (const t of all) {
+      expect(t.id.startsWith('bb-')).toBe(true);
+    }
+  });
+
+  it('baseball templates cover at least 5 distinct categories per sentiment', () => {
+    const pos = getTemplatesBySentiment('positive', 'baseball');
+    const nw = getTemplatesBySentiment('needs-work', 'baseball');
+    expect(new Set(pos.map((t) => t.category)).size).toBeGreaterThanOrEqual(5);
+    expect(new Set(nw.map((t) => t.category)).size).toBeGreaterThanOrEqual(5);
+  });
+});
+
+// ─── getTemplatesBySentiment — softball ───────────────────────────────────────
+
+describe('getTemplatesBySentiment — softball', () => {
+  it('returns 10 positive softball templates', () => {
+    const results = getTemplatesBySentiment('positive', 'softball');
+    expect(results.length).toBe(10);
+    for (const t of results) expect(t.sentiment).toBe('positive');
+  });
+
+  it('returns 10 needs-work softball templates', () => {
+    const results = getTemplatesBySentiment('needs-work', 'softball');
+    expect(results.length).toBe(10);
+    for (const t of results) expect(t.sentiment).toBe('needs-work');
+  });
+
+  it('softball templates differ from generic templates', () => {
+    const sb = getTemplatesBySentiment('positive', 'softball');
+    const generic = getTemplatesBySentiment('positive');
+    expect(sb).not.toEqual(generic);
+  });
+
+  it('softball templates have IDs starting with "bb-"', () => {
+    const all = [
+      ...getTemplatesBySentiment('positive', 'softball'),
+      ...getTemplatesBySentiment('needs-work', 'softball'),
+    ];
+    for (const t of all) {
+      expect(t.id.startsWith('bb-')).toBe(true);
+    }
+  });
+
+  it('softball and baseball templates are identical (shared template set)', () => {
+    const sb = getTemplatesBySentiment('positive', 'softball');
+    const bb = getTemplatesBySentiment('positive', 'baseball');
+    expect(sb).toEqual(bb);
+  });
+
+  it('softball templates cover at least 5 distinct categories per sentiment', () => {
+    const pos = getTemplatesBySentiment('positive', 'softball');
+    const nw = getTemplatesBySentiment('needs-work', 'softball');
+    expect(new Set(pos.map((t) => t.category)).size).toBeGreaterThanOrEqual(5);
+    expect(new Set(nw.map((t) => t.category)).size).toBeGreaterThanOrEqual(5);
+  });
+});
+
 // ─── findTemplateById ──────────────────────────────────────────────────────────
 
 describe('findTemplateById', () => {
@@ -289,6 +373,20 @@ describe('findTemplateById', () => {
     expect(t).toBeDefined();
     expect(t!.sentiment).toBe('positive');
     expect(t!.id).toBe('vb-pos-serve');
+  });
+
+  it('finds baseball template by id', () => {
+    const t = findTemplateById('bb-pos-hitting');
+    expect(t).toBeDefined();
+    expect(t!.sentiment).toBe('positive');
+    expect(t!.id).toBe('bb-pos-hitting');
+  });
+
+  it('finds softball template by id (shared set)', () => {
+    const t = findTemplateById('bb-pos-fielding');
+    expect(t).toBeDefined();
+    expect(t!.sentiment).toBe('positive');
+    expect(t!.category).toBe('defense');
   });
 
   it('returns undefined for an unknown id', () => {
