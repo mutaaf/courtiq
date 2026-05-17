@@ -5,7 +5,7 @@
  * (e.g. warmup, scrimmage, AI-generated drills, custom drills).
  */
 
-export type SportSlug = 'basketball' | 'soccer' | 'flagfootball' | 'volleyball' | 'lacrosse';
+export type SportSlug = 'basketball' | 'soccer' | 'flagfootball' | 'volleyball' | 'lacrosse' | 'swimming' | 'tennis';
 
 // Canonical category names (normalised to lowercase for matching)
 const CATEGORY_ALIASES: Record<string, string> = {
@@ -41,6 +41,26 @@ const CATEGORY_ALIASES: Record<string, string> = {
   'ground ball': 'hustle',
   'groundball': 'hustle',
   'dodging': 'footwork',
+  // swimming
+  'stroke': 'shooting',
+  'flip turn': 'footwork',
+  'flip turns': 'footwork',
+  'kick': 'footwork',
+  'pulls': 'shooting',
+  'arm pull': 'shooting',
+  'streamline': 'awareness',
+  'breathing': 'conditioning',
+  'starts': 'hustle',
+  'turns': 'footwork',
+  // tennis
+  'serve': 'shooting',
+  'serves': 'shooting',
+  'forehand': 'shooting',
+  'backhand': 'shooting',
+  'volley': 'passing',
+  'volleys': 'passing',
+  'composure': 'attitude',
+  'rally': 'passing',
 };
 
 // Phrases keyed by [sportSlug][normalisedCategory]
@@ -252,6 +272,79 @@ const SPORT_PHRASES: Record<string, Record<string, string[]>> = {
     ],
   },
 
+  swimming: {
+    shooting: [
+      "Reach long, pull deep — every stroke is full extension",
+      "High elbow on the catch — it's your biggest power move",
+      "Rotate your hips — swimming is a full-body motion",
+      "Smooth is fast — relax into the water, don't fight it",
+    ],
+    footwork: [
+      "Tight flip turn — the wall is your accelerator",
+      "Flutter kick from the hip, not the knee — small and fast",
+      "Point your toes on every kick — maximise your propulsion",
+      "Push off long and stay streamlined — that's free speed",
+    ],
+    conditioning: [
+      "Control your breath count — find your rhythm and stick to it",
+      "Trust your training — when it hurts, that's where you get stronger",
+      "Arms follow your breath — find your cycle and own it",
+    ],
+    awareness: [
+      "Head down — every time you lift to look, you slow down",
+      "Feel the water, don't fight it — work with the resistance",
+      "Count your strokes to the wall — know your own body",
+    ],
+    hustle: [
+      "Fast tempo in practice means fast tempo in races",
+      "Every lap is a chance to improve — make it count",
+      "Tired in practice means ready for the race",
+    ],
+    teamwork: [
+      "Relay splits win meets — cheer your teammates into the wall",
+      "Read your relay anchor — get your timing right on the exchange",
+      "Your lane is yours — own it and bring it home for the team",
+    ],
+  },
+  tennis: {
+    shooting: [
+      "Toss the ball in front — trophy position, then explode up",
+      "Racket head low before contact — load that energy",
+      "Follow through across your body — that's power AND accuracy",
+      "Watch the ball onto the strings — don't look where you want it to go",
+    ],
+    footwork: [
+      "Split step every time your opponent contacts the ball",
+      "Small recovery steps to ready position after every shot",
+      "Load your outside foot before you hit — transfer that power",
+      "Shuffle sideways and stay balanced — big crossover steps only when you must",
+    ],
+    awareness: [
+      "See the whole court — where is your opponent, where are the gaps?",
+      "Big picture after the serve — watch where they go, not where the ball goes",
+      "Anticipate the return — start moving before they hit",
+    ],
+    hustle: [
+      "Chase every ball — you'll be surprised how many you get back",
+      "Effort pays off — every ball retrieved changes momentum",
+      "Play every point like it's match point",
+    ],
+    passing: [
+      "Stay low at the net — volley with a firm wrist, not a swing",
+      "Move your feet to the ball at net — don't just reach",
+      "Poach when you see the opportunity — surprise movement wins doubles",
+    ],
+    teamwork: [
+      "Communicate every serve in doubles — who takes the middle?",
+      "Call the poach early — surprise movement is your weapon",
+      "Celebrate every point together — momentum is contagious",
+    ],
+    attitude: [
+      "One point at a time — forget the last one, focus on this one",
+      "Big moments are opportunities, not threats — embrace the pressure",
+      "Breathe between points — reset your body, reset your mind",
+    ],
+  },
   lacrosse: {
     dribbling: [
       "Top hand does the work, bottom hand guides — feel the rhythm",
@@ -476,7 +569,9 @@ export function getPhraseLabelForCategory(
     sportKey === 'basketball' ? 'Basketball' :
     sportKey === 'soccer' ? 'Soccer' :
     sportKey === 'flagfootball' ? 'Flag football' :
-    sportKey === 'volleyball' ? 'Volleyball' : null;
+    sportKey === 'volleyball' ? 'Volleyball' :
+    sportKey === 'swimming' ? 'Swimming' :
+    sportKey === 'tennis' ? 'Tennis' : null;
 
   if (inSport && sportName) {
     const label = cat.charAt(0).toUpperCase() + cat.slice(1);

@@ -16,6 +16,8 @@ const SPORTS = [
   { slug: 'baseball', name: 'Baseball', icon: '⚾' },
   { slug: 'softball', name: 'Softball', icon: '🥎' },
   { slug: 'lacrosse', name: 'Lacrosse', icon: '🥍' },
+  { slug: 'swimming', name: 'Swimming', icon: '🏊' },
+  { slug: 'tennis', name: 'Tennis', icon: '🎾' },
 ];
 
 const AGE_GROUPS = [

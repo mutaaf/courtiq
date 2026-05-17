@@ -4,8 +4,9 @@
  * fixed sentiment and skill category so no AI segmentation is required.
  *
  * Sport-specific sets are provided for basketball (default), soccer, volleyball,
- * flag football, baseball, softball, and lacrosse. Coaches see templates relevant
- * to their sport, improving category accuracy and making one-tap capture feel tailored.
+ * flag football, baseball, softball, lacrosse, swimming, and tennis. Coaches see
+ * templates relevant to their sport, improving category accuracy and making
+ * one-tap capture feel tailored.
  */
 
 export type TemplateSentiment = 'positive' | 'needs-work';
@@ -181,6 +182,60 @@ const LACROSSE_TEMPLATES: ObservationTemplate[] = [
   { id: 'la-nw-condition',   text: 'Conditioning concerns',       sentiment: 'needs-work', category: 'conditioning', emoji: '💪' },
 ];
 
+// ── Swimming ──────────────────────────────────────────────────────────────────
+
+const SWIMMING_TEMPLATES: ObservationTemplate[] = [
+  // Positive
+  { id: 'sw-pos-stroke',      text: 'Strong stroke technique',    sentiment: 'positive',   category: 'shooting',    emoji: '🏊' },
+  { id: 'sw-pos-turn',        text: 'Clean flip turn',             sentiment: 'positive',   category: 'footwork',    emoji: '🔄' },
+  { id: 'sw-pos-start',       text: 'Great race start',            sentiment: 'positive',   category: 'hustle',      emoji: '⚡' },
+  { id: 'sw-pos-breathing',   text: 'Excellent breathing rhythm',  sentiment: 'positive',   category: 'conditioning', emoji: '💪' },
+  { id: 'sw-pos-kick',        text: 'Powerful leg kick',           sentiment: 'positive',   category: 'footwork',    emoji: '👟' },
+  { id: 'sw-pos-pull',        text: 'Strong arm pull',             sentiment: 'positive',   category: 'shooting',    emoji: '🎯' },
+  { id: 'sw-pos-streamline',  text: 'Perfect streamline',          sentiment: 'positive',   category: 'awareness',   emoji: '👁️' },
+  { id: 'sw-pos-hustle',      text: 'Outstanding effort',          sentiment: 'positive',   category: 'hustle',      emoji: '🔥' },
+  { id: 'sw-pos-teamwork',    text: 'Great relay teamwork',        sentiment: 'positive',   category: 'teamwork',    emoji: '📣' },
+  { id: 'sw-pos-leader',      text: 'Showed leadership',           sentiment: 'positive',   category: 'leadership',  emoji: '🏆' },
+  // Needs work
+  { id: 'sw-nw-stroke',       text: 'Stroke mechanics',            sentiment: 'needs-work', category: 'shooting',    emoji: '🏊' },
+  { id: 'sw-nw-turn',         text: 'Flip turn timing',            sentiment: 'needs-work', category: 'footwork',    emoji: '🔄' },
+  { id: 'sw-nw-start',        text: 'Dive entry needs work',       sentiment: 'needs-work', category: 'hustle',      emoji: '⚡' },
+  { id: 'sw-nw-breathing',    text: 'Breathing pattern',           sentiment: 'needs-work', category: 'conditioning', emoji: '💪' },
+  { id: 'sw-nw-kick',         text: 'Kick technique',              sentiment: 'needs-work', category: 'footwork',    emoji: '👟' },
+  { id: 'sw-nw-pull',         text: 'Arm pull efficiency',         sentiment: 'needs-work', category: 'shooting',    emoji: '🎯' },
+  { id: 'sw-nw-streamline',   text: 'Streamline position',         sentiment: 'needs-work', category: 'awareness',   emoji: '👁️' },
+  { id: 'sw-nw-hustle',       text: 'Needs more effort',           sentiment: 'needs-work', category: 'hustle',      emoji: '🔥' },
+  { id: 'sw-nw-teamwork',     text: 'Communication breakdown',     sentiment: 'needs-work', category: 'teamwork',    emoji: '📣' },
+  { id: 'sw-nw-condition',    text: 'Conditioning concerns',       sentiment: 'needs-work', category: 'conditioning', emoji: '💪' },
+];
+
+// ── Tennis ────────────────────────────────────────────────────────────────────
+
+const TENNIS_TEMPLATES: ObservationTemplate[] = [
+  // Positive
+  { id: 'tn-pos-serve',       text: 'Great serve placement',       sentiment: 'positive',   category: 'shooting',    emoji: '🎾' },
+  { id: 'tn-pos-forehand',    text: 'Strong forehand',             sentiment: 'positive',   category: 'shooting',    emoji: '🎯' },
+  { id: 'tn-pos-backhand',    text: 'Solid backhand',              sentiment: 'positive',   category: 'shooting',    emoji: '⚡' },
+  { id: 'tn-pos-volley',      text: 'Clean volley at net',         sentiment: 'positive',   category: 'passing',     emoji: '🤝' },
+  { id: 'tn-pos-footwork',    text: 'Excellent footwork',          sentiment: 'positive',   category: 'footwork',    emoji: '👟' },
+  { id: 'tn-pos-position',    text: 'Smart court positioning',     sentiment: 'positive',   category: 'awareness',   emoji: '👁️' },
+  { id: 'tn-pos-hustle',      text: 'Outstanding hustle',          sentiment: 'positive',   category: 'hustle',      emoji: '🔥' },
+  { id: 'tn-pos-composure',   text: 'Great mental composure',      sentiment: 'positive',   category: 'attitude',    emoji: '⭐' },
+  { id: 'tn-pos-teamwork',    text: 'Great doubles teamwork',      sentiment: 'positive',   category: 'teamwork',    emoji: '📣' },
+  { id: 'tn-pos-leader',      text: 'Showed leadership',           sentiment: 'positive',   category: 'leadership',  emoji: '🏆' },
+  // Needs work
+  { id: 'tn-nw-serve',        text: 'Serve consistency',           sentiment: 'needs-work', category: 'shooting',    emoji: '🎾' },
+  { id: 'tn-nw-forehand',     text: 'Forehand mechanics',          sentiment: 'needs-work', category: 'shooting',    emoji: '🎯' },
+  { id: 'tn-nw-backhand',     text: 'Backhand needs work',         sentiment: 'needs-work', category: 'shooting',    emoji: '⚡' },
+  { id: 'tn-nw-volley',       text: 'Volley technique',            sentiment: 'needs-work', category: 'passing',     emoji: '🤝' },
+  { id: 'tn-nw-footwork',     text: 'Footwork needs attention',    sentiment: 'needs-work', category: 'footwork',    emoji: '👟' },
+  { id: 'tn-nw-position',     text: 'Court positioning',           sentiment: 'needs-work', category: 'awareness',   emoji: '👁️' },
+  { id: 'tn-nw-hustle',       text: 'Needs more effort',           sentiment: 'needs-work', category: 'hustle',      emoji: '🔥' },
+  { id: 'tn-nw-composure',    text: 'Mental composure',            sentiment: 'needs-work', category: 'attitude',    emoji: '⭐' },
+  { id: 'tn-nw-consistency',  text: 'Shot consistency',            sentiment: 'needs-work', category: 'shooting',    emoji: '🎾' },
+  { id: 'tn-nw-condition',    text: 'Conditioning concerns',       sentiment: 'needs-work', category: 'conditioning', emoji: '💪' },
+];
+
 // ── Sport lookup map ──────────────────────────────────────────────────────────
 
 const SPORT_TEMPLATES: Record<string, ObservationTemplate[]> = {
@@ -190,6 +245,8 @@ const SPORT_TEMPLATES: Record<string, ObservationTemplate[]> = {
   baseball: BASEBALL_SOFTBALL_TEMPLATES,
   softball: BASEBALL_SOFTBALL_TEMPLATES,
   lacrosse: LACROSSE_TEMPLATES,
+  swimming: SWIMMING_TEMPLATES,
+  tennis: TENNIS_TEMPLATES,
   // basketball maps to the default OBSERVATION_TEMPLATES (handled in the function)
 };
 
@@ -201,6 +258,8 @@ export const ALL_OBSERVATION_TEMPLATES: ObservationTemplate[] = [
   ...FLAG_FOOTBALL_TEMPLATES,
   ...BASEBALL_SOFTBALL_TEMPLATES,
   ...LACROSSE_TEMPLATES,
+  ...SWIMMING_TEMPLATES,
+  ...TENNIS_TEMPLATES,
 ];
 
 // ── Public helpers ────────────────────────────────────────────────────────────
