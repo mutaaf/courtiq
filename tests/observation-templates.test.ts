@@ -443,3 +443,91 @@ describe('key templates content', () => {
     }
   });
 });
+
+// ─── getTemplatesBySentiment — lacrosse ───────────────────────────────────────
+
+describe('getTemplatesBySentiment — lacrosse', () => {
+  it('returns 10 positive lacrosse templates', () => {
+    const results = getTemplatesBySentiment('positive', 'lacrosse');
+    expect(results.length).toBe(10);
+    for (const t of results) expect(t.sentiment).toBe('positive');
+  });
+
+  it('returns 10 needs-work lacrosse templates', () => {
+    const results = getTemplatesBySentiment('needs-work', 'lacrosse');
+    expect(results.length).toBe(10);
+    for (const t of results) expect(t.sentiment).toBe('needs-work');
+  });
+
+  it('lacrosse templates differ from generic templates', () => {
+    const lacrosse = getTemplatesBySentiment('positive', 'lacrosse');
+    const generic = getTemplatesBySentiment('positive');
+    expect(lacrosse).not.toEqual(generic);
+  });
+
+  it('lacrosse templates have IDs starting with "la-"', () => {
+    const all = [
+      ...getTemplatesBySentiment('positive', 'lacrosse'),
+      ...getTemplatesBySentiment('needs-work', 'lacrosse'),
+    ];
+    for (const t of all) {
+      expect(t.id.startsWith('la-')).toBe(true);
+    }
+  });
+
+  it('lacrosse templates cover at least 5 distinct categories per sentiment', () => {
+    const pos = getTemplatesBySentiment('positive', 'lacrosse');
+    const nw = getTemplatesBySentiment('needs-work', 'lacrosse');
+    expect(new Set(pos.map((t) => t.category)).size).toBeGreaterThanOrEqual(5);
+    expect(new Set(nw.map((t) => t.category)).size).toBeGreaterThanOrEqual(5);
+  });
+
+  it('lacrosse templates differ from soccer and volleyball templates', () => {
+    const lacrosse = getTemplatesBySentiment('positive', 'lacrosse');
+    const soccer = getTemplatesBySentiment('positive', 'soccer');
+    const vb = getTemplatesBySentiment('positive', 'volleyball');
+    expect(lacrosse).not.toEqual(soccer);
+    expect(lacrosse).not.toEqual(vb);
+  });
+
+  it('lacrosse templates include a ground ball / hustle template', () => {
+    const nw = getTemplatesBySentiment('needs-work', 'lacrosse');
+    const groundBall = nw.find((t) => t.category === 'hustle');
+    expect(groundBall).toBeDefined();
+  });
+
+  it('lacrosse templates include a cradling / dribbling template', () => {
+    const pos = getTemplatesBySentiment('positive', 'lacrosse');
+    const cradle = pos.find((t) => t.category === 'dribbling');
+    expect(cradle).toBeDefined();
+  });
+
+  it('findTemplateById can locate lacrosse templates by id', () => {
+    const t = findTemplateById('la-pos-cradle');
+    expect(t).toBeDefined();
+    expect(t!.sentiment).toBe('positive');
+    expect(t!.category).toBe('dribbling');
+
+    const nwShot = findTemplateById('la-nw-shot');
+    expect(nwShot).toBeDefined();
+    expect(nwShot!.sentiment).toBe('needs-work');
+    expect(nwShot!.category).toBe('shooting');
+  });
+
+  it('ALL_OBSERVATION_TEMPLATES includes all lacrosse templates', () => {
+    const lacrosse = getTemplatesBySentiment('positive', 'lacrosse');
+    for (const t of lacrosse) {
+      expect(ALL_OBSERVATION_TEMPLATES).toContainEqual(t);
+    }
+  });
+
+  it('lacrosse template texts are concise (max 40 chars)', () => {
+    const all = [
+      ...getTemplatesBySentiment('positive', 'lacrosse'),
+      ...getTemplatesBySentiment('needs-work', 'lacrosse'),
+    ];
+    for (const t of all) {
+      expect(t.text.length, `Lacrosse template "${t.id}" text too long: "${t.text}"`).toBeLessThanOrEqual(40);
+    }
+  });
+});
