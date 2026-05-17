@@ -134,6 +134,27 @@ describe('getTemplatesForSport', () => {
     const sportSpecific = result.filter((t) => t.sport === 'volleyball');
     expect(sportSpecific.length).toBeGreaterThanOrEqual(2);
   });
+
+  it('returns baseball templates for baseball', () => {
+    const result = getTemplatesForSport('baseball');
+    expect(result.some((t) => t.sport === 'baseball')).toBe(true);
+  });
+
+  it('returns multiple baseball templates', () => {
+    const result = getTemplatesForSport('baseball');
+    const sportSpecific = result.filter((t) => t.sport === 'baseball');
+    expect(sportSpecific.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('returns baseball templates for softball (shared drills)', () => {
+    const result = getTemplatesForSport('softball');
+    expect(result.some((t) => t.sport === 'baseball')).toBe(true);
+  });
+
+  it('softball templates include the generic first-practice template', () => {
+    const result = getTemplatesForSport('softball');
+    expect(result.some((t) => t.sport === '')).toBe(true);
+  });
 });
 
 describe('getTemplateById', () => {
@@ -186,6 +207,18 @@ describe('getTemplateById', () => {
     const result = getTemplateById('ffb-u16-60');
     expect(result).toBeDefined();
     expect(result?.sport).toBe('flagfootball');
+  });
+
+  it('finds baseball-fundamentals template', () => {
+    const result = getTemplateById('baseball-fundamentals-30');
+    expect(result).toBeDefined();
+    expect(result?.sport).toBe('baseball');
+  });
+
+  it('finds baseball-skills template', () => {
+    const result = getTemplateById('baseball-skills-45');
+    expect(result).toBeDefined();
+    expect(result?.sport).toBe('baseball');
   });
 });
 

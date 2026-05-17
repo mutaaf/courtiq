@@ -5,7 +5,7 @@
  * (e.g. warmup, scrimmage, AI-generated drills, custom drills).
  */
 
-export type SportSlug = 'basketball' | 'soccer' | 'flagfootball' | 'volleyball' | 'lacrosse' | 'swimming' | 'tennis' | 'gymnastics';
+export type SportSlug = 'basketball' | 'soccer' | 'flagfootball' | 'volleyball' | 'lacrosse' | 'swimming' | 'tennis' | 'gymnastics' | 'baseball' | 'softball';
 
 // Canonical category names (normalised to lowercase for matching)
 const CATEGORY_ALIASES: Record<string, string> = {
@@ -61,6 +61,18 @@ const CATEGORY_ALIASES: Record<string, string> = {
   'volleys': 'passing',
   'composure': 'attitude',
   'rally': 'passing',
+  // baseball / softball
+  'batting': 'shooting',
+  'hitting': 'shooting',
+  'at-bat': 'shooting',
+  'at bat': 'shooting',
+  'pitching': 'shooting',
+  'throwing': 'passing',
+  'fielding': 'defense',
+  'glove work': 'defense',
+  'baserunning': 'footwork',
+  'base running': 'footwork',
+  'base path': 'footwork',
   // gymnastics
   'tumbling': 'shooting',
   'handstand': 'shooting',
@@ -83,6 +95,66 @@ const CATEGORY_ALIASES: Record<string, string> = {
   'splits': 'conditioning',
   'flexibility': 'conditioning',
   'stretching': 'conditioning',
+};
+
+// Baseball and softball share the same phrases (nearly identical skill sets)
+const BASEBALL_PHRASES: Record<string, string[]> = {
+  shooting: [
+    "Level swing — keep your bat path flat through the hitting zone",
+    "See the ball all the way in — eyes locked from the pitcher's hand to the bat",
+    "Hips lead the swing — rotate your hips first, your arms follow",
+    "Strong base — weight on your back foot until you stride forward",
+    "Pitchers: push off the rubber and drive through your front hip for power",
+  ],
+  passing: [
+    "Four-seam grip — find the seams before every throw",
+    "Step toward your target — your feet aim the throw as much as your arm",
+    "Crow hop before you throw — build momentum, don't just arm it",
+    "Follow through all the way down — finish with your throwing arm near your hip",
+  ],
+  defense: [
+    "Glove down on grounders — easier to come up than go down",
+    "Two hands on every catch — secure it before you think about the throw",
+    "Ready position on every pitch: weight forward, on your toes",
+    "Charge slow rollers — go get it, don't let the ball play you",
+    "Track the fly ball with a curved approach — don't run straight back",
+  ],
+  footwork: [
+    "Hit through first base — don't slow down, run through the bag",
+    "Touch the inside corner of the bag when rounding — every step counts",
+    "Read your third-base coach on contact — eyes up while running",
+    "Two steps off the bag, lean forward — be ready to go on a wild pitch",
+  ],
+  hustle: [
+    "Run out every ball — anything can happen with two outs",
+    "Sprint to your position between every half-inning",
+    "Chase every grounder — a little more effort saves a hit",
+  ],
+  awareness: [
+    "Know the situation before every pitch — outs, runners, count, score",
+    "Back up every play — if you're not making the catch, be the backup",
+    "Read the ball off the bat — move on contact, not after the catch",
+  ],
+  teamwork: [
+    "Call it loud and early on fly balls — communication prevents collisions",
+    "Encourage your pitcher after a tough inning — team energy matters",
+    "Hit for your team — advancing a runner is just as valuable as a hit",
+  ],
+  leadership: [
+    "Pick up your teammate after an error — that's what great players do",
+    "Communicate the defence before every pitch — know everyone's assignment",
+    "Set the tone: your energy in the dugout sets the team's energy on the field",
+  ],
+  conditioning: [
+    "Warm up your arm gradually — never throw hard with a cold arm",
+    "Baseball is a long game — stay focused even when you're not in the action",
+    "Quick hands and quick feet beat pure strength — work on your quickness",
+  ],
+  attitude: [
+    "Every at-bat is a new start — forget the last out, focus on this pitch",
+    "Errors are part of the game — shake it off and make the next play great",
+    "Stay loose and trust your training — tense players make more mistakes",
+  ],
 };
 
 // Phrases keyed by [sportSlug][normalisedCategory]
@@ -417,6 +489,9 @@ const SPORT_PHRASES: Record<string, Record<string, string[]>> = {
       "When we move together, the defense can't stop all of us",
     ],
   },
+  baseball: BASEBALL_PHRASES,
+  softball: BASEBALL_PHRASES,
+
   gymnastics: {
     shooting: [
       "Tight body, engaged core — every skill starts with a strong shape",
@@ -636,7 +711,9 @@ export function getPhraseLabelForCategory(
     sportKey === 'volleyball' ? 'Volleyball' :
     sportKey === 'swimming' ? 'Swimming' :
     sportKey === 'tennis' ? 'Tennis' :
-    sportKey === 'gymnastics' ? 'Gymnastics' : null;
+    sportKey === 'gymnastics' ? 'Gymnastics' :
+    sportKey === 'baseball' ? 'Baseball' :
+    sportKey === 'softball' ? 'Softball' : null;
 
   if (inSport && sportName) {
     const label = cat.charAt(0).toUpperCase() + cat.slice(1);

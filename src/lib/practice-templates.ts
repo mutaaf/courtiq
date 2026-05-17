@@ -1227,6 +1227,131 @@ const GYMNASTICS_SKILLS_BUILDER: PracticeTemplate = {
   ],
 };
 
+// ─── Baseball / Softball ─────────────────────────────────────────────────────
+
+const BASEBALL_FUNDAMENTALS: PracticeTemplate = {
+  id: 'baseball-fundamentals-30',
+  name: 'Baseball Fundamentals',
+  sport: 'baseball',
+  ageLabel: 'Ages 6–10',
+  totalMins: 30,
+  description: 'Throwing & catching, soft-toss hitting, fielding grounders, and a base-running relay for young beginners.',
+  tags: ['beginner', 'fundamentals', 'short'],
+  drills: [
+    {
+      name: 'Throwing & Catching Warm-Up',
+      durationMins: 6,
+      cues: [
+        'Four-seam grip — find the seams every single time',
+        'Step toward your partner — feet aim the throw',
+        'Follow through all the way down — arm finishes near your opposite hip',
+        'Soft hands when catching — give a little as the ball arrives',
+      ],
+      description: 'Partners 10 feet apart tossing and catching. Move back 5 feet every 5 successful exchanges. Focus on grip and stepping into each throw.',
+    },
+    {
+      name: 'Soft Toss Hitting',
+      durationMins: 8,
+      cues: [
+        'Eyes on the ball from the toss to contact — watch it all the way in',
+        'Hips first — rotate your hips before your arms swing',
+        'Level swing — keep the bat path flat through the zone',
+        'Stay balanced — weight on your back foot until you stride',
+      ],
+      description: 'Coach kneels beside the batter and tosses softly into the hitting zone. Batter hits into a net or open field. Rotate every 5 swings.',
+    },
+    {
+      name: 'Fielding Ground Balls',
+      durationMins: 8,
+      cues: [
+        'Glove down first — easier to come up than go down',
+        'Charge the ball — go get it, don\'t let it come to you',
+        'Two hands — cover the glove with your throwing hand on every catch',
+        'Ready position: weight forward, on your toes on every pitch',
+      ],
+      description: 'Coach rolls or bounces ground balls to each player in turn. Focus on approaching the ball in a ready position and fielding cleanly before throwing to first.',
+    },
+    {
+      name: 'Base Running Relay',
+      durationMins: 8,
+      cues: [
+        'Run through first base — don\'t slow down until you\'ve passed the bag',
+        'Touch the inside corner of the bag when rounding second and third',
+        'Sprint from the moment your foot leaves the batter\'s box',
+        'Make the game fun — cheer for every teammate who scores',
+      ],
+      description: 'Players take turns running the bases on a timed relay. Coach calls out base-running fundamentals as each player rounds the bags. Celebration at home plate.',
+    },
+  ],
+};
+
+const BASEBALL_SKILLS_BUILDER: PracticeTemplate = {
+  id: 'baseball-skills-45',
+  name: 'Baseball Skills Builder',
+  sport: 'baseball',
+  ageLabel: 'Ages 11–14',
+  totalMins: 45,
+  description: 'Arm care warm-up, hitting mechanics, infield & outfield fielding, situational base running, and a live defence scrimmage.',
+  tags: ['intermediate', 'balanced', 'medium'],
+  drills: [
+    {
+      name: 'Arm Care & Catch Progression',
+      durationMins: 7,
+      cues: [
+        'Start short and work your way back — never throw long with a cold arm',
+        'Crow hop on longer throws — build momentum before you release',
+        'Snap your wrist at release — feel the spin on the ball',
+        'Call the direction of bad throws before your partner has to move',
+      ],
+      description: 'Players start 30 feet apart and play catch. Every 2 minutes they take a step back. Ends at comfortable game-distance. Includes light crow-hop throws.',
+    },
+    {
+      name: 'Hitting Station (Tee & Soft Toss)',
+      durationMins: 10,
+      cues: [
+        'Back elbow up in your stance — creates a powerful swing path',
+        'See the ball, hit the ball — don\'t guess, react',
+        'Drive through the ball — finish with your hands high on your follow-through',
+        'Hips before hands on every swing — let your power source lead',
+      ],
+      description: 'Two stations simultaneously: half the group hits off a tee (focusing on mechanics), half takes soft toss (focusing on timing). Rotate after 5 minutes.',
+    },
+    {
+      name: 'Infield & Outfield Fielding',
+      durationMins: 10,
+      cues: [
+        'Infield: shuffle step to the ball, field out front, not between your feet',
+        'Outfield: drop step on balls behind you — never turn your back to the infield',
+        'Communicate — outfielders call off infielders on shallow pop-ups',
+        'After the catch, find your target before you throw — no rush-and-throw errors',
+      ],
+      description: 'Coach hits or throws fungos to alternate infield and outfield positions. Infielders work grounders and double-play feeds; outfielders work fly balls and crow-hop throws to a cut-off.',
+    },
+    {
+      name: 'Situational Base Running',
+      durationMins: 9,
+      cues: [
+        'Know the situation before every pitch — outs, score, runners',
+        'Read the ball off the bat — move on contact, don\'t wait for an obvious hit',
+        'Tag up on fly balls — tag the bag the moment the ball is caught',
+        'Third-base coach is your eyes — trust the stop sign or go signal',
+      ],
+      description: 'Coach calls out game situations (runner on first, one out; runner on second, none out, etc.) and hits balls into play. Baserunners must react correctly to each situation.',
+    },
+    {
+      name: 'Team Defence Scrimmage',
+      durationMins: 9,
+      cues: [
+        'Call out the play before the pitch — everyone know their assignment',
+        'Back up every throw — if the ball gets away, you prevent the extra base',
+        'Three outs every inning — concentrate until the last out',
+        'Encourage every good play — build the culture you want in a game',
+      ],
+      description: 'Coach hits or pitches while the team plays live defence. Rotate fielders every 3 outs. Focus on communication, backing up, and executing fundamental plays as a unit.',
+    },
+  ],
+};
+
 // ─── Template Registry ───────────────────────────────────────────────────────
 
 export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
@@ -1249,14 +1374,18 @@ export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
   TENNIS_SKILLS_BUILDER,
   GYMNASTICS_BEGINNERS,
   GYMNASTICS_SKILLS_BUILDER,
+  BASEBALL_FUNDAMENTALS,
+  BASEBALL_SKILLS_BUILDER,
 ];
 
 // ─── Utility Functions ───────────────────────────────────────────────────────
 
 export function getTemplatesForSport(sportId: string): PracticeTemplate[] {
   const sport = sportId.toLowerCase();
+  // Softball coaches use the same drill templates as baseball
+  const matchSport = sport === 'softball' ? 'baseball' : sport;
   return PRACTICE_TEMPLATES.filter(
-    (t) => t.sport === '' || t.sport === sport
+    (t) => t.sport === '' || t.sport === matchSport
   );
 }
 
