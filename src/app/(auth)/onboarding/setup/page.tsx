@@ -10,8 +10,9 @@ import { trackEvent } from '@/lib/analytics';
 
 const SPORTS = [
   { slug: 'basketball', name: 'Basketball', icon: '🏀' },
-  { slug: 'flag_football', name: 'Flag Football', icon: '🏈' },
   { slug: 'soccer', name: 'Soccer', icon: '⚽' },
+  { slug: 'volleyball', name: 'Volleyball', icon: '🏐' },
+  { slug: 'flag_football', name: 'Flag Football', icon: '🏈' },
 ];
 
 const AGE_GROUPS = [
@@ -98,7 +99,7 @@ export default function CombinedSetupPage() {
           {/* Sport */}
           <div className="space-y-2">
             <label className="text-sm text-zinc-400">Sport</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {SPORTS.map((s) => (
                 <button
                   key={s.slug}
