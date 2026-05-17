@@ -531,3 +531,180 @@ describe('getTemplatesBySentiment — lacrosse', () => {
     }
   });
 });
+
+// ─── getTemplatesBySentiment — swimming ───────────────────────────────────────
+
+describe('getTemplatesBySentiment — swimming', () => {
+  it('returns 10 positive swimming templates', () => {
+    const results = getTemplatesBySentiment('positive', 'swimming');
+    expect(results.length).toBe(10);
+    for (const t of results) expect(t.sentiment).toBe('positive');
+  });
+
+  it('returns 10 needs-work swimming templates', () => {
+    const results = getTemplatesBySentiment('needs-work', 'swimming');
+    expect(results.length).toBe(10);
+    for (const t of results) expect(t.sentiment).toBe('needs-work');
+  });
+
+  it('swimming templates differ from generic templates', () => {
+    const swim = getTemplatesBySentiment('positive', 'swimming');
+    const generic = getTemplatesBySentiment('positive');
+    expect(swim).not.toEqual(generic);
+  });
+
+  it('swimming templates have IDs starting with "sw-"', () => {
+    const all = [
+      ...getTemplatesBySentiment('positive', 'swimming'),
+      ...getTemplatesBySentiment('needs-work', 'swimming'),
+    ];
+    for (const t of all) {
+      expect(t.id.startsWith('sw-')).toBe(true);
+    }
+  });
+
+  it('swimming templates cover at least 5 distinct categories per sentiment', () => {
+    const pos = getTemplatesBySentiment('positive', 'swimming');
+    const nw = getTemplatesBySentiment('needs-work', 'swimming');
+    expect(new Set(pos.map((t) => t.category)).size).toBeGreaterThanOrEqual(5);
+    expect(new Set(nw.map((t) => t.category)).size).toBeGreaterThanOrEqual(5);
+  });
+
+  it('swimming templates differ from soccer and lacrosse templates', () => {
+    const swim = getTemplatesBySentiment('positive', 'swimming');
+    const soccer = getTemplatesBySentiment('positive', 'soccer');
+    const lacrosse = getTemplatesBySentiment('positive', 'lacrosse');
+    expect(swim).not.toEqual(soccer);
+    expect(swim).not.toEqual(lacrosse);
+  });
+
+  it('swimming templates include a conditioning template', () => {
+    const pos = getTemplatesBySentiment('positive', 'swimming');
+    const conditioning = pos.find((t) => t.category === 'conditioning');
+    expect(conditioning).toBeDefined();
+  });
+
+  it('swimming templates include a footwork (kick/turn) template', () => {
+    const pos = getTemplatesBySentiment('positive', 'swimming');
+    const footwork = pos.find((t) => t.category === 'footwork');
+    expect(footwork).toBeDefined();
+  });
+
+  it('findTemplateById can locate swimming templates by id', () => {
+    const t = findTemplateById('sw-pos-stroke');
+    expect(t).toBeDefined();
+    expect(t!.sentiment).toBe('positive');
+    expect(t!.category).toBe('shooting');
+
+    const nwTurn = findTemplateById('sw-nw-turn');
+    expect(nwTurn).toBeDefined();
+    expect(nwTurn!.sentiment).toBe('needs-work');
+    expect(nwTurn!.category).toBe('footwork');
+  });
+
+  it('ALL_OBSERVATION_TEMPLATES includes all swimming templates', () => {
+    const swim = getTemplatesBySentiment('positive', 'swimming');
+    for (const t of swim) {
+      expect(ALL_OBSERVATION_TEMPLATES).toContainEqual(t);
+    }
+  });
+
+  it('swimming template texts are concise (max 40 chars)', () => {
+    const all = [
+      ...getTemplatesBySentiment('positive', 'swimming'),
+      ...getTemplatesBySentiment('needs-work', 'swimming'),
+    ];
+    for (const t of all) {
+      expect(t.text.length, `Swimming template "${t.id}" text too long: "${t.text}"`).toBeLessThanOrEqual(40);
+    }
+  });
+});
+
+// ─── getTemplatesBySentiment — tennis ─────────────────────────────────────────
+
+describe('getTemplatesBySentiment — tennis', () => {
+  it('returns 10 positive tennis templates', () => {
+    const results = getTemplatesBySentiment('positive', 'tennis');
+    expect(results.length).toBe(10);
+    for (const t of results) expect(t.sentiment).toBe('positive');
+  });
+
+  it('returns 10 needs-work tennis templates', () => {
+    const results = getTemplatesBySentiment('needs-work', 'tennis');
+    expect(results.length).toBe(10);
+    for (const t of results) expect(t.sentiment).toBe('needs-work');
+  });
+
+  it('tennis templates differ from generic templates', () => {
+    const tennis = getTemplatesBySentiment('positive', 'tennis');
+    const generic = getTemplatesBySentiment('positive');
+    expect(tennis).not.toEqual(generic);
+  });
+
+  it('tennis templates have IDs starting with "tn-"', () => {
+    const all = [
+      ...getTemplatesBySentiment('positive', 'tennis'),
+      ...getTemplatesBySentiment('needs-work', 'tennis'),
+    ];
+    for (const t of all) {
+      expect(t.id.startsWith('tn-')).toBe(true);
+    }
+  });
+
+  it('tennis templates cover at least 5 distinct categories per sentiment', () => {
+    const pos = getTemplatesBySentiment('positive', 'tennis');
+    const nw = getTemplatesBySentiment('needs-work', 'tennis');
+    expect(new Set(pos.map((t) => t.category)).size).toBeGreaterThanOrEqual(5);
+    expect(new Set(nw.map((t) => t.category)).size).toBeGreaterThanOrEqual(5);
+  });
+
+  it('tennis templates differ from soccer and swimming templates', () => {
+    const tennis = getTemplatesBySentiment('positive', 'tennis');
+    const soccer = getTemplatesBySentiment('positive', 'soccer');
+    const swim = getTemplatesBySentiment('positive', 'swimming');
+    expect(tennis).not.toEqual(soccer);
+    expect(tennis).not.toEqual(swim);
+  });
+
+  it('tennis templates include a serve / shooting template', () => {
+    const pos = getTemplatesBySentiment('positive', 'tennis');
+    const serve = pos.find((t) => t.id === 'tn-pos-serve');
+    expect(serve).toBeDefined();
+    expect(serve!.category).toBe('shooting');
+  });
+
+  it('tennis templates include an attitude / composure template', () => {
+    const pos = getTemplatesBySentiment('positive', 'tennis');
+    const composure = pos.find((t) => t.category === 'attitude');
+    expect(composure).toBeDefined();
+  });
+
+  it('findTemplateById can locate tennis templates by id', () => {
+    const t = findTemplateById('tn-pos-serve');
+    expect(t).toBeDefined();
+    expect(t!.sentiment).toBe('positive');
+    expect(t!.category).toBe('shooting');
+
+    const nwFoot = findTemplateById('tn-nw-footwork');
+    expect(nwFoot).toBeDefined();
+    expect(nwFoot!.sentiment).toBe('needs-work');
+    expect(nwFoot!.category).toBe('footwork');
+  });
+
+  it('ALL_OBSERVATION_TEMPLATES includes all tennis templates', () => {
+    const tennis = getTemplatesBySentiment('positive', 'tennis');
+    for (const t of tennis) {
+      expect(ALL_OBSERVATION_TEMPLATES).toContainEqual(t);
+    }
+  });
+
+  it('tennis template texts are concise (max 40 chars)', () => {
+    const all = [
+      ...getTemplatesBySentiment('positive', 'tennis'),
+      ...getTemplatesBySentiment('needs-work', 'tennis'),
+    ];
+    for (const t of all) {
+      expect(t.text.length, `Tennis template "${t.id}" text too long: "${t.text}"`).toBeLessThanOrEqual(40);
+    }
+  });
+});

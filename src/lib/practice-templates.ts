@@ -847,6 +847,252 @@ const FIRST_PRACTICE: PracticeTemplate = {
   ],
 };
 
+const SWIMMING_FUNDAMENTALS: PracticeTemplate = {
+  id: 'swimming-fundamentals-30',
+  name: 'Swim Fundamentals',
+  sport: 'swimming',
+  ageLabel: 'All ages',
+  totalMins: 30,
+  description: 'Streamline push-offs, kick sets, arm drill, and easy cool-down.',
+  tags: ['beginner', 'fundamentals', 'short'],
+  drills: [
+    {
+      name: 'Streamline Push-Off Warm-Up',
+      durationMins: 6,
+      cues: [
+        'Arms squeezed tight over your ears — make yourself as narrow as possible',
+        'Push off the wall with both feet at the same time',
+        'Hold the streamline until you slow to swimming speed — no rush',
+        'Eyes down, face in the water — head up creates drag',
+      ],
+      description: 'Push off the wall in streamline, glide as far as possible, then begin swimming. Repeat on every lap.',
+    },
+    {
+      name: 'Kick Set',
+      durationMins: 8,
+      cues: [
+        'Flutter kick from the hip, not the knee — keep legs long',
+        'Point your toes on every kick — maximise propulsion',
+        'Small kicks are faster than big splashy ones',
+        'Use a kickboard so you can focus entirely on your legs',
+      ],
+      description: 'Kick sets with a board, focusing on ankle flexibility and hip-driven kick technique.',
+    },
+    {
+      name: 'Catch & Pull Drill',
+      durationMins: 10,
+      cues: [
+        'High elbow on the catch — that\'s where the power starts',
+        'Reach long before you pull — full extension gets you more water',
+        'Rotate your hips as you pull — the whole body powers each stroke',
+        'Finish the stroke past your hip — don\'t cut it short',
+      ],
+      description: 'Full freestyle laps focusing on the arm pull cycle. Coaches watch for elbow position and hip rotation.',
+    },
+    {
+      name: 'Easy Cool-Down Backstroke',
+      durationMins: 6,
+      cues: [
+        'Slow and smooth — let your heart rate come down',
+        'Keep your hips at the surface — don\'t let them sink',
+        'Big arm circles — reach tall behind your head',
+        'Talk to your swimmer about one thing they did well today',
+      ],
+      description: 'Easy backstroke to cool down. Good time for individual feedback as swimmers go at their own pace.',
+    },
+  ],
+};
+
+const SWIMMING_SKILLS_BUILDER: PracticeTemplate = {
+  id: 'swimming-skills-45',
+  name: 'Swim Skills Builder',
+  sport: 'swimming',
+  ageLabel: 'Ages 9–14',
+  totalMins: 45,
+  description: 'Flip turns, stroke drills, race-pace intervals, and team cool-down.',
+  tags: ['intermediate', 'technique', 'medium'],
+  drills: [
+    {
+      name: 'Dynamic Warm-Up & Drill Swim',
+      durationMins: 7,
+      cues: [
+        'Increase intensity each lap — start at 50%, finish at 80%',
+        'Focus on one technique point each warm-up length',
+        'Breathe every three strokes — balance both sides',
+        'Arms loose, kick steady — wake the body up gradually',
+      ],
+      description: 'Two easy laps building intensity, then 2 drill lengths (catch-up drill or finger-drag drill).',
+    },
+    {
+      name: 'Flip Turn Practice',
+      durationMins: 10,
+      cues: [
+        'Count your strokes from the flags to the wall — always the same number',
+        'Tuck tight and fast — a slow flip is a slow turn',
+        'Push off on your back, rotate to your front as you glide out',
+        'Streamline off every turn — that\'s where time is saved or lost',
+      ],
+      description: 'Dedicated flip turn drills. Swimmers do approach, flip, and push-off. Isolate each phase before combining.',
+    },
+    {
+      name: 'Stroke Drill Sets',
+      durationMins: 15,
+      cues: [
+        'One-arm drill: non-working arm on your side — feel the full rotation',
+        'Catch-up drill: one hand waits at the front until the other catches up',
+        'Bilateral breathing: breathe to your weak side too — balance your stroke',
+        'Every drill has a purpose — focus on the feel, not the speed',
+      ],
+      description: 'Alternating drill and swim: 1 length drill, 1 length swim at moderate pace applying the drill feel.',
+    },
+    {
+      name: 'Race-Pace Intervals',
+      durationMins: 8,
+      cues: [
+        'This should be uncomfortable — that\'s race pace',
+        'Drive off the start and turns — those are your free speed moments',
+        'Keep your stroke long even when tired — short fast strokes slow you down',
+        'Go! Finish strong — race to the wall, every time',
+      ],
+      description: 'Short race-pace intervals (25s or 50s) with rest. Coaches track times and give split feedback.',
+    },
+    {
+      name: 'Team Cool-Down',
+      durationMins: 5,
+      cues: [
+        'Slow and easy — any stroke you like',
+        'Talk to your swimmers one-on-one during cool-down',
+        'Shake out your shoulders — recover properly',
+        'End with one team huddle: celebrate one great moment from today',
+      ],
+      description: 'Easy cool-down. Good time for coaches to give individual feedback and celebrate the session.',
+    },
+  ],
+};
+
+const TENNIS_FUNDAMENTALS: PracticeTemplate = {
+  id: 'tennis-fundamentals-30',
+  name: 'Tennis Fundamentals',
+  sport: 'tennis',
+  ageLabel: 'All ages',
+  totalMins: 30,
+  description: 'Rally warm-up, forehand & backhand groundstrokes, and mini-tennis games.',
+  tags: ['beginner', 'fundamentals', 'short'],
+  drills: [
+    {
+      name: 'Rally Warm-Up',
+      durationMins: 5,
+      cues: [
+        'Split step every time your partner contacts the ball',
+        'Short swings to start — get the feel of the ball first',
+        'Talk to each other — "nice shot!", "great rally"',
+        'Stay relaxed — loose grip, loose shoulders',
+      ],
+      description: 'Partners rally from the service line. Focus is on consistency, not power. Coach circulates and observes.',
+    },
+    {
+      name: 'Forehand Groundstroke Feed',
+      durationMins: 10,
+      cues: [
+        'Turn your shoulders early — racket back before the ball bounces',
+        'Step toward the ball — transfer your weight forward into the shot',
+        'Low to high swing path — brush up the back of the ball for topspin',
+        'Follow through over your shoulder — finish high',
+      ],
+      description: 'Coach or partner feeds balls to the forehand side. Players focus on footwork and swing path. 10 reps each.',
+    },
+    {
+      name: 'Backhand Practice',
+      durationMins: 10,
+      cues: [
+        'Two hands for younger players — both hands guide through contact',
+        'Step across with your front foot — get sideways to the ball',
+        'Racket low and back — prepare early before the ball arrives',
+        'Watch the ball all the way to the strings',
+      ],
+      description: 'Fed balls to the backhand side. Focus on preparation and contact point out in front of the body.',
+    },
+    {
+      name: 'Mini-Tennis Rallies',
+      durationMins: 5,
+      cues: [
+        'Stay at the service line — small court, small swings, lots of rallies',
+        'Count your rallies — beat your personal best!',
+        'Move your feet to every ball — never reach from a standstill',
+        'Congratulate long rallies — consistency is a win',
+      ],
+      description: 'Mini-tennis within the service boxes. Great for footwork habits and rally consistency in a fun format.',
+    },
+  ],
+};
+
+const TENNIS_SKILLS_BUILDER: PracticeTemplate = {
+  id: 'tennis-skills-45',
+  name: 'Tennis Skills Builder',
+  sport: 'tennis',
+  ageLabel: 'Ages 9–14',
+  totalMins: 45,
+  description: 'Footwork agility, serve practice, crosscourt rallies, and points play.',
+  tags: ['intermediate', 'balanced', 'medium'],
+  drills: [
+    {
+      name: 'Footwork Agility Warm-Up',
+      durationMins: 7,
+      cues: [
+        'Split step on every ball — make it a habit, not a thought',
+        'Move to the ball — reach only as a last resort',
+        'Recovery steps after every shot — get back to the ready position',
+        'Low athletic stance — bend your knees, weight on the balls of your feet',
+      ],
+      description: 'Ladder or cone agility drills, then shadow footwork: forehand side, backhand side, centre recovery. No rackets.',
+    },
+    {
+      name: 'Serve Practice',
+      durationMins: 10,
+      cues: [
+        'Toss the ball in front and slightly to the right (right-handers) — not behind your head',
+        'Trophy position: front arm up, racket arm drops — load the coil',
+        'Snap your wrist at contact — brush up the back of the ball',
+        'Land on your front foot — follow the serve into the court',
+      ],
+      description: 'Players hit 10 serves each from the deuce and ad court. Coach feeds quick technical tips between reps.',
+    },
+    {
+      name: 'Crosscourt Rally Drill',
+      durationMins: 15,
+      cues: [
+        'Crosscourt is your highest-percentage shot — aim for the widest target',
+        'Depth over speed: a deep ball forces your opponent back',
+        'Watch your opponent\'s racket to read the direction early',
+        'Stay patient — errors beat you more than winners win for you',
+      ],
+      description: 'Partners rally crosscourt — one plays forehand to forehand, one plays backhand to backhand. Switch sides.',
+    },
+    {
+      name: 'Points Play',
+      durationMins: 8,
+      cues: [
+        'Play to win, but play the right shot — patience over power',
+        'One tactical focus per point: "I\'m going crosscourt today"',
+        'Between points: breathe, bounce on your toes, reset',
+        'Encourage each other — competitive but positive',
+      ],
+      description: 'Short sets or tiebreaks. Coach watches patterns and notes tactical and technical trends.',
+    },
+    {
+      name: 'Circle Debrief',
+      durationMins: 5,
+      cues: [
+        'Ask: "What\'s one thing you\'ll work on next time?"',
+        'Tell each player one specific improvement you noticed today',
+        'Celebrate effort and rallies, not just winners',
+        'Preview next practice so players leave excited',
+      ],
+      description: 'Bring players together. Coach highlights one moment per player. Sets focus for next session.',
+    },
+  ],
+};
+
 // ─── Template Registry ───────────────────────────────────────────────────────
 
 export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
@@ -863,6 +1109,10 @@ export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
   FLAG_FOOTBALL_U16,
   LACROSSE_U10,
   LACROSSE_U13,
+  SWIMMING_FUNDAMENTALS,
+  SWIMMING_SKILLS_BUILDER,
+  TENNIS_FUNDAMENTALS,
+  TENNIS_SKILLS_BUILDER,
 ];
 
 // ─── Utility Functions ───────────────────────────────────────────────────────
