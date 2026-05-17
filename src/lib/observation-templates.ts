@@ -73,6 +73,33 @@ const SOCCER_TEMPLATES: ObservationTemplate[] = [
   { id: 'soccer-nw-condition', text: 'Conditioning concerns',     sentiment: 'needs-work', category: 'conditioning', emoji: '💪' },
 ];
 
+// ── Volleyball ───────────────────────────────────────────────────────────────
+
+const VOLLEYBALL_TEMPLATES: ObservationTemplate[] = [
+  // Positive
+  { id: 'vb-pos-serve',     text: 'Great serve',                sentiment: 'positive',   category: 'shooting',    emoji: '🎯' },
+  { id: 'vb-pos-pass',      text: 'Clean pass/receive',         sentiment: 'positive',   category: 'passing',     emoji: '🤝' },
+  { id: 'vb-pos-set',       text: 'Excellent setting',          sentiment: 'positive',   category: 'passing',     emoji: '👁️' },
+  { id: 'vb-pos-spike',     text: 'Powerful spike',             sentiment: 'positive',   category: 'shooting',    emoji: '⚡' },
+  { id: 'vb-pos-block',     text: 'Strong block',               sentiment: 'positive',   category: 'defense',     emoji: '🛡️' },
+  { id: 'vb-pos-dig',       text: 'Solid dig',                  sentiment: 'positive',   category: 'defense',     emoji: '🛡️' },
+  { id: 'vb-pos-position',  text: 'Smart court positioning',    sentiment: 'positive',   category: 'awareness',   emoji: '👁️' },
+  { id: 'vb-pos-teamwork',  text: 'Great communication',        sentiment: 'positive',   category: 'teamwork',    emoji: '📣' },
+  { id: 'vb-pos-hustle',    text: 'Outstanding hustle',         sentiment: 'positive',   category: 'hustle',      emoji: '🔥' },
+  { id: 'vb-pos-leader',    text: 'Showed leadership',          sentiment: 'positive',   category: 'leadership',  emoji: '🏆' },
+  // Needs work
+  { id: 'vb-nw-serve',      text: 'Serve consistency',          sentiment: 'needs-work', category: 'shooting',    emoji: '🎯' },
+  { id: 'vb-nw-pass',       text: 'Passing needs work',         sentiment: 'needs-work', category: 'passing',     emoji: '🤝' },
+  { id: 'vb-nw-set',        text: 'Setting accuracy off',       sentiment: 'needs-work', category: 'passing',     emoji: '👁️' },
+  { id: 'vb-nw-spike',      text: 'Spike technique',            sentiment: 'needs-work', category: 'shooting',    emoji: '⚡' },
+  { id: 'vb-nw-block',      text: 'Blocking timing off',        sentiment: 'needs-work', category: 'defense',     emoji: '🛡️' },
+  { id: 'vb-nw-dig',        text: 'Digging struggles',          sentiment: 'needs-work', category: 'defense',     emoji: '🛡️' },
+  { id: 'vb-nw-position',   text: 'Court positioning',          sentiment: 'needs-work', category: 'awareness',   emoji: '👁️' },
+  { id: 'vb-nw-teamwork',   text: 'Communication breakdown',    sentiment: 'needs-work', category: 'teamwork',    emoji: '📣' },
+  { id: 'vb-nw-hustle',     text: 'Needs more effort',          sentiment: 'needs-work', category: 'hustle',      emoji: '🔥' },
+  { id: 'vb-nw-footwork',   text: 'Footwork needs work',        sentiment: 'needs-work', category: 'footwork',    emoji: '👟' },
+];
+
 // ── Flag Football ─────────────────────────────────────────────────────────────
 
 const FLAG_FOOTBALL_TEMPLATES: ObservationTemplate[] = [
@@ -105,6 +132,7 @@ const FLAG_FOOTBALL_TEMPLATES: ObservationTemplate[] = [
 const SPORT_TEMPLATES: Record<string, ObservationTemplate[]> = {
   soccer: SOCCER_TEMPLATES,
   flag_football: FLAG_FOOTBALL_TEMPLATES,
+  volleyball: VOLLEYBALL_TEMPLATES,
   // basketball maps to the default OBSERVATION_TEMPLATES (handled in the function)
 };
 
@@ -112,6 +140,7 @@ const SPORT_TEMPLATES: Record<string, ObservationTemplate[]> = {
 export const ALL_OBSERVATION_TEMPLATES: ObservationTemplate[] = [
   ...OBSERVATION_TEMPLATES,
   ...SOCCER_TEMPLATES,
+  ...VOLLEYBALL_TEMPLATES,
   ...FLAG_FOOTBALL_TEMPLATES,
 ];
 

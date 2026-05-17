@@ -169,6 +169,51 @@ describe('getTemplatesBySentiment — soccer', () => {
   });
 });
 
+// ─── getTemplatesBySentiment — volleyball ────────────────────────────────────
+
+describe('getTemplatesBySentiment — volleyball', () => {
+  it('returns 10 positive volleyball templates', () => {
+    const results = getTemplatesBySentiment('positive', 'volleyball');
+    expect(results.length).toBe(10);
+    for (const t of results) expect(t.sentiment).toBe('positive');
+  });
+
+  it('returns 10 needs-work volleyball templates', () => {
+    const results = getTemplatesBySentiment('needs-work', 'volleyball');
+    expect(results.length).toBe(10);
+    for (const t of results) expect(t.sentiment).toBe('needs-work');
+  });
+
+  it('volleyball templates differ from generic templates', () => {
+    const vb = getTemplatesBySentiment('positive', 'volleyball');
+    const generic = getTemplatesBySentiment('positive');
+    expect(vb).not.toEqual(generic);
+  });
+
+  it('volleyball templates have IDs starting with "vb-"', () => {
+    const all = [
+      ...getTemplatesBySentiment('positive', 'volleyball'),
+      ...getTemplatesBySentiment('needs-work', 'volleyball'),
+    ];
+    for (const t of all) {
+      expect(t.id.startsWith('vb-')).toBe(true);
+    }
+  });
+
+  it('volleyball templates cover at least 5 distinct categories per sentiment', () => {
+    const pos = getTemplatesBySentiment('positive', 'volleyball');
+    const nw = getTemplatesBySentiment('needs-work', 'volleyball');
+    expect(new Set(pos.map((t) => t.category)).size).toBeGreaterThanOrEqual(5);
+    expect(new Set(nw.map((t) => t.category)).size).toBeGreaterThanOrEqual(5);
+  });
+
+  it('volleyball templates differ from soccer templates', () => {
+    const vb = getTemplatesBySentiment('positive', 'volleyball');
+    const soccer = getTemplatesBySentiment('positive', 'soccer');
+    expect(vb).not.toEqual(soccer);
+  });
+});
+
 // ─── getTemplatesBySentiment — flag_football ───────────────────────────────────
 
 describe('getTemplatesBySentiment — flag_football', () => {
@@ -237,6 +282,13 @@ describe('findTemplateById', () => {
     expect(t).toBeDefined();
     expect(t!.sentiment).toBe('positive');
     expect(t!.id).toBe('ff-pos-routes');
+  });
+
+  it('finds volleyball template by id', () => {
+    const t = findTemplateById('vb-pos-serve');
+    expect(t).toBeDefined();
+    expect(t!.sentiment).toBe('positive');
+    expect(t!.id).toBe('vb-pos-serve');
   });
 
   it('returns undefined for an unknown id', () => {
