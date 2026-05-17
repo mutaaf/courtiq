@@ -4,7 +4,7 @@ import { useActiveTeam } from '@/hooks/use-active-team';
 import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { OBSERVATION_TEMPLATES, getTemplatesBySentiment } from '@/lib/observation-templates';
+import { findTemplateById, getTemplatesBySentiment } from '@/lib/observation-templates';
 import { Textarea } from '@/components/ui/textarea';
 import { query, mutate } from '@/lib/api';
 import { useElapsedTime } from '@/hooks/use-elapsed-time';
@@ -468,7 +468,7 @@ function LastSessionCard({ session }: {
 // ─── Page ─────────────────────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
-  const { activeTeam, coach, aiPlatformAvailable } = useActiveTeam();
+  const { activeTeam, coach, aiPlatformAvailable, sportSlug } = useActiveTeam();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [showDebrief, setShowDebrief] = useState(false);
@@ -580,7 +580,7 @@ export default function HomePage() {
 
   async function handleHomeQuickObsSave() {
     if (!activeTeam || !qoPlayer || !practiceSessionId) return;
-    const template = OBSERVATION_TEMPLATES.find((t) => t.id === qoTemplate);
+    const template = findTemplateById(qoTemplate ?? '');
     const text = qoText.trim() || template?.text || '';
     if (!text) return;
     setQoSaving(true);
@@ -1453,7 +1453,7 @@ export default function HomePage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {getTemplatesBySentiment(qoSentiment).slice(0, 8).map((t) => (
+            {getTemplatesBySentiment(qoSentiment, sportSlug).slice(0, 8).map((t) => (
               <button
                 key={t.id}
                 onClick={() => { setQoTemplate(qoTemplate === t.id ? null : t.id); setQoText(''); }}

@@ -12,7 +12,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query/keys';
 import { useAppStore } from '@/lib/store';
 import {
-  OBSERVATION_TEMPLATES,
   getTemplatesBySentiment,
   type ObservationTemplate,
 } from '@/lib/observation-templates';
@@ -23,7 +22,7 @@ type TemplateStep = 'pick' | 'player' | 'saved';
 
 export function QuickCaptureWidget() {
   const pathname = usePathname();
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
   const queryClient = useQueryClient();
   const practiceActive = useAppStore((s) => s.practiceActive);
   const practiceSessionId = useAppStore((s) => s.practiceSessionId);
@@ -362,8 +361,8 @@ export function QuickCaptureWidget() {
 
   const isBusy = widgetState === 'recording' || widgetState === 'processing' || savingTemplate;
 
-  const positiveTemplates = getTemplatesBySentiment('positive');
-  const needsWorkTemplates = getTemplatesBySentiment('needs-work');
+  const positiveTemplates = getTemplatesBySentiment('positive', sportSlug);
+  const needsWorkTemplates = getTemplatesBySentiment('needs-work', sportSlug);
   const shownTemplates = templateSentiment === 'positive' ? positiveTemplates : needsWorkTemplates;
 
   return (

@@ -21,7 +21,7 @@ import { useActiveTeam } from '@/hooks/use-active-team';
 import { useTier } from '@/hooks/use-tier';
 import { useQueryClient } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
-import { OBSERVATION_TEMPLATES } from '@/lib/observation-templates';
+import { getTemplatesBySentiment } from '@/lib/observation-templates';
 import type { ObservationTemplate } from '@/lib/observation-templates';
 import type { Coach } from '@/types/database';
 
@@ -74,7 +74,7 @@ export function DashboardShell({ coach, children }: Props) {
   const prefetchOnIntent = usePrefetchOnIntent();
   const { navRef: mobileNavRef, onKeyDown: mobileNavKeyDown } = useArrowKeyNav();
 
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, sportSlug } = useActiveTeam();
   const { subscriptionStatus, cancelAtPeriodEnd, currentPeriodEnd } = useTier();
   const queryClient = useQueryClient();
 
@@ -448,7 +448,7 @@ export function DashboardShell({ coach, children }: Props) {
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-1.5 mb-3">
-                  {OBSERVATION_TEMPLATES.filter((t) => t.sentiment === miniSentiment)
+                  {getTemplatesBySentiment(miniSentiment, sportSlug)
                     .slice(0, 6)
                     .map((template) => (
                       <button
