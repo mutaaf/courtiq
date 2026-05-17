@@ -53,7 +53,7 @@ import { AchievementBadgesPanel } from '@/components/player/achievement-badges';
 import { PlayerGoalsPanel } from '@/components/player/player-goals-panel';
 import { PlayerNotesPanel } from '@/components/player/player-notes-panel';
 import { countHighlighted } from '@/lib/observation-highlights';
-import { OBSERVATION_TEMPLATES, getTemplatesBySentiment } from '@/lib/observation-templates';
+import { findTemplateById, getTemplatesBySentiment } from '@/lib/observation-templates';
 import { useAppStore } from '@/lib/store';
 import type { Player, Observation, PlayerSkillProficiency, Plan, Sentiment, ParentShare } from '@/types/database';
 import type { PlayerAttendanceStat } from '@/app/api/attendance-stats/route';
@@ -462,7 +462,7 @@ export default function PlayerDetailPage({
   params: Promise<{ playerId: string }>;
 }) {
   const { playerId } = use(params);
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
   const qc = useQueryClient();
   const searchParams = useSearchParams();
   const validTabs: Tab[] = ['overview', 'observations', 'report-card', 'media', 'share', 'challenges', 'storyline', 'self-assessment', 'goals', 'notes'];
@@ -706,7 +706,7 @@ export default function PlayerDetailPage({
 
   // Quick Observe — templates ordered by player's most-observed categories first
   const qoTemplates = useMemo(() => {
-    const templates = getTemplatesBySentiment(qoSentiment);
+    const templates = getTemplatesBySentiment(qoSentiment, sportSlug);
     const topCats = sortedCategories.slice(0, 4).map(([c]) => c);
     return [
       ...templates.filter((t) => topCats.includes(t.category)),
@@ -740,7 +740,7 @@ export default function PlayerDetailPage({
 
   async function handleQuickObsSave() {
     if (!activeTeam || !player) return;
-    const template = OBSERVATION_TEMPLATES.find((t) => t.id === qoTemplate);
+    const template = findTemplateById(qoTemplate ?? '');
     const text = qoText.trim() || template?.text || '';
     if (!text) return;
     setQoSaving(true);

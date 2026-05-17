@@ -25,7 +25,7 @@ type CaptureState = 'idle' | 'recording' | 'processing' | 'error';
 
 export default function CapturePage() {
   const router = useRouter();
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
   const { canAccess } = useTier();
   const canUsePhoto = canAccess('media_upload');
 
@@ -1214,6 +1214,7 @@ export default function CapturePage() {
               coachId={coach.id}
               sessionId={urlSessionId}
               preselectPlayerId={urlPlayerId}
+              sportSlug={sportSlug}
             />
           </>
         )}

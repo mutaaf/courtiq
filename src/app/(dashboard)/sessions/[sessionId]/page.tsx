@@ -107,7 +107,7 @@ import {
   getHealthBarColor,
   type SnapshotObs,
 } from '@/lib/session-snapshot-utils';
-import { OBSERVATION_TEMPLATES, getTemplatesBySentiment } from '@/lib/observation-templates';
+import { findTemplateById, getTemplatesBySentiment } from '@/lib/observation-templates';
 
 const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   practice: 'Practice',
@@ -3100,7 +3100,7 @@ export default function SessionDetailPage() {
   const params = useParams();
   const sessionId = params.sessionId as string;
   const searchParams = useSearchParams();
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
   const queryClient = useQueryClient();
 
   // Practice Complete banner — shown when arriving from the practice timer
@@ -3331,7 +3331,7 @@ export default function SessionDetailPage() {
 
   async function handleQuickObsSave() {
     if (!activeTeam || !qoPlayer) return;
-    const template = OBSERVATION_TEMPLATES.find((t) => t.id === qoTemplate);
+    const template = findTemplateById(qoTemplate ?? '');
     const text = qoText.trim() || template?.text || '';
     if (!text) return;
     setQoSaving(true);
@@ -4450,7 +4450,7 @@ export default function SessionDetailPage() {
 
           {/* Template chips */}
           <div className="flex flex-wrap gap-2">
-            {getTemplatesBySentiment(qoSentiment).slice(0, 8).map((t) => (
+            {getTemplatesBySentiment(qoSentiment, sportSlug).slice(0, 8).map((t) => (
               <button
                 key={t.id}
                 onClick={() => { setQoTemplate(qoTemplate === t.id ? null : t.id); setQoText(''); }}
