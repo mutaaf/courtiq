@@ -469,7 +469,7 @@ const VOLLEYBALL_U16: PracticeTemplate = {
 const FLAG_FOOTBALL_U8: PracticeTemplate = {
   id: 'ffb-u8-30',
   name: 'Flag Football Intro',
-  sport: 'flagfootball',
+  sport: 'flag_football',
   ageLabel: 'Ages 6–8',
   totalMins: 30,
   description: 'Flag pulling, throwing, catching, and a fun mini-game for brand-new players.',
@@ -525,7 +525,7 @@ const FLAG_FOOTBALL_U8: PracticeTemplate = {
 const FLAG_FOOTBALL_U12: PracticeTemplate = {
   id: 'ffb-u12-45',
   name: 'Flag Football Fundamentals',
-  sport: 'flagfootball',
+  sport: 'flag_football',
   ageLabel: 'Ages 9–12',
   totalMins: 45,
   description: 'Route running, QB mechanics, coverage fundamentals, and competitive scrimmage.',
@@ -591,7 +591,7 @@ const FLAG_FOOTBALL_U12: PracticeTemplate = {
 const FLAG_FOOTBALL_U16: PracticeTemplate = {
   id: 'ffb-u16-60',
   name: 'Flag Football Game Prep',
-  sport: 'flagfootball',
+  sport: 'flag_football',
   ageLabel: 'Ages 13–18',
   totalMins: 60,
   description: 'Advanced route combinations, red zone execution, rush defense, and full competitive scrimmage.',
@@ -1380,10 +1380,16 @@ export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
 
 // ─── Utility Functions ───────────────────────────────────────────────────────
 
+// Normalise DB sport slugs to the keys used inside this module
+function normaliseSportId(sportId: string): string {
+  const slug = sportId.toLowerCase();
+  if (slug === 'flag_football' || slug === 'flag football' || slug === 'flagfootball') return 'flag_football';
+  if (slug === 'softball') return 'baseball';
+  return slug;
+}
+
 export function getTemplatesForSport(sportId: string): PracticeTemplate[] {
-  const sport = sportId.toLowerCase();
-  // Softball coaches use the same drill templates as baseball
-  const matchSport = sport === 'softball' ? 'baseball' : sport;
+  const matchSport = normaliseSportId(sportId);
   return PRACTICE_TEMPLATES.filter(
     (t) => t.sport === '' || t.sport === matchSport
   );
