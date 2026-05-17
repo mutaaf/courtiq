@@ -108,6 +108,7 @@ import {
   type SnapshotObs,
 } from '@/lib/session-snapshot-utils';
 import { findTemplateById, getTemplatesBySentiment } from '@/lib/observation-templates';
+import { getSportEmoji } from '@/lib/sport-utils';
 
 const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   practice: 'Practice',
@@ -1542,10 +1543,12 @@ function TeamGroupMessageCard({
   sessionId,
   teamId,
   observationCount,
+  sportSlug,
 }: {
   sessionId: string;
   teamId: string;
   observationCount: number;
+  sportSlug?: string;
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1599,7 +1602,7 @@ function TeamGroupMessageCard({
 
   function buildFullText(msg: TeamGroupMessageResult): string {
     return [
-      `🏀 ${msg.session_label}`,
+      `${getSportEmoji(sportSlug)} ${msg.session_label}`,
       '',
       editedMessage || msg.message,
       msg.coaching_focus?.length ? `\nToday we focused on: ${msg.coaching_focus.join(', ')}` : '',
@@ -4164,6 +4167,7 @@ export default function SessionDetailPage() {
             sessionId={sessionId}
             teamId={activeTeam.id}
             observationCount={observations?.length || 0}
+            sportSlug={sportSlug}
           />
         )}
       </div>

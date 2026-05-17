@@ -65,6 +65,7 @@ import type { Plan, Player, PlanType, Session } from '@/types/database';
 import type { ObservationInsights } from '@/app/api/ai/plan/route';
 import { getCategoryLabel, getCategoryColor } from '@/lib/coach-reflection-utils';
 import { trackEvent } from '@/lib/analytics';
+import { getSportEmoji } from '@/lib/sport-utils';
 
 const PLAN_TYPE_CONFIG: Record<
   string,
@@ -178,12 +179,12 @@ interface TeamGroupMessageData {
   next_session_note?: string;
 }
 
-function TeamGroupMessageRenderer({ data }: { data: TeamGroupMessageData }) {
+function TeamGroupMessageRenderer({ data, sportSlug }: { data: TeamGroupMessageData; sportSlug?: string }) {
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState(false);
 
   const fullText = [
-    data.session_label ? `🏀 ${data.session_label}` : '',
+    data.session_label ? `${getSportEmoji(sportSlug)} ${data.session_label}` : '',
     '',
     data.message,
     data.coaching_focus?.length ? `\nToday we focused on: ${data.coaching_focus.join(', ')}` : '',
@@ -501,7 +502,7 @@ function SeasonLetterRenderer({ data }: { data: SeasonLetterData }) {
 }
 
 export default function PlansPage() {
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
   const router = useRouter();
   const { canAccess } = useTier();
   const canUseGameDayPrep = canAccess('tendencies');
@@ -2775,7 +2776,7 @@ export default function PlansPage() {
       !Array.isArray(structured.messages)
     ) {
       return (
-        <TeamGroupMessageRenderer data={structured as any} />
+        <TeamGroupMessageRenderer data={structured as any} sportSlug={sportSlug} />
       );
     }
 
