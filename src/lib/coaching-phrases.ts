@@ -5,7 +5,7 @@
  * (e.g. warmup, scrimmage, AI-generated drills, custom drills).
  */
 
-export type SportSlug = 'basketball' | 'soccer' | 'flagfootball' | 'volleyball' | 'lacrosse' | 'swimming' | 'tennis' | 'gymnastics' | 'baseball' | 'softball';
+export type SportSlug = 'basketball' | 'soccer' | 'flag_football' | 'volleyball' | 'lacrosse' | 'swimming' | 'tennis' | 'gymnastics' | 'baseball' | 'softball';
 
 // Canonical category names (normalised to lowercase for matching)
 const CATEGORY_ALIASES: Record<string, string> = {
@@ -282,7 +282,7 @@ const SPORT_PHRASES: Record<string, Record<string, string[]>> = {
     ],
   },
 
-  flagfootball: {
+  flag_football: {
     passing: [
       "Step with your front foot as you release — your whole body drives the throw",
       "Follow through toward your target — wrist over at the end",
@@ -601,6 +601,16 @@ export function normaliseCategory(raw: string | undefined | null): string {
 }
 
 /**
+ * Normalise a sport slug so both 'flag_football' and 'flag football'
+ * resolve to the same key used in SPORT_PHRASES ('flag_football').
+ */
+function normaliseSportSlug(sportSlug: string | undefined | null): string {
+  const key = (sportSlug ?? '').toLowerCase();
+  if (key === 'flagfootball' || key === 'flag football') return 'flag_football';
+  return key;
+}
+
+/**
  * Return all phrases for a given category and sport.
  * Falls back: sport-specific → generic → empty array.
  */
@@ -611,7 +621,7 @@ export function getPhrasesForCategory(
   const cat = normaliseCategory(category);
   if (!cat) return [];
 
-  const sportKey = (sportSlug ?? '').toLowerCase() as SportSlug;
+  const sportKey = normaliseSportSlug(sportSlug);
   const sportPhrases = SPORT_PHRASES[sportKey]?.[cat];
   if (sportPhrases && sportPhrases.length > 0) return sportPhrases;
 
@@ -675,7 +685,7 @@ export function countPhrases(
  * Return all supported categories for a given sport (including generic).
  */
 export function getCategoriesWithPhrases(sportSlug: string | undefined | null): string[] {
-  const sportKey = (sportSlug ?? '').toLowerCase();
+  const sportKey = normaliseSportSlug(sportSlug);
   const sportCats = Object.keys(SPORT_PHRASES[sportKey] ?? {});
   const genericCats = Object.keys(GENERIC_PHRASES);
   return [...new Set([...sportCats, ...genericCats])];
@@ -702,12 +712,12 @@ export function getPhraseLabelForCategory(
   if (cat === 'warmup') return 'Warmup coaching';
   if (cat === 'scrimmage') return 'Scrimmage coaching';
 
-  const sportKey = (sportSlug ?? '').toLowerCase();
+  const sportKey = normaliseSportSlug(sportSlug);
   const inSport = !!(SPORT_PHRASES[sportKey]?.[cat]);
   const sportName =
     sportKey === 'basketball' ? 'Basketball' :
     sportKey === 'soccer' ? 'Soccer' :
-    sportKey === 'flagfootball' ? 'Flag football' :
+    sportKey === 'flag_football' ? 'Flag football' :
     sportKey === 'volleyball' ? 'Volleyball' :
     sportKey === 'swimming' ? 'Swimming' :
     sportKey === 'tennis' ? 'Tennis' :
