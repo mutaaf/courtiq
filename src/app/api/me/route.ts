@@ -18,7 +18,7 @@ export async function GET() {
         .single(),
       admin
         .from('team_coaches')
-        .select('team_id, role, teams(*)')
+        .select('team_id, role, teams(*, sports(slug))')
         .eq('coach_id', user.id),
     ]);
 

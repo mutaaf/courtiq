@@ -1102,7 +1102,7 @@ export default function PracticeTimerPage({
   const arcSessionParam = searchParams.get('arcSession');
   const arcSessionIndex = arcSessionParam !== null ? parseInt(arcSessionParam, 10) : null;
   const templateIdParam = searchParams.get('templateId');
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
 
   // ── Persistence keys ─────────────────────────────────────────────────────
   const NOTES_KEY = `practice-timer-notes-v1-${sessionId}`;
@@ -1961,7 +1961,6 @@ export default function PracticeTimerPage({
   // When the current drill has no teaching cues, surface a sport- and
   // category-specific phrase from the static coaching-phrases library so
   // coaches always have something concrete to SAY to players.
-  const sportSlug = (coach?.organizations as any)?.sport_config?.default_sport_slug ?? 'basketball';
 
   const fallbackCue = useMemo(() => {
     const drill = queue[currentIdx];

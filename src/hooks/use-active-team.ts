@@ -24,7 +24,9 @@ export function useActiveTeam() {
 
   const coach = meData?.coach || null;
   const sportSlug: string =
-    (coach?.organizations as any)?.sport_config?.default_sport_slug ?? 'basketball';
+    (activeTeam as any)?.sports?.slug ??
+    (coach?.organizations as any)?.sport_config?.default_sport_slug ??
+    'basketball';
 
   return {
     activeTeam,

@@ -1263,7 +1263,7 @@ export default function HomePage() {
         <DrillOfDayCard
           teamId={activeTeam.id}
           sportId={activeTeam.sport_id}
-          sportSlug={(coach as any)?.organizations?.sport_config?.default_sport_slug ?? 'basketball'}
+          sportSlug={sportSlug}
         />
       )}
 
