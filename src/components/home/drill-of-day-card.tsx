@@ -34,7 +34,7 @@ interface ObsRow {
 function computeTopNeedsWorkCategory(obs: ObsRow[]): string | null {
   const counts = new Map<string, number>();
   for (const o of obs) {
-    if (o.sentiment === 'needs_work' && o.category) {
+    if (o.sentiment === 'needs-work' && o.category) {
       counts.set(o.category, (counts.get(o.category) ?? 0) + 1);
     }
   }
@@ -90,7 +90,7 @@ export function DrillOfDayCard({ teamId, sportId, sportSlug = 'basketball' }: Dr
         select: 'category, sentiment',
         filters: {
           team_id: teamId,
-          sentiment: 'needs_work',
+          sentiment: 'needs-work',
           created_at: { op: 'gte', value: cutoff },
         },
         limit: 300,
