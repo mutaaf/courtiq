@@ -120,12 +120,12 @@ describe('getTemplatesForSport', () => {
 
   it('returns flagfootball templates for flagfootball', () => {
     const result = getTemplatesForSport('flagfootball');
-    expect(result.some((t) => t.sport === 'flagfootball')).toBe(true);
+    expect(result.some((t) => t.sport === 'flag_football')).toBe(true);
   });
 
   it('returns multiple flagfootball templates', () => {
     const result = getTemplatesForSport('flagfootball');
-    const sportSpecific = result.filter((t) => t.sport === 'flagfootball');
+    const sportSpecific = result.filter((t) => t.sport === 'flag_football');
     expect(sportSpecific.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -194,19 +194,19 @@ describe('getTemplateById', () => {
   it('finds flag-football-u8 template', () => {
     const result = getTemplateById('ffb-u8-30');
     expect(result).toBeDefined();
-    expect(result?.sport).toBe('flagfootball');
+    expect(result?.sport).toBe('flag_football');
   });
 
   it('finds flag-football-u12 template', () => {
     const result = getTemplateById('ffb-u12-45');
     expect(result).toBeDefined();
-    expect(result?.sport).toBe('flagfootball');
+    expect(result?.sport).toBe('flag_football');
   });
 
   it('finds flag-football-u16 template', () => {
     const result = getTemplateById('ffb-u16-60');
     expect(result).toBeDefined();
-    expect(result?.sport).toBe('flagfootball');
+    expect(result?.sport).toBe('flag_football');
   });
 
   it('finds baseball-fundamentals template', () => {
