@@ -84,6 +84,11 @@ export default function CapturePage() {
 
   const setIsRecording = useAppStore((s) => s.setIsRecording);
   const setGlobalRecordingDuration = useAppStore((s) => s.setRecordingDuration);
+  const practiceActive = useAppStore((s) => s.practiceActive);
+  const practiceSessionId = useAppStore((s) => s.practiceSessionId);
+
+  // Resolve the session ID for photo capture — prefer URL param, fall back to active practice
+  const resolvedSessionId = urlSessionId ?? (practiceActive ? practiceSessionId : null);
 
   // Fetch player's recent observations for coaching brief when player is pre-selected
   const since30d = useMemo(() => new Date(Date.now() - 30 * 86_400_000).toISOString(), []);
@@ -1006,7 +1011,7 @@ export default function CapturePage() {
                 />
               </label>
               <Link
-                href={canUsePhoto ? '/capture/photo' : '/settings/upgrade'}
+                href={canUsePhoto ? (resolvedSessionId ? `/capture/photo?sessionId=${resolvedSessionId}` : '/capture/photo') : '/settings/upgrade'}
                 className="text-sm text-zinc-400 flex items-center gap-1.5 hover:text-zinc-200 active:scale-95 touch-manipulation"
               >
                 {canUsePhoto ? <Camera className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
@@ -1049,7 +1054,7 @@ export default function CapturePage() {
                 />
               </label>
               <Link
-                href={canUsePhoto ? '/capture/photo' : '/settings/upgrade'}
+                href={canUsePhoto ? (resolvedSessionId ? `/capture/photo?sessionId=${resolvedSessionId}` : '/capture/photo') : '/settings/upgrade'}
                 className="flex items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 text-left transition-colors hover:border-zinc-700 hover:bg-zinc-800/50 active:scale-[0.98] touch-manipulation"
               >
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
