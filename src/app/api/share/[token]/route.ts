@@ -54,10 +54,10 @@ export async function GET(
       .eq('id', share.team_id)
       .single();
 
-    // Get coach name
+    // Get coach name + certification status
     const { data: coach } = await supabase
       .from('coaches')
-      .select('full_name')
+      .select('full_name, preferences')
       .eq('id', share.coach_id)
       .single();
 
@@ -79,10 +79,12 @@ export async function GET(
     }
 
     // Build the report data based on what's included
+    const coachPrefs: any = coach?.preferences ?? {};
     const reportData: Record<string, any> = {
       player,
       team,
       coachName: coach?.full_name,
+      isCoachCertified: !!(coachPrefs?.certified_at),
       branding,
       customMessage: share.custom_message,
       // True when the player already has a parent phone on file; the share
