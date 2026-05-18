@@ -457,6 +457,7 @@ export default function RosterPage() {
               onSelect={toggleSelect}
               availability={availabilityMap[player.id] ?? null}
               teamId={activeTeam.id}
+              orgId={activeTeam.org_id}
               momentum={momentumMap[player.id] ?? null}
               coachName={coach?.full_name ?? null}
               teamName={activeTeam.name}
