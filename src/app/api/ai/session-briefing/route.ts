@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
   const admin = await createServiceSupabase();
   const body = await request.json();
-  const { sessionId, teamId } = body;
+  const { sessionId, teamId, weeklyFocusLabel } = body;
 
   if (!sessionId || !teamId) {
     return NextResponse.json({ error: 'sessionId and teamId required' }, { status: 400 });
@@ -209,6 +209,9 @@ export async function POST(request: Request) {
       session.notes
         ? 'IMPORTANT: The coach has set an explicit session focus (see COACH INTENT below). Align your briefing with their stated intent — treat it as the highest-priority input.'
         : '',
+      weeklyFocusLabel
+        ? `IMPORTANT: The coach has set "${weeklyFocusLabel}" as their weekly team focus theme. Ensure at least one focus_area directly addresses this theme, and reflect it in the session_goal.`
+        : '',
     ].filter(Boolean).join('\n');
 
     const userPrompt = [
@@ -218,6 +221,7 @@ export async function POST(request: Request) {
       session.opponent ? `Opponent: ${session.opponent}` : null,
       session.location ? `Location: ${session.location}` : null,
       session.notes ? `\n=== COACH INTENT (highest priority — align briefing with this) ===\n${session.notes}\n` : null,
+      weeklyFocusLabel ? `\n=== WEEKLY FOCUS THEME ===\nCoach has set "${weeklyFocusLabel}" as this week's team focus. Prioritize this skill in at least one focus_area.\n` : null,
       `Roster: ${players?.length || 0} active players`,
       '',
       unavailableNames.length > 0

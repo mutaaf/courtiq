@@ -109,6 +109,7 @@ import {
 } from '@/lib/session-snapshot-utils';
 import { findTemplateById, getTemplatesBySentiment } from '@/lib/observation-templates';
 import { getSportEmoji } from '@/lib/sport-utils';
+import { getWeeklyFocus, getFocusCategoryConfig } from '@/lib/weekly-focus-utils';
 
 const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   practice: 'Practice',
@@ -2319,14 +2320,11 @@ function TeamTalkCard({
     setIsGenerating(true);
     setError(null);
     try {
-      // Read weekly focus from localStorage if available
+      // Read weekly focus from localStorage if available (team-scoped key)
       let weeklyFocusLabel: string | undefined;
       try {
-        const raw = localStorage.getItem('weekly-focus');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed?.label) weeklyFocusLabel = parsed.label;
-        }
+        const focus = getWeeklyFocus(teamId);
+        if (focus) weeklyFocusLabel = getFocusCategoryConfig(focus.category)?.label;
       } catch { /* ignore */ }
 
       const res = await fetch('/api/ai/team-talk', {
@@ -2503,10 +2501,17 @@ function PreSessionBriefingCard({
     setIsGenerating(true);
     setError(null);
     try {
+      // Include weekly focus so briefing aligns with the coach's weekly theme
+      let weeklyFocusLabel: string | undefined;
+      try {
+        const focus = getWeeklyFocus(teamId);
+        if (focus) weeklyFocusLabel = getFocusCategoryConfig(focus.category)?.label;
+      } catch { /* ignore */ }
+
       const res = await fetch('/api/ai/session-briefing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, teamId }),
+        body: JSON.stringify({ sessionId, teamId, weeklyFocusLabel }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -2738,10 +2743,17 @@ function AIDebriefCard({
     setPlanCreated(false);
     setPlanError(null);
     try {
+      // Include weekly focus so the debrief explicitly addresses the coach's theme
+      let weeklyFocusLabel: string | undefined;
+      try {
+        const focus = getWeeklyFocus(teamId);
+        if (focus) weeklyFocusLabel = getFocusCategoryConfig(focus.category)?.label;
+      } catch { /* ignore */ }
+
       const res = await fetch('/api/ai/session-debrief', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, teamId }),
+        body: JSON.stringify({ sessionId, teamId, weeklyFocusLabel }),
       });
       if (!res.ok) {
         const err = await res.json();
