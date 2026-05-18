@@ -7,16 +7,17 @@ interface ShareReportButtonProps {
   firstName: string;
   teamName?: string;
   coachName?: string;
+  sportEmoji?: string;
 }
 
-export function ShareReportButton({ firstName, teamName, coachName }: ShareReportButtonProps) {
+export function ShareReportButton({ firstName, teamName, coachName, sportEmoji = '🏆' }: ShareReportButtonProps) {
   const [state, setSharedState] = useState<'idle' | 'shared' | 'copied'>('idle');
 
   async function handleShare() {
     const url = typeof window !== 'undefined' ? window.location.href : '';
     const text = coachName && teamName
-      ? `Check out ${firstName}'s progress report from ${coachName} at ${teamName}! 🏆`
-      : `Check out ${firstName}'s progress report! 🏆`;
+      ? `Check out ${firstName}'s progress report from ${coachName} at ${teamName}! ${sportEmoji}`
+      : `Check out ${firstName}'s progress report! ${sportEmoji}`;
 
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
