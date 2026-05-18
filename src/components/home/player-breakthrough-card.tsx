@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Rocket, X, Share2, ArrowRight, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { query } from '@/lib/api';
+import { useActiveTeam } from '@/hooks/use-active-team';
 import {
   buildBreakthroughs,
   buildBreakthroughShareText,
@@ -38,6 +39,7 @@ export function PlayerBreakthroughCard({
 }: PlayerBreakthroughCardProps) {
   const [dismissed, setDismissed] = useState(false);
   const [shared, setShared] = useState(false);
+  const { sportSlug } = useActiveTeam();
 
   const cutoff = useMemo(
     () => new Date(Date.now() - PRIOR_DAYS * 86_400_000).toISOString(),
@@ -87,7 +89,7 @@ export function PlayerBreakthroughCard({
   if (!bestBreakthrough || !player || dismissed) return null;
 
   const { category, priorNeedsWork, recentPositive } = bestBreakthrough;
-  const shareText = buildBreakthroughShareText(player.name, category, coachName);
+  const shareText = buildBreakthroughShareText(player.name, category, coachName, sportSlug);
   const whatsappUrl = buildBreakthroughWhatsAppUrl(shareText, player.parent_phone ?? undefined);
 
   function handleDismiss() {
