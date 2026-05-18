@@ -9,6 +9,7 @@ import { useVoiceInput } from '@/hooks/use-voice-input';
 import { trackEvent } from '@/lib/analytics';
 import { mutate, query } from '@/lib/api';
 import { findPlayerByName } from '@/lib/player-match';
+import { getSportExamplePhrase } from '@/lib/sport-utils';
 
 type Phase = 'idle' | 'recording' | 'processing' | 'success' | 'error' | 'unsupported';
 
@@ -33,8 +34,17 @@ export default function FirstCapturePage() {
   const [observations, setObservations] = useState<Observation[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
+  const [sportSlug, setSportSlug] = useState<string | null>(null);
   const startedAtRef = useRef<number | null>(null);
   const teamIdRef = useRef<string | null>(null);
+
+  // Pre-fetch sport slug so the example phrase is sport-specific from the start.
+  useEffect(() => {
+    fetch('/api/auth/me-team')
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.sportSlug) setSportSlug(d.sportSlug); })
+      .catch(() => {});
+  }, []);
 
   // Detect support after first render
   useEffect(() => {
@@ -204,6 +214,7 @@ export default function FirstCapturePage() {
               onStop={handleStop}
               onSkip={handleSkip}
               skipDisabled={finishing}
+              sportSlug={sportSlug}
             />
           )}
         </CardContent>
@@ -222,6 +233,7 @@ function RecordingView({
   onStop,
   onSkip,
   skipDisabled,
+  sportSlug,
 }: {
   phase: Phase;
   error: string | null;
@@ -230,16 +242,18 @@ function RecordingView({
   onStop: () => void;
   onSkip: () => void;
   skipDisabled: boolean;
+  sportSlug: string | null;
 }) {
   const isRecording = phase === 'recording';
   const isProcessing = phase === 'processing';
   const isUnsupported = phase === 'unsupported';
+  const examplePhrase = getSportExamplePhrase(sportSlug);
 
   return (
     <>
       <h1 className="mt-2 text-2xl font-bold text-zinc-100">Say something about a player.</h1>
       <p className="mt-2 text-sm text-zinc-400 max-w-sm leading-relaxed">
-        Try: <em className="text-zinc-300">&ldquo;Sarah&apos;s footwork looked sharp on closeouts today.&rdquo;</em>{' '}
+        Try: <em className="text-zinc-300">&ldquo;{examplePhrase}&rdquo;</em>{' '}
         We&apos;ll segment it into a real observation in a few seconds.
       </p>
 
