@@ -17,10 +17,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Drill, Observation } from '@/types/database';
 import { isFavorited, filterToFavorites, parseFavoritedDrills } from '@/lib/drill-favorites-utils';
-
-const DRILL_CATEGORIES = [
-  'Offense', 'Defense', 'Conditioning', 'Fundamentals', 'Passing', 'Shooting', 'Dribbling', 'Teamwork',
-];
+import { getDrillBuilderCategories } from '@/lib/sport-utils';
 
 const DURATION_OPTIONS = [
   { label: 'Any', value: null },
@@ -31,7 +28,7 @@ const DURATION_OPTIONS = [
 ];
 
 export default function DrillsPage() {
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, sportSlug } = useActiveTeam();
   const router = useRouter();
   const qc = useQueryClient();
   const searchParams = useSearchParams();
@@ -635,7 +632,7 @@ export default function DrillsPage() {
                     Category <span className="text-zinc-500 font-normal">(optional)</span>
                   </label>
                   <div className="flex flex-wrap gap-1.5">
-                    {DRILL_CATEGORIES.map((cat) => (
+                    {getDrillBuilderCategories(sportSlug).map((cat) => (
                       <button
                         key={cat}
                         onClick={() => setBuilderCategory(builderCategory === cat ? '' : cat)}
