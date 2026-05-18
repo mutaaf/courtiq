@@ -515,6 +515,8 @@ export default function PlayerDetailPage({
 
   // Observation highlights filter
   const [obsHighlightsOnly, setObsHighlightsOnly] = useState(false);
+  const [obsSentimentFilter, setObsSentimentFilter] = useState<'all' | 'positive' | 'needs-work'>('all');
+  const [obsCategoryFilter, setObsCategoryFilter] = useState<string | null>(null);
   const [sharedObsId, setSharedObsId] = useState<string | null>(null);
 
   // Quick Observe bottom sheet
@@ -1683,47 +1685,115 @@ export default function PlayerDetailPage({
 
       {activeTab === 'observations' && (
         <div className="space-y-3">
-          {/* Highlights filter toggle */}
-          {observations.length > 0 && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setObsHighlightsOnly((v) => !v)}
-                aria-pressed={obsHighlightsOnly}
-                className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors touch-manipulation ${
-                  obsHighlightsOnly
-                    ? 'bg-amber-500 text-white'
-                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
-                }`}
-              >
-                <Star className={`h-3.5 w-3.5 ${obsHighlightsOnly ? 'fill-white' : ''}`} />
-                Highlights only
-                {!obsHighlightsOnly && countHighlighted(observations) > 0 && (
-                  <span className="rounded-full bg-amber-500/20 px-1.5 text-amber-400 text-[10px]">
-                    {countHighlighted(observations)}
-                  </span>
+          {/* Filter bar */}
+          {observations.length > 0 && (() => {
+            const uniqueCategories = Array.from(new Set(observations.map((o) => o.category).filter(Boolean))).sort();
+            const hasActiveFilter = obsHighlightsOnly || obsSentimentFilter !== 'all' || obsCategoryFilter !== null;
+            return (
+              <div className="space-y-2">
+                {/* Row 1: Sentiment + Highlights */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {(['all', 'positive', 'needs-work'] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setObsSentimentFilter(s)}
+                      aria-pressed={obsSentimentFilter === s}
+                      className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors touch-manipulation ${
+                        obsSentimentFilter === s
+                          ? s === 'positive'
+                            ? 'bg-emerald-500 text-white'
+                            : s === 'needs-work'
+                              ? 'bg-red-500 text-white'
+                              : 'bg-orange-500 text-white'
+                          : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
+                      }`}
+                    >
+                      {s === 'all' ? 'All' : s === 'positive' ? '✓ Positive' : '⚠ Needs Work'}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setObsHighlightsOnly((v) => !v)}
+                    aria-pressed={obsHighlightsOnly}
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors touch-manipulation ${
+                      obsHighlightsOnly
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
+                    }`}
+                  >
+                    <Star className={`h-3.5 w-3.5 ${obsHighlightsOnly ? 'fill-white' : ''}`} />
+                    ★
+                    {!obsHighlightsOnly && countHighlighted(observations) > 0 && (
+                      <span className="rounded-full bg-amber-500/20 px-1 text-amber-400 text-[10px]">
+                        {countHighlighted(observations)}
+                      </span>
+                    )}
+                  </button>
+                  {hasActiveFilter && (
+                    <button
+                      onClick={() => {
+                        setObsHighlightsOnly(false);
+                        setObsSentimentFilter('all');
+                        setObsCategoryFilter(null);
+                      }}
+                      className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors touch-manipulation"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                {/* Row 2: Category chips */}
+                {uniqueCategories.length > 1 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {uniqueCategories.map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setObsCategoryFilter(obsCategoryFilter === cat ? null : cat)}
+                        aria-pressed={obsCategoryFilter === cat}
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors touch-manipulation capitalize ${
+                          obsCategoryFilter === cat
+                            ? 'bg-blue-500/30 text-blue-300 ring-1 ring-blue-500/50'
+                            : 'bg-zinc-800/70 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700/70'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
                 )}
-              </button>
-            </div>
-          )}
+              </div>
+            );
+          })()}
 
           {(() => {
-            const displayed = obsHighlightsOnly
+            const byHighlight = obsHighlightsOnly
               ? observations.filter((o) => o.is_highlighted)
               : observations;
+            const bySentiment = obsSentimentFilter !== 'all'
+              ? byHighlight.filter((o) => o.sentiment === obsSentimentFilter)
+              : byHighlight;
+            const displayed = obsCategoryFilter
+              ? bySentiment.filter((o) => o.category === obsCategoryFilter)
+              : bySentiment;
+
+            const isFiltered = obsHighlightsOnly || obsSentimentFilter !== 'all' || obsCategoryFilter !== null;
 
             if (displayed.length === 0) {
               return (
                 <Card>
                   <CardContent className="flex flex-col items-center p-8 text-center">
-                    {obsHighlightsOnly ? (
+                    {isFiltered ? (
                       <>
-                        <Star className="mb-3 h-10 w-10 text-zinc-700" />
-                        <p className="text-zinc-400">No highlights yet. Tap ★ on any observation to star it.</p>
+                        <Eye className="mb-3 h-10 w-10 text-zinc-700" />
+                        <p className="text-zinc-400">No observations match your current filters.</p>
                         <button
-                          onClick={() => setObsHighlightsOnly(false)}
+                          onClick={() => {
+                            setObsHighlightsOnly(false);
+                            setObsSentimentFilter('all');
+                            setObsCategoryFilter(null);
+                          }}
                           className="mt-3 text-sm text-orange-400 hover:text-orange-300 transition-colors"
                         >
-                          Show all observations
+                          Clear filters
                         </button>
                       </>
                     ) : (
@@ -1740,7 +1810,14 @@ export default function PlayerDetailPage({
               );
             }
 
-            return displayed.map((obs) => (
+            return (
+              <>
+                {isFiltered && (
+                  <p className="text-xs text-zinc-500 px-1">
+                    Showing {displayed.length} of {observations.length} observations
+                  </p>
+                )}
+                {displayed.map((obs) => (
               <Card
                 key={obs.id}
                 className={obs.is_highlighted ? 'border-amber-500/40 bg-amber-500/5' : ''}
@@ -1798,7 +1875,9 @@ export default function PlayerDetailPage({
                   )}
                 </CardContent>
               </Card>
-            ));
+            ))}
+              </>
+            );
           })()}
         </div>
       )}
