@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
@@ -9,8 +9,9 @@ import { CACHE_PROFILES } from '@/lib/query/config';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2, Star } from 'lucide-react';
+import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2, Star, Search, X } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { RecurringSessionsPanel } from '@/components/sessions/recurring-sessions-panel';
@@ -60,10 +61,29 @@ const RESULT_BUTTONS: { outcome: ResultValue; label: string; classes: string }[]
   },
 ];
 
+function getDateGroupKey(dateStr: string): 'upcoming' | 'this-week' | 'last-month' | 'earlier' {
+  const d = new Date(dateStr + 'T00:00:00');
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((now.getTime() - d.getTime()) / 86_400_000);
+  if (diffDays < 0) return 'upcoming';
+  if (diffDays <= 7) return 'this-week';
+  if (diffDays <= 30) return 'last-month';
+  return 'earlier';
+}
+
+const DATE_GROUP_LABELS: Record<string, string> = {
+  upcoming: 'Upcoming',
+  'this-week': 'This week',
+  'last-month': 'Last 30 days',
+  earlier: 'Earlier',
+};
+
 export default function SessionsPage() {
   const { activeTeam } = useActiveTeam();
   const queryClient = useQueryClient();
   const [typeFilter, setTypeFilter] = useState<SessionType | 'all'>('all');
+  const [searchText, setSearchText] = useState('');
   // Optimistic result overrides keyed by session ID
   const [localResults, setLocalResults] = useState<Record<string, string>>({});
   // Tracks which session + outcome is currently being saved
@@ -88,6 +108,33 @@ export default function SessionsPage() {
     enabled: !!activeTeam,
     ...CACHE_PROFILES.sessions,
   });
+
+  // Filter sessions by search text (opponent, location)
+  const displayedSessions = useMemo(() => {
+    if (!sessions) return [];
+    if (!searchText.trim()) return sessions;
+    const q = searchText.toLowerCase().trim();
+    return sessions.filter((s: any) =>
+      s.opponent?.toLowerCase().includes(q) ||
+      s.location?.toLowerCase().includes(q)
+    );
+  }, [sessions, searchText]);
+
+  // Group sessions by date band — only when no active search and sessions span multiple buckets
+  const sessionGroups = useMemo(() => {
+    const groupOrder = ['upcoming', 'this-week', 'last-month', 'earlier'];
+    const map: Record<string, any[]> = {};
+    for (const s of displayedSessions) {
+      const key = getDateGroupKey(s.date);
+      if (!map[key]) map[key] = [];
+      map[key].push(s);
+    }
+    const populated = groupOrder.filter((k) => (map[k]?.length ?? 0) > 0);
+    if (populated.length <= 1 || searchText.trim()) {
+      return [{ key: 'all', label: '', sessions: displayedSessions }];
+    }
+    return populated.map((k) => ({ key: k, label: DATE_GROUP_LABELS[k], sessions: map[k] }));
+  }, [displayedSessions, searchText]);
 
   async function handleQuickResult(e: React.MouseEvent, sessionId: string, outcome: ResultValue) {
     e.preventDefault();
@@ -143,7 +190,9 @@ export default function SessionsPage() {
         <div>
           <h1 className="text-2xl font-bold">Sessions</h1>
           <p className="text-zinc-400 text-sm">
-            {sessions?.length || 0} session{sessions?.length !== 1 ? 's' : ''} recorded
+            {searchText.trim()
+              ? `${displayedSessions.length} of ${sessions?.length || 0} session${sessions?.length !== 1 ? 's' : ''}`
+              : `${sessions?.length || 0} session${sessions?.length !== 1 ? 's' : ''} recorded`}
           </p>
         </div>
         <Link href="/sessions/new">
@@ -154,23 +203,45 @@ export default function SessionsPage() {
         </Link>
       </div>
 
-      {/* Type filter */}
-      <div className="flex flex-wrap gap-2">
-        <Filter className="h-4 w-4 text-zinc-500 shrink-0" />
-        {FILTER_OPTIONS.map((opt) => (
-          <button
-            key={opt.value}
-            onClick={() => setTypeFilter(opt.value)}
-            aria-pressed={typeFilter === opt.value}
-            className={`shrink-0 rounded-full px-4 py-2 sm:px-3 sm:py-1 text-sm sm:text-xs font-medium transition-colors touch-manipulation ${
-              typeFilter === opt.value
-                ? 'bg-orange-500 text-white'
-                : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
+      {/* Type filter + search */}
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2">
+          <Filter className="h-4 w-4 text-zinc-500 shrink-0 mt-1" />
+          {FILTER_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setTypeFilter(opt.value)}
+              aria-pressed={typeFilter === opt.value}
+              className={`shrink-0 rounded-full px-4 py-2 sm:px-3 sm:py-1 text-sm sm:text-xs font-medium transition-colors touch-manipulation ${
+                typeFilter === opt.value
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        {(sessions?.length ?? 0) > 6 && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+            <Input
+              placeholder="Search by opponent or location…"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="pl-9 h-11 sm:h-9 text-base sm:text-sm"
+            />
+            {searchText && (
+              <button
+                onClick={() => setSearchText('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 touch-manipulation"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Sessions list */}
@@ -207,114 +278,139 @@ export default function SessionsPage() {
             </div>
           </CardContent>
         </Card>
+      ) : displayedSessions.length === 0 && searchText.trim() ? (
+        <Card className="border-dashed border-zinc-700">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Search className="h-10 w-10 text-zinc-600 mb-4" />
+            <h3 className="text-base font-semibold text-zinc-300">No sessions match &ldquo;{searchText}&rdquo;</h3>
+            <p className="text-zinc-500 text-sm mt-1">Try a different opponent name or location.</p>
+            <button
+              onClick={() => setSearchText('')}
+              className="mt-4 text-sm font-medium text-orange-400 hover:text-orange-300 transition-colors touch-manipulation"
+            >
+              Clear search
+            </button>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="space-y-3">
-          {sessions?.map((session: any) => {
-            const typeConfig = SESSION_TYPE_CONFIG[session.type as SessionType];
-            const obsCount = session.observations?.[0]?.count || 0;
-            // Use optimistic override if present, otherwise DB value
-            const effectiveResult = localResults[session.id] ?? session.result;
-            const parsedResult = parseResult(effectiveResult);
-            const isGame = isGameType(session.type);
-            const isSavingThis = savingResult?.sessionId === session.id;
+        <div className="space-y-5">
+          {sessionGroups.map((group) => (
+            <div key={group.key} className="space-y-3">
+              {group.label && (
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 px-1">
+                  {group.label}
+                </h3>
+              )}
+              <div className="space-y-3">
+                {group.sessions.map((session: any) => {
+                  const typeConfig = SESSION_TYPE_CONFIG[session.type as SessionType];
+                  const obsCount = session.observations?.[0]?.count || 0;
+                  // Use optimistic override if present, otherwise DB value
+                  const effectiveResult = localResults[session.id] ?? session.result;
+                  const parsedResult = parseResult(effectiveResult);
+                  const isGame = isGameType(session.type);
+                  const isSavingThis = savingResult?.sessionId === session.id;
 
-            return (
-              <Link key={session.id} href={`/sessions/${session.id}`}>
-                <Card className="transition-colors hover:border-zinc-700 cursor-pointer active:scale-[0.98] touch-manipulation">
-                  <CardContent className="p-5 sm:p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1.5 flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span
-                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${typeConfig.color}`}
-                          >
-                            {typeConfig.label}
-                          </span>
-                          {parsedResult && (
-                            <span
-                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold ${getResultBadgeClasses(parsedResult)}`}
-                            >
-                              {getResultLabel(parsedResult)}
-                            </span>
-                          )}
-                          {session.opponent && (
-                            <span className="text-sm text-zinc-300">
-                              vs {session.opponent}
-                            </span>
-                          )}
-                          {session.curriculum_week && (
-                            <Badge variant="secondary">
-                              Week {session.curriculum_week}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3 text-sm text-zinc-400">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3.5 w-3.5" />
-                            {formatDate(session.date)}
-                            {session.start_time && (
-                              <span className="ml-1">
-                                at {formatTime(session.start_time)}
-                              </span>
-                            )}
-                          </span>
-                          {session.location && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3.5 w-3.5" />
-                              {session.location}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Inline quick-result entry: only for game types without a result */}
-                        {isGame && !parsedResult && (
-                          <div
-                            className="flex items-center gap-2 pt-1"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <span className="text-xs text-zinc-500 shrink-0">Log result:</span>
-                            {RESULT_BUTTONS.map(({ outcome, label, classes }) => {
-                              const isThisButton = isSavingThis && savingResult?.outcome === outcome;
-                              return (
-                                <button
-                                  key={outcome}
-                                  disabled={!!savingResult}
-                                  onClick={(e) => handleQuickResult(e, session.id, outcome)}
-                                  aria-label={`Log ${outcome}`}
-                                  className={`flex h-7 w-8 items-center justify-center rounded-md text-xs font-bold transition-all touch-manipulation disabled:opacity-50 ${classes}`}
+                  return (
+                    <Link key={session.id} href={`/sessions/${session.id}`}>
+                      <Card className="transition-colors hover:border-zinc-700 cursor-pointer active:scale-[0.98] touch-manipulation">
+                        <CardContent className="p-5 sm:p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-1.5 flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span
+                                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${typeConfig.color}`}
                                 >
-                                  {isThisButton
-                                    ? <Loader2 className="h-3 w-3 animate-spin" />
-                                    : label
-                                  }
-                                </button>
-                              );
-                            })}
+                                  {typeConfig.label}
+                                </span>
+                                {parsedResult && (
+                                  <span
+                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold ${getResultBadgeClasses(parsedResult)}`}
+                                  >
+                                    {getResultLabel(parsedResult)}
+                                  </span>
+                                )}
+                                {session.opponent && (
+                                  <span className="text-sm text-zinc-300">
+                                    vs {session.opponent}
+                                  </span>
+                                )}
+                                {session.curriculum_week && (
+                                  <Badge variant="secondary">
+                                    Week {session.curriculum_week}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 text-sm text-zinc-400">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3.5 w-3.5" />
+                                  {formatDate(session.date)}
+                                  {session.start_time && (
+                                    <span className="ml-1">
+                                      at {formatTime(session.start_time)}
+                                    </span>
+                                  )}
+                                </span>
+                                {session.location && (
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="h-3.5 w-3.5" />
+                                    {session.location}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Inline quick-result entry: only for game types without a result */}
+                              {isGame && !parsedResult && (
+                                <div
+                                  className="flex items-center gap-2 pt-1"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <span className="text-xs text-zinc-500 shrink-0">Log result:</span>
+                                  {RESULT_BUTTONS.map(({ outcome, label, classes }) => {
+                                    const isThisButton = isSavingThis && savingResult?.outcome === outcome;
+                                    return (
+                                      <button
+                                        key={outcome}
+                                        disabled={!!savingResult}
+                                        onClick={(e) => handleQuickResult(e, session.id, outcome)}
+                                        aria-label={`Log ${outcome}`}
+                                        className={`flex h-7 w-8 items-center justify-center rounded-md text-xs font-bold transition-all touch-manipulation disabled:opacity-50 ${classes}`}
+                                      >
+                                        {isThisButton
+                                          ? <Loader2 className="h-3 w-3 animate-spin" />
+                                          : label
+                                        }
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex flex-col items-end gap-1.5 shrink-0 ml-3">
+                              <div className="flex items-center gap-1 text-sm text-zinc-500">
+                                <Eye className="h-3.5 w-3.5" />
+                                {obsCount}
+                              </div>
+                              {session.quality_rating != null && session.quality_rating >= 1 && session.quality_rating <= 5 && (
+                                <div className="flex items-center gap-0.5" title={`Session rated ${session.quality_rating}/5`}>
+                                  {Array.from({ length: 5 }).map((_, i) => (
+                                    <Star
+                                      key={i}
+                                      className={`h-3 w-3 ${i < session.quality_rating ? 'text-amber-400 fill-amber-400' : 'text-zinc-700'}`}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        )}
-                      </div>
-                      <div className="flex flex-col items-end gap-1.5 shrink-0 ml-3">
-                        <div className="flex items-center gap-1 text-sm text-zinc-500">
-                          <Eye className="h-3.5 w-3.5" />
-                          {obsCount}
-                        </div>
-                        {session.quality_rating != null && session.quality_rating >= 1 && session.quality_rating <= 5 && (
-                          <div className="flex items-center gap-0.5" title={`Session rated ${session.quality_rating}/5`}>
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <Star
-                                key={i}
-                                className={`h-3 w-3 ${i < session.quality_rating ? 'text-amber-400 fill-amber-400' : 'text-zinc-700'}`}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            );
-          })}
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       )}
       {/* Recurring Sessions */}
