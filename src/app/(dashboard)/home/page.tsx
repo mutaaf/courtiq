@@ -705,7 +705,7 @@ export default function HomePage() {
       const json = await res.json();
       return json.availability as Record<string, { status: string; reason: string | null }>;
     },
-    enabled: !!activeTeam && todaySessions.length > 0,
+    enabled: !!activeTeam && (todaySessions.length > 0 || practiceActive),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -871,11 +871,21 @@ export default function HomePage() {
     return { pct, emoji: '⚠️', label: 'Keep going', colorClass: 'text-zinc-400' };
   }, [sessionObsStats]);
 
+  // Players who are present at practice (exclude injured/sick/unavailable)
+  const presentPlayers = useMemo(() => {
+    if (!rosterPlayers.length) return rosterPlayers;
+    if (!Object.keys(playerAvailability).length) return rosterPlayers;
+    return rosterPlayers.filter((p) => {
+      const avail = playerAvailability[p.id];
+      return !avail || avail.status === 'available' || avail.status === 'limited';
+    });
+  }, [rosterPlayers, playerAvailability]);
+
   const unobservedDuringPractice = useMemo(() => {
-    if (!practiceActive || !rosterPlayers.length) return [];
+    if (!practiceActive || !presentPlayers.length) return [];
     const observed = new Set(sessionObsStats?.observedPlayerIds ?? []);
-    return rosterPlayers.filter((p) => !observed.has(p.id));
-  }, [practiceActive, rosterPlayers, sessionObsStats]);
+    return presentPlayers.filter((p) => !observed.has(p.id));
+  }, [practiceActive, presentPlayers, sessionObsStats]);
 
   const playerNameById = useMemo(() => {
     const map: Record<string, string> = {};
@@ -1010,16 +1020,21 @@ export default function HomePage() {
             )}
           </div>
 
-          {practiceSessionId && rosterPlayers.length > 0 && (
+          {practiceSessionId && presentPlayers.length > 0 && (
             unobservedDuringPractice.length === 0 ? (
               <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
                 <span aria-hidden="true">✓</span>
-                <span>All {rosterPlayers.length} players observed this session</span>
+                <span>
+                  All {presentPlayers.length}{presentPlayers.length < rosterPlayers.length ? ' present' : ''} players observed this session
+                </span>
               </div>
             ) : (
               <div className="space-y-1.5">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-                  Not yet observed ({unobservedDuringPractice.length}/{rosterPlayers.length})
+                  Not yet observed ({unobservedDuringPractice.length}/{presentPlayers.length}
+                  {presentPlayers.length < rosterPlayers.length && (
+                    <span className="normal-case font-normal text-zinc-600"> · {rosterPlayers.length - presentPlayers.length} absent</span>
+                  )})
                 </p>
                 <div className="flex gap-2 flex-wrap">
                   {unobservedDuringPractice.map((p) => {
