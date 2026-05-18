@@ -1,14 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, X, Loader2, AlertCircle, Users, ListChecks, Sparkles, ArrowRight } from 'lucide-react';
+import { Plus, X, Loader2, AlertCircle, Users, ListChecks, Sparkles, ArrowRight, Camera, Check } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
 
-type ImportMode = 'one-by-one' | 'paste';
+type ImportMode = 'one-by-one' | 'paste' | 'photo';
 
 interface PlayerRow {
   name: string;
@@ -29,8 +29,90 @@ export default function RosterSetupPage() {
   // Paste mode state
   const [pasteText, setPasteText] = useState('');
 
+  // Photo mode state
+  const [teamId, setTeamId] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoImported, setPhotoImported] = useState<number>(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Fetch team ID on mount so it is ready when the coach picks a photo
+  useEffect(() => {
+    fetch('/api/me')
+      .then((r) => r.json())
+      .then((d) => {
+        const id = d?.teams?.[0]?.id;
+        if (id) setTeamId(id);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Resize image to max 1200px to stay under AI token limits
+  async function resizeImage(file: File): Promise<{ base64: string; mimeType: string }> {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const MAX = 1200;
+        let { width, height } = img;
+        if (width > MAX) { height = Math.round((height * MAX) / width); width = MAX; }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d')!.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/png');
+        resolve({
+          base64: dataUrl.split(',')[1],
+          mimeType: dataUrl.substring(dataUrl.indexOf(':') + 1, dataUrl.indexOf(';')),
+        });
+      };
+      img.onerror = reject;
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  async function handlePhotoFile(file: File) {
+    // Show preview
+    const reader = new FileReader();
+    reader.onload = () => setPhotoPreview(reader.result as string);
+    reader.readAsDataURL(file);
+
+    if (!teamId) {
+      setError('Could not load team info. Please use the Paste Roster tab instead.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      const { base64, mimeType } = await resizeImage(file);
+      const res = await fetch('/api/ai/import-roster', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId, imageBase64: base64, mimeType }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || 'Could not extract players from photo');
+      }
+      const result = await res.json();
+      const imported: number = (result.imported || []).length;
+      if (imported === 0 && !(result.duplicates || []).length) {
+        setError('No players found in the photo. Try a clearer image or use Paste Roster instead.');
+        setPhotoPreview(null);
+        setLoading(false);
+        return;
+      }
+      setPhotoImported(imported);
+      trackEvent('onboarding_roster_submitted', { mode: 'photo', count: imported });
+      // Brief success pause before advancing
+      setTimeout(() => router.push('/onboarding/first-capture'), 1200);
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong processing the photo');
+      setPhotoPreview(null);
+      setLoading(false);
+    }
+  }
 
   function addRow() { setPlayers([...players, { name: '', pronunciation: '' }]); }
   function removeRow(i: number) { setPlayers(players.filter((_, j) => j !== i)); }
@@ -192,14 +274,21 @@ export default function RosterSetupPage() {
               className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${mode === 'one-by-one' ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'}`}
             >
               <Plus className="h-4 w-4" />
-              Add One by One
+              One by One
             </button>
             <button
               onClick={() => { setMode('paste'); setError(''); }}
               className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${mode === 'paste' ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'}`}
             >
               <ListChecks className="h-4 w-4" />
-              Paste Roster
+              Paste
+            </button>
+            <button
+              onClick={() => { setMode('photo'); setError(''); setPhotoPreview(null); setPhotoImported(0); }}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${mode === 'photo' ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'}`}
+            >
+              <Camera className="h-4 w-4" />
+              Photo
             </button>
           </div>
 
@@ -251,7 +340,7 @@ export default function RosterSetupPage() {
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <p className="text-xs text-zinc-400">
-                  Paste your roster — one player name per line. Copy from an email, Google Doc, or your league's website.
+                  Paste your roster — one player name per line. Copy from an email, Google Doc, or your league&apos;s website.
                 </p>
                 <textarea
                   value={pasteText}
@@ -281,6 +370,74 @@ export default function RosterSetupPage() {
                   )}
                 </Button>
               </div>
+            </div>
+          )}
+
+          {/* Photo mode */}
+          {mode === 'photo' && (
+            <div className="space-y-3">
+              <p className="text-xs text-zinc-400">
+                Take a photo or upload a screenshot of your printed roster, league email, or team signup sheet — AI extracts all the names automatically.
+              </p>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handlePhotoFile(file);
+                }}
+              />
+
+              {/* Success state */}
+              {photoImported > 0 && (
+                <div className="flex flex-col items-center gap-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-6 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/20">
+                    <Check className="h-6 w-6 text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-zinc-100">
+                      {photoImported} player{photoImported !== 1 ? 's' : ''} added!
+                    </p>
+                    <p className="text-xs text-zinc-400 mt-0.5">Taking you to your first capture…</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Upload area / preview */}
+              {photoImported === 0 && (
+                loading ? (
+                  <div className="flex flex-col items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-900/50 p-8 text-center">
+                    {photoPreview && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={photoPreview} alt="Roster" className="max-h-40 rounded-lg object-contain opacity-60" />
+                    )}
+                    <Loader2 className="h-8 w-8 animate-spin text-orange-400" />
+                    <p className="text-sm text-zinc-400">AI is reading your roster…</p>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-zinc-700 p-10 text-center transition-colors hover:border-orange-500/50 hover:bg-zinc-900/50 touch-manipulation"
+                  >
+                    <Camera className="h-10 w-10 text-zinc-600" />
+                    <div>
+                      <p className="font-medium text-zinc-300">Tap to take photo or upload</p>
+                      <p className="mt-1 text-xs text-zinc-500">Works with printed rosters, league docs, and signup sheets</p>
+                    </div>
+                  </button>
+                )
+              )}
+
+              {!loading && photoImported === 0 && (
+                <div className="flex gap-2 pt-1">
+                  <Button variant="ghost" onClick={handleSkip} className="flex-1">Skip</Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
