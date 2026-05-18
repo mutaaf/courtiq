@@ -26,7 +26,13 @@ export default async function ShareOGImage({
 
   const playerName: string = data?.player?.nickname || data?.player?.name || 'Player';
   const firstName: string = playerName.split(' ')[0];
-  const teamName: string = data?.team?.name || 'Youth Sports';
+  const rawTeamName: string = data?.team?.name || 'Youth Sports';
+  const sportEmojiMap: Record<string, string> = {
+    basketball: '🏀', soccer: '⚽', volleyball: '🏐', flag_football: '🏈',
+    baseball: '⚾', softball: '🥎', lacrosse: '🥍', swimming: '🏊', tennis: '🎾', gymnastics: '🤸',
+  };
+  const sportEmoji: string = sportEmojiMap[data?.sportSlug ?? ''] ?? '';
+  const teamName: string = sportEmoji ? `${sportEmoji} ${rawTeamName}` : rawTeamName;
   const coachName: string = data?.coachName || 'Coach';
   const obsCount: number = data?.totalObservationCount ?? 0;
   const skillArr: any[] = Array.isArray(data?.skillProgress) ? data.skillProgress : [];

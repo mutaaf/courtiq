@@ -6,6 +6,7 @@ import { ParentContactForm } from '@/components/share/parent-contact-form';
 import { ShareReportButton } from '@/components/share/share-report-button';
 import { ProgressTrendChart } from '@/components/share/progress-trend-chart';
 import { Megaphone, MessageCircle } from 'lucide-react';
+import { getSportEmoji } from '@/lib/sport-utils';
 import {
   buildSeasonStats,
   getImprovingSkills,
@@ -406,6 +407,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     skillChallenge,
     playerGoals,
     hasParentContact,
+    sportSlug,
   } = data;
 
   const safeStarred: any[] = starredObservations ?? [];
@@ -416,6 +418,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
   const teamName = team?.name || 'the team';
   const season = team?.season || null;
   const brandColor = branding?.primary_color || '#F97316'; // orange fallback
+  const sportEmoji = getSportEmoji(sportSlug);
 
   // Achievement badge metadata — emoji + colour per badge type
   const BADGE_META: Record<string, { emoji: string; name: string; description: string; color: string }> = {
@@ -493,9 +496,10 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             {branding?.parent_portal_header_text || 'Progress Report'}
           </p>
           <h1
-            className="mt-1 text-2xl font-bold"
+            className="mt-1 text-2xl font-bold flex items-center justify-center gap-2"
             style={{ color: brandColor }}
           >
+            <span aria-hidden="true">{sportEmoji}</span>
             {teamName}
           </h1>
         </div>
@@ -557,6 +561,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
               firstName={firstName}
               teamName={teamName}
               coachName={coachName}
+              sportEmoji={sportEmoji}
             />
           </div>
         </div>

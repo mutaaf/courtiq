@@ -266,7 +266,10 @@ export default function DemoReportPage() {
         {/* ─── Header ─── */}
         <div className="px-6 pt-8 pb-6 text-center">
           <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">Progress Report</p>
-          <h1 className="mt-1 text-2xl font-bold text-orange-500">{TEAM.name}</h1>
+          <h1 className="mt-1 text-2xl font-bold text-orange-500 flex items-center justify-center gap-2">
+            <span aria-hidden="true">🏀</span>
+            {TEAM.name}
+          </h1>
         </div>
 
         {/* ─── Player card ─── */}

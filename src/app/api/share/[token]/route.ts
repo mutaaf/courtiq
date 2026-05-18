@@ -47,10 +47,10 @@ export async function GET(
       .eq('id', share.player_id)
       .single();
 
-    // Get team info
+    // Get team info — include sport slug and org_id in one query
     const { data: team } = await supabase
       .from('teams')
-      .select('name, age_group, season')
+      .select('name, age_group, season, org_id, sports(slug)')
       .eq('id', share.team_id)
       .single();
 
@@ -62,21 +62,18 @@ export async function GET(
       .single();
 
     // Get org branding
-    const { data: teamFull } = await supabase
-      .from('teams')
-      .select('org_id')
-      .eq('id', share.team_id)
-      .single();
-
     let branding = null;
-    if (teamFull?.org_id) {
+    const orgId = (team as any)?.org_id ?? null;
+    if (orgId) {
       const { data: b } = await supabase
         .from('org_branding')
         .select('*')
-        .eq('org_id', teamFull.org_id)
+        .eq('org_id', orgId)
         .single();
       branding = b;
     }
+
+    const sportSlug: string | null = (team as any)?.sports?.slug ?? null;
 
     // Build the report data based on what's included
     const coachPrefs: any = coach?.preferences ?? {};
@@ -86,6 +83,7 @@ export async function GET(
       coachName: coach?.full_name,
       isCoachCertified: !!(coachPrefs?.certified_at),
       branding,
+      sportSlug,
       customMessage: share.custom_message,
       // True when the player already has a parent phone on file; the share
       // portal uses this to hide the contact-collection form for known parents.
