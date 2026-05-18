@@ -24,7 +24,7 @@ import { useAppStore } from '@/lib/store';
 type SortMode = 'alpha' | 'attention' | 'momentum';
 
 export default function RosterPage() {
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
   const [search, setSearch] = useState('');
   const [positionFilter, setPositionFilter] = useState<string>('all');
   const [sortMode, setSortMode] = useState<SortMode>('alpha');
@@ -460,6 +460,7 @@ export default function RosterPage() {
               momentum={momentumMap[player.id] ?? null}
               coachName={coach?.full_name ?? null}
               teamName={activeTeam.name}
+              sportSlug={sportSlug}
             />
           ))}
         </div>
