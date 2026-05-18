@@ -2744,7 +2744,7 @@ export default function PlansPage() {
                 `Strengths: ${Array.isArray(personality.strengths) ? personality.strengths.join(', ') : ''}`,
                 `Working on: ${Array.isArray(personality.growth_areas) ? personality.growth_areas.join(', ') : ''}`,
                 '',
-                'Powered by SportsIQ 🏀',
+                `Powered by SportsIQ ${getSportEmoji(sportSlug)}`,
               ].join('\n');
               try {
                 if (navigator.share) {

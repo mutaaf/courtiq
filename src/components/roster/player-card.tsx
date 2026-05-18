@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { Check, Clock, Phone } from 'lucide-react';
 import type { Player, PlayerAvailability } from '@/types/database';
 import { PlayerAvatar } from '@/components/ui/player-avatar';
+import { getSportEmoji } from '@/lib/sport-utils';
 import { AvailabilityBadge } from '@/components/roster/availability-badge';
 import { PlayerAvailabilityModal } from '@/components/roster/player-availability-modal';
 import type { PlayerMomentum } from '@/lib/momentum-utils';
@@ -36,6 +37,7 @@ interface PlayerCardProps {
   momentum?: PlayerMomentum | null;
   coachName?: string | null;
   teamName?: string | null;
+  sportSlug?: string | null;
 }
 
 function buildQuickTextMsg(
@@ -43,23 +45,25 @@ function buildQuickTextMsg(
   coachName: string | null | undefined,
   teamName: string | null | undefined,
   lastObsPreview: { text: string; sentiment: string } | null | undefined,
+  sportSlug?: string | null,
 ): string {
   const firstName = player.name.split(' ')[0];
   const coachFirst = coachName?.split(' ')[0] ?? 'Your coach';
   const parentFirst = player.parent_name?.split(' ')[0];
   const greeting = parentFirst ? `Hi ${parentFirst}!` : 'Hi!';
   const from = `Coach ${coachFirst}${teamName ? ` from ${teamName}` : ''} here.`;
+  const emoji = getSportEmoji(sportSlug);
 
   if (lastObsPreview?.sentiment === 'positive') {
     const text = lastObsPreview.text.length > 80
       ? lastObsPreview.text.slice(0, 80).trimEnd() + '…'
       : lastObsPreview.text;
-    return `${greeting} ${from}\n\n✅ Just wanted to share a great moment from ${firstName}'s recent session: "${text}"\n\nKeep up the encouragement at home! 🏀`;
+    return `${greeting} ${from}\n\n✅ Just wanted to share a great moment from ${firstName}'s recent session: "${text}"\n\nKeep up the encouragement at home! ${emoji}`;
   }
   if (lastObsPreview) {
-    return `${greeting} ${from}\n\nJust wanted to connect about ${firstName} — we're working on some skills together and your support at home makes a big difference. See you soon! 🏀`;
+    return `${greeting} ${from}\n\nJust wanted to connect about ${firstName} — we're working on some skills together and your support at home makes a big difference. See you soon! ${emoji}`;
   }
-  return `${greeting} ${from}\n\nJust wanted to reach out about ${firstName} and check in. Looking forward to seeing them at the next session! 🏀`;
+  return `${greeting} ${from}\n\nJust wanted to reach out about ${firstName} and check in. Looking forward to seeing them at the next session! ${emoji}`;
 }
 
 const positionColors: Record<string, string> = {
@@ -84,6 +88,7 @@ export function PlayerCard({
   momentum = null,
   coachName,
   teamName,
+  sportSlug,
 }: PlayerCardProps) {
   const router = useRouter();
   const [showAvailability, setShowAvailability] = useState(false);
@@ -105,7 +110,7 @@ export function PlayerCard({
   function handleQuickText(e: React.MouseEvent) {
     e.stopPropagation();
     if (!player.parent_phone) return;
-    const msg = buildQuickTextMsg(player, coachName, teamName, lastObsPreview);
+    const msg = buildQuickTextMsg(player, coachName, teamName, lastObsPreview, sportSlug);
     const digits = player.parent_phone.replace(/\D/g, '');
     window.open(`https://wa.me/${digits}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
     setTextSent(true);
