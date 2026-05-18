@@ -21,13 +21,13 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-// ─── Default demo roster ──────────────────────────────────────────────────────
+// ─── Default demo roster (sport-agnostic) ────────────────────────────────────
 const DEFAULT_ROSTER = [
-  { name: 'Marcus', nickname: null as string | null, position: 'Guard', jersey_number: 12 },
-  { name: 'Jayden', nickname: 'Jay', position: 'Forward', jersey_number: 7 },
-  { name: 'Sofia',  nickname: null, position: 'Guard',   jersey_number: 23 },
-  { name: 'Alex',   nickname: null, position: 'Center',  jersey_number: 5 },
-  { name: 'Mia',    nickname: null, position: 'Forward', jersey_number: 15 },
+  { name: 'Marcus', nickname: null as string | null, position: 'Athlete', jersey_number: 12 },
+  { name: 'Jayden', nickname: 'Jay', position: 'Athlete', jersey_number: 7 },
+  { name: 'Sofia',  nickname: null, position: 'Athlete', jersey_number: 23 },
+  { name: 'Alex',   nickname: null, position: 'Athlete', jersey_number: 5 },
+  { name: 'Mia',    nickname: null, position: 'Athlete', jersey_number: 15 },
 ];
 
 export async function POST(request: Request) {
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
     '',
     'Rules:',
     '- One observation per player per topic',
-    '- Categories: Offense, Defense, IQ, Effort, Coachability, Teamwork, Dribbling, Shooting, Passing',
+    '- Categories: Offense, Defense, Technique, Effort, Coachability, Teamwork, Footwork, Positioning, Leadership',
     '- Sentiment: positive | needs-work | neutral',
     '- Extract stats if mentioned (points, rebounds, assists, steals, blocks, turnovers)',
     '- Note tendencies when described',
