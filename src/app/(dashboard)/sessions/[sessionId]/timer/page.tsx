@@ -118,6 +118,11 @@ import {
   formatLastRun,
   buildRunCountLabel,
 } from '@/lib/drill-run-history-utils';
+import {
+  getWeeklyFocus,
+  getFocusCategoryConfig,
+  type WeeklyFocus,
+} from '@/lib/weekly-focus-utils';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -1182,6 +1187,7 @@ export default function PracticeTimerPage({
   });
 
   const [bgAdjustMsg, setBgAdjustMsg] = useState<string | null>(null);
+  const [weeklyFocus, setWeeklyFocus] = useState<WeeklyFocus | null>(null);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cueIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1567,6 +1573,12 @@ export default function PracticeTimerPage({
     try { localStorage.setItem('coach-audio-enabled', String(audioEnabled)); } catch { /* ignore */ }
   }, [audioEnabled]);
 
+  // Load weekly focus from localStorage after hydration (SSR-safe).
+  useEffect(() => {
+    if (!activeTeam?.id) return;
+    setWeeklyFocus(getWeeklyFocus(activeTeam.id));
+  }, [activeTeam?.id]);
+
   // Announce each drill start, break prompt, and practice-complete moment.
   // Uses refs so this effect only fires on mode/drill transitions, not on
   // every note saved or queue reorder.
@@ -1934,9 +1946,15 @@ export default function PracticeTimerPage({
   }, [drills, drillSearch, showFavoritesOnly, favoriteIds, activeTeam?.id]);
 
   // ── Skill-gap drill suggestions for the empty queue screen ───────────────
-  // Uses already-fetched needsWorkObs + drills — no extra API call.
+  // When a weekly focus is active it earns the top slot; data-driven gap drills
+  // fill the remaining spots. No extra API call — reuses already-fetched data.
   const suggestedDrills = useMemo(() => {
-    if (!drills.length || !needsWorkObs.length) return [] as Drill[];
+    if (!drills.length) return [] as Drill[];
+    if (!needsWorkObs.length && !weeklyFocus) return [] as Drill[];
+    const queuedIds = new Set(queue.map((q) => q.drillId).filter(Boolean));
+    const available = drills.filter((d) => !queuedIds.has(d.id));
+
+    // Build the top-gap categories from observation history.
     const counts: Record<string, number> = {};
     for (const obs of needsWorkObs) {
       if (obs.category) counts[obs.category] = (counts[obs.category] ?? 0) + 1;
@@ -1945,17 +1963,32 @@ export default function PracticeTimerPage({
       .sort(([, a], [, b]) => b - a)
       .slice(0, 2)
       .map(([cat]) => cat.toLowerCase());
-    if (!topGaps.length) return [] as Drill[];
-    const queuedIds = new Set(queue.map((q) => q.drillId).filter(Boolean));
-    return drills
-      .filter((d) => topGaps.includes(d.category.toLowerCase()) && !queuedIds.has(d.id))
-      .sort((a, b) => {
-        const ai = topGaps.indexOf(a.category.toLowerCase());
-        const bi = topGaps.indexOf(b.category.toLowerCase());
-        return ai - bi;
-      })
-      .slice(0, 3);
-  }, [drills, needsWorkObs, queue]);
+
+    const focusCat = weeklyFocus?.category?.toLowerCase();
+
+    // Drills matching the weekly focus get the top slot (up to 1).
+    const focusDrills = focusCat
+      ? available.filter((d) => d.category.toLowerCase() === focusCat).slice(0, 1)
+      : [];
+
+    // Drills matching top skill gaps fill remaining slots (skip focus category
+    // if already represented so we don't duplicate).
+    const gapDrills = topGaps.length
+      ? available
+          .filter((d) => {
+            const cat = d.category.toLowerCase();
+            return topGaps.includes(cat) && cat !== focusCat;
+          })
+          .sort((a, b) => {
+            const ai = topGaps.indexOf(a.category.toLowerCase());
+            const bi = topGaps.indexOf(b.category.toLowerCase());
+            return ai - bi;
+          })
+          .slice(0, 3 - focusDrills.length)
+      : [];
+
+    return [...focusDrills, ...gapDrills].slice(0, 3);
+  }, [drills, needsWorkObs, queue, weeklyFocus]);
 
   // ── Coaching phrase fallback ─────────────────────────────────────────────
   // When the current drill has no teaching cues, surface a sport- and
@@ -2351,6 +2384,20 @@ export default function PracticeTimerPage({
         </div>
       )}
 
+      {/* Weekly Focus banner */}
+      {weeklyFocus && (() => {
+        const cfg = getFocusCategoryConfig(weeklyFocus.category);
+        return cfg ? (
+          <div className="flex items-center gap-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-4 py-3 text-sm text-indigo-300">
+            <span className="text-base leading-none">{cfg.emoji}</span>
+            <span className="flex-1">
+              <span className="font-semibold">{cfg.label} Week</span>
+              <span className="text-indigo-400/70"> · drill suggestions prioritised for your focus</span>
+            </span>
+          </div>
+        ) : null;
+      })()}
+
       {/* Absent/unavailable players banner */}
       {absentPlayers.length > 0 && (
         <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-sm text-amber-300">
@@ -2611,29 +2658,41 @@ export default function PracticeTimerPage({
             {suggestedDrills.length > 0 && (
               <>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                  Suggested for today · based on your team&apos;s skill gaps
+                  {weeklyFocus
+                    ? `Suggested for today · ${getFocusCategoryConfig(weeklyFocus.category)?.label ?? weeklyFocus.category} focus + skill gaps`
+                    : 'Suggested for today · based on your team’s skill gaps'}
                 </p>
                 <div className="flex flex-col gap-2">
-                  {suggestedDrills.map((drill) => (
+                  {suggestedDrills.map((drill) => {
+                    const isFocusDrill = weeklyFocus && drill.category.toLowerCase() === weeklyFocus.category.toLowerCase();
+                    return (
                     <button
                       key={drill.id}
                       onClick={() => addFromLibrary(drill)}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3 text-left hover:border-orange-500/30 hover:bg-zinc-800/60 transition-colors group touch-manipulation active:scale-[0.98]"
+                      className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left hover:bg-zinc-800/60 transition-colors group touch-manipulation active:scale-[0.98] ${isFocusDrill ? 'border-indigo-700/40 bg-indigo-500/5 hover:border-indigo-600/50' : 'border-zinc-800 bg-zinc-900/40 hover:border-orange-500/30'}`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 group-hover:bg-orange-500/20 transition-colors">
-                          <Target className="h-4 w-4 text-orange-400" />
+                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${isFocusDrill ? 'bg-indigo-500/15 group-hover:bg-indigo-500/25' : 'bg-orange-500/10 group-hover:bg-orange-500/20'}`}>
+                          <Target className={`h-4 w-4 ${isFocusDrill ? 'text-indigo-400' : 'text-orange-400'}`} />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-zinc-200 truncate">{drill.name}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-sm font-medium text-zinc-200 truncate">{drill.name}</p>
+                            {isFocusDrill && (
+                              <span className="shrink-0 rounded-full bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-indigo-400 border border-indigo-500/30">
+                                Focus
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-zinc-500">
                             {drill.category} · {drill.duration_minutes ?? 10} min
                           </p>
                         </div>
                       </div>
-                      <Plus className="h-4 w-4 text-zinc-600 group-hover:text-orange-400 shrink-0 transition-colors" />
+                      <Plus className={`h-4 w-4 shrink-0 transition-colors ${isFocusDrill ? 'text-indigo-500 group-hover:text-indigo-300' : 'text-zinc-600 group-hover:text-orange-400'}`} />
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}
