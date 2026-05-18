@@ -17,7 +17,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Drill, Observation } from '@/types/database';
 import { isFavorited, filterToFavorites, parseFavoritedDrills } from '@/lib/drill-favorites-utils';
-import { getDrillBuilderCategories } from '@/lib/sport-utils';
+import { getDrillBuilderCategories, getDrillBuilderExamples } from '@/lib/sport-utils';
 
 const DURATION_OPTIONS = [
   { label: 'Any', value: null },
@@ -683,11 +683,7 @@ export default function DrillsPage() {
                   <div className="space-y-1.5">
                     <p className="text-xs text-zinc-500">Example prompts:</p>
                     <div className="flex flex-col gap-1.5">
-                      {[
-                        'A passing drill for 3-5 players that builds accuracy and communication',
-                        'Defensive footwork exercise using cones, 10 minutes, intermediate level',
-                        'Fun shooting competition game for 8 players, ages 10-12',
-                      ].map((example) => (
+                      {getDrillBuilderExamples(sportSlug).map((example) => (
                         <button
                           key={example}
                           onClick={() => setBuilderDesc(example)}

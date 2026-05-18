@@ -4,6 +4,7 @@ import {
   getSportExamplePhrase,
   getSportPreamble,
   getDrillBuilderCategories,
+  getDrillBuilderExamples,
   SPORT_PREAMBLES,
 } from '@/lib/sport-utils';
 
@@ -134,5 +135,74 @@ describe('getDrillBuilderCategories', () => {
   it('returns default categories for null', () => {
     const cats = getDrillBuilderCategories(null);
     expect(cats.length).toBeGreaterThan(0);
+  });
+});
+
+describe('getDrillBuilderExamples', () => {
+  it('returns 3 examples for every supported sport', () => {
+    const sports = ['basketball', 'soccer', 'volleyball', 'flag_football', 'baseball', 'softball', 'lacrosse', 'swimming', 'tennis', 'gymnastics'];
+    for (const sport of sports) {
+      const examples = getDrillBuilderExamples(sport);
+      expect(examples.length, `${sport} should have 3 examples`).toBe(3);
+    }
+  });
+
+  it('basketball examples mention basketball-relevant skills', () => {
+    const examples = getDrillBuilderExamples('basketball');
+    const joined = examples.join(' ').toLowerCase();
+    expect(joined).toMatch(/dribbling|shooting|defense/);
+  });
+
+  it('swimming examples do not mention shooting or dribbling', () => {
+    const examples = getDrillBuilderExamples('swimming');
+    const joined = examples.join(' ').toLowerCase();
+    expect(joined).not.toContain('shooting');
+    expect(joined).not.toContain('dribbling');
+  });
+
+  it('swimming examples mention pool-relevant skills', () => {
+    const examples = getDrillBuilderExamples('swimming');
+    const joined = examples.join(' ').toLowerCase();
+    expect(joined).toMatch(/flip.turn|kick|stroke|relay|swimmer/);
+  });
+
+  it('gymnastics examples mention gymnastics-relevant skills', () => {
+    const examples = getDrillBuilderExamples('gymnastics');
+    const joined = examples.join(' ').toLowerCase();
+    expect(joined).toMatch(/handstand|balance|cartwheel|gymnast/);
+  });
+
+  it('gymnastics examples do not mention court or shooting', () => {
+    const examples = getDrillBuilderExamples('gymnastics');
+    const joined = examples.join(' ').toLowerCase();
+    expect(joined).not.toContain('shooting');
+    expect(joined).not.toContain('court');
+  });
+
+  it('tennis examples mention tennis-relevant skills', () => {
+    const examples = getDrillBuilderExamples('tennis');
+    const joined = examples.join(' ').toLowerCase();
+    expect(joined).toMatch(/forehand|serve|rally|backhand|volley/);
+  });
+
+  it('lacrosse examples mention lacrosse-relevant skills', () => {
+    const examples = getDrillBuilderExamples('lacrosse');
+    const joined = examples.join(' ').toLowerCase();
+    expect(joined).toMatch(/cradle|pass|shoot|stick/i);
+  });
+
+  it('returns default examples for unknown sport', () => {
+    const examples = getDrillBuilderExamples('cricket');
+    expect(examples.length).toBeGreaterThan(0);
+  });
+
+  it('returns default examples for null', () => {
+    const examples = getDrillBuilderExamples(null);
+    expect(examples.length).toBeGreaterThan(0);
+  });
+
+  it('returns default examples for undefined', () => {
+    const examples = getDrillBuilderExamples(undefined);
+    expect(examples.length).toBeGreaterThan(0);
   });
 });

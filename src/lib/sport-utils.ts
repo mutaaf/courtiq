@@ -83,3 +83,71 @@ const DEFAULT_SPORT_PREAMBLE = '';
 export function getSportPreamble(sportSlug?: string | null): string {
   return SPORT_PREAMBLES[sportSlug ?? ''] ?? DEFAULT_SPORT_PREAMBLE;
 }
+
+/**
+ * Sport-specific example prompts shown in the AI drill builder form.
+ * Each triple matches the categories for that sport so coaches see
+ * realistic examples, not basketball-only suggestions.
+ */
+export const SPORT_DRILL_BUILDER_EXAMPLES: Record<string, string[]> = {
+  basketball:    [
+    'A dribbling drill for beginners with cones, fun for ages 8-10',
+    'Defensive footwork exercise using chairs, 10 minutes, intermediate level',
+    'Fun shooting competition game for 8 players, ages 10-12',
+  ],
+  soccer:        [
+    'A passing drill for 4-6 players that builds first touch and accuracy',
+    'Defensive pressure exercise with cones, 10 minutes, intermediate level',
+    'Fun dribbling competition through gates, ages 8-12',
+  ],
+  volleyball:    [
+    'A serving accuracy drill targeting corners of the court, 10 minutes',
+    'Passing and digging exercise for 6 players in pairs, beginner level',
+    'Fun setting game for 4-8 players that improves hand placement',
+  ],
+  flag_football: [
+    'A route-running drill for 3 receivers plus a QB, 10 minutes',
+    'Flag-pulling defensive exercise with cones, intermediate level',
+    'Fun catching competition for 6-8 players, ages 8-12',
+  ],
+  baseball:      [
+    'A fielding ground-ball drill for 4 players, 10 minutes, beginner level',
+    'Soft-toss hitting station for 2-3 players, intermediate level',
+    'Fun baserunning relay race for 8 players, ages 8-12',
+  ],
+  softball:      [
+    'A fielding ground-ball drill for 4 players, 10 minutes, beginner level',
+    'Pitching mechanics warm-up for 2-3 players, intermediate level',
+    'Fun batting competition game for 6-8 players, ages 8-12',
+  ],
+  lacrosse:      [
+    'A cradling drill through cones for beginners, 10 minutes, ages 8-10',
+    'Passing accuracy exercise for pairs, intermediate level',
+    'Fun shooting game with small goals for 6 players',
+  ],
+  swimming:      [
+    'A flip-turn technique drill for beginners, 15 minutes in shallow end',
+    'Kick-set exercise with kickboards for 4-6 swimmers, 10 minutes',
+    'Fun relay race game for 8 swimmers to build team spirit, ages 8-12',
+  ],
+  tennis:        [
+    'A crosscourt forehand rally drill for 2 players, 10 minutes',
+    'Serve placement exercise targeting service boxes, intermediate level',
+    'Fun mini-tennis rally competition for 4 players, ages 8-12',
+  ],
+  gymnastics:    [
+    'A handstand progressions drill for beginners using wall support, 10 minutes',
+    'Balance beam walk exercise for 3-4 gymnasts, beginner level',
+    'Fun cartwheel relay across the floor for 6 gymnasts, ages 6-10',
+  ],
+};
+
+const DEFAULT_DRILL_BUILDER_EXAMPLES = [
+  'A passing drill for 3-5 players that builds accuracy and communication',
+  'Defensive footwork exercise using cones, 10 minutes, intermediate level',
+  'Fun competition game for 8 players, ages 10-12',
+];
+
+export function getDrillBuilderExamples(sportSlug?: string | null): string[] {
+  return SPORT_DRILL_BUILDER_EXAMPLES[sportSlug ?? ''] ?? DEFAULT_DRILL_BUILDER_EXAMPLES;
+}
