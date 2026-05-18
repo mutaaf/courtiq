@@ -57,3 +57,29 @@ const DEFAULT_EXAMPLE_PHRASE = "Sarah's footwork looked sharp, and Jordan had gr
 export function getSportExamplePhrase(sportSlug?: string | null): string {
   return SPORT_EXAMPLE_PHRASES[sportSlug ?? ''] ?? DEFAULT_EXAMPLE_PHRASE;
 }
+
+/**
+ * Sport-specific AI preambles injected into every AI system prompt via
+ * `buildAIContext`. They tell the AI what vocabulary and terminology to use
+ * so that generated text (player messages, practice plans, coaching briefs,
+ * debriefs) sounds natural for the coach's sport instead of defaulting to
+ * basketball language.
+ */
+export const SPORT_PREAMBLES: Record<string, string> = {
+  basketball:    'Use basketball terminology. Players are on the court. Use terms like dribble, shoot, rebound, closeout, pick-and-roll, lane, paint.',
+  soccer:        'Use soccer terminology. Players are on the pitch. Use terms like ball control, first touch, through-ball, pressing, goalkeeper, striker, possession.',
+  volleyball:    'Use volleyball terminology. Players are on the court. Use terms like serve, pass/receive, set, spike, block, dig, rotation, libero.',
+  flag_football: 'Use flag football terminology. Players are on the field. Use terms like route running, flag pull, snap, pocket awareness, receiver, quarterback.',
+  baseball:      'Use baseball terminology. Players are on the field or diamond. Use terms like hitting, fielding, throwing arm, pitching, baserunning, plate discipline.',
+  softball:      'Use softball terminology. Players are on the field or diamond. Use terms like hitting, fielding, pitching (windmill), batting, baserunning.',
+  lacrosse:      'Use lacrosse terminology. Players are on the field. Use terms like cradling, passing, catching, shooting, ground balls, face-off, crease, stick skills.',
+  swimming:      "Use swimming terminology. Always say 'swimmer' or 'athlete', NEVER 'player'. Athletes are in the pool. Use terms like stroke technique, flip turn, race start, kick, pull, streamline, breathing rhythm. Do NOT use 'court', 'field', 'shoot', or 'on the ball'.",
+  tennis:        'Use tennis terminology. Players are on the court. Use terms like serve, return, forehand, backhand, volley, rally, split-step, approach shot, baseline.',
+  gymnastics:    "Use gymnastics terminology. Always say 'gymnast' or 'athlete', NEVER 'player'. Athletes are on the floor, beam, bars, or vault. Use terms like tumbling, handstand, cartwheel, kip, cast, balance, body form, landing, dismount. Do NOT use 'court', 'field', 'dribble', or 'shoot'.",
+};
+
+const DEFAULT_SPORT_PREAMBLE = '';
+
+export function getSportPreamble(sportSlug?: string | null): string {
+  return SPORT_PREAMBLES[sportSlug ?? ''] ?? DEFAULT_SPORT_PREAMBLE;
+}
