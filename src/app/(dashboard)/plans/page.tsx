@@ -3,1514 +3,4131 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
-import type { TrainingPlan, Player, TrainingPlanSession } from '@/types/database';
+import { queryKeys } from '@/lib/query/keys';
+import { CACHE_PROFILES } from '@/lib/query/config';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
-  ChevronDown,
-  ChevronRight,
   ClipboardList,
-  Copy,
-  Edit3,
-  Loader2,
-  Plus,
-  Share2,
-  Trash2,
-  Users,
-  Wand2,
-  X,
-  CheckCircle2,
-  FileText,
-  Clock,
+  ClipboardCheck,
   Dumbbell,
-  Target,
-  ChevronUp,
-  Filter,
-  ArrowRight,
-  ListChecks,
-  MessageSquare,
+  Trophy,
+  Loader2,
+  Calendar,
+  ChevronRight,
+  ChevronDown,
+  FileText,
+  Sparkles,
+  X,
+  AlertCircle,
+  Trash2,
   Send,
-  Check,
-  Info,
+  Activity,
+  TrendingUp,
+  Newspaper,
+  Star,
+  Home,
+  Users,
+  BookOpen,
+  Shield,
+  Swords,
+  Eye,
+  MessageSquare,
   Zap,
+  ChevronUp,
+  BookmarkPlus,
+  Check,
+  Play,
+  Timer,
+  Plus,
+  Radio,
+  Target,
+  BarChart2,
+  Share2,
+  PenLine,
+  Copy,
+  Megaphone,
+  Lock,
+  Fingerprint,
+  Mic,
+  Award,
+  Mail,
+  Heart,
 } from 'lucide-react';
-import { callAIWithJSON } from '@/lib/ai/client';
-import { buildPlanPrompt, buildSessionPrompt } from '@/lib/ai/prompts';
-import { UpgradeGate } from '@/components/ui/upgrade-gate';
+import { PullToRefresh } from '@/components/ui/pull-to-refresh';
+import { PrintButton } from '@/components/ui/print-button';
 import { useTier } from '@/hooks/use-tier';
-import type { TierKey } from '@/lib/tier';
-import { TIER_LIMITS } from '@/lib/tier';
-import { SessionCard } from '@/components/plans/session-card';
-import { RosterPicker } from '@/components/plans/roster-picker';
-import { TeamGroupMessageCard } from '@/components/plans/team-group-message-card';
-import { PlayerQuickObsModal } from '@/components/observations/player-quick-obs-modal';
-import type { GroupMessageResult } from '@/lib/team-group-message-utils';
-import type { GroupMessageSendResult } from '@/components/plans/team-group-message-card';
+import type { Plan, Player, PlanType, Session } from '@/types/database';
+import type { ObservationInsights } from '@/app/api/ai/plan/route';
+import { getCategoryLabel, getCategoryColor } from '@/lib/coach-reflection-utils';
+import { trackEvent } from '@/lib/analytics';
 import { getSportEmoji } from '@/lib/sport-utils';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface PlanWithSessions extends TrainingPlan {
-  training_plan_sessions: TrainingPlanSession[];
-}
-
-interface PlanSection {
-  title: string;
-  duration_minutes?: number;
-  objectives: string[];
-  activities: PlanActivity[];
-  coaching_notes?: string;
-}
-
-interface PlanActivity {
-  name: string;
-  duration_minutes?: number;
-  description: string;
-  equipment?: string[];
-  variations?: string[];
-  coaching_points?: string[];
-}
-
-interface GeneratedPlan {
-  plan_title: string;
-  overview: string;
-  total_duration_minutes: number;
-  focus_areas: string[];
-  sessions: GeneratedSession[];
-}
-
-interface GeneratedSession {
-  session_number: number;
-  session_label?: string;
-  objectives: string[];
-  sections: PlanSection[];
-  session_notes?: string;
-}
-
-interface ParsedSession {
-  session_number: number;
-  session_label: string;
-  content: string;
-}
-
-interface ShareSheetProps {
-  text: string;
-  onClose: () => void;
-}
-
-// ─── Inline share sheet ───────────────────────────────────────────────────────
-
-function ShareSheet({ text, onClose }: ShareSheetProps) {
-  const [copied, setCopied] = useState(false);
-
-  async function handleCopy() {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4" onClick={onClose}>
-      <div
-        className="w-full max-w-lg rounded-2xl bg-zinc-900 border border-zinc-700 p-5 space-y-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <p className="font-semibold text-zinc-100">Share Session Plan</p>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-xl bg-zinc-800 p-3 text-xs text-zinc-300 font-mono">
-          {text}
-        </pre>
-        <div className="flex gap-2">
-          <Button
-            onClick={handleCopy}
-            className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
-          >
-            {copied ? <><CheckCircle2 className="h-4 w-4 mr-1.5" /> Copied!</> : <><Copy className="h-4 w-4 mr-1.5" /> Copy Text</>}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-              window.open(url, '_blank', 'noopener');
-            }}
-            className="flex-1 border-zinc-700 text-zinc-300 hover:text-zinc-100"
-          >
-            <Share2 className="h-4 w-4 mr-1.5" /> WhatsApp
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatDrillText(activity: PlanActivity): string {
-  const lines: string[] = [`*${activity.name}*`];
-  if (activity.duration_minutes) lines.push(`⏱ ${activity.duration_minutes} min`);
-  lines.push(activity.description);
-  if (activity.coaching_points?.length) {
-    lines.push('Key points:');
-    activity.coaching_points.forEach((p) => lines.push(`• ${p}`));
-  }
-  return lines.join('\n');
-}
-
-function formatSectionText(section: PlanSection): string {
-  const lines: string[] = [`📌 ${section.title.toUpperCase()}`];
-  if (section.duration_minutes) lines.push(`⏱ ${section.duration_minutes} min`);
-  if (section.objectives?.length) {
-    lines.push('Goals: ' + section.objectives.join(', '));
-  }
-  section.activities.forEach((a) => {
-    lines.push('');
-    lines.push(formatDrillText(a));
-  });
-  if (section.coaching_notes) {
-    lines.push('');
-    lines.push(`💡 ${section.coaching_notes}`);
-  }
-  return lines.join('\n');
-}
-
-function formatSessionShareText(
-  session: GeneratedSession,
-  teamName: string,
-  sportEmoji: string,
-): string {
-  const header = `${sportEmoji} ${teamName} — ${session.session_label ?? `Session ${session.session_number}`}`;
-  const lines: string[] = [header, ''];
-
-  if (session.objectives?.length) {
-    lines.push('🎯 Session Goals');
-    session.objectives.forEach((o) => lines.push(`• ${o}`));
-    lines.push('');
-  }
-
-  session.sections.forEach((s) => {
-    lines.push(formatSectionText(s));
-    lines.push('');
-  });
-
-  if (session.session_notes) {
-    lines.push(`📝 ${session.session_notes}`);
-  }
-
-  return lines.join('\n').trim();
-}
-
-// ─── Session detail panel ──────────────────────────────────────────────────────
-
-interface SessionDetailPanelProps {
-  session: GeneratedSession;
-  teamName: string;
-  sportEmoji: string;
-  onClose: () => void;
-}
-
-function SessionDetailPanel({ session, teamName, sportEmoji, onClose }: SessionDetailPanelProps) {
-  const [shareOpen, setShareOpen] = useState(false);
-  const shareText = formatSessionShareText(session, teamName, sportEmoji);
-
-  return (
-    <>
-      <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} />
-      <div className="fixed inset-x-0 bottom-0 z-40 max-h-[85dvh] overflow-y-auto rounded-t-2xl bg-zinc-900 border-t border-zinc-700 p-5 space-y-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-orange-400">
-              {sportEmoji} Session {session.session_number}
-            </p>
-            <p className="text-lg font-bold text-zinc-100 mt-0.5">
-              {session.session_label ?? `Session ${session.session_number}`}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShareOpen(true)}
-              className="border-zinc-700 text-zinc-300 hover:text-zinc-100 gap-1.5"
-            >
-              <Share2 className="h-3.5 w-3.5" /> Share
-            </Button>
-            <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 p-1">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-
-        {session.objectives?.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Session Goals</p>
-            <ul className="space-y-1">
-              {session.objectives.map((obj, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
-                  <Target className="h-3.5 w-3.5 shrink-0 mt-0.5 text-orange-400" />
-                  {obj}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {session.sections.map((section, si) => (
-          <div key={si} className="space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                {section.title}
-              </span>
-              {section.duration_minutes && (
-                <span className="text-[10px] bg-zinc-800 rounded-full px-2 py-0.5 text-zinc-500">
-                  {section.duration_minutes} min
-                </span>
-              )}
-            </div>
-            {section.activities.map((act, ai) => (
-              <div key={ai} className="rounded-xl bg-zinc-800/60 p-3 space-y-1.5">
-                <p className="text-sm font-semibold text-zinc-100">{act.name}</p>
-                {act.duration_minutes && (
-                  <p className="text-[11px] text-zinc-500">{act.duration_minutes} min</p>
-                )}
-                <p className="text-xs text-zinc-400">{act.description}</p>
-                {act.coaching_points?.length ? (
-                  <ul className="space-y-0.5 pt-1">
-                    {act.coaching_points.map((cp, ci) => (
-                      <li key={ci} className="text-[11px] text-zinc-500 flex items-start gap-1.5">
-                        <span className="text-orange-400 shrink-0">•</span> {cp}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-                {act.variations?.length ? (
-                  <p className="text-[11px] text-zinc-600 italic">
-                    Variations: {act.variations.join(', ')}
-                  </p>
-                ) : null}
-              </div>
-            ))}
-            {section.coaching_notes && (
-              <p className="text-xs text-zinc-500 italic pl-1">
-                💡 {section.coaching_notes}
-              </p>
-            )}
-          </div>
-        ))}
-
-        {session.session_notes && (
-          <p className="text-sm text-zinc-400 italic">{session.session_notes}</p>
-        )}
-      </div>
-      {shareOpen && (
-        <ShareSheet text={shareText} onClose={() => setShareOpen(false)} />
-      )}
-    </>
-  );
-}
-
-// ─── TeamGroupMessageRenderer ─────────────────────────────────────────────────
-
-interface TeamGroupMessageRendererProps {
-  teamId: string;
-  teamName: string;
-  coachName: string;
-  sportSlug: string | null;
-  sessions: GeneratedSession[];
-}
-
-function TeamGroupMessageRenderer({
-  teamId,
-  teamName,
-  coachName,
-  sportSlug,
-  sessions,
-}: TeamGroupMessageRendererProps) {
-  const [selectedSessionIdx, setSelectedSessionIdx] = useState(0);
-  const [sendResult, setSendResult] = useState<GroupMessageSendResult | null>(null);
-
-  const session = sessions[selectedSessionIdx];
-  if (!session) return null;
-
-  const sessionLines: string[] = [];
-  const sessionTitle = session.session_label ?? `Session ${session.session_number}`;
-
-  if (session.objectives?.length) {
-    sessionLines.push('🎯 Goals: ' + session.objectives.slice(0, 2).join(', '));
-  }
-
-  const allActivities = session.sections.flatMap((s) => s.activities);
-  if (allActivities.length) {
-    sessionLines.push('🏋️ Drills: ' + allActivities.slice(0, 3).map((a) => a.name).join(', '));
-  }
-
-  const totalDuration = session.sections.reduce(
-    (sum, s) => sum + (s.duration_minutes ?? 0),
-    0,
-  );
-  if (totalDuration > 0) {
-    sessionLines.push(`⏱ Duration: ${totalDuration} min`);
-  }
-
-  if (session.session_notes) {
-    sessionLines.push(`📝 ${session.session_notes}`);
-  }
-
-  return (
-    <div className="space-y-4">
-      {sessions.length > 1 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          {sessions.map((s, i) => (
-            <button
-              key={i}
-              onClick={() => setSelectedSessionIdx(i)}
-              className={cn(
-                'shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors',
-                i === selectedSessionIdx
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700',
-              )}
-            >
-              {s.session_label ?? `Session ${s.session_number}`}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <TeamGroupMessageCard
-        key={selectedSessionIdx}
-        teamId={teamId}
-        teamName={teamName}
-        coachName={coachName}
-        sportSlug={sportSlug}
-        customMessage={sessionLines.join('\n')}
-        customTitle={sessionTitle}
-        onSendResult={setSendResult}
-      />
-
-      {sendResult && (
-        <div className={cn(
-          'rounded-xl border p-3 text-sm',
-          sendResult.failedCount === 0
-            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-            : 'border-amber-500/30 bg-amber-500/10 text-amber-300',
-        )}>
-          {sendResult.failedCount === 0
-            ? `✅ Sent to ${sendResult.sentCount} player${sendResult.sentCount !== 1 ? 's' : ''}`
-            : `⚠️ Sent: ${sendResult.sentCount}, Failed: ${sendResult.failedCount}`}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Focus area chips ─────────────────────────────────────────────────────────
-
-interface FocusAreaPickerProps {
-  sport: string;
-  selected: string[];
-  onChange: (areas: string[]) => void;
-}
-
-const SPORT_FOCUS_AREAS: Record<string, string[]> = {
-  basketball: ['Ball Handling', 'Shooting', 'Defense', 'Passing', 'Rebounding', 'Footwork', 'Conditioning', 'Game IQ'],
-  soccer: ['Dribbling', 'Passing', 'Shooting', 'Defense', 'Positioning', 'Set Pieces', 'Fitness', 'Heading'],
-  volleyball: ['Serving', 'Passing', 'Setting', 'Attacking', 'Blocking', 'Defense', 'Communication', 'Rotation'],
-  flag_football: ['Routes', 'Throwing', 'Catching', 'Defense', 'Blocking', 'Snap Count', 'Playbook', 'Conditioning'],
-  baseball: ['Hitting', 'Fielding', 'Pitching', 'Base Running', 'Catching', 'Throwing', 'Bunting', 'Game IQ'],
-  softball: ['Hitting', 'Fielding', 'Pitching', 'Base Running', 'Catching', 'Throwing', 'Slap Hitting', 'Game IQ'],
-  lacrosse: ['Stick Work', 'Shooting', 'Defense', 'Passing', 'Ground Balls', 'Dodging', 'Faceoffs', 'Conditioning'],
-  swimming: ['Freestyle', 'Backstroke', 'Breaststroke', 'Butterfly', 'Turns', 'Starts', 'Endurance', 'Technique'],
-  tennis: ['Forehand', 'Backhand', 'Serve', 'Volley', 'Movement', 'Strategy', 'Return', 'Conditioning'],
-  gymnastics: ['Vault', 'Bars', 'Beam', 'Floor', 'Strength', 'Flexibility', 'Tumbling', 'Choreography'],
+const PLAN_TYPE_CONFIG: Record<
+  string,
+  { label: string; icon: typeof ClipboardList; color: string }
+> = {
+  practice: { label: 'Practice Plan', icon: Dumbbell, color: 'text-blue-400' },
+  gameday: { label: 'Game Day Sheet', icon: Trophy, color: 'text-emerald-400' },
+  weekly: { label: 'Weekly Plan', icon: Calendar, color: 'text-purple-400' },
+  development_card: { label: 'Development Card', icon: FileText, color: 'text-orange-400' },
+  parent_report: { label: 'Parent Report', icon: FileText, color: 'text-pink-400' },
+  report_card: { label: 'Report Card', icon: FileText, color: 'text-amber-400' },
+  custom: { label: 'Custom', icon: ClipboardList, color: 'text-zinc-400' },
+  newsletter: { label: 'Parent Newsletter', icon: Newspaper, color: 'text-violet-400' },
+  season_storyline: { label: 'Season Storyline', icon: BookOpen, color: 'text-indigo-400' },
+  self_assessment: { label: 'Self-Assessment', icon: ClipboardCheck, color: 'text-teal-400' },
+  opponent_profile: { label: 'Scouting Profile', icon: Swords, color: 'text-red-400' },
+  game_recap: { label: 'Game Recap', icon: Radio, color: 'text-rose-400' },
+  weekly_star: { label: 'Weekly Star', icon: Star, color: 'text-amber-400' },
+  season_summary: { label: 'Season Summary', icon: BarChart2, color: 'text-cyan-400' },
+  coach_reflection: { label: 'Coach Reflection', icon: PenLine, color: 'text-purple-400' },
+  player_messages: { label: 'Player Messages', icon: MessageSquare, color: 'text-teal-400' },
+  team_group_message: { label: 'Team Group Message', icon: Users, color: 'text-emerald-400' },
+  season_awards: { label: 'Season Awards', icon: Trophy, color: 'text-amber-400' },
+  huddle_script: { label: 'Huddle Script', icon: Megaphone, color: 'text-lime-400' },
+  team_personality: { label: 'Team Personality', icon: Fingerprint, color: 'text-violet-400' },
+  practice_arc: { label: 'Practice Series', icon: Zap, color: 'text-sky-400' },
+  player_of_match: { label: 'Player of the Match', icon: Award, color: 'text-yellow-400' },
+  team_talk: { label: 'Team Talk', icon: Mic, color: 'text-orange-400' },
+  season_letter: { label: 'Season Letter', icon: Mail, color: 'text-pink-400' },
 };
 
-function FocusAreaPicker({ sport, selected, onChange }: FocusAreaPickerProps) {
-  const areas = SPORT_FOCUS_AREAS[sport] ?? SPORT_FOCUS_AREAS.basketball;
+const SUGGESTION_CHIPS = [
+  '60-min practice',
+  'Game day sheet',
+  'Ball handling drills',
+];
 
-  function toggle(area: string) {
-    if (selected.includes(area)) {
-      onChange(selected.filter((a) => a !== area));
-    } else if (selected.length < 4) {
-      onChange([...selected, area]);
-    }
-  }
+function PlayerMsgItem({ msg }: { msg: { player_name: string; message: string; highlight: string; next_focus: string } }) {
+  const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState(false);
 
-  return (
-    <div className="flex flex-wrap gap-2">
-      {areas.map((area) => (
-        <button
-          key={area}
-          type="button"
-          onClick={() => toggle(area)}
-          className={cn(
-            'rounded-full px-3 py-1 text-xs font-medium border transition-colors',
-            selected.includes(area)
-              ? 'border-orange-500 bg-orange-500/20 text-orange-300'
-              : 'border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300',
-          )}
-        >
-          {area}
-        </button>
-      ))}
-      {selected.length >= 4 && (
-        <span className="text-[11px] text-zinc-600 self-center">Max 4 selected</span>
-      )}
-    </div>
-  );
-}
-
-// ─── Duration picker ──────────────────────────────────────────────────────────
-
-interface DurationPickerProps {
-  value: number;
-  onChange: (v: number) => void;
-}
-
-function DurationPicker({ value, onChange }: DurationPickerProps) {
-  const options = [30, 45, 60, 75, 90];
-  return (
-    <div className="flex gap-2 flex-wrap">
-      {options.map((opt) => (
-        <button
-          key={opt}
-          type="button"
-          onClick={() => onChange(opt)}
-          className={cn(
-            'rounded-full px-3 py-1 text-xs font-medium border transition-colors',
-            value === opt
-              ? 'border-orange-500 bg-orange-500/20 text-orange-300'
-              : 'border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600',
-          )}
-        >
-          {opt} min
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ─── Player context pill ──────────────────────────────────────────────────────
-
-interface PlayerContextPillProps {
-  player: Player;
-  onRemove: () => void;
-}
-
-function PlayerContextPill({ player, onRemove }: PlayerContextPillProps) {
-  return (
-    <div className="flex items-center gap-1.5 rounded-full bg-zinc-800 border border-zinc-700 pl-2 pr-1 py-0.5">
-      <span className="text-xs text-zinc-300">{player.name}</span>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="text-zinc-600 hover:text-zinc-400 rounded-full"
-      >
-        <X className="h-3 w-3" />
-      </button>
-    </div>
-  );
-}
-
-// ─── Plan list item ───────────────────────────────────────────────────────────
-
-interface PlanListItemProps {
-  plan: PlanWithSessions;
-  isActive: boolean;
-  onClick: () => void;
-  onDelete: () => void;
-}
-
-function PlanListItem({ plan, isActive, onClick, onDelete }: PlanListItemProps) {
-  return (
-    <div
-      className={cn(
-        'group flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-all',
-        isActive
-          ? 'border-orange-500/50 bg-orange-500/5'
-          : 'border-zinc-800 hover:border-zinc-700 bg-zinc-900/50',
-      )}
-      onClick={onClick}
-    >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-800">
-        <ClipboardList className="h-4 w-4 text-orange-400" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-zinc-100">{plan.title}</p>
-        <p className="text-[11px] text-zinc-500">
-          {plan.training_plan_sessions.length} session{plan.training_plan_sessions.length !== 1 ? 's' : ''} · {new Date(plan.created_at).toLocaleDateString()}
-        </p>
-      </div>
-      <button
-        onClick={(e) => { e.stopPropagation(); onDelete(); }}
-        className="shrink-0 rounded-md p-1 text-zinc-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
-        aria-label="Delete plan"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
-}
-
-// ─── Plan wizard ──────────────────────────────────────────────────────────────
-
-interface PlanWizardProps {
-  teamId: string;
-  sport: string;
-  playerCount: number;
-  onGenerate: (params: GeneratePlanParams) => Promise<void>;
-  isGenerating: boolean;
-  players: Player[];
-}
-
-interface GeneratePlanParams {
-  numSessions: number;
-  duration: number;
-  focusAreas: string[];
-  customContext: string;
-  contextPlayerIds: string[];
-}
-
-function PlanWizard({
-  teamId,
-  sport,
-  playerCount,
-  onGenerate,
-  isGenerating,
-  players,
-}: PlanWizardProps) {
-  const [numSessions, setNumSessions] = useState(3);
-  const [duration, setDuration] = useState(60);
-  const [focusAreas, setFocusAreas] = useState<string[]>([]);
-  const [customContext, setCustomContext] = useState('');
-  const [showPlayerPicker, setShowPlayerPicker] = useState(false);
-  const [contextPlayerIds, setContextPlayerIds] = useState<string[]>([]);
-
-  const contextPlayers = players.filter((p) => contextPlayerIds.includes(p.id));
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    await onGenerate({ numSessions, duration, focusAreas, customContext, contextPlayerIds });
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Sessions count */}
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-zinc-300">Number of Sessions</label>
-        <div className="flex gap-2">
-          {[1, 2, 3, 4, 5, 6].map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setNumSessions(n)}
-              className={cn(
-                'w-10 h-10 rounded-xl text-sm font-bold border transition-colors',
-                numSessions === n
-                  ? 'border-orange-500 bg-orange-500/20 text-orange-300'
-                  : 'border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600',
-              )}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Duration */}
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-zinc-300">Session Duration</label>
-        <DurationPicker value={duration} onChange={setDuration} />
-      </div>
-
-      {/* Focus areas */}
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-zinc-300">
-          Focus Areas <span className="text-zinc-600 font-normal">(up to 4)</span>
-        </label>
-        <FocusAreaPicker sport={sport} selected={focusAreas} onChange={setFocusAreas} />
-      </div>
-
-      {/* Player context */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-semibold text-zinc-300">
-            Player Context <span className="text-zinc-600 font-normal">(optional)</span>
-          </label>
-          <button
-            type="button"
-            onClick={() => setShowPlayerPicker(true)}
-            className="text-xs text-orange-400 hover:text-orange-300 flex items-center gap-1"
-          >
-            <Plus className="h-3 w-3" /> Add Players
-          </button>
-        </div>
-        {contextPlayers.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {contextPlayers.map((p) => (
-              <PlayerContextPill
-                key={p.id}
-                player={p}
-                onRemove={() => setContextPlayerIds((ids) => ids.filter((id) => id !== p.id))}
-              />
-            ))}
-          </div>
-        )}
-        {contextPlayers.length === 0 && (
-          <p className="text-[11px] text-zinc-600">
-            Add players to tailor the plan to their skill levels and recent observations.
-          </p>
-        )}
-      </div>
-
-      {/* Custom notes */}
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-zinc-300">
-          Additional Notes <span className="text-zinc-600 font-normal">(optional)</span>
-        </label>
-        <Textarea
-          value={customContext}
-          onChange={(e) => setCustomContext(e.target.value)}
-          placeholder="E.g. We have 4 cones and 2 baskets. Focus more on weak-hand dribbling this week…"
-          className="h-24 resize-none bg-zinc-900 border-zinc-700 text-zinc-200 placeholder:text-zinc-600 text-sm"
-        />
-      </div>
-
-      {/* Submit */}
-      <Button
-        type="submit"
-        disabled={isGenerating}
-        className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold h-12 text-base"
-      >
-        {isGenerating ? (
-          <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Generating Plan…</>
-        ) : (
-          <><Wand2 className="h-5 w-5 mr-2" /> Generate Plan</>
-        )}
-      </Button>
-
-      {showPlayerPicker && (
-        <RosterPicker
-          teamId={teamId}
-          selected={contextPlayerIds}
-          onConfirm={(ids) => { setContextPlayerIds(ids); setShowPlayerPicker(false); }}
-          onClose={() => setShowPlayerPicker(false)}
-        />
-      )}
-    </form>
-  );
-}
-
-// ─── Plan detail view ─────────────────────────────────────────────────────────
-
-interface PlanDetailProps {
-  plan: PlanWithSessions;
-  teamId: string;
-  teamName: string;
-  coachName: string;
-  sport: string;
-  sportSlug: string | null;
-  players: Player[];
-  onBack: () => void;
-  onDelete: () => void;
-}
-
-function PlanDetail({
-  plan,
-  teamId,
-  teamName,
-  coachName,
-  sport,
-  sportSlug,
-  players,
-  onBack,
-  onDelete,
-}: PlanDetailProps) {
-  const [activeTab, setActiveTab] = useState<'sessions' | 'message' | 'drills'>('sessions');
-  const [detailSession, setDetailSession] = useState<GeneratedSession | null>(null);
-  const [shareText, setShareText] = useState<string | null>(null);
-  const [activeQuickObsPlayer, setActiveQuickObsPlayer] = useState<Player | null>(null);
-
-  const sportEmoji = getSportEmoji(sportSlug);
-
-  const parsedSessions: ParsedSession[] = plan.training_plan_sessions
-    .sort((a, b) => a.session_number - b.session_number)
-    .map((s) => ({
-      session_number: s.session_number,
-      session_label: s.session_label ?? `Session ${s.session_number}`,
-      content: s.content,
-    }));
-
-  const generatedSessions: GeneratedSession[] = parsedSessions.map((ps) => {
+  async function handleCopy() {
+    const text = `Hi! A quick note on ${msg.player_name} from today:\n\n${msg.message}\n\n⭐ Highlight: ${msg.highlight}\n🎯 Next focus: ${msg.next_focus}`;
     try {
-      return { session_number: ps.session_number, session_label: ps.session_label, ...JSON.parse(ps.content) };
-    } catch {
-      return { session_number: ps.session_number, session_label: ps.session_label, objectives: [], sections: [] };
-    }
-  });
-
-  function buildTeamShareText(): string {
-    const lines: string[] = [
-      `${sportEmoji} ${teamName} Training Plan`,
-      plan.title,
-      '',
-    ];
-    parsedSessions.forEach((s) => {
-      lines.push(`📅 ${s.session_label}`);
-    });
-    lines.push('');
-    lines.push(`— Coach ${coachName}`);
-    return lines.join('\n');
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
   }
 
-  function handleSharePlan() {
-    setShareText(buildTeamShareText());
-  }
-
-  return (
-    <>
-      <div className="space-y-5">
-        {/* Header */}
-        <div className="flex items-start gap-3">
-          <button
-            onClick={onBack}
-            className="shrink-0 rounded-xl p-2 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
-          >
-            <ChevronDown className="h-5 w-5 rotate-90" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-orange-400">
-              {sportEmoji} Training Plan
-            </p>
-            <p className="text-lg font-bold text-zinc-100 leading-snug mt-0.5 truncate">
-              {plan.title}
-            </p>
-            <p className="text-[11px] text-zinc-500 mt-0.5">
-              {parsedSessions.length} session{parsedSessions.length !== 1 ? 's' : ''} · Created {new Date(plan.created_at).toLocaleDateString()}
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleSharePlan}
-              className="border-zinc-700 text-zinc-400 hover:text-zinc-200 gap-1 h-8 px-2.5"
-            >
-              <Share2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline text-xs">Share</span>
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onDelete}
-              className="border-zinc-700 text-zinc-500 hover:text-red-400 hover:border-red-500/40 gap-1 h-8 px-2.5"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-1 rounded-xl bg-zinc-900 border border-zinc-800 p-1">
-          {[
-            { id: 'sessions', label: 'Sessions', icon: ListChecks },
-            { id: 'message', label: 'Message Team', icon: MessageSquare },
-            { id: 'drills', label: 'Drill Bank', icon: Dumbbell },
-          ].map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id as typeof activeTab)}
-              className={cn(
-                'flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-colors',
-                activeTab === id
-                  ? 'bg-zinc-800 text-zinc-100'
-                  : 'text-zinc-500 hover:text-zinc-400',
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Sessions tab */}
-        {activeTab === 'sessions' && (
-          <div className="space-y-3">
-            {parsedSessions.map((ps, i) => (
-              <SessionCard
-                key={ps.session_number}
-                session={ps}
-                sessionIndex={i}
-                onViewDetail={() => setDetailSession(generatedSessions[i])}
-                players={players}
-                onQuickObs={(player) => setActiveQuickObsPlayer(player)}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Message tab */}
-        {activeTab === 'message' && (
-          <TeamGroupMessageRenderer
-            teamId={teamId}
-            teamName={teamName}
-            coachName={coachName}
-            sportSlug={sportSlug}
-            sessions={generatedSessions}
-          />
-        )}
-
-        {/* Drills tab */}
-        {activeTab === 'drills' && (
-          <DrillBankTab sessions={generatedSessions} />
-        )}
-      </div>
-
-      {detailSession && (
-        <SessionDetailPanel
-          session={detailSession}
-          teamName={teamName}
-          sportEmoji={sportEmoji}
-          onClose={() => setDetailSession(null)}
-        />
-      )}
-
-      {shareText && (
-        <ShareSheet text={shareText} onClose={() => setShareText(null)} />
-      )}
-
-      {activeQuickObsPlayer && (
-        <PlayerQuickObsModal
-          player={activeQuickObsPlayer}
-          teamId={teamId}
-          onClose={() => setActiveQuickObsPlayer(null)}
-        />
-      )}
-    </>
-  );
-}
-
-// ─── Drill bank tab ───────────────────────────────────────────────────────────
-
-interface DrillBankTabProps {
-  sessions: GeneratedSession[];
-}
-
-function DrillBankTab({ sessions }: DrillBankTabProps) {
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<string>('all');
-
-  const allActivities = sessions.flatMap((s) =>
-    s.sections.flatMap((sec) =>
-      sec.activities.map((a) => ({ ...a, section: sec.title, session: s.session_label ?? `Session ${s.session_number}` }))
-    )
-  );
-
-  const sections = [...new Set(allActivities.map((a) => a.section))];
-
-  const filtered = allActivities.filter((a) => {
-    const matchSearch = !search || a.name.toLowerCase().includes(search.toLowerCase()) || a.description.toLowerCase().includes(search.toLowerCase());
-    const matchFilter = filter === 'all' || a.section === filter;
-    return matchSearch && matchFilter;
-  });
-
-  return (
-    <div className="space-y-4">
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search drills…"
-            className="pl-8 h-9 bg-zinc-900 border-zinc-700 text-zinc-200 placeholder:text-zinc-600 text-sm"
-          />
-        </div>
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="h-9 rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-300 text-xs px-2"
-        >
-          <option value="all">All Sections</option>
-          {sections.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </div>
-
-      {filtered.length === 0 && (
-        <p className="text-center text-zinc-600 text-sm py-8">No drills found.</p>
-      )}
-
-      <div className="space-y-2">
-        {filtered.map((act, i) => (
-          <div key={i} className="rounded-xl bg-zinc-900 border border-zinc-800 p-3 space-y-1">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-sm font-semibold text-zinc-100">{act.name}</p>
-              <div className="flex gap-1 shrink-0">
-                <span className="text-[10px] bg-zinc-800 rounded-full px-2 py-0.5 text-zinc-500">{act.section}</span>
-                {act.duration_minutes && (
-                  <span className="text-[10px] bg-zinc-800 rounded-full px-2 py-0.5 text-zinc-500">{act.duration_minutes}m</span>
-                )}
-              </div>
-            </div>
-            <p className="text-xs text-zinc-400">{act.description}</p>
-            {act.coaching_points?.length ? (
-              <ul className="space-y-0.5 pt-1">
-                {act.coaching_points.slice(0, 2).map((cp, ci) => (
-                  <li key={ci} className="text-[11px] text-zinc-500 flex items-start gap-1.5">
-                    <span className="text-orange-400 shrink-0">•</span> {cp}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── Quick session generator ──────────────────────────────────────────────────
-
-interface QuickSessionGeneratorProps {
-  teamId: string;
-  sport: string;
-  players: Player[];
-  teamName: string;
-  coachName: string;
-  sportSlug: string | null;
-  onGenerated: (session: ParsedSession) => void;
-}
-
-function QuickSessionGenerator({
-  teamId,
-  sport,
-  players,
-  teamName,
-  coachName,
-  sportSlug,
-  onGenerated,
-}: QuickSessionGeneratorProps) {
-  const [focus, setFocus] = useState<string[]>([]);
-  const [duration, setDuration] = useState(45);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [showMessage, setShowMessage] = useState(false);
-  const [generatedSession, setGeneratedSession] = useState<GeneratedSession | null>(null);
-  const [showDetail, setShowDetail] = useState(false);
-
-  async function handleGenerate() {
-    setIsGenerating(true);
+  async function handleShare() {
+    const text = `Hi! A quick note on ${msg.player_name} from today:\n\n${msg.message}\n\n⭐ Highlight: ${msg.highlight}\n🎯 Next focus: ${msg.next_focus}`;
     try {
-      const prompt = buildSessionPrompt({ sport, duration, focusAreas: focus, playerCount: players.length });
-      const result = await callAIWithJSON<GeneratedSession>(prompt);
-      if (result) {
-        const ps: ParsedSession = {
-          session_number: 1,
-          session_label: result.session_label ?? 'Quick Session',
-          content: JSON.stringify(result),
-        };
-        setGeneratedSession(result);
-        onGenerated(ps);
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: `Message for ${msg.player_name}`, text });
+      } else {
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
       }
-    } finally {
-      setIsGenerating(false);
-    }
-  }
-
-  if (generatedSession) {
-    return (
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-zinc-100">
-            {generatedSession.session_label ?? 'Quick Session'}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowDetail(true)}
-              className="border-zinc-700 text-zinc-400 gap-1 h-8 px-2.5 text-xs"
-            >
-              <FileText className="h-3 w-3" /> Details
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowMessage(true)}
-              className="border-zinc-700 text-zinc-400 gap-1 h-8 px-2.5 text-xs"
-            >
-              <MessageSquare className="h-3 w-3" /> Message Team
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => { setGeneratedSession(null); setFocus([]); }}
-              className="bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 gap-1 h-8 px-2.5 text-xs border-0"
-            >
-              <Zap className="h-3 w-3" /> New
-            </Button>
-          </div>
-        </div>
-
-        {session.objectives?.length > 0 && (
-          <ul className="space-y-1">
-            {generatedSession.objectives?.slice(0, 2).map((obj, i) => (
-              <li key={i} className="text-xs text-zinc-400 flex items-start gap-1.5">
-                <Target className="h-3 w-3 shrink-0 mt-0.5 text-orange-400" />
-                {obj}
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {showMessage && (
-          <TeamGroupMessageRenderer
-            teamId={teamId}
-            teamName={teamName}
-            coachName={coachName}
-            sportSlug={sportSlug}
-            sessions={[generatedSession]}
-          />
-        )}
-
-        {showDetail && (
-          <SessionDetailPanel
-            session={generatedSession}
-            teamName={teamName}
-            sportEmoji={getSportEmoji(sportSlug)}
-            onClose={() => setShowDetail(false)}
-          />
-        )}
-      </div>
-    );
+      setShared(true);
+      setTimeout(() => setShared(false), 2000);
+    } catch { /* user cancelled */ }
   }
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Duration</p>
-        <DurationPicker value={duration} onChange={setDuration} />
+    <div className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-4 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-teal-300">{msg.player_name}</p>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 px-2 text-xs text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 shrink-0"
+            onClick={handleShare}
+            aria-label={`Share message for ${msg.player_name} via WhatsApp or SMS`}
+          >
+            {shared ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Share2 className="h-3.5 w-3.5" />}
+            <span>{shared ? 'Sent!' : 'Send'}</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0 shrink-0"
+            onClick={handleCopy}
+            aria-label={`Copy message for ${msg.player_name}`}
+          >
+            {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5 text-zinc-400" />}
+          </Button>
+        </div>
       </div>
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Focus <span className="text-zinc-600 font-normal">(optional)</span></p>
-        <FocusAreaPicker sport={sport} selected={focus} onChange={setFocus} />
+      <p className="text-sm text-zinc-200 leading-relaxed">{msg.message}</p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="rounded-lg bg-emerald-500/8 border border-emerald-500/20 px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400 mb-0.5">Highlight</p>
+          <p className="text-xs text-zinc-300">{msg.highlight}</p>
+        </div>
+        <div className="rounded-lg bg-orange-500/8 border border-orange-500/20 px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-orange-400 mb-0.5">Next Focus</p>
+          <p className="text-xs text-zinc-300">{msg.next_focus}</p>
+        </div>
       </div>
+    </div>
+  );
+}
+
+interface TeamGroupMessageData {
+  message: string;
+  session_label?: string;
+  team_highlight?: string;
+  coaching_focus?: string[];
+  encouragement?: string;
+  next_session_note?: string;
+}
+
+function TeamGroupMessageRenderer({ data, sportSlug }: { data: TeamGroupMessageData; sportSlug?: string }) {
+  const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState(false);
+
+  const fullText = [
+    data.session_label ? `${getSportEmoji(sportSlug)} ${data.session_label}` : '',
+    '',
+    data.message,
+    data.coaching_focus?.length ? `\nToday we focused on: ${data.coaching_focus.join(', ')}` : '',
+    data.encouragement ? `\n${data.encouragement}` : '',
+    data.next_session_note ? `\n📅 ${data.next_session_note}` : '',
+  ].filter(Boolean).join('\n').trim();
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(fullText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  }
+
+  async function handleShare() {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: 'Team Update', text: fullText });
+      } else {
+        window.open(`https://wa.me/?text=${encodeURIComponent(fullText)}`, '_blank', 'noopener');
+      }
+      setShared(true);
+      setTimeout(() => setShared(false), 2000);
+    } catch { /* user cancelled */ }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <Users className="h-5 w-5 text-emerald-400" />
+          <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Team Group Message</span>
+        </div>
+        {data.session_label && (
+          <p className="text-sm text-zinc-400">{data.session_label}</p>
+        )}
+      </div>
+
+      {/* The ready-to-send message */}
+      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-2">Send to Parent Group</p>
+        <p className="text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap">{data.message}</p>
+      </div>
+
+      {/* Team highlight */}
+      {data.team_highlight && (
+        <div className="flex items-start gap-2 rounded-xl bg-amber-500/8 border border-amber-500/20 p-4">
+          <Star className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs font-medium text-amber-300 mb-0.5">Team Highlight</p>
+            <p className="text-sm text-zinc-300 leading-relaxed">{data.team_highlight}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Coaching focus chips */}
+      {data.coaching_focus && data.coaching_focus.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Skills Covered</p>
+          <div className="flex flex-wrap gap-2">
+            {data.coaching_focus.map((focus, i) => (
+              <span key={i} className="text-xs bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 rounded-full px-2.5 py-1">
+                {focus}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Encouragement */}
+      {data.encouragement && (
+        <div className="flex items-start gap-2 rounded-xl bg-blue-500/8 border border-blue-500/20 p-4">
+          <div>
+            <p className="text-xs font-medium text-blue-300 mb-0.5">Closing Note</p>
+            <p className="text-sm text-zinc-300 leading-relaxed italic">{data.encouragement}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Next session note */}
+      {data.next_session_note && (
+        <div className="flex items-start gap-2 rounded-xl bg-zinc-800/60 border border-zinc-700 p-3">
+          <Calendar className="h-4 w-4 text-zinc-400 mt-0.5 shrink-0" />
+          <p className="text-sm text-zinc-300">{data.next_session_note}</p>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-3">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 gap-2 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
+          onClick={handleShare}
+          aria-label="Share team group message via WhatsApp or SMS"
+        >
+          {shared ? <Check className="h-4 w-4 text-emerald-400" /> : <Share2 className="h-4 w-4" />}
+          {shared ? 'Shared!' : 'Share via WhatsApp'}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+          onClick={handleCopy}
+          aria-label="Copy team group message to clipboard"
+        >
+          {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+          {copied ? 'Copied!' : 'Copy'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+interface HuddleScriptData {
+  huddle_script: string;
+  player_spotlight: { name: string; achievement: string };
+  team_shoutout: string;
+  team_challenge: string;
+  next_session_hint?: string;
+}
+
+function HuddleScriptRenderer({ data }: { data: HuddleScriptData }) {
+  const [copied, setCopied] = useState(false);
+
+  const shareText = [
+    '⭐ TEAM HUDDLE SCRIPT ⭐',
+    '',
+    data.huddle_script,
+    data.next_session_hint ? `\n📅 Next up: ${data.next_session_hint}` : '',
+  ].filter(Boolean).join('\n').trim();
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <Megaphone className="h-5 w-5 text-lime-400" />
+          <span className="text-xs font-semibold uppercase tracking-widest text-lime-400">Huddle Script</span>
+        </div>
+      </div>
+
+      {/* Full script */}
+      <div className="rounded-xl border border-lime-500/20 bg-lime-500/5 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wider text-lime-400 mb-2">Read to your team</p>
+        <p className="text-sm text-zinc-200 leading-relaxed">{data.huddle_script}</p>
+      </div>
+
+      {/* Player spotlight */}
+      <div className="flex items-start gap-2 rounded-xl bg-amber-500/8 border border-amber-500/20 p-4">
+        <Star className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+        <div>
+          <p className="text-xs font-medium text-amber-300 mb-0.5">Player Spotlight</p>
+          <p className="text-sm text-zinc-300">
+            <span className="font-semibold text-amber-200">{data.player_spotlight.name}</span>
+            {' — '}{data.player_spotlight.achievement}
+          </p>
+        </div>
+      </div>
+
+      {/* Team challenge */}
+      <div className="flex items-start gap-2 rounded-xl bg-lime-500/8 border border-lime-500/20 p-4">
+        <Target className="h-4 w-4 text-lime-400 mt-0.5 shrink-0" />
+        <div>
+          <p className="text-xs font-medium text-lime-300 mb-0.5">Team Challenge</p>
+          <p className="text-sm text-zinc-300">{data.team_challenge}</p>
+        </div>
+      </div>
+
+      {/* Next session */}
+      {data.next_session_hint && (
+        <div className="flex items-center gap-2 rounded-xl bg-zinc-800/60 border border-zinc-700 px-4 py-3">
+          <Calendar className="h-4 w-4 text-zinc-400 shrink-0" />
+          <p className="text-sm text-zinc-400">{data.next_session_hint}</p>
+        </div>
+      )}
+
+      {/* Copy button */}
       <Button
-        onClick={handleGenerate}
-        disabled={isGenerating}
-        className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold"
+        variant="outline"
+        size="sm"
+        className="w-full gap-2 border-lime-500/30 text-lime-300 hover:bg-lime-500/10"
+        onClick={handleCopy}
+        aria-label="Copy huddle script to clipboard"
       >
-        {isGenerating ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating…</> : <><Zap className="h-4 w-4 mr-2" /> Quick Generate</>}
+        {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+        {copied ? 'Copied!' : 'Copy Script'}
       </Button>
     </div>
   );
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+interface SeasonLetterData {
+  player_name: string;
+  season_label: string;
+  letter: string;
+  highlight_moment: string;
+  growth_note: string;
+  off_season_challenge: string;
+  coach_name: string;
+}
+
+function SeasonLetterRenderer({ data }: { data: SeasonLetterData }) {
+  const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState(false);
+
+  const fullText = [
+    `Dear ${data.player_name}'s Family,`,
+    '',
+    data.letter,
+    '',
+    `Warmly,`,
+    data.coach_name,
+  ].join('\n');
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(fullText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  }
+
+  async function handleShare() {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: `Season Letter for ${data.player_name}`, text: fullText });
+      } else {
+        await navigator.clipboard.writeText(fullText);
+      }
+      setShared(true);
+      setTimeout(() => setShared(false), 2000);
+    } catch { /* ignore */ }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <Mail className="h-5 w-5 text-pink-400" />
+          <span className="text-xs font-semibold uppercase tracking-widest text-pink-400">Season Letter</span>
+        </div>
+        <p className="text-sm font-semibold text-zinc-200">{data.player_name}</p>
+        <p className="text-xs text-zinc-500">{data.season_label}</p>
+      </div>
+
+      {/* The Letter */}
+      <div className="rounded-xl border border-pink-500/20 bg-pink-500/5 p-5">
+        <p className="text-xs font-semibold uppercase tracking-wider text-pink-300 mb-3">Personal Letter</p>
+        <p className="text-sm text-zinc-300 font-medium mb-3">Dear {data.player_name}&apos;s Family,</p>
+        <div className="text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap">{data.letter}</div>
+        <p className="text-sm text-zinc-400 mt-4 italic">Warmly, {data.coach_name}</p>
+      </div>
+
+      {/* Highlight Moment */}
+      <div className="flex items-start gap-2 rounded-xl bg-amber-500/8 border border-amber-500/20 p-4">
+        <Heart className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+        <div>
+          <p className="text-xs font-medium text-amber-300 mb-1">Season Highlight</p>
+          <p className="text-sm text-zinc-300">{data.highlight_moment}</p>
+        </div>
+      </div>
+
+      {/* Growth Note */}
+      <div className="flex items-start gap-2 rounded-xl bg-emerald-500/8 border border-emerald-500/20 p-4">
+        <TrendingUp className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
+        <div>
+          <p className="text-xs font-medium text-emerald-300 mb-1">Growth This Season</p>
+          <p className="text-sm text-zinc-300">{data.growth_note}</p>
+        </div>
+      </div>
+
+      {/* Off-Season Challenge */}
+      <div className="flex items-start gap-2 rounded-xl bg-blue-500/8 border border-blue-500/20 p-4">
+        <Target className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
+        <div>
+          <p className="text-xs font-medium text-blue-300 mb-1">Off-Season Challenge</p>
+          <p className="text-sm text-zinc-300">{data.off_season_challenge}</p>
+        </div>
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 gap-2 border-pink-500/30 text-pink-300 hover:bg-pink-500/10"
+          onClick={handleCopy}
+          aria-label="Copy letter to clipboard"
+        >
+          {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+          {copied ? 'Copied!' : 'Copy Letter'}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 gap-2 border-pink-500/30 text-pink-300 hover:bg-pink-500/10"
+          onClick={handleShare}
+          aria-label="Share letter"
+        >
+          {shared ? <Check className="h-4 w-4 text-emerald-400" /> : <Share2 className="h-4 w-4" />}
+          {shared ? 'Sent!' : 'Send to Parent'}
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export default function PlansPage() {
   const { activeTeam, coach, sportSlug } = useActiveTeam();
-  const { tier } = useTier();
-  const queryClient = useQueryClient();
+  const router = useRouter();
+  const { canAccess } = useTier();
+  const canUseGameDayPrep = canAccess('tendencies');
+  const qc = useQueryClient();
+  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState('');
+  const [showMoreGenerators, setShowMoreGenerators] = useState(false);
+  const [generatedPreview, setGeneratedPreview] = useState<unknown>(null);
+  const [lastInsights, setLastInsights] = useState<ObservationInsights | null>(null);
+  const [generatingNewsletter, setGeneratingNewsletter] = useState(false);
+  const [newsletterStats, setNewsletterStats] = useState<{ sessionsIncluded: number; observationsIncluded: number; playerSpotlightsCount: number; dateRange: string } | null>(null);
+  const [generatingStoryline, setGeneratingStoryline] = useState(false);
+  const [storylinePlayerId, setStorylinePlayerId] = useState<string>('');
+  const [storylineStats, setStorylineStats] = useState<{ totalObservations: number; weeksOfData: number; firstObservationDate: string; latestObservationDate: string } | null>(null);
 
-  const teamId = activeTeam?.id ?? '';
-  const sport = activeTeam?.sport ?? 'basketball';
-  const teamName = activeTeam?.name ?? 'Team';
-  const coachName = coach?.name ?? 'Coach';
+  // Game Day Prep state
+  const [showGamedayForm, setShowGamedayForm] = useState(false);
+  const [generatingGameday, setGeneratingGameday] = useState(false);
+  const [gamedayOpponent, setGamedayOpponent] = useState('');
+  const [gamedayStrengths, setGamedayStrengths] = useState('');
+  const [gamedayWeaknesses, setGamedayWeaknesses] = useState('');
+  const [gamedayKeyPlayers, setGamedayKeyPlayers] = useState('');
+  const [gamedayNotes, setGamedayNotes] = useState('');
 
-  const [view, setView] = useState<'list' | 'create' | 'quick'>('list');
-  const [activePlanId, setActivePlanId] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generationProgress, setGenerationProgress] = useState('');
-  const [shareOpen, setShareOpen] = useState(false);
-  const [shareText, setShareText] = useState('');
+  // Opponent Scouting Library state
+  const [savingOpponentProfile, setSavingOpponentProfile] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
+  const [showProfilePicker, setShowProfilePicker] = useState(false);
 
-  // Fetch plans
-  const { data: plans = [], isLoading: plansLoading } = useQuery<PlanWithSessions[]>({
-    queryKey: ['training-plans', teamId],
-    queryFn: () =>
-      query<PlanWithSessions[]>({
-        table: 'training_plans',
-        select: '*, training_plan_sessions(*)',
-        filters: { team_id: teamId },
-        order: { column: 'created_at', ascending: false },
-      }).then((r) => r ?? []),
-    enabled: !!teamId,
-    staleTime: 5 * 60_000,
-  });
+  // Season Summary state
+  const [generatingSeasonSummary, setGeneratingSeasonSummary] = useState(false);
+  const [seasonSummaryStats, setSeasonSummaryStats] = useState<{ observationsAnalyzed: number; sessionsIncluded: number; playersObserved: number; weeksOfData: number; healthScore: number; dateRange: string } | null>(null);
+  const [seasonSummaryCopied, setSeasonSummaryCopied] = useState(false);
 
-  // Fetch players
-  const { data: players = [] } = useQuery<Player[]>({
-    queryKey: ['roster', teamId],
-    queryFn: () =>
-      query<Player[]>({
-        table: 'players',
+  // Season Awards state
+  const [generatingSeasonAwards, setGeneratingSeasonAwards] = useState(false);
+  const [seasonAwardsStats, setSeasonAwardsStats] = useState<{ playersAwarded: number; totalObservations: number; summaryLabel: string } | null>(null);
+  const [awardCopiedIndex, setAwardCopiedIndex] = useState<number | null>(null);
+
+  // Team Personality state
+  const [generatingTeamPersonality, setGeneratingTeamPersonality] = useState(false);
+  const [teamPersonalityStats, setTeamPersonalityStats] = useState<{ observationsAnalyzed: number; sessionsIncluded: number; playersObserved: number; healthScore: number } | null>(null);
+  const [personalityCopied, setPersonalityCopied] = useState(false);
+
+  // Weekly Star state
+  const [generatingWeeklyStar, setGeneratingWeeklyStar] = useState(false);
+  const [weeklyStarCopied, setWeeklyStarCopied] = useState(false);
+
+  // Season Letter state
+  const [generatingSeasonLetter, setGeneratingSeasonLetter] = useState(false);
+  const [seasonLetterPlayerId, setSeasonLetterPlayerId] = useState<string>('');
+  const [seasonLetterStats, setSeasonLetterStats] = useState<{ playerName: string; totalObservations: number; summaryLabel: string } | null>(null);
+  const [letterCopied, setLetterCopied] = useState(false);
+  const [letterShared, setLetterShared] = useState(false);
+
+  // Practice Arc state
+  const [showArcForm, setShowArcForm] = useState(false);
+  const [generatingArc, setGeneratingArc] = useState(false);
+  const [arcNumSessions, setArcNumSessions] = useState<2 | 3>(2);
+  const [arcDuration, setArcDuration] = useState(60);
+  const [arcEvent, setArcEvent] = useState('');
+  const [arcFocus, setArcFocus] = useState('');
+
+  // Plan type filter
+  const [planTypeFilter, setPlanTypeFilter] = useState<string | null>(null);
+
+  // Run Practice modal state
+  const [showRunModal, setShowRunModal] = useState(false);
+  const [creatingSession, setCreatingSession] = useState(false);
+  // When running a specific arc session, this holds its 0-based index.
+  const [arcSessionForRun, setArcSessionForRun] = useState<number | null>(null);
+
+  const searchParams = useSearchParams();
+  const autoRunTriggeredRef = useRef(false);
+
+  const { data: plans, isLoading, refetch: refetchPlans } = useQuery({
+    queryKey: queryKeys.plans.all(activeTeam?.id || ''),
+    queryFn: async () => {
+      if (!activeTeam) return [];
+      const data = await query<Plan[]>({
+        table: 'plans',
         select: '*',
-        filters: { team_id: teamId },
-        order: { column: 'name', ascending: true },
-      }).then((r) => r ?? []),
-    enabled: !!teamId,
-    staleTime: 10 * 60_000,
+        filters: { team_id: activeTeam.id },
+        order: { column: 'created_at', ascending: false },
+      });
+      return data || [];
+    },
+    enabled: !!activeTeam,
+    ...CACHE_PROFILES.plans,
   });
 
-  const activePlan = plans.find((p) => p.id === activePlanId) ?? null;
+  // Deep-link handler: /plans?arcPlanId=...&arcSession=... auto-opens session picker
+  useEffect(() => {
+    if (autoRunTriggeredRef.current || !plans?.length) return;
+    const arcPlanId = searchParams.get('arcPlanId');
+    const arcSessionParam = searchParams.get('arcSession');
+    if (!arcPlanId || arcSessionParam === null) return;
+    const plan = plans.find((p) => p.id === arcPlanId);
+    if (!plan) return;
+    autoRunTriggeredRef.current = true;
+    const sessionIdx = parseInt(arcSessionParam, 10);
+    setSelectedPlan(plan);
+    setArcSessionForRun(isNaN(sessionIdx) ? null : sessionIdx);
+    setShowRunModal(true);
+  }, [plans, searchParams]);
 
-  // Delete plan mutation
-  const deletePlan = useMutation({
-    mutationFn: (planId: string) =>
-      mutate({ table: 'training_plans', action: 'delete', id: planId }),
+  const { data: players } = useQuery({
+    queryKey: queryKeys.players.all(activeTeam?.id || ''),
+    queryFn: async () => {
+      if (!activeTeam) return [];
+      const data = await query<Player[]>({
+        table: 'players',
+        select: 'id, name',
+        filters: { team_id: activeTeam.id, is_active: true },
+        order: { column: 'name', ascending: true },
+      });
+      return data || [];
+    },
+    enabled: !!activeTeam,
+  });
+
+  // Available plan types from existing plans (for filter chips)
+  const planTypeOptions = useMemo(() => {
+    if (!plans?.length) return [];
+    const counts: Record<string, number> = {};
+    for (const p of plans) {
+      counts[p.type] = (counts[p.type] ?? 0) + 1;
+    }
+    return Object.entries(counts)
+      .filter(([type]) => PLAN_TYPE_CONFIG[type])
+      .sort((a, b) => b[1] - a[1])
+      .map(([type, count]) => ({ type, count, label: PLAN_TYPE_CONFIG[type].label }));
+  }, [plans]);
+
+  const filteredPlans = useMemo(() => {
+    if (!plans) return [];
+    if (!planTypeFilter) return plans;
+    return plans.filter((p) => p.type === planTypeFilter);
+  }, [plans, planTypeFilter]);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const { data: todaySessions = [] } = useQuery({
+    queryKey: ['sessions-today', activeTeam?.id, todayStr],
+    queryFn: async () => {
+      if (!activeTeam) return [];
+      const data = await query<Session[]>({
+        table: 'sessions',
+        select: 'id, type, date, start_time, location',
+        filters: { team_id: activeTeam.id, date: todayStr },
+        order: { column: 'start_time', ascending: true },
+      });
+      return data || [];
+    },
+    enabled: !!activeTeam && showRunModal,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (planId: string) => {
+      await mutate({
+        table: 'plans',
+        operation: 'delete',
+        filters: { id: planId },
+      });
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['training-plans', teamId] });
-      if (activePlanId) setActivePlanId(null);
+      if (activeTeam) {
+        qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      }
+      setSelectedPlan(null);
     },
   });
 
-  async function handleGeneratePlan(params: GeneratePlanParams) {
-    if (!teamId) return;
-    setIsGenerating(true);
-    setGenerationProgress('Analyzing your team…');
+  const generateFromPrompt = async (text: string, smartMode = false) => {
+    if (!activeTeam || (!text.trim() && !smartMode)) return;
+    setGenerating(true);
+    setError(null);
+    setGeneratedPreview(null);
+    setLastInsights(null);
+
+    // Determine type from prompt text
+    const lowerText = text.toLowerCase();
+    const isGameday = lowerText.includes('game day') || lowerText.includes('gameday') || lowerText.includes('game sheet');
+    const type = isGameday ? 'gameday' : 'practice';
+
+    // Extract explicit focus skills from the prompt (smart mode lets AI decide from data)
+    const skillKeywords = ['ball handling', 'passing', 'shooting', 'defense', 'rebounding', 'footwork', 'teamwork', 'conditioning', 'dribbling'];
+    const focusSkills = smartMode ? [] : skillKeywords.filter(skill => lowerText.includes(skill));
+
+    trackEvent('plan_generation_started', {
+      type,
+      smart_mode: smartMode,
+      focus_skill_count: focusSkills.length,
+    });
 
     try {
-      // Build context from selected players
-      const contextPlayers = players.filter((p) => params.contextPlayerIds.includes(p.id));
-      const playerContext = contextPlayers.length
-        ? `Players: ${contextPlayers.map((p) => `${p.name} (${p.position})`).join(', ')}`
-        : '';
-
-      setGenerationProgress('Building training sessions…');
-
-      const prompt = buildPlanPrompt({
-        sport,
-        numSessions: params.numSessions,
-        duration: params.duration,
-        focusAreas: params.focusAreas,
-        customContext: [params.customContext, playerContext].filter(Boolean).join('\n'),
-        playerCount: players.length,
+      const res = await fetch('/api/ai/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId: activeTeam.id,
+          type,
+          focusSkills: focusSkills.length > 0 ? focusSkills : undefined,
+        }),
       });
-
-      const generated = await callAIWithJSON<GeneratedPlan>(prompt);
-      if (!generated) throw new Error('No plan generated');
-
-      setGenerationProgress('Saving plan…');
-
-      // Create the plan record
-      const planResult = await mutate({
-        table: 'training_plans',
-        action: 'insert',
-        data: {
-          team_id: teamId,
-          title: generated.plan_title,
-          overview: generated.overview,
-          focus_areas: generated.focus_areas,
-          total_duration_minutes: generated.total_duration_minutes,
-          sport,
-        },
+      if (!res.ok) {
+        const err = await res.json();
+        trackEvent('plan_generation_failed', { type, reason: err.error || 'unknown' });
+        throw new Error(err.error || 'Failed to generate plan');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      if (data.observationInsights && data.observationInsights.totalObs > 0) {
+        setLastInsights(data.observationInsights as ObservationInsights);
+      }
+      setPrompt('');
+      trackEvent('plan_generated', {
+        type,
+        smart_mode: smartMode,
+        with_insights: !!(data.observationInsights && data.observationInsights.totalObs > 0),
       });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Generation failed');
+    } finally {
+      setGenerating(false);
+    }
+  };
 
-      if (!planResult?.id) throw new Error('Plan insert failed');
+  const generateNewsletter = async () => {
+    if (!activeTeam) return;
+    setGeneratingNewsletter(true);
+    setError(null);
+    setNewsletterStats(null);
+    try {
+      const res = await fetch('/api/ai/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate newsletter');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      if (data.stats) setNewsletterStats(data.stats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Newsletter generation failed');
+    } finally {
+      setGeneratingNewsletter(false);
+    }
+  };
 
-      // Create session records
-      for (const session of generated.sessions) {
+  const generateStoryline = async () => {
+    if (!activeTeam || !storylinePlayerId) return;
+    setGeneratingStoryline(true);
+    setError(null);
+    setStorylineStats(null);
+    try {
+      const res = await fetch('/api/ai/season-storyline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id, playerId: storylinePlayerId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate season storyline');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      if (data.stats) setStorylineStats(data.stats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Season storyline generation failed');
+    } finally {
+      setGeneratingStoryline(false);
+    }
+  };
+
+  const generateSeasonLetter = async () => {
+    if (!activeTeam || !seasonLetterPlayerId) return;
+    setGeneratingSeasonLetter(true);
+    setError(null);
+    setSeasonLetterStats(null);
+    try {
+      const res = await fetch('/api/ai/season-letter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id, playerId: seasonLetterPlayerId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate season letter');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      if (data.stats) setSeasonLetterStats(data.stats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Season letter generation failed');
+    } finally {
+      setGeneratingSeasonLetter(false);
+    }
+  };
+
+  const generateSeasonSummary = async () => {
+    if (!activeTeam) return;
+    setGeneratingSeasonSummary(true);
+    setError(null);
+    setSeasonSummaryStats(null);
+    try {
+      const res = await fetch('/api/ai/season-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate season summary');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      if (data.stats) setSeasonSummaryStats(data.stats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Season summary generation failed');
+    } finally {
+      setGeneratingSeasonSummary(false);
+    }
+  };
+
+  const generateSeasonAwards = async () => {
+    if (!activeTeam) return;
+    setGeneratingSeasonAwards(true);
+    setError(null);
+    setSeasonAwardsStats(null);
+    try {
+      const res = await fetch('/api/ai/season-awards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate season awards');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      if (data.stats) setSeasonAwardsStats(data.stats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Season awards generation failed');
+    } finally {
+      setGeneratingSeasonAwards(false);
+    }
+  };
+
+  const generateTeamPersonality = async () => {
+    if (!activeTeam) return;
+    setGeneratingTeamPersonality(true);
+    setError(null);
+    setTeamPersonalityStats(null);
+    try {
+      const res = await fetch('/api/ai/team-personality', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate team personality');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      if (data.stats) setTeamPersonalityStats(data.stats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Team personality generation failed');
+    } finally {
+      setGeneratingTeamPersonality(false);
+    }
+  };
+
+  const generateWeeklyStar = async () => {
+    if (!activeTeam) return;
+    setGeneratingWeeklyStar(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/ai/weekly-star', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate weekly star');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Weekly star generation failed');
+    } finally {
+      setGeneratingWeeklyStar(false);
+    }
+  };
+
+  const generatePracticeArc = async () => {
+    if (!activeTeam) return;
+    setGeneratingArc(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/ai/practice-arc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId: activeTeam.id,
+          numSessions: arcNumSessions,
+          sessionDuration: arcDuration,
+          upcomingEvent: arcEvent.trim() || undefined,
+          focusArea: arcFocus.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate practice arc');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      setShowArcForm(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Practice arc generation failed');
+    } finally {
+      setGeneratingArc(false);
+    }
+  };
+
+  const generateGamedayPrep = async () => {
+    if (!activeTeam || !gamedayOpponent.trim()) return;
+    setGeneratingGameday(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/ai/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId: activeTeam.id,
+          type: 'gameday',
+          opponent: gamedayOpponent.trim(),
+          opponentStrengths: splitLine(gamedayStrengths),
+          opponentWeaknesses: splitLine(gamedayWeaknesses),
+          keyOpponentPlayers: splitLine(gamedayKeyPlayers),
+          gameNotes: gamedayNotes.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate game day prep');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      setShowGamedayForm(false);
+      setGamedayOpponent('');
+      setGamedayStrengths('');
+      setGamedayWeaknesses('');
+      setGamedayKeyPlayers('');
+      setGamedayNotes('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Game day prep generation failed');
+    } finally {
+      setGeneratingGameday(false);
+    }
+  };
+
+  const splitLine = (s: string) => s.split(',').map((x) => x.trim()).filter(Boolean);
+
+  const saveOpponentProfile = async () => {
+    if (!activeTeam || !gamedayOpponent.trim()) return;
+    setSavingOpponentProfile(true);
+    try {
+      // Check if a profile for this opponent already exists (case-insensitive)
+      const existing = plans?.find(
+        (p) => p.type === 'opponent_profile' && p.title?.toLowerCase() === gamedayOpponent.trim().toLowerCase()
+      );
+      if (existing) {
+        // Update existing profile
         await mutate({
-          table: 'training_plan_sessions',
-          action: 'insert',
+          table: 'plans',
+          operation: 'update',
+          filters: { id: existing.id },
           data: {
-            plan_id: planResult.id,
-            session_number: session.session_number,
-            session_label: session.session_label ?? `Session ${session.session_number}`,
-            content: JSON.stringify({
-              objectives: session.objectives,
-              sections: session.sections,
-              session_notes: session.session_notes,
-            }),
+            content: `Scouting Profile: ${gamedayOpponent.trim()}`,
+            content_structured: {
+              name: gamedayOpponent.trim(),
+              strengths: splitLine(gamedayStrengths),
+              weaknesses: splitLine(gamedayWeaknesses),
+              key_players: splitLine(gamedayKeyPlayers),
+              notes: gamedayNotes.trim(),
+            },
+          },
+        });
+      } else {
+        await mutate({
+          table: 'plans',
+          operation: 'insert',
+          data: {
+            team_id: activeTeam.id,
+            type: 'opponent_profile' as PlanType,
+            title: gamedayOpponent.trim(),
+            content: `Scouting Profile: ${gamedayOpponent.trim()}`,
+            content_structured: {
+              name: gamedayOpponent.trim(),
+              strengths: splitLine(gamedayStrengths),
+              weaknesses: splitLine(gamedayWeaknesses),
+              key_players: splitLine(gamedayKeyPlayers),
+              notes: gamedayNotes.trim(),
+            },
           },
         });
       }
-
-      await queryClient.invalidateQueries({ queryKey: ['training-plans', teamId] });
-      setActivePlanId(planResult.id);
-      setView('list');
-    } catch (err) {
-      console.error('Plan generation failed', err);
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 3000);
     } finally {
-      setIsGenerating(false);
-      setGenerationProgress('');
+      setSavingOpponentProfile(false);
     }
+  };
+
+  const loadOpponentProfile = (plan: Plan) => {
+    const cs = plan.content_structured as any;
+    if (!cs) return;
+    setGamedayOpponent(cs.name || plan.title || '');
+    setGamedayStrengths(Array.isArray(cs.strengths) ? cs.strengths.join(', ') : (cs.strengths || ''));
+    setGamedayWeaknesses(Array.isArray(cs.weaknesses) ? cs.weaknesses.join(', ') : (cs.weaknesses || ''));
+    setGamedayKeyPlayers(Array.isArray(cs.key_players) ? cs.key_players.join(', ') : (cs.key_players || ''));
+    setGamedayNotes(cs.notes || '');
+    setShowProfilePicker(false);
+    setShowGamedayForm(true);
+  };
+
+  const handleChipClick = (chip: string) => {
+    setPrompt(chip);
+    generateFromPrompt(chip);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      generateFromPrompt(prompt);
+    }
+  };
+
+  function formatDate(dateStr: string) {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
   }
 
-  function buildTeamPersonalityShareText(): string {
-    const lines = [
-      `${getSportEmoji(sportSlug)} ${teamName}`,
-      `Coach: ${coachName}`,
-      '',
-      `We're using SportsIQ to track player development and run smarter practices.`,
-      '',
-      `Powered by SportsIQ ${getSportEmoji(sportSlug)}`,
-    ];
-    return lines.join('\n');
+  function arcParam(): string {
+    return arcSessionForRun !== null ? `&arcSession=${arcSessionForRun}` : '';
   }
 
-  function handleShareTeamPersonality() {
-    const text = buildTeamPersonalityShareText();
-    if (navigator.share) {
-      navigator.share({ text }).catch(() => {
-        setShareText(text);
-        setShareOpen(true);
+  async function handleRunWithSession(sessionId: string, planId: string) {
+    router.push(`/sessions/${sessionId}/timer?planId=${planId}${arcParam()}`);
+    setShowRunModal(false);
+    setArcSessionForRun(null);
+  }
+
+  async function handleCreateAndRun(planId: string) {
+    if (!activeTeam || !coach) return;
+    setCreatingSession(true);
+    try {
+      const newSession = await mutate({
+        table: 'sessions',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          type: 'practice',
+          date: new Date().toISOString().slice(0, 10),
+        },
       });
-    } else {
-      setShareText(text);
-      setShareOpen(true);
+      const sessionId = (newSession as any)?.[0]?.id || (newSession as any)?.id;
+      if (sessionId) {
+        router.push(`/sessions/${sessionId}/timer?planId=${planId}${arcParam()}`);
+        setShowRunModal(false);
+        setArcSessionForRun(null);
+      }
+    } catch {
+      // ignore — user can try again
+    } finally {
+      setCreatingSession(false);
     }
   }
 
-  // Upgrade gate check
-  const planLimit = (TIER_LIMITS[tier as TierKey] as any)?.training_plans ?? 1;
-  const atPlanLimit = plans.length >= planLimit && tier !== 'organization';
-
-  if (!teamId) {
+  function renderObjectFields(obj: any) {
+    if (!obj || typeof obj !== 'object') return String(obj ?? '');
     return (
-      <div className="flex items-center justify-center min-h-[50dvh]">
-        <p className="text-zinc-500">No team selected.</p>
+      <div className="space-y-1">
+        {Object.entries(obj).map(([k, v]) => (
+          <div key={k}>
+            <span className="font-medium text-zinc-400 text-xs uppercase tracking-wider">{k.replace(/_/g, ' ')}: </span>
+            <span className="text-zinc-300 text-sm">
+              {typeof v === 'string' ? v
+                : Array.isArray(v) ? v.map((item, i) => (
+                    <span key={i} className="block ml-2 text-zinc-300">- {typeof item === 'string' ? item : item?.name || item?.text || String(item)}</span>
+                  ))
+                : typeof v === 'object' && v !== null
+                ? Object.entries(v).map(([ik, iv]) => (
+                    <span key={ik} className="block ml-2 text-zinc-400">{ik.replace(/_/g, ' ')}: <span className="text-zinc-300">{String(iv)}</span></span>
+                  ))
+                : String(v)}
+            </span>
+          </div>
+        ))}
       </div>
     );
   }
 
-  // ─── Active plan detail ────────────────────────────────────────────────────
+  function renderStructuredContent(plan: Plan) {
+    let structured = plan.content_structured as any;
 
-  if (activePlan) {
-    return (
-      <div className="mx-auto max-w-2xl px-4 pb-24 pt-4">
-        <PlanDetail
-          plan={activePlan}
-          teamId={teamId}
-          teamName={teamName}
-          coachName={coachName}
-          sport={sport}
-          sportSlug={sportSlug}
-          players={players}
-          onBack={() => setActivePlanId(null)}
-          onDelete={() => deletePlan.mutate(activePlan.id)}
-        />
-      </div>
-    );
-  }
+    // If no structured content, try to parse content as JSON
+    if (!structured && plan.content) {
+      try {
+        structured = JSON.parse(plan.content);
+      } catch {
+        // Not JSON — render as plain text
+        return (
+          <div className="prose prose-invert prose-sm max-w-none whitespace-pre-wrap">
+            {plan.content}
+          </div>
+        );
+      }
+    }
 
-  // ─── Create / Quick views ──────────────────────────────────────────────────
+    if (!structured) return <p className="text-sm text-zinc-500">No content available</p>;
 
-  if (view === 'create') {
-    return (
-      <div className="mx-auto max-w-2xl px-4 pb-24 pt-4 space-y-6">
-        <div className="flex items-center gap-3">
+    // Practice Arc renderer
+    if (
+      Array.isArray(structured.sessions) &&
+      structured.sessions.length >= 2 &&
+      typeof structured.arc_title === 'string' &&
+      typeof structured.progression_note === 'string'
+    ) {
+      const arc = structured as any;
+      const sessionAccent = (n: number) => {
+        const accents: Record<number, string> = { 1: 'sky', 2: 'violet', 3: 'emerald' };
+        return accents[n] ?? 'orange';
+      };
+      return (
+        <div className="space-y-5">
+          {/* Arc header */}
+          <div className="rounded-2xl border border-sky-500/30 bg-gradient-to-br from-sky-500/10 to-sky-500/5 p-5 space-y-2">
+            <div className="flex items-center gap-2 mb-1">
+              <Zap className="h-5 w-5 text-sky-400" />
+              <h2 className="text-lg font-bold text-sky-200">{arc.arc_title}</h2>
+            </div>
+            <p className="text-sm text-zinc-300 leading-relaxed">{arc.arc_goal}</p>
+            {Array.isArray(arc.primary_focus) && arc.primary_focus.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {arc.primary_focus.map((f: string, i: number) => (
+                  <span key={i} className="inline-flex items-center rounded-full bg-sky-500/15 border border-sky-500/25 px-2.5 py-0.5 text-xs font-medium text-sky-300">{f}</span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Sessions */}
+          <div className="space-y-4">
+            {(arc.sessions as any[]).map((session: any, idx: number) => {
+              const n = session.session_number ?? (idx + 1);
+              const accent = sessionAccent(n);
+              return (
+                <div key={idx} className={`rounded-xl border border-${accent}-500/25 bg-${accent}-500/5 p-4 space-y-3`}>
+                  {/* Session header */}
+                  <div className="flex items-center gap-2">
+                    <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-${accent}-500/25 text-xs font-bold text-${accent}-300`}>
+                      {n}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-semibold text-${accent}-300`}>{session.title}</p>
+                      <p className="text-xs text-zinc-500">{session.theme} · {session.duration_minutes} min</p>
+                    </div>
+                  </div>
+
+                  {/* Session goal */}
+                  <p className="text-xs text-zinc-400 leading-relaxed pl-8">{session.session_goal}</p>
+
+                  {/* Warmup */}
+                  {session.warmup && (
+                    <div className="pl-8 flex items-start gap-2">
+                      <div className="mt-0.5 h-1.5 w-1.5 rounded-full bg-zinc-500 shrink-0" />
+                      <div>
+                        <span className="text-xs font-medium text-zinc-300">Warmup ({session.warmup.duration_minutes}m): </span>
+                        <span className="text-xs text-zinc-400">{session.warmup.name} — {session.warmup.description}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Drills */}
+                  {Array.isArray(session.drills) && session.drills.length > 0 && (
+                    <div className="pl-8 space-y-2">
+                      {session.drills.map((drill: any, di: number) => (
+                        <div key={di} className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-zinc-200">{drill.name}</span>
+                            <span className="ml-auto text-xs text-zinc-500 shrink-0">{drill.duration_minutes}m</span>
+                          </div>
+                          <p className="text-xs text-zinc-400 leading-relaxed">{drill.description}</p>
+                          {Array.isArray(drill.coaching_cues) && drill.coaching_cues.length > 0 && (
+                            <div className="flex flex-wrap gap-1 pt-0.5">
+                              {drill.coaching_cues.slice(0, 3).map((cue: string, ci: number) => (
+                                <span key={ci} className="inline-block rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400">&ldquo;{cue}&rdquo;</span>
+                              ))}
+                            </div>
+                          )}
+                          {drill.progression_note && (
+                            <p className={`text-[11px] text-${accent}-400/70 italic`}>↑ {drill.progression_note}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Key coaching point */}
+                  {session.key_coaching_point && (
+                    <div className={`pl-8 flex items-start gap-2 rounded-lg border border-${accent}-500/20 bg-${accent}-500/8 px-3 py-2`}>
+                      <Megaphone className={`h-3.5 w-3.5 text-${accent}-400 mt-0.5 shrink-0`} />
+                      <p className={`text-xs font-medium text-${accent}-300`}>&ldquo;{session.key_coaching_point}&rdquo;</p>
+                    </div>
+                  )}
+
+                  {/* Carries forward */}
+                  {session.carries_forward && (
+                    <div className="pl-8 flex items-center gap-2">
+                      <ChevronRight className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                      <p className="text-xs text-zinc-500 italic">Next: {session.carries_forward}</p>
+                    </div>
+                  )}
+
+                  {/* Run this session in the Practice Timer */}
+                  <div className="pl-8 pt-1">
+                    <button
+                      onClick={() => {
+                        setArcSessionForRun(idx);
+                        setShowRunModal(true);
+                      }}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border border-${accent}-500/30 bg-${accent}-500/10 px-3 py-1.5 text-xs font-semibold text-${accent}-300 hover:bg-${accent}-500/20 active:scale-[0.97] touch-manipulation transition-all`}
+                    >
+                      <Play className="h-3 w-3" />
+                      Run Session {n} in Timer
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Progression note */}
+          {arc.progression_note && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/50 p-4 space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">How These Practices Connect</p>
+              <p className="text-sm text-zinc-300 leading-relaxed">{arc.progression_note}</p>
+            </div>
+          )}
+
+          {/* Game day tip */}
+          {arc.game_day_tip && (
+            <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 p-4 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-amber-400" />
+                <p className="text-xs font-semibold text-amber-300">Game Day Tip</p>
+              </div>
+              <p className="text-sm text-zinc-300 leading-relaxed">{arc.game_day_tip}</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Newsletter renderer
+    if (structured.player_spotlights || structured.week_summary) {
+      return (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Newspaper className="h-5 w-5 text-violet-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-violet-400">Parent Newsletter</span>
+            </div>
+            {structured.title && (
+              <h2 className="text-xl font-bold text-zinc-100">{structured.title}</h2>
+            )}
+            {structured.date_range && (
+              <p className="text-xs text-zinc-500">{structured.date_range}</p>
+            )}
+          </div>
+
+          {/* Week Summary */}
+          {structured.week_summary && (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+              <p className="text-sm font-semibold text-zinc-300 mb-2">This Week</p>
+              <p className="text-sm text-zinc-400 leading-relaxed">{structured.week_summary}</p>
+            </div>
+          )}
+
+          {/* Team Highlight */}
+          {structured.team_highlight && (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="h-4 w-4 text-emerald-400" />
+                <p className="text-sm font-semibold text-emerald-300">Team Highlight</p>
+              </div>
+              <p className="text-sm text-zinc-300 leading-relaxed">{structured.team_highlight}</p>
+            </div>
+          )}
+
+          {/* Player Spotlights */}
+          {Array.isArray(structured.player_spotlights) && structured.player_spotlights.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Star className="h-4 w-4 text-yellow-400" />
+                <p className="text-sm font-semibold text-zinc-200">Player Spotlights</p>
+                <span className="text-xs text-zinc-600">({structured.player_spotlights.length} players)</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {structured.player_spotlights.map((spotlight: any, i: number) => (
+                  <div
+                    key={i}
+                    className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4 space-y-2"
+                  >
+                    <p className="text-sm font-semibold text-zinc-100">{spotlight.player_name}</p>
+                    <p className="text-xs text-zinc-400 leading-relaxed">{spotlight.highlight}</p>
+                    {spotlight.home_challenge && (
+                      <div className="flex items-start gap-2 rounded-lg bg-blue-500/10 border border-blue-500/20 p-2.5 mt-2">
+                        <Home className="h-3.5 w-3.5 text-blue-400 shrink-0 mt-0.5" />
+                        <p className="text-xs text-blue-300 leading-relaxed">{spotlight.home_challenge}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Upcoming Focus */}
+          {structured.upcoming_focus && (
+            <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
+              <p className="text-sm font-semibold text-orange-300 mb-2">Looking Ahead</p>
+              <p className="text-sm text-zinc-300 leading-relaxed">{structured.upcoming_focus}</p>
+            </div>
+          )}
+
+          {/* Coaching Note */}
+          {structured.coaching_note && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">From the Coach</p>
+              <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{structured.coaching_note}&rdquo;</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Season Storyline renderer
+    if (structured.chapters || structured.opening || structured.trajectory) {
+      return (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <BookOpen className="h-5 w-5 text-indigo-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Season Storyline</span>
+            </div>
+            {structured.player_name && (
+              <h2 className="text-xl font-bold text-zinc-100">{structured.player_name}</h2>
+            )}
+            {structured.season_label && (
+              <p className="text-xs text-zinc-500">{structured.season_label}</p>
+            )}
+          </div>
+
+          {/* Opening */}
+          {structured.opening && (
+            <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4">
+              <p className="text-sm font-semibold text-indigo-300 mb-2">The Beginning</p>
+              <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{structured.opening}&rdquo;</p>
+            </div>
+          )}
+
+          {/* Chapters */}
+          {Array.isArray(structured.chapters) && structured.chapters.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-zinc-200">Season Arc</p>
+              {structured.chapters.map((chapter: any, i: number) => (
+                <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-zinc-100">{chapter.phase}</p>
+                    {chapter.weeks && (
+                      <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">{chapter.weeks}</span>
+                    )}
+                  </div>
+                  {chapter.narrative && (
+                    <p className="text-sm text-zinc-400 leading-relaxed">{chapter.narrative}</p>
+                  )}
+                  {Array.isArray(chapter.highlights) && chapter.highlights.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Highlights</p>
+                      {chapter.highlights.map((h: string, j: number) => (
+                        <p key={j} className="text-xs text-zinc-400 flex gap-2"><span className="text-emerald-500">+</span>{h}</p>
+                      ))}
+                    </div>
+                  )}
+                  {Array.isArray(chapter.growth_moments) && chapter.growth_moments.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Growth Moments</p>
+                      {chapter.growth_moments.map((g: string, j: number) => (
+                        <p key={j} className="text-xs text-zinc-400 flex gap-2"><span className="text-amber-500">→</span>{g}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Current Strengths */}
+          {Array.isArray(structured.current_strengths) && structured.current_strengths.length > 0 && (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Star className="h-4 w-4 text-emerald-400" />
+                <p className="text-sm font-semibold text-emerald-300">Current Strengths</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {structured.current_strengths.map((s: string, i: number) => (
+                  <span key={i} className="text-xs bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 rounded-full px-2.5 py-1">{s}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Trajectory */}
+          {structured.trajectory && (
+            <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="h-4 w-4 text-orange-400" />
+                <p className="text-sm font-semibold text-orange-300">Where They&apos;re Headed</p>
+              </div>
+              <p className="text-sm text-zinc-300 leading-relaxed">{structured.trajectory}</p>
+            </div>
+          )}
+
+          {/* Coach Reflection */}
+          {structured.coach_reflection && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Coach&apos;s Reflection</p>
+              <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{structured.coach_reflection}&rdquo;</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Game Day Sheet renderer
+    if (structured.game_plan && (structured.opponent !== undefined || structured.pregame_message !== undefined || structured.scouting_report !== undefined)) {
+      const gp = structured.game_plan;
+      const sr = structured.scouting_report;
+      const threatColor = (level: string) => {
+        if (level === 'high') return 'text-red-400 bg-red-500/10 border-red-500/20';
+        if (level === 'medium') return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+        return 'text-zinc-400 bg-zinc-800 border-zinc-700';
+      };
+      return (
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Trophy className="h-5 w-5 text-emerald-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Game Day Prep</span>
+            </div>
+            {structured.title && <h2 className="text-xl font-bold text-zinc-100">{structured.title}</h2>}
+            {structured.opponent && <p className="text-sm text-zinc-400">vs. {structured.opponent}</p>}
+          </div>
+
+          {/* Pregame Message */}
+          {structured.pregame_message && (
+            <div className="rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <MessageSquare className="h-4 w-4 text-emerald-400" />
+                <p className="text-sm font-semibold text-emerald-300">Pregame Message</p>
+              </div>
+              <p className="text-sm text-zinc-200 leading-relaxed italic">&ldquo;{structured.pregame_message}&rdquo;</p>
+            </div>
+          )}
+
+          {/* Scouting Report */}
+          {sr && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Eye className="h-4 w-4 text-amber-400" />
+                <p className="text-sm font-semibold text-zinc-200">Scouting Report</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {Array.isArray(sr.opponent_strengths) && sr.opponent_strengths.length > 0 && (
+                  <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Swords className="h-3.5 w-3.5 text-red-400" />
+                      <p className="text-xs font-semibold text-red-300 uppercase tracking-wider">Their Strengths</p>
+                    </div>
+                    <ul className="space-y-1">
+                      {sr.opponent_strengths.map((s: string, i: number) => (
+                        <li key={i} className="text-xs text-zinc-400 flex gap-2 items-start"><span className="text-red-500 mt-0.5 shrink-0">!</span>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {Array.isArray(sr.opponent_weaknesses) && sr.opponent_weaknesses.length > 0 && (
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Shield className="h-3.5 w-3.5 text-emerald-400" />
+                      <p className="text-xs font-semibold text-emerald-300 uppercase tracking-wider">Exploit</p>
+                    </div>
+                    <ul className="space-y-1">
+                      {sr.opponent_weaknesses.map((w: string, i: number) => (
+                        <li key={i} className="text-xs text-zinc-400 flex gap-2 items-start"><span className="text-emerald-500 mt-0.5 shrink-0">✓</span>{w}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              {Array.isArray(sr.key_players_to_watch) && sr.key_players_to_watch.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Eye className="h-3.5 w-3.5" />Key Players to Watch
+                  </p>
+                  <div className="space-y-2">
+                    {sr.key_players_to_watch.map((kp: any, i: number) => (
+                      <div key={i} className={`rounded-lg border px-3 py-2.5 ${threatColor(kp.threat_level)}`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-semibold">{kp.name}</p>
+                          {kp.threat_level && (
+                            <span className="text-xs font-medium uppercase tracking-wider px-2 py-0.5 rounded-full border border-current">{kp.threat_level}</span>
+                          )}
+                        </div>
+                        {kp.defensive_assignment && <p className="text-xs opacity-80">Assignment: {kp.defensive_assignment}</p>}
+                        {kp.notes && <p className="text-xs opacity-70 mt-0.5">{kp.notes}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Game Plan */}
+          {gp && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {Array.isArray(gp.offensive_focus) && gp.offensive_focus.length > 0 && (
+                  <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Swords className="h-3.5 w-3.5 text-blue-400" />
+                      <p className="text-xs font-semibold text-blue-300 uppercase tracking-wider">Offensive Focus</p>
+                    </div>
+                    <ul className="space-y-1.5">
+                      {gp.offensive_focus.map((f: string, i: number) => (
+                        <li key={i} className="text-xs text-zinc-300 flex gap-2 items-start"><span className="text-blue-500 shrink-0 mt-0.5">→</span>{f}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {Array.isArray(gp.defensive_focus) && gp.defensive_focus.length > 0 && (
+                  <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-3 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Shield className="h-3.5 w-3.5 text-orange-400" />
+                      <p className="text-xs font-semibold text-orange-300 uppercase tracking-wider">Defensive Focus</p>
+                    </div>
+                    <ul className="space-y-1.5">
+                      {gp.defensive_focus.map((f: string, i: number) => (
+                        <li key={i} className="text-xs text-zinc-300 flex gap-2 items-start"><span className="text-orange-500 shrink-0 mt-0.5">→</span>{f}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              {Array.isArray(gp.key_matchups) && gp.key_matchups.length > 0 && (
+                <div className="rounded-xl border border-zinc-700 bg-zinc-900/30 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Key Matchups</p>
+                  <ul className="space-y-1">
+                    {gp.key_matchups.map((m: string, i: number) => (
+                      <li key={i} className="text-xs text-zinc-400 flex gap-2"><span className="text-zinc-600">⚡</span>{m}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {Array.isArray(gp.set_plays) && gp.set_plays.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-purple-300 uppercase tracking-wider">Set Plays</p>
+                  <div className="space-y-2">
+                    {gp.set_plays.map((play: any, i: number) => (
+                      <div key={i} className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3">
+                        <p className="text-sm font-semibold text-purple-300">{play.name}</p>
+                        <p className="text-xs text-zinc-400 mt-1">{play.description}</p>
+                        {play.use_when && <p className="text-xs text-purple-400/70 mt-1 italic">Use when: {play.use_when}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Lineup */}
+          {Array.isArray(structured.lineup) && structured.lineup.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Suggested Lineup</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {structured.lineup.map((p: any, i: number) => (
+                  <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-sm font-semibold text-zinc-100">{p.player_name}</p>
+                      <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">{p.position}</span>
+                    </div>
+                    {Array.isArray(p.focus_areas) && p.focus_areas.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {p.focus_areas.map((fa: string, j: number) => (
+                          <span key={j} className="text-xs text-zinc-400 bg-zinc-800 px-1.5 py-0.5 rounded">{fa}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Substitution Plan */}
+          {structured.substitution_plan && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/30 p-4">
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Substitution Plan</p>
+              <p className="text-sm text-zinc-300">{structured.substitution_plan}</p>
+            </div>
+          )}
+
+          {/* Halftime Adjustments */}
+          {Array.isArray(structured.halftime_adjustments) && structured.halftime_adjustments.length > 0 && (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
+              <p className="text-xs font-semibold text-amber-300 uppercase tracking-wider">Halftime Adjustments</p>
+              <ul className="space-y-1.5">
+                {structured.halftime_adjustments.map((a: string, i: number) => (
+                  <li key={i} className="text-xs text-zinc-300 flex gap-2 items-start"><span className="text-amber-500 shrink-0 mt-0.5">→</span>{a}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Coaching Reminders */}
+          {Array.isArray(structured.coaching_reminders) && structured.coaching_reminders.length > 0 && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/40 p-4 space-y-2">
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Sideline Reminders</p>
+              <div className="flex flex-wrap gap-2">
+                {structured.coaching_reminders.map((r: string, i: number) => (
+                  <span key={i} className="text-xs text-zinc-300 bg-zinc-800 border border-zinc-700 rounded-full px-3 py-1">{r}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Opponent Scouting Profile renderer
+    if (structured.name && (structured.strengths !== undefined || structured.weaknesses !== undefined || structured.key_players !== undefined)) {
+      return (
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="flex items-center gap-3 pb-3 border-b border-zinc-800">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/15">
+              <Swords className="h-5 w-5 text-red-400" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-red-400">Scouting Profile</p>
+              <h2 className="text-lg font-bold text-zinc-100">{structured.name}</h2>
+            </div>
+          </div>
+
+          {/* Strengths */}
+          {Array.isArray(structured.strengths) && structured.strengths.length > 0 && (
+            <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Swords className="h-4 w-4 text-red-400" />
+                <p className="text-sm font-semibold text-red-300">Their Strengths</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {structured.strengths.map((s: string, i: number) => (
+                  <span key={i} className="text-xs bg-red-500/10 text-red-300 border border-red-500/20 rounded-full px-2.5 py-1">{s}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Weaknesses */}
+          {Array.isArray(structured.weaknesses) && structured.weaknesses.length > 0 && (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Shield className="h-4 w-4 text-emerald-400" />
+                <p className="text-sm font-semibold text-emerald-300">Their Weaknesses</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {structured.weaknesses.map((w: string, i: number) => (
+                  <span key={i} className="text-xs bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-full px-2.5 py-1">{w}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Key Players */}
+          {Array.isArray(structured.key_players) && structured.key_players.length > 0 && (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Eye className="h-4 w-4 text-amber-400" />
+                <p className="text-sm font-semibold text-amber-300">Key Players to Watch</p>
+              </div>
+              <div className="space-y-1.5">
+                {structured.key_players.map((kp: string, i: number) => (
+                  <p key={i} className="text-sm text-zinc-300 flex gap-2"><span className="text-amber-500">•</span>{kp}</p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Notes */}
+          {structured.notes && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/40 p-4">
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Scouting Notes</p>
+              <p className="text-sm text-zinc-300 leading-relaxed">{structured.notes}</p>
+            </div>
+          )}
+
+          {/* Action: Load into Game Day form */}
           <button
-            onClick={() => setView('list')}
-            className="rounded-xl p-2 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+            type="button"
+            onClick={() => {
+              if (selectedPlan) {
+                loadOpponentProfile(selectedPlan);
+                setSelectedPlan(null);
+              }
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 transition-colors touch-manipulation active:scale-[0.98]"
           >
-            <ChevronDown className="h-5 w-5 rotate-90" />
+            <Zap className="h-4 w-4" />
+            Load into Game Day Prep Form
           </button>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-orange-400">New Plan</p>
-            <p className="text-xl font-bold text-zinc-100">Training Plan Generator</p>
+        </div>
+      );
+    }
+
+    if (structured.warmup || structured.drills || structured.scrimmage || structured.cooldown) {
+      return (
+        <div className="space-y-6">
+          {structured.title && (
+            <h2 className="text-lg font-semibold text-zinc-100">{structured.title}</h2>
+          )}
+          {structured.overview && (
+            <p className="text-sm text-zinc-400">{structured.overview}</p>
+          )}
+
+          {structured.warmup && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-blue-400">
+                Warm-Up
+              </h3>
+              {typeof structured.warmup === 'object' && !Array.isArray(structured.warmup) ? (
+                <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                  <p className="text-sm font-medium text-zinc-200">{structured.warmup.name}</p>
+                  {structured.warmup.duration_minutes && (
+                    <span className="text-xs text-zinc-500">{structured.warmup.duration_minutes} min</span>
+                  )}
+                  {structured.warmup.description && (
+                    <p className="mt-1 text-xs text-zinc-400">{structured.warmup.description}</p>
+                  )}
+                </div>
+              ) : Array.isArray(structured.warmup) ? (
+                <ul className="space-y-1.5">
+                  {structured.warmup.map((item: any, i: number) => (
+                    <li key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                      <p className="text-sm font-medium text-zinc-200">
+                        {typeof item === 'string' ? item : item.name || item.activity}
+                      </p>
+                      {item.duration && (
+                        <span className="text-xs text-zinc-500">{item.duration}</span>
+                      )}
+                      {item.description && (
+                        <p className="mt-1 text-xs text-zinc-400">{item.description}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-zinc-300">{typeof structured.warmup === 'string' ? structured.warmup : structured.warmup?.name || structured.warmup?.description || renderObjectFields(structured.warmup)}</p>
+              )}
+            </div>
+          )}
+
+          {structured.drills && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald-400">
+                Drills
+              </h3>
+              {Array.isArray(structured.drills) ? (
+                <ul className="space-y-2">
+                  {structured.drills.map((drill: any, i: number) => (
+                    <li key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-zinc-200">
+                          {typeof drill === 'string' ? drill : drill.name || drill.activity}
+                        </p>
+                        {(drill.duration_minutes || drill.duration) && (
+                          <Badge variant="outline" className="text-xs">
+                            {drill.duration_minutes ? `${drill.duration_minutes} min` : drill.duration}
+                          </Badge>
+                        )}
+                      </div>
+                      {drill.description && (
+                        <p className="mt-1 text-xs text-zinc-400">{drill.description}</p>
+                      )}
+                      {drill.coaching_cues && (
+                        <div className="mt-2">
+                          <p className="text-xs font-medium text-zinc-500">Coaching Cues:</p>
+                          <ul className="mt-1 space-y-0.5">
+                            {(Array.isArray(drill.coaching_cues) ? drill.coaching_cues : [drill.coaching_cues]).map(
+                              (point: string, j: number) => (
+                                <li key={j} className="text-xs text-zinc-400">- {point}</li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                      )}
+                      {drill.coaching_points && (
+                        <div className="mt-2">
+                          <p className="text-xs font-medium text-zinc-500">Coaching Points:</p>
+                          <ul className="mt-1 space-y-0.5">
+                            {(Array.isArray(drill.coaching_points) ? drill.coaching_points : [drill.coaching_points]).map(
+                              (point: string, j: number) => (
+                                <li key={j} className="text-xs text-zinc-400">- {point}</li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                      )}
+                      {drill.skill && (
+                        <Badge variant="secondary" className="mt-2 text-xs">{drill.skill}</Badge>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-zinc-300">{typeof structured.drills === 'string' ? structured.drills : renderObjectFields(structured.drills)}</p>
+              )}
+            </div>
+          )}
+
+          {structured.scrimmage && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-orange-400">
+                Scrimmage
+              </h3>
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                {typeof structured.scrimmage === 'string' ? (
+                  <p className="text-sm text-zinc-300">{structured.scrimmage}</p>
+                ) : (
+                  <>
+                    {structured.scrimmage.format && (
+                      <p className="text-sm font-medium text-zinc-200">{structured.scrimmage.format}</p>
+                    )}
+                    {structured.scrimmage.duration_minutes && (
+                      <span className="text-xs text-zinc-500">{structured.scrimmage.duration_minutes} min</span>
+                    )}
+                    {structured.scrimmage.focus && (
+                      <p className="mt-1 text-xs text-zinc-400">Focus: {structured.scrimmage.focus}</p>
+                    )}
+                    {structured.scrimmage.rules && (
+                      <p className="mt-1 text-xs text-zinc-400">{structured.scrimmage.rules}</p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {structured.cooldown && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-purple-400">
+                Cool Down
+              </h3>
+              {typeof structured.cooldown === 'object' && !Array.isArray(structured.cooldown) ? (
+                <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                  {structured.cooldown.duration_minutes && (
+                    <span className="text-xs text-zinc-500">{structured.cooldown.duration_minutes} min</span>
+                  )}
+                  {structured.cooldown.notes && (
+                    <p className="mt-1 text-xs text-zinc-400">{structured.cooldown.notes}</p>
+                  )}
+                </div>
+              ) : Array.isArray(structured.cooldown) ? (
+                <ul className="space-y-1.5">
+                  {structured.cooldown.map((item: any, i: number) => (
+                    <li key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                      <p className="text-sm text-zinc-200">
+                        {typeof item === 'string' ? item : item.name || item.activity}
+                      </p>
+                      {item.description && (
+                        <p className="mt-1 text-xs text-zinc-400">{item.description}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-zinc-300">{typeof structured.cooldown === 'string' ? structured.cooldown : structured.cooldown?.notes || structured.cooldown?.description || renderObjectFields(structured.cooldown)}</p>
+              )}
+            </div>
+          )}
+
+          {structured.notes && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
+                Coach Notes
+              </h3>
+              <div className="text-sm text-zinc-300 whitespace-pre-wrap">
+                {typeof structured.notes === 'string'
+                  ? structured.notes
+                  : Array.isArray(structured.notes)
+                  ? structured.notes.map((note: any, i: number) => (
+                      <p key={i} className="mb-1">{typeof note === 'string' ? note : note.text || note.note || String(note)}</p>
+                    ))
+                  : typeof structured.notes === 'object' && structured.notes !== null
+                  ? Object.entries(structured.notes).map(([k, v]) => (
+                      <p key={k} className="mb-1"><span className="font-medium text-zinc-400">{k.replace(/_/g, ' ')}:</span> {String(v)}</p>
+                    ))
+                  : String(structured.notes)}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Game Recap renderer
+    if (structured.result_headline || structured.key_moments) {
+      const resultColor = (headline: string) => {
+        const lower = (headline || '').toLowerCase();
+        if (lower.includes('victor') || lower.includes('win') || lower.includes('triumph') || lower.includes('defeat') && !lower.includes('we')) return 'text-emerald-400';
+        if (lower.includes('loss') || lower.includes('tough') || lower.includes('fell') || lower.includes('defeat')) return 'text-red-400';
+        if (lower.includes('tie') || lower.includes('draw')) return 'text-zinc-400';
+        return 'text-orange-400';
+      };
+      return (
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Radio className="h-5 w-5 text-rose-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-rose-400">Game Recap</span>
+            </div>
+            {structured.title && <h2 className="text-xl font-bold text-zinc-100">{structured.title}</h2>}
+            {structured.result_headline && (
+              <p className={`text-base font-semibold ${resultColor(structured.result_headline)}`}>
+                {structured.result_headline}
+              </p>
+            )}
+          </div>
+
+          {/* Intro narrative */}
+          {structured.intro && (
+            <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4">
+              <p className="text-sm text-zinc-200 leading-relaxed">{structured.intro}</p>
+            </div>
+          )}
+
+          {/* Key Moments */}
+          {Array.isArray(structured.key_moments) && structured.key_moments.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-amber-400" />
+                <p className="text-sm font-semibold text-zinc-200">Key Moments</p>
+              </div>
+              <div className="space-y-2">
+                {structured.key_moments.map((moment: any, i: number) => (
+                  <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-3.5 space-y-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-semibold text-zinc-100">{moment.headline}</p>
+                      {moment.player_name && (
+                        <span className="text-xs font-medium text-orange-400 shrink-0">{moment.player_name}</span>
+                      )}
+                    </div>
+                    {moment.description && (
+                      <p className="text-xs text-zinc-400 leading-relaxed">{moment.description}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Player Highlights */}
+          {Array.isArray(structured.player_highlights) && structured.player_highlights.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Star className="h-4 w-4 text-yellow-400" />
+                <p className="text-sm font-semibold text-zinc-200">Player Highlights</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {structured.player_highlights.map((ph: any, i: number) => (
+                  <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-3.5 space-y-1">
+                    <p className="text-sm font-semibold text-orange-400">{ph.player_name}</p>
+                    <p className="text-xs text-zinc-300 leading-relaxed">{ph.highlight}</p>
+                    {ph.stat_line && (
+                      <p className="text-xs font-medium text-zinc-500 mt-1">{ph.stat_line}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Team Performance */}
+          {structured.team_performance && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Activity className="h-4 w-4 text-blue-400" />
+                <p className="text-sm font-semibold text-zinc-200">Team Performance</p>
+              </div>
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3.5 space-y-2.5">
+                {structured.team_performance.offensive_note && (
+                  <div>
+                    <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-0.5">Offense</p>
+                    <p className="text-sm text-zinc-300 leading-relaxed">{structured.team_performance.offensive_note}</p>
+                  </div>
+                )}
+                {structured.team_performance.defensive_note && (
+                  <div className="border-t border-blue-500/10 pt-2.5">
+                    <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-0.5">Defense</p>
+                    <p className="text-sm text-zinc-300 leading-relaxed">{structured.team_performance.defensive_note}</p>
+                  </div>
+                )}
+                {structured.team_performance.effort_note && (
+                  <div className="border-t border-blue-500/10 pt-2.5">
+                    <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-0.5">Effort & Hustle</p>
+                    <p className="text-sm text-zinc-300 leading-relaxed">{structured.team_performance.effort_note}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Coach Message */}
+          {structured.coach_message && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <MessageSquare className="h-4 w-4 text-zinc-400" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">From the Coach</p>
+              </div>
+              <p className="text-sm text-zinc-200 leading-relaxed italic">&ldquo;{structured.coach_message}&rdquo;</p>
+            </div>
+          )}
+
+          {/* Looking Ahead */}
+          {structured.looking_ahead && (
+            <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-3.5">
+              <div className="flex items-center gap-2 mb-1.5">
+                <TrendingUp className="h-4 w-4 text-orange-400" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-orange-400">Looking Ahead</p>
+              </div>
+              <p className="text-sm text-zinc-300 leading-relaxed">{structured.looking_ahead}</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Weekly Star renderer
+    if (structured.headline && structured.achievement && structured.coach_shoutout) {
+      return (
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Star className="h-5 w-5 text-amber-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-amber-400">Weekly Star</span>
+            </div>
+            {structured.week_label && (
+              <p className="text-xs text-zinc-500">Week of {structured.week_label}</p>
+            )}
+            {structured.player_name && (
+              <h2 className="text-xl font-bold text-amber-300">{structured.player_name}</h2>
+            )}
+            {structured.headline && (
+              <p className="text-sm font-medium text-zinc-300">{structured.headline}</p>
+            )}
+          </div>
+
+          {/* Achievement */}
+          {structured.achievement && (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+              <p className="text-sm text-zinc-200 leading-relaxed">{structured.achievement}</p>
+            </div>
+          )}
+
+          {/* Growth Moment */}
+          {structured.growth_moment && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-emerald-400" />
+                <p className="text-sm font-semibold text-zinc-200">Growth Moment</p>
+              </div>
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5">
+                <p className="text-sm text-zinc-300 leading-relaxed">{structured.growth_moment}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Challenge Ahead */}
+          {structured.challenge_ahead && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-blue-400" />
+                <p className="text-sm font-semibold text-zinc-200">Keep Building</p>
+              </div>
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3.5">
+                <p className="text-sm text-zinc-300 leading-relaxed">{structured.challenge_ahead}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Coach Shoutout */}
+          {structured.coach_shoutout && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <MessageSquare className="h-4 w-4 text-zinc-400" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">From the Coach</p>
+              </div>
+              <p className="text-sm text-zinc-200 leading-relaxed italic">&ldquo;{structured.coach_shoutout}&rdquo;</p>
+            </div>
+          )}
+
+          {/* Share / Copy */}
+          <button
+            onClick={async () => {
+              const text = [
+                `⭐ Weekly Star — Week of ${structured.week_label}`,
+                '',
+                `${structured.player_name}: ${structured.headline}`,
+                '',
+                structured.achievement,
+                structured.growth_moment ? `\n💪 Growth: ${structured.growth_moment}` : '',
+                '',
+                `"${structured.coach_shoutout}"`,
+                '',
+                'Powered by SportsIQ',
+              ].filter(Boolean).join('\n');
+              try {
+                if (navigator.share) {
+                  await navigator.share({ title: `Weekly Star — ${structured.player_name}`, text });
+                } else {
+                  await navigator.clipboard.writeText(text);
+                  setWeeklyStarCopied(true);
+                  setTimeout(() => setWeeklyStarCopied(false), 2000);
+                }
+              } catch { /* user cancelled */ }
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 py-3 text-sm font-semibold text-amber-300 transition-all hover:bg-amber-500/15 active:scale-[0.98] touch-manipulation"
+            aria-label="Share weekly star spotlight"
+          >
+            {weeklyStarCopied ? (
+              <><Check className="h-4 w-4" /> Copied to clipboard!</>
+            ) : (
+              <><Share2 className="h-4 w-4" /> Share with Parent Group Chat</>
+            )}
+          </button>
+        </div>
+      );
+    }
+
+    // Season Summary renderer
+    if (structured.headline && structured.overall_assessment && structured.next_season_priorities) {
+      const skillStatusBadge = (status: string) => {
+        switch (status) {
+          case 'strength':      return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400';
+          case 'most_improved': return 'border-blue-500/30 bg-blue-500/10 text-blue-400';
+          case 'needs_work':    return 'border-red-500/30 bg-red-500/10 text-red-400';
+          default:              return 'border-zinc-600/30 bg-zinc-800/30 text-zinc-400';
+        }
+      };
+      const skillStatusLabel = (status: string) => {
+        switch (status) {
+          case 'strength':      return 'Strength';
+          case 'most_improved': return 'Most Improved';
+          case 'needs_work':    return 'Needs Work';
+          default:              return 'Consistent';
+        }
+      };
+      return (
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <BarChart2 className="h-5 w-5 text-cyan-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-cyan-400">Season Summary</span>
+            </div>
+            {structured.season_period && (
+              <p className="text-xs text-zinc-500">{structured.season_period}</p>
+            )}
+            <h2 className="text-xl font-bold text-zinc-100">{structured.headline}</h2>
+          </div>
+
+          {/* Overall Assessment */}
+          {structured.overall_assessment && (
+            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+              <p className="text-sm text-zinc-200 leading-relaxed">{structured.overall_assessment}</p>
+            </div>
+          )}
+
+          {/* Team Highlights */}
+          {Array.isArray(structured.team_highlights) && structured.team_highlights.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Star className="h-4 w-4 text-amber-400" />
+                <p className="text-sm font-semibold text-zinc-200">Season Highlights</p>
+              </div>
+              <div className="space-y-2">
+                {structured.team_highlights.map((h: any, i: number) => (
+                  <div key={i} className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5 space-y-1">
+                    <p className="text-sm font-semibold text-amber-300">{h.title}</p>
+                    {h.description && (
+                      <p className="text-xs text-zinc-400 leading-relaxed">{h.description}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Skill Progress */}
+          {Array.isArray(structured.skill_progress) && structured.skill_progress.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-emerald-400" />
+                <p className="text-sm font-semibold text-zinc-200">Skill Progress</p>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                {structured.skill_progress.map((sp: any, i: number) => (
+                  <div key={i} className="flex items-start gap-3 rounded-xl border border-zinc-800 bg-zinc-900/30 p-3.5">
+                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold ${skillStatusBadge(sp.status)}`}>
+                      {skillStatusLabel(sp.status)}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-zinc-200">{sp.skill}</p>
+                      {sp.description && (
+                        <p className="text-xs text-zinc-500 leading-relaxed mt-0.5">{sp.description}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Player Breakthroughs */}
+          {Array.isArray(structured.player_breakthroughs) && structured.player_breakthroughs.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-orange-400" />
+                <p className="text-sm font-semibold text-zinc-200">Player Breakthroughs</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {structured.player_breakthroughs.map((pb: any, i: number) => (
+                  <div key={i} className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-3.5 space-y-1">
+                    <p className="text-sm font-semibold text-orange-400">{pb.player_name}</p>
+                    <p className="text-xs text-zinc-300 leading-relaxed">{pb.achievement}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Team Challenges */}
+          {Array.isArray(structured.team_challenges) && structured.team_challenges.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-red-400" />
+                <p className="text-sm font-semibold text-zinc-200">Areas to Address</p>
+              </div>
+              <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3.5 space-y-1.5">
+                {structured.team_challenges.map((c: string, i: number) => (
+                  <p key={i} className="text-sm text-zinc-300 leading-relaxed">• {c}</p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Coaching Insights */}
+          {structured.coaching_insights && (
+            <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Eye className="h-4 w-4 text-zinc-400" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Coaching Insights</p>
+              </div>
+              <p className="text-sm text-zinc-200 leading-relaxed">{structured.coaching_insights}</p>
+            </div>
+          )}
+
+          {/* Next Season Priorities */}
+          {Array.isArray(structured.next_season_priorities) && structured.next_season_priorities.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <BookmarkPlus className="h-4 w-4 text-cyan-400" />
+                <p className="text-sm font-semibold text-zinc-200">Next Season Priorities</p>
+              </div>
+              <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3.5 space-y-1.5">
+                {structured.next_season_priorities.map((p: string, i: number) => (
+                  <p key={i} className="text-sm text-zinc-300 leading-relaxed">→ {p}</p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Closing Message */}
+          {structured.closing_message && (
+            <div className="rounded-xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-transparent p-4">
+              <p className="text-sm text-zinc-200 leading-relaxed italic text-center">&ldquo;{structured.closing_message}&rdquo;</p>
+            </div>
+          )}
+
+          {/* Share button */}
+          <button
+            onClick={async () => {
+              const teamName = activeTeam?.name || 'Team';
+              const text = [
+                `📊 ${teamName} — Season Summary`,
+                structured.season_period || '',
+                '',
+                structured.headline,
+                '',
+                structured.overall_assessment,
+                '',
+                Array.isArray(structured.next_season_priorities) && structured.next_season_priorities.length > 0
+                  ? '🎯 Next Season: ' + (structured.next_season_priorities as string[]).join(', ')
+                  : '',
+                '',
+                'Generated with SportsIQ',
+              ].filter(Boolean).join('\n');
+              try {
+                if (navigator.share) {
+                  await navigator.share({ title: `${teamName} Season Summary`, text });
+                } else {
+                  await navigator.clipboard.writeText(text);
+                  setSeasonSummaryCopied(true);
+                  setTimeout(() => setSeasonSummaryCopied(false), 2000);
+                }
+              } catch { /* user cancelled */ }
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 py-3 text-sm font-semibold text-cyan-300 transition-all hover:bg-cyan-500/15 active:scale-[0.98] touch-manipulation"
+          >
+            {seasonSummaryCopied ? (
+              <>
+                <Check className="h-4 w-4" />
+                Copied to clipboard!
+              </>
+            ) : (
+              <>
+                <Share2 className="h-4 w-4" />
+                Share Season Summary
+              </>
+            )}
+          </button>
+        </div>
+      );
+    }
+
+    // Season Awards renderer
+    if (structured.season_label && Array.isArray(structured.awards) && structured.ceremony_intro) {
+      const accentPalettes = [
+        { border: 'border-amber-500/30',   bg: 'bg-amber-500/5',   text: 'text-amber-300',   ring: 'bg-amber-500/20' },
+        { border: 'border-orange-500/30',  bg: 'bg-orange-500/5',  text: 'text-orange-300',  ring: 'bg-orange-500/20' },
+        { border: 'border-emerald-500/30', bg: 'bg-emerald-500/5', text: 'text-emerald-300', ring: 'bg-emerald-500/20' },
+        { border: 'border-blue-500/30',    bg: 'bg-blue-500/5',    text: 'text-blue-300',    ring: 'bg-blue-500/20' },
+        { border: 'border-purple-500/30',  bg: 'bg-purple-500/5',  text: 'text-purple-300',  ring: 'bg-purple-500/20' },
+        { border: 'border-rose-500/30',    bg: 'bg-rose-500/5',    text: 'text-rose-300',    ring: 'bg-rose-500/20' },
+        { border: 'border-teal-500/30',    bg: 'bg-teal-500/5',    text: 'text-teal-300',    ring: 'bg-teal-500/20' },
+        { border: 'border-indigo-500/30',  bg: 'bg-indigo-500/5',  text: 'text-indigo-300',  ring: 'bg-indigo-500/20' },
+      ];
+      return (
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="text-center space-y-2 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Trophy className="h-5 w-5 text-amber-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-amber-400">Season Awards</span>
+            </div>
+            <h2 className="text-xl font-bold text-zinc-100">{structured.season_label}</h2>
+            {structured.ceremony_intro && (
+              <p className="text-sm text-zinc-400 leading-relaxed max-w-md mx-auto">{structured.ceremony_intro}</p>
+            )}
+            {seasonAwardsStats && (
+              <div className="flex items-center justify-center gap-3 pt-1">
+                <span className="text-xs text-zinc-500">{seasonAwardsStats.playersAwarded} players awarded</span>
+                <span className="text-zinc-700">·</span>
+                <span className="text-xs text-zinc-500">{seasonAwardsStats.totalObservations} observations analyzed</span>
+              </div>
+            )}
+          </div>
+
+          {/* Award Cards */}
+          {structured.awards.map((award: any, i: number) => {
+            const palette = accentPalettes[i % accentPalettes.length];
+            return (
+              <div key={i} className={`rounded-xl border ${palette.border} ${palette.bg} p-4 space-y-3`}>
+                <div className="flex items-start gap-3">
+                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xl ${palette.ring}`}>
+                    {award.emoji || '🏅'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-bold ${palette.text}`}>{award.award_title}</p>
+                    <p className="text-base font-semibold text-zinc-100">{award.player_name}</p>
+                  </div>
+                </div>
+                {award.description && (
+                  <p className="text-sm text-zinc-300 leading-relaxed">{award.description}</p>
+                )}
+                {award.standout_moment && (
+                  <div className="rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2">
+                    <p className="text-xs text-zinc-400 italic">&ldquo;{award.standout_moment}&rdquo;</p>
+                  </div>
+                )}
+                {/* Per-award share button */}
+                <button
+                  onClick={async () => {
+                    const coachName = activeTeam?.name;
+                    const teamName = activeTeam?.name;
+                    const text = [
+                      `${award.emoji || '🏅'} ${award.award_title}`,
+                      `Awarded to: ${award.player_name}`,
+                      '',
+                      award.description,
+                      '',
+                      `"${award.standout_moment}"`,
+                      '',
+                      teamName ? `— ${teamName}` : '',
+                      'Powered by SportsIQ 🏆',
+                    ].filter(Boolean).join('\n');
+                    try {
+                      if (navigator.share) {
+                        await navigator.share({ title: `${award.player_name} — ${award.award_title}`, text });
+                      } else {
+                        await navigator.clipboard.writeText(text);
+                        setAwardCopiedIndex(i);
+                        setTimeout(() => setAwardCopiedIndex(null), 2000);
+                      }
+                    } catch { /* user cancelled */ }
+                  }}
+                  className={`flex w-full items-center justify-center gap-1.5 rounded-lg border ${palette.border} py-2 text-xs font-semibold ${palette.text} transition-all hover:opacity-80 active:scale-[0.98] touch-manipulation`}
+                >
+                  {awardCopiedIndex === i ? (
+                    <><Check className="h-3.5 w-3.5" /> Copied!</>
+                  ) : (
+                    <><Share2 className="h-3.5 w-3.5" /> Share {award.player_name}&apos;s Award</>
+                  )}
+                </button>
+              </div>
+            );
+          })}
+
+          {/* Team Message */}
+          {structured.team_message && (
+            <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-transparent p-4 text-center">
+              <p className="text-sm text-zinc-200 leading-relaxed italic">&ldquo;{structured.team_message}&rdquo;</p>
+            </div>
+          )}
+
+          {/* Share all awards */}
+          <button
+            onClick={async () => {
+              const teamName = activeTeam?.name || 'Team';
+              const awardLines = (structured.awards as any[]).map((a: any) =>
+                `${a.emoji || '🏅'} ${a.award_title} → ${a.player_name}\n   ${a.description}`
+              );
+              const text = [
+                `🏆 ${structured.season_label} — ${teamName}`,
+                '',
+                structured.ceremony_intro,
+                '',
+                ...awardLines,
+                '',
+                structured.team_message,
+                '',
+                'Powered by SportsIQ 🏆',
+              ].filter(Boolean).join('\n');
+              try {
+                if (navigator.share) {
+                  await navigator.share({ title: `${teamName} Season Awards`, text });
+                } else {
+                  await navigator.clipboard.writeText(text);
+                  setAwardCopiedIndex(-1);
+                  setTimeout(() => setAwardCopiedIndex(null), 2000);
+                }
+              } catch { /* user cancelled */ }
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 py-3 text-sm font-semibold text-amber-300 transition-all hover:bg-amber-500/15 active:scale-[0.98] touch-manipulation"
+          >
+            {awardCopiedIndex === -1 ? (
+              <><Check className="h-4 w-4" /> Copied all awards!</>
+            ) : (
+              <><Share2 className="h-4 w-4" /> Share All Awards</>
+            )}
+          </button>
+        </div>
+      );
+    }
+
+    // Coach Reflection renderer
+    if (structured.session_summary && Array.isArray(structured.questions)) {
+      const answers: Record<string, string> = structured.answers || {};
+      const answeredCount = structured.questions.filter(
+        (q: any) => answers[q.id] && answers[q.id].trim().length > 0
+      ).length;
+
+      return (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <PenLine className="h-5 w-5 text-purple-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-purple-400">Coach Reflection</span>
+            </div>
+            <div className="flex items-center justify-center gap-1.5">
+              <span className="text-xs text-zinc-500">
+                {answeredCount}/{structured.questions.length} questions answered
+              </span>
+              {answeredCount === structured.questions.length && (
+                <span className="text-xs text-emerald-400 font-medium">· Complete</span>
+              )}
+            </div>
+          </div>
+
+          {/* Session summary */}
+          <div className="rounded-xl border border-purple-500/20 bg-purple-500/8 p-4">
+            <p className="text-xs font-medium text-purple-300 mb-1.5">Session Overview</p>
+            <p className="text-sm text-zinc-300 leading-relaxed">{structured.session_summary}</p>
+          </div>
+
+          {/* Q&A */}
+          <div className="space-y-5">
+            {structured.questions.map((q: any, idx: number) => {
+              const answer = answers[q.id];
+              const hasAnswer = answer && answer.trim().length > 0;
+              return (
+                <div key={q.id} className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-purple-500/20 text-[10px] font-bold text-purple-300 mt-0.5">
+                      {idx + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-zinc-100 leading-snug">{q.question}</p>
+                      <p className={`text-xs mt-0.5 ${getCategoryColor(q.category)}`}>
+                        {getCategoryLabel(q.category)}
+                        {q.context && ` · ${q.context}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="ml-7">
+                    {hasAnswer ? (
+                      <div className="rounded-lg border border-zinc-700/50 bg-zinc-900/60 p-3">
+                        <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{answer}</p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-zinc-600 italic">Not yet answered</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Growth focus */}
+          {structured.growth_focus && (
+            <div className="flex items-start gap-2 rounded-xl bg-orange-500/8 border border-orange-500/20 p-4">
+              <Target className="h-4 w-4 text-orange-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs font-medium text-orange-300 mb-0.5">Growth Focus for Next Session</p>
+                <p className="text-sm text-zinc-300 leading-relaxed">{structured.growth_focus}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Season Letter renderer
+    if (
+      typeof structured.letter === 'string' &&
+      typeof structured.highlight_moment === 'string' &&
+      typeof structured.growth_note === 'string' &&
+      typeof structured.off_season_challenge === 'string'
+    ) {
+      return <SeasonLetterRenderer data={structured as any} />;
+    }
+
+    // Huddle Script renderer
+    if (
+      typeof structured.huddle_script === 'string' &&
+      structured.player_spotlight &&
+      typeof (structured.player_spotlight as any).name === 'string' &&
+      typeof structured.team_challenge === 'string'
+    ) {
+      return (
+        <HuddleScriptRenderer data={structured as any} />
+      );
+    }
+
+    // Team Personality renderer
+    if (
+      typeof structured.team_type === 'string' &&
+      typeof structured.tagline === 'string' &&
+      Array.isArray(structured.traits) &&
+      typeof structured.team_motto === 'string'
+    ) {
+      const personality = structured as any;
+      return (
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="rounded-2xl border border-violet-500/30 bg-gradient-to-br from-violet-500/10 to-violet-500/5 p-5 text-center space-y-2">
+            <div className="text-3xl mb-1">{personality.type_emoji || '🎯'}</div>
+            <h2 className="text-xl font-bold text-violet-200">{personality.team_type}</h2>
+            <p className="text-sm font-medium text-violet-300/80 italic">&ldquo;{personality.tagline}&rdquo;</p>
+          </div>
+
+          {/* Description */}
+          <p className="text-sm text-zinc-300 leading-relaxed px-1">{personality.description}</p>
+
+          {/* Traits */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 px-1">Team Traits</p>
+            {(personality.traits as any[]).map((trait: any, i: number) => {
+              const score = typeof trait.score === 'number' ? trait.score : 50;
+              const barColor = score >= 75 ? 'bg-emerald-500' : score >= 50 ? 'bg-orange-500' : score >= 30 ? 'bg-amber-500' : 'bg-zinc-500';
+              const textColor = score >= 75 ? 'text-emerald-400' : score >= 50 ? 'text-orange-400' : score >= 30 ? 'text-amber-400' : 'text-zinc-400';
+              return (
+                <div key={i} className="space-y-1.5">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-sm font-medium text-zinc-200">{trait.name}</span>
+                    <span className={`text-xs font-bold tabular-nums ${textColor}`}>{score}</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-800">
+                    <div
+                      className={`h-full rounded-full transition-all ${barColor}`}
+                      style={{ width: `${Math.max(0, Math.min(100, score))}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-zinc-500 px-1 leading-relaxed">{trait.description}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Strengths + Growth */}
+          <div className="grid grid-cols-2 gap-3">
+            {Array.isArray(personality.strengths) && personality.strengths.length > 0 && (
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
+                <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Strengths</p>
+                <ul className="space-y-1">
+                  {(personality.strengths as string[]).map((s: string, i: number) => (
+                    <li key={i} className="text-xs text-zinc-300 flex items-start gap-1.5">
+                      <span className="text-emerald-400 mt-0.5 shrink-0">✓</span>
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {Array.isArray(personality.growth_areas) && personality.growth_areas.length > 0 && (
+              <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-3 space-y-2">
+                <p className="text-xs font-semibold text-orange-400 uppercase tracking-wider">Growing</p>
+                <ul className="space-y-1">
+                  {(personality.growth_areas as string[]).map((g: string, i: number) => (
+                    <li key={i} className="text-xs text-zinc-300 flex items-start gap-1.5">
+                      <span className="text-orange-400 mt-0.5 shrink-0">→</span>
+                      {g}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Coaching Tips */}
+          {Array.isArray(personality.coaching_tips) && personality.coaching_tips.length > 0 && (
+            <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 space-y-2">
+              <p className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Coaching Tips for This Team</p>
+              <ul className="space-y-2">
+                {(personality.coaching_tips as string[]).map((tip: string, i: number) => (
+                  <li key={i} className="text-sm text-zinc-300 flex items-start gap-2">
+                    <span className="text-blue-400 font-bold shrink-0 mt-0.5">{i + 1}.</span>
+                    {tip}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Team Motto */}
+          <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4 text-center">
+            <p className="text-xs font-semibold uppercase tracking-widest text-violet-500 mb-2">Team Motto</p>
+            <p className="text-base font-bold text-violet-200">&ldquo;{personality.team_motto}&rdquo;</p>
+          </div>
+
+          {/* Share button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full border-violet-500/30 text-violet-300 hover:bg-violet-500/10"
+            onClick={async () => {
+              const text = [
+                `${personality.type_emoji} ${personality.team_type}`,
+                `"${personality.tagline}"`,
+                '',
+                personality.description,
+                '',
+                `Team Motto: "${personality.team_motto}"`,
+                '',
+                `Strengths: ${Array.isArray(personality.strengths) ? personality.strengths.join(', ') : ''}`,
+                `Working on: ${Array.isArray(personality.growth_areas) ? personality.growth_areas.join(', ') : ''}`,
+                '',
+                `Powered by SportsIQ ${getSportEmoji(sportSlug)}`,
+              ].join('\n');
+              try {
+                if (navigator.share) {
+                  await navigator.share({ title: personality.team_type, text });
+                } else {
+                  await navigator.clipboard.writeText(text);
+                  setPersonalityCopied(true);
+                  setTimeout(() => setPersonalityCopied(false), 2000);
+                }
+              } catch { /* user cancelled */ }
+            }}
+            aria-label="Share team personality profile"
+          >
+            {personalityCopied ? (
+              <><Check className="h-4 w-4 mr-1.5 text-emerald-400" /> Copied!</>
+            ) : (
+              <><Share2 className="h-4 w-4 mr-1.5" /> Share Team Personality</>
+            )}
+          </Button>
+        </div>
+      );
+    }
+
+    // Team Group Message renderer
+    if (
+      typeof structured.message === 'string' &&
+      Array.isArray(structured.coaching_focus) &&
+      typeof structured.encouragement === 'string' &&
+      !Array.isArray(structured.messages)
+    ) {
+      return (
+        <TeamGroupMessageRenderer data={structured as any} sportSlug={sportSlug} />
+      );
+    }
+
+    // Player of the Match renderer
+    if (
+      typeof structured.player_name === 'string' &&
+      typeof structured.headline === 'string' &&
+      typeof structured.achievement === 'string' &&
+      typeof structured.coach_message === 'string' &&
+      typeof structured.key_moment === 'string'
+    ) {
+      const potm = structured as any;
+      return (
+        <div className="space-y-5">
+          {/* Hero card */}
+          <div className="rounded-2xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 to-yellow-500/5 p-5 text-center space-y-2">
+            <div className="text-3xl mb-1">🏅</div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-yellow-500">{potm.session_label || 'Player of the Match'}</p>
+            <h2 className="text-2xl font-bold text-yellow-200">{potm.player_name}</h2>
+            <p className="text-sm font-medium text-yellow-300/80 italic">&ldquo;{potm.headline}&rdquo;</p>
+          </div>
+
+          {/* Achievement */}
+          <div className="flex items-start gap-3 rounded-xl bg-zinc-800/50 border border-zinc-700 p-4">
+            <Award className="h-5 w-5 text-yellow-400 mt-0.5 shrink-0" />
+            <p className="text-sm text-zinc-200 leading-relaxed">{potm.achievement}</p>
+          </div>
+
+          {/* Key moment */}
+          {potm.key_moment && (
+            <div className="flex items-start gap-3 rounded-xl bg-yellow-500/5 border border-yellow-500/20 p-4">
+              <Star className="h-4 w-4 text-yellow-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs font-medium text-yellow-400 mb-0.5 uppercase tracking-wide">Key Moment</p>
+                <p className="text-sm text-zinc-300 leading-relaxed italic">&ldquo;{potm.key_moment}&rdquo;</p>
+              </div>
+            </div>
+          )}
+
+          {/* Coach message */}
+          <div className="flex items-start gap-3 rounded-xl bg-zinc-800/30 border border-zinc-700 p-4">
+            <MessageSquare className="h-4 w-4 text-zinc-400 mt-0.5 shrink-0" />
+            <p className="text-sm text-zinc-300 leading-relaxed">{potm.coach_message}</p>
+          </div>
+
+          {/* Share */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full border-yellow-500/30 text-yellow-300 hover:bg-yellow-500/10"
+            onClick={async () => {
+              const text = [
+                `🏅 Player of the Match`,
+                potm.session_label ? potm.session_label : '',
+                '',
+                `⭐ ${potm.player_name}: ${potm.headline}`,
+                '',
+                potm.achievement,
+                potm.key_moment ? `\n💬 "${potm.key_moment}"` : '',
+                '',
+                `— ${potm.coach_message}`,
+                '',
+                'Powered by SportsIQ',
+              ].filter(Boolean).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+              try {
+                if (navigator.share) {
+                  await navigator.share({ title: `Player of the Match — ${potm.player_name}`, text });
+                } else {
+                  await navigator.clipboard.writeText(text);
+                }
+              } catch { /* user cancelled */ }
+            }}
+            aria-label="Share Player of the Match"
+          >
+            <Share2 className="h-4 w-4 mr-1.5" /> Share with Parents
+          </Button>
+        </div>
+      );
+    }
+
+    // Team Talk renderer
+    if (
+      typeof structured.team_talk === 'string' &&
+      Array.isArray(structured.focus_words) &&
+      typeof structured.chant === 'string'
+    ) {
+      const talk = structured as any;
+      const energyColors: Record<string, string> = {
+        high: 'bg-orange-500/10 border-orange-500/30 text-orange-300',
+        focused: 'bg-blue-500/10 border-blue-500/30 text-blue-300',
+        calm: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
+      };
+      const energyBadge = energyColors[talk.energy_level] ?? energyColors.focused;
+      return (
+        <div className="space-y-5">
+          {/* Header */}
+          <div className="rounded-2xl border border-orange-500/20 bg-gradient-to-br from-orange-500/10 to-orange-500/5 p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Mic className="h-5 w-5 text-orange-400" />
+                <span className="text-sm font-semibold text-orange-200">Opening Team Talk</span>
+              </div>
+              <span className={`text-xs font-medium rounded-full border px-2.5 py-1 capitalize ${energyBadge}`}>
+                {talk.energy_level || 'focused'}
+              </span>
+            </div>
+            {/* Focus words */}
+            {(talk.focus_words as string[]).length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {(talk.focus_words as string[]).map((word: string, i: number) => (
+                  <span key={i} className="rounded-full bg-orange-500/15 border border-orange-500/30 px-3 py-1 text-xs font-bold text-orange-300 uppercase tracking-wide">
+                    {word}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* The talk script */}
+          <div className="rounded-xl border border-zinc-700 bg-zinc-900/50 p-5">
+            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-3">Coach&apos;s Script</p>
+            <p className="text-sm text-zinc-100 leading-relaxed">{talk.team_talk}</p>
+          </div>
+
+          {/* Chant */}
+          {talk.chant && (
+            <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 text-center">
+              <p className="text-xs font-semibold uppercase tracking-widest text-orange-500 mb-2">Team Chant</p>
+              <p className="text-base font-bold text-orange-200">{talk.chant}</p>
+            </div>
+          )}
+
+          {/* Copy button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full border-orange-500/30 text-orange-300 hover:bg-orange-500/10"
+            onClick={async () => {
+              const text = [
+                `📣 Team Talk`,
+                '',
+                talk.team_talk,
+                '',
+                talk.chant ? `🗣 "${talk.chant}"` : '',
+              ].filter(Boolean).join('\n');
+              try {
+                await navigator.clipboard.writeText(text);
+              } catch { /* ignore */ }
+            }}
+            aria-label="Copy team talk script"
+          >
+            <Copy className="h-4 w-4 mr-1.5" /> Copy Script
+          </Button>
+        </div>
+      );
+    }
+
+    // Player Session Messages renderer
+    if (Array.isArray(structured.messages) && structured.session_label !== undefined) {
+      return (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <MessageSquare className="h-5 w-5 text-teal-400" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-teal-400">Player Messages</span>
+            </div>
+            <p className="text-sm text-zinc-400">{structured.session_label}</p>
+            <Badge variant="secondary" className="text-xs">{structured.messages.length} players</Badge>
+          </div>
+
+          {/* Per-player messages */}
+          <div className="space-y-4">
+            {(structured.messages as any[]).map((msg: any, idx: number) => (
+              <PlayerMsgItem key={idx} msg={msg} />
+            ))}
+          </div>
+
+          {/* Team note */}
+          {structured.team_note && (
+            <div className="flex items-start gap-2 rounded-xl bg-zinc-800/60 border border-zinc-700 p-4">
+              <Users className="h-4 w-4 text-zinc-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs font-medium text-zinc-400 mb-0.5">Team Note</p>
+                <p className="text-sm text-zinc-300 leading-relaxed">{structured.team_note}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {structured.title && (
+          <h2 className="text-lg font-semibold text-zinc-100">{structured.title}</h2>
+        )}
+        {Object.entries(structured).map(([key, value]) => {
+          if (key === 'title') return null;
+          return (
+            <div key={key} className="space-y-1">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
+                {key.replace(/_/g, ' ')}
+              </h3>
+              <div className="text-sm text-zinc-300 whitespace-pre-wrap">
+                {typeof value === 'string'
+                  ? value
+                  : Array.isArray(value)
+                  ? value.map((item, i) => (
+                      <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3 mb-2">
+                        {typeof item === 'string' ? item : renderObjectFields(item)}
+                      </div>
+                    ))
+                  : typeof value === 'object' && value !== null
+                  ? renderObjectFields(value as Record<string, unknown>)
+                  : String(value)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Plan detail view
+  if (selectedPlan) {
+    const typeConfig = PLAN_TYPE_CONFIG[selectedPlan.type] || PLAN_TYPE_CONFIG.custom;
+    const TypeIcon = typeConfig.icon;
+
+    return (
+      <div className="p-4 lg:p-8 space-y-6 max-w-3xl mx-auto">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => setSelectedPlan(null)}>
+              <X className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl font-bold">{selectedPlan.title || 'Untitled Plan'}</h1>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge variant="secondary" className="text-xs">
+                  <TypeIcon className={`h-3 w-3 mr-1 ${typeConfig.color}`} />
+                  {typeConfig.label}
+                </Badge>
+                <span className="text-xs text-zinc-500">
+                  {formatDate(selectedPlan.created_at)}
+                </span>
+                {selectedPlan.curriculum_week && (
+                  <Badge variant="outline" className="text-xs">
+                    Week {selectedPlan.curriculum_week}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {selectedPlan.type === 'practice' && (
+              <Button
+                onClick={() => setShowRunModal(true)}
+                className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 px-3 text-sm"
+              >
+                <Play className="h-4 w-4" />
+                Run Practice
+              </Button>
+            )}
+            <PrintButton label="Print / PDF" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+              onClick={() => {
+                if (confirm('Delete this plan? This cannot be undone.')) {
+                  deleteMutation.mutate(selectedPlan.id);
+                }
+              }}
+            >
+              <Trash2 className="h-5 w-5" />
+            </Button>
           </div>
         </div>
 
-        <UpgradeGate
-          feature="training_plans"
-          currentCount={plans.length}
-          teamId={teamId}
-        >
-          <PlanWizard
-            teamId={teamId}
-            sport={sport}
-            playerCount={players.length}
-            onGenerate={handleGeneratePlan}
-            isGenerating={isGenerating}
-            players={players}
-          />
-        </UpgradeGate>
+        {/* Run Practice modal */}
+        {showRunModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) { setShowRunModal(false); setArcSessionForRun(null); } }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Select session to run practice"
+          >
+            <div className="w-full max-w-md bg-zinc-900 border border-zinc-700 rounded-2xl p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Timer className="h-5 w-5 text-orange-500" />
+                  <h2 className="text-lg font-bold">
+                    {arcSessionForRun !== null
+                      ? `Run Session ${arcSessionForRun + 1}`
+                      : 'Run Practice'}
+                  </h2>
+                </div>
+                <button
+                  onClick={() => { setShowRunModal(false); setArcSessionForRun(null); }}
+                  aria-label="Close modal"
+                  className="text-zinc-500 hover:text-zinc-300 transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <p className="text-sm text-zinc-400">
+                {arcSessionForRun !== null
+                  ? `Choose a practice session to load Session ${arcSessionForRun + 1}'s drills into the timer.`
+                  : `Choose a session to run this plan's drills as a timed practice.`}
+              </p>
 
-        {isGenerating && generationProgress && (
-          <div className="flex items-center gap-3 rounded-xl bg-zinc-900 border border-zinc-800 p-4">
-            <Loader2 className="h-5 w-5 text-orange-400 animate-spin shrink-0" />
-            <p className="text-sm text-zinc-300">{generationProgress}</p>
+              {todaySessions.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Today&apos;s sessions</p>
+                  {todaySessions.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => handleRunWithSession(s.id, selectedPlan.id)}
+                      className="w-full flex items-center gap-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-xl px-4 py-3 text-left transition-colors"
+                    >
+                      <Radio className="h-4 w-4 text-orange-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-zinc-200 capitalize">{s.type || 'Practice'}</p>
+                        {(s.start_time || s.location) && (
+                          <p className="text-xs text-zinc-500 truncate">
+                            {s.start_time ? s.start_time.slice(0, 5) : ''}{s.start_time && s.location ? ' · ' : ''}{s.location || ''}
+                          </p>
+                        )}
+                      </div>
+                      <Play className="h-4 w-4 text-zinc-500 shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="border-t border-zinc-800 pt-3">
+                <button
+                  onClick={() => handleCreateAndRun(selectedPlan.id)}
+                  disabled={creatingSession}
+                  className="w-full flex items-center gap-3 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 rounded-xl px-4 py-3 text-left transition-colors disabled:opacity-50"
+                >
+                  {creatingSession ? (
+                    <Loader2 className="h-4 w-4 text-orange-400 animate-spin shrink-0" />
+                  ) : (
+                    <Plus className="h-4 w-4 text-orange-400 shrink-0" />
+                  )}
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-orange-300">
+                      {creatingSession ? 'Creating…' : 'Create new session & start'}
+                    </p>
+                    <p className="text-xs text-zinc-500">Adds a practice session for today</p>
+                  </div>
+                </button>
+              </div>
+            </div>
           </div>
+        )}
+
+        <Card>
+          <CardContent className="p-6">
+            {renderStructuredContent(selectedPlan)}
+          </CardContent>
+        </Card>
+
+        {selectedPlan.skills_targeted && selectedPlan.skills_targeted.length > 0 && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Skills Targeted</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {selectedPlan.skills_targeted.map((skill) => (
+                  <Badge key={skill} variant="secondary">
+                    {skill}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         )}
       </div>
     );
   }
 
-  if (view === 'quick') {
-    return (
-      <div className="mx-auto max-w-2xl px-4 pb-24 pt-4 space-y-6">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setView('list')}
-            className="rounded-xl p-2 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
-          >
-            <ChevronDown className="h-5 w-5 rotate-90" />
-          </button>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-orange-400">Quick Session</p>
-            <p className="text-xl font-bold text-zinc-100">One-Off Session Plan</p>
-          </div>
-        </div>
-
-        <QuickSessionGenerator
-          teamId={teamId}
-          sport={sport}
-          players={players}
-          teamName={teamName}
-          coachName={coachName}
-          sportSlug={sportSlug}
-          onGenerated={(ps) => {
-            // Save as a new single-session plan
-            mutate({
-              table: 'training_plans',
-              action: 'insert',
-              data: {
-                team_id: teamId,
-                title: ps.session_label,
-                sport,
-              },
-            }).then((planResult) => {
-              if (planResult?.id) {
-                mutate({
-                  table: 'training_plan_sessions',
-                  action: 'insert',
-                  data: {
-                    plan_id: planResult.id,
-                    session_number: 1,
-                    session_label: ps.session_label,
-                    content: ps.content,
-                  },
-                }).then(() => {
-                  queryClient.invalidateQueries({ queryKey: ['training-plans', teamId] });
-                  setActivePlanId(planResult.id);
-                  setView('list');
-                });
-              }
-            });
-          }}
-        />
-      </div>
-    );
-  }
-
-  // ─── List view ─────────────────────────────────────────────────────────────
-
   return (
-    <div className="mx-auto max-w-2xl px-4 pb-24 pt-4 space-y-6">
-      {/* Page header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-100">Training Plans</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">
-            {plans.length} plan{plans.length !== 1 ? 's' : ''} saved
-          </p>
-        </div>
-        <div className="flex gap-2 shrink-0">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setView('quick')}
-            className="border-zinc-700 text-zinc-400 hover:text-zinc-200 gap-1.5 h-9"
-          >
-            <Zap className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Quick Session</span>
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => setView('create')}
-            disabled={atPlanLimit}
-            className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5 h-9"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>New Plan</span>
-          </Button>
-        </div>
+    <PullToRefresh onRefresh={async () => { await refetchPlans(); }}>
+    <div className="p-4 lg:p-8 space-y-6 pb-8 overflow-x-hidden">
+      <div>
+        <h1 className="text-2xl font-bold">Plans</h1>
+        <p className="text-zinc-400 text-sm">Describe what you need and AI will generate it</p>
       </div>
 
-      {/* Team personality share */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/20">
-              <Users className="h-4 w-4 text-orange-400" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-zinc-100">{teamName}</p>
-              <p className="text-[11px] text-zinc-500">Team personality</p>
-            </div>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleShareTeamPersonality}
-            className="border-zinc-700 text-zinc-400 hover:text-zinc-200 gap-1.5 shrink-0 h-8 px-2.5"
+      {/* Error message */}
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            aria-label="Dismiss error"
+            className="ml-auto text-red-500 hover:text-red-300"
           >
-            <Share2 className="h-3.5 w-3.5" />
-            <span className="text-xs">Share</span>
-          </Button>
-        </div>
-      </div>
-
-      {/* Plan limit warning */}
-      {atPlanLimit && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 flex items-start gap-2">
-          <Info className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-300">
-            You've reached your plan limit. <UpgradeGate feature="training_plans" currentCount={plans.length} teamId={teamId} asLink>Upgrade to create more.</UpgradeGate>
-          </p>
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
+
+      {/* Generation input */}
+      <Card className="border-zinc-700/50">
+        <CardContent className="p-4 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500/20">
+              <Sparkles className="h-5 w-5 text-orange-400" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-zinc-200">Generate with AI</p>
+              <p className="text-xs text-zinc-500">Describe what you need, or tap a suggestion below</p>
+            </div>
+          </div>
+
+          {/* Text input */}
+          <div className="flex items-end gap-2">
+            <div className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 focus-within:border-orange-500/50 focus-within:ring-1 focus-within:ring-orange-500/20 transition-all">
+              <input
+                type="text"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Describe what you need..."
+                disabled={generating || !activeTeam}
+                className="w-full bg-transparent px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none disabled:opacity-50"
+              />
+            </div>
+            <Button
+              onClick={() => generateFromPrompt(prompt)}
+              disabled={!prompt.trim() || generating || !activeTeam}
+              size="icon"
+              className="h-11 w-11 shrink-0 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-30"
+            >
+              {generating ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Send className="h-5 w-5" />
+              )}
+            </Button>
+          </div>
+
+          {/* Quick actions — show AI-Tailored + suggestion chips. Other generators hidden in "More" */}
+          <div className="space-y-2">
+            {/* Smart Plan — always visible */}
+            <button
+              onClick={() => generateFromPrompt('', true)}
+              disabled={generating || !activeTeam}
+              className="flex w-full items-center gap-2.5 rounded-xl border border-orange-500/40 bg-gradient-to-r from-orange-500/15 to-orange-500/5 px-3 py-2.5 text-left transition-all hover:border-orange-500/60 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/25">
+                <Activity className="h-4 w-4 text-orange-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-orange-300">AI-Tailored Plan</p>
+                <p className="text-xs text-zinc-500">From your observation data</p>
+              </div>
+            </button>
+
+            {/* Practice Arc — multi-session progression planner */}
+            <div className="rounded-xl border border-sky-500/40 bg-gradient-to-r from-sky-500/15 to-sky-500/5 p-3 space-y-3">
+              <button
+                type="button"
+                onClick={() => setShowArcForm(!showArcForm)}
+                disabled={generatingArc || generating || !activeTeam}
+                className="flex w-full items-center gap-2.5 text-left disabled:opacity-50 touch-manipulation"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/25">
+                  {generatingArc ? (
+                    <Loader2 className="h-4 w-4 text-sky-400 animate-spin" />
+                  ) : (
+                    <Zap className="h-4 w-4 text-sky-400" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-sky-300">Practice Series</p>
+                  <p className="text-xs text-zinc-500">2–3 linked practices that build on each other</p>
+                </div>
+                <ChevronDown className={`h-4 w-4 text-sky-500/60 shrink-0 transition-transform ${showArcForm ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showArcForm && (
+                <div className="space-y-2.5 pt-1 border-t border-sky-500/20">
+                  {/* Sessions + Duration row */}
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <p className="text-xs text-zinc-400 mb-1">Sessions</p>
+                      <div className="flex rounded-lg border border-zinc-700 overflow-hidden text-xs">
+                        {([2, 3] as const).map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setArcNumSessions(n)}
+                            className={`flex-1 py-1.5 font-medium transition-colors ${arcNumSessions === n ? 'bg-sky-500/30 text-sky-300' : 'bg-zinc-800/60 text-zinc-400 hover:text-zinc-200'}`}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs text-zinc-400 mb-1">Duration each</p>
+                      <select
+                        value={arcDuration}
+                        onChange={(e) => setArcDuration(Number(e.target.value))}
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-sky-500/50"
+                      >
+                        {[30, 45, 60, 75, 90].map((m) => (
+                          <option key={m} value={m}>{m} min</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {/* Optional fields */}
+                  <input
+                    type="text"
+                    value={arcEvent}
+                    onChange={(e) => setArcEvent(e.target.value)}
+                    placeholder="Upcoming event (e.g. tournament Saturday)"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-sky-500/50"
+                  />
+                  <input
+                    type="text"
+                    value={arcFocus}
+                    onChange={(e) => setArcFocus(e.target.value)}
+                    placeholder="Focus area (optional — AI uses your data)"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-sky-500/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={generatePracticeArc}
+                    disabled={generatingArc || !activeTeam}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-sky-500/20 border border-sky-500/40 py-2 text-sm font-semibold text-sky-300 hover:bg-sky-500/30 transition-colors disabled:opacity-50 touch-manipulation active:scale-[0.98]"
+                  >
+                    {generatingArc ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> Generating {arcNumSessions}-Practice Arc…</>
+                    ) : (
+                      <><Zap className="h-4 w-4" /> Generate {arcNumSessions}-Practice Series</>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* More generators — collapsible on mobile */}
+            {showMoreGenerators && (
+            <>
+            <button
+              onClick={generateNewsletter}
+              disabled={generatingNewsletter || generating || !activeTeam}
+              className="flex w-full items-center gap-2.5 rounded-xl border border-violet-500/40 bg-gradient-to-r from-violet-500/15 to-violet-500/5 px-3 py-2.5 text-left transition-all hover:border-violet-500/60 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/25">
+                {generatingNewsletter ? (
+                  <Loader2 className="h-4 w-4 text-violet-400 animate-spin" />
+                ) : (
+                  <Newspaper className="h-4 w-4 text-violet-400" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-violet-300">Weekly Parent Newsletter</p>
+                <p className="text-xs text-zinc-500">AI-written summary of this week&apos;s sessions with player spotlights</p>
+              </div>
+              <Users className="h-4 w-4 text-violet-500/50 shrink-0" />
+            </button>
+
+            {/* Weekly Star — player spotlight for parent group chat */}
+            <button
+              onClick={generateWeeklyStar}
+              disabled={generatingWeeklyStar || generating || !activeTeam}
+              className="flex w-full items-center gap-2.5 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/15 to-amber-500/5 px-3 py-2.5 text-left transition-all hover:border-amber-500/60 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
+              aria-label="Generate weekly player spotlight"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/25">
+                {generatingWeeklyStar ? (
+                  <Loader2 className="h-4 w-4 text-amber-400 animate-spin" />
+                ) : (
+                  <Star className="h-4 w-4 text-amber-400" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-amber-300">Weekly Star</p>
+                <p className="text-xs text-zinc-500">Celebrate this week&apos;s standout player — shareable with parent group chat</p>
+              </div>
+              <Sparkles className="h-4 w-4 text-amber-500/50 shrink-0" />
+            </button>
+
+            {/* Season Summary — whole team */}
+            <button
+              onClick={generateSeasonSummary}
+              disabled={generatingSeasonSummary || generating || !activeTeam}
+              className="flex w-full items-center gap-2.5 rounded-xl border border-cyan-500/40 bg-gradient-to-r from-cyan-500/15 to-cyan-500/5 px-4 py-3 text-left transition-all hover:border-cyan-500/60 hover:from-cyan-500/20 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-500/25">
+                {generatingSeasonSummary ? (
+                  <Loader2 className="h-4 w-4 text-cyan-400 animate-spin" />
+                ) : (
+                  <BarChart2 className="h-4 w-4 text-cyan-400" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-cyan-300">Season Summary</p>
+                <p className="text-xs text-zinc-500">AI-generated team season recap with highlights &amp; next-season priorities</p>
+              </div>
+              <Activity className="h-4 w-4 text-cyan-500/50 shrink-0" />
+            </button>
+
+            {/* Season Awards — whole team, one award per player */}
+            <button
+              onClick={generateSeasonAwards}
+              disabled={generatingSeasonAwards || generating || !activeTeam}
+              className="flex w-full items-center gap-2.5 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/15 to-amber-500/5 px-4 py-3 text-left transition-all hover:border-amber-500/60 hover:from-amber-500/20 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/25">
+                {generatingSeasonAwards ? (
+                  <Loader2 className="h-4 w-4 text-amber-400 animate-spin" />
+                ) : (
+                  <Trophy className="h-4 w-4 text-amber-400" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-amber-300">Season Awards</p>
+                <p className="text-xs text-zinc-500">Unique AI award for every player — shareable with parents</p>
+              </div>
+              <Star className="h-4 w-4 text-amber-500/50 shrink-0" />
+            </button>
+
+            {/* Team Personality — who is this team? */}
+            <button
+              onClick={generateTeamPersonality}
+              disabled={generatingTeamPersonality || generating || !activeTeam}
+              className="flex w-full items-center gap-2.5 rounded-xl border border-violet-500/40 bg-gradient-to-r from-violet-500/15 to-violet-500/5 px-4 py-3 text-left transition-all hover:border-violet-500/60 hover:from-violet-500/20 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
+              aria-label="Generate team personality profile"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/25">
+                {generatingTeamPersonality ? (
+                  <Loader2 className="h-4 w-4 text-violet-400 animate-spin" />
+                ) : (
+                  <Fingerprint className="h-4 w-4 text-violet-400" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-violet-300">Team Personality</p>
+                <p className="text-xs text-zinc-500">Discover your team&apos;s identity — share with players &amp; parents</p>
+              </div>
+              <Sparkles className="h-4 w-4 text-violet-500/50 shrink-0" />
+            </button>
+
+            {/* Season Storyline — player-specific */}
+            <div className="rounded-xl border border-indigo-500/40 bg-gradient-to-r from-indigo-500/15 to-indigo-500/5 p-3 space-y-2.5">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/25">
+                  <BookOpen className="h-4 w-4 text-indigo-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-indigo-300">Season Storyline</p>
+                  <p className="text-xs text-zinc-500">AI narrative arc of a player&apos;s season journey</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <select
+                    value={storylinePlayerId}
+                    onChange={(e) => setStorylinePlayerId(e.target.value)}
+                    disabled={generatingStoryline || !activeTeam}
+                    className="w-full appearance-none rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 pr-8 focus:outline-none focus:border-indigo-500/50 disabled:opacity-50"
+                  >
+                    <option value="">Select a player...</option>
+                    {players?.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                </div>
+                <Button
+                  onClick={generateStoryline}
+                  disabled={!storylinePlayerId || generatingStoryline || !activeTeam}
+                  className="h-9 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-30 shrink-0"
+                >
+                  {generatingStoryline ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    'Generate'
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Season Letter — personal letter to each player's family */}
+            <div className="rounded-xl border border-pink-500/40 bg-gradient-to-r from-pink-500/15 to-pink-500/5 p-3 space-y-2.5">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-pink-500/25">
+                  <Mail className="h-4 w-4 text-pink-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-pink-300">Season Letter</p>
+                  <p className="text-xs text-zinc-500">Personal end-of-season letter to a player&apos;s family — heartfelt, shareable</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <select
+                    value={seasonLetterPlayerId}
+                    onChange={(e) => setSeasonLetterPlayerId(e.target.value)}
+                    disabled={generatingSeasonLetter || !activeTeam}
+                    className="w-full appearance-none rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 pr-8 focus:outline-none focus:border-pink-500/50 disabled:opacity-50"
+                  >
+                    <option value="">Select a player...</option>
+                    {players?.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                </div>
+                <Button
+                  onClick={generateSeasonLetter}
+                  disabled={!seasonLetterPlayerId || generatingSeasonLetter || !activeTeam}
+                  className="h-9 rounded-lg bg-pink-600 hover:bg-pink-500 text-white text-sm font-medium disabled:opacity-30 shrink-0"
+                >
+                  {generatingSeasonLetter ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    'Generate'
+                  )}
+                </Button>
+              </div>
+              {seasonLetterStats && (
+                <p className="text-xs text-pink-400/80">
+                  ✓ Letter for {seasonLetterStats.playerName} — {seasonLetterStats.summaryLabel}
+                </p>
+              )}
+            </div>
+
+            {/* Game Day Prep — scouting-based */}
+            <div className={`rounded-xl border overflow-hidden ${canUseGameDayPrep ? 'border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 to-emerald-500/5' : 'border-zinc-700 bg-zinc-900/40'}`}>
+              <button
+                type="button"
+                onClick={() => canUseGameDayPrep ? setShowGamedayForm((v) => !v) : router.push('/settings/upgrade')}
+                disabled={generatingGameday || generating || !activeTeam}
+                className="flex w-full items-center gap-2.5 p-3 text-left transition-all hover:from-emerald-500/20 active:scale-[0.98] disabled:opacity-50 touch-manipulation"
+              >
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${canUseGameDayPrep ? 'bg-emerald-500/25' : 'bg-zinc-700/50'}`}>
+                  {generatingGameday ? (
+                    <Loader2 className="h-4 w-4 text-emerald-400 animate-spin" />
+                  ) : canUseGameDayPrep ? (
+                    <Trophy className="h-4 w-4 text-emerald-400" />
+                  ) : (
+                    <Lock className="h-4 w-4 text-zinc-500" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className={`text-sm font-semibold ${canUseGameDayPrep ? 'text-emerald-300' : 'text-zinc-400'}`}>Game Day Prep</p>
+                    {!canUseGameDayPrep && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-teal-400 bg-teal-500/15 px-1.5 py-0.5 rounded-full">Pro</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-zinc-500">Scouting-based AI prep sheet with matchups &amp; strategy</p>
+                </div>
+                {canUseGameDayPrep && (showGamedayForm ? (
+                  <ChevronUp className="h-4 w-4 text-emerald-500/60 shrink-0" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-emerald-500/60 shrink-0" />
+                ))}
+                {!canUseGameDayPrep && (
+                  <ChevronRight className="h-4 w-4 text-zinc-600 shrink-0" />
+                )}
+              </button>
+
+              {showGamedayForm && (
+                <div className="border-t border-emerald-500/20 p-3 space-y-3">
+                  {/* Scouting Library picker */}
+                  {(() => {
+                    const savedProfiles = plans?.filter((p) => p.type === 'opponent_profile') ?? [];
+                    if (savedProfiles.length === 0) return null;
+                    return (
+                      <div className="rounded-lg border border-zinc-700 bg-zinc-900/60 overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => setShowProfilePicker((v) => !v)}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-zinc-800/50 transition-colors touch-manipulation"
+                        >
+                          <BookOpen className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                          <span className="text-xs font-medium text-zinc-300 flex-1">Scouting Library</span>
+                          <span className="text-xs text-zinc-500 bg-zinc-800 rounded-full px-1.5 py-0.5">{savedProfiles.length}</span>
+                          <ChevronDown className={`h-3 w-3 text-zinc-500 transition-transform ${showProfilePicker ? 'rotate-180' : ''}`} />
+                        </button>
+                        {showProfilePicker && (
+                          <div className="border-t border-zinc-700/60 divide-y divide-zinc-800">
+                            {savedProfiles.map((profile) => {
+                              const cs = profile.content_structured as any;
+                              return (
+                                <button
+                                  key={profile.id}
+                                  type="button"
+                                  onClick={() => loadOpponentProfile(profile)}
+                                  className="flex w-full items-start gap-2.5 px-3 py-2.5 text-left hover:bg-zinc-800/60 transition-colors touch-manipulation"
+                                >
+                                  <Swords className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-semibold text-zinc-200 truncate">{profile.title}</p>
+                                    {cs && Array.isArray(cs.strengths) && cs.strengths.length > 0 && (
+                                      <p className="text-xs text-zinc-500 truncate mt-0.5">
+                                        Strengths: {cs.strengths.slice(0, 2).join(', ')}{cs.strengths.length > 2 ? '…' : ''}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <span className="text-xs text-emerald-500 shrink-0 font-medium">Load →</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  <div>
+                    <label className="text-xs font-medium text-zinc-400 mb-1 block">Opponent Name <span className="text-red-400">*</span></label>
+                    <input
+                      type="text"
+                      value={gamedayOpponent}
+                      onChange={(e) => setGamedayOpponent(e.target.value)}
+                      placeholder="e.g. Riverside Hawks"
+                      disabled={generatingGameday}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-zinc-400 mb-1 flex items-center gap-1.5">
+                      <Swords className="h-3 w-3 text-red-400" />
+                      Their Strengths <span className="text-zinc-600">(comma-separated)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={gamedayStrengths}
+                      onChange={(e) => setGamedayStrengths(e.target.value)}
+                      placeholder="e.g. fast breaks, strong post play, press defense"
+                      disabled={generatingGameday}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-zinc-400 mb-1 flex items-center gap-1.5">
+                      <Shield className="h-3 w-3 text-emerald-400" />
+                      Their Weaknesses <span className="text-zinc-600">(comma-separated)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={gamedayWeaknesses}
+                      onChange={(e) => setGamedayWeaknesses(e.target.value)}
+                      placeholder="e.g. weak perimeter shooting, poor ball handling under pressure"
+                      disabled={generatingGameday}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-zinc-400 mb-1 flex items-center gap-1.5">
+                      <Eye className="h-3 w-3 text-amber-400" />
+                      Key Opponent Players <span className="text-zinc-600">(comma-separated)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={gamedayKeyPlayers}
+                      onChange={(e) => setGamedayKeyPlayers(e.target.value)}
+                      placeholder="e.g. #23 tall center, #5 fast point guard"
+                      disabled={generatingGameday}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-zinc-400 mb-1 flex items-center gap-1.5">
+                      <MessageSquare className="h-3 w-3 text-zinc-400" />
+                      Additional Notes <span className="text-zinc-600">(optional)</span>
+                    </label>
+                    <textarea
+                      value={gamedayNotes}
+                      onChange={(e) => setGamedayNotes(e.target.value)}
+                      placeholder="Any other scouting notes, game location, weather, etc."
+                      disabled={generatingGameday}
+                      rows={2}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500/50 disabled:opacity-50 resize-none"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={generateGamedayPrep}
+                      disabled={!gamedayOpponent.trim() || generatingGameday || !activeTeam}
+                      className="flex-1 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium disabled:opacity-30 touch-manipulation active:scale-[0.98]"
+                    >
+                      {generatingGameday ? (
+                        <span className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Generating prep sheet...
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          <Zap className="h-4 w-4" />
+                          Generate Game Day Prep
+                        </span>
+                      )}
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={saveOpponentProfile}
+                      disabled={!gamedayOpponent.trim() || savingOpponentProfile || !activeTeam}
+                      aria-label="Save opponent to scouting library"
+                      title={profileSaved ? 'Saved to library!' : 'Save to Scouting Library'}
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors touch-manipulation active:scale-[0.98] disabled:opacity-30 ${
+                        profileSaved
+                          ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-400'
+                          : 'border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-emerald-500/40 hover:text-emerald-400'
+                      }`}
+                    >
+                      {savingOpponentProfile ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : profileSaved ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <BookmarkPlus className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  {profileSaved && (
+                    <p className="text-xs text-emerald-400 flex items-center gap-1.5 -mt-1">
+                      <Check className="h-3 w-3" />
+                      Saved to Scouting Library — load it next time from the library above
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            </>
+            )}
+
+            {/* Toggle more generators */}
+            <button
+              onClick={() => setShowMoreGenerators(!showMoreGenerators)}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-700/50 py-2 text-xs font-medium text-zinc-500 hover:text-zinc-300 hover:border-zinc-600 transition-colors touch-manipulation"
+            >
+              {showMoreGenerators ? 'Show less' : 'More generators (Weekly Star, Newsletter, Awards, Storyline...)'}
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showMoreGenerators ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Generic suggestion chips */}
+            <div className="flex flex-wrap gap-2">
+              {SUGGESTION_CHIPS.map((chip) => (
+                <button
+                  key={chip}
+                  onClick={() => handleChipClick(chip)}
+                  disabled={generating}
+                  className="rounded-full border border-zinc-700 bg-zinc-800/50 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 hover:border-zinc-600 transition-colors disabled:opacity-50 touch-manipulation"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Generating indicator */}
+          {generating && (
+            <div className="flex items-center gap-3 rounded-lg border border-orange-500/20 bg-orange-500/5 p-3">
+              <Loader2 className="h-5 w-5 text-orange-400 animate-spin" />
+              <div>
+                <p className="text-sm font-medium text-orange-300">Generating your plan...</p>
+                <p className="text-xs text-zinc-500">Analyzing your team&apos;s recent observations and creating a tailored practice plan</p>
+              </div>
+            </div>
+          )}
+
+          {/* Season Summary generating indicator */}
+          {generatingSeasonSummary && (
+            <div className="flex items-center gap-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
+              <Loader2 className="h-5 w-5 text-cyan-400 animate-spin" />
+              <div>
+                <p className="text-sm font-medium text-cyan-300">Writing season summary...</p>
+                <p className="text-xs text-zinc-500">Analyzing all observations and crafting your team&apos;s season narrative</p>
+              </div>
+            </div>
+          )}
+
+          {/* Season Summary stats badge */}
+          {!generatingSeasonSummary && seasonSummaryStats && (
+            <div className="flex items-start gap-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
+              <BarChart2 className="h-4 w-4 text-cyan-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-cyan-300">Season Summary generated</p>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  {seasonSummaryStats.dateRange} &middot; {seasonSummaryStats.observationsAnalyzed} obs &middot; {seasonSummaryStats.sessionsIncluded} sessions &middot; {seasonSummaryStats.healthScore}% health
+                </p>
+              </div>
+              <button
+                onClick={() => setSeasonSummaryStats(null)}
+                className="text-zinc-600 hover:text-zinc-400 shrink-0"
+                aria-label="Dismiss"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Newsletter generating indicator */}
+          {generatingNewsletter && (
+            <div className="flex items-center gap-3 rounded-lg border border-violet-500/20 bg-violet-500/5 p-3">
+              <Loader2 className="h-5 w-5 text-violet-400 animate-spin" />
+              <div>
+                <p className="text-sm font-medium text-violet-300">Writing parent newsletter...</p>
+                <p className="text-xs text-zinc-500">Gathering this week&apos;s sessions and crafting player spotlights</p>
+              </div>
+            </div>
+          )}
+
+          {/* Storyline generating indicator */}
+          {generatingStoryline && (
+            <div className="flex items-center gap-3 rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-3">
+              <Loader2 className="h-5 w-5 text-indigo-400 animate-spin" />
+              <div>
+                <p className="text-sm font-medium text-indigo-300">Writing season storyline...</p>
+                <p className="text-xs text-zinc-500">Analyzing the full season of observations and crafting the player&apos;s arc</p>
+              </div>
+            </div>
+          )}
+
+          {/* Team Personality generating indicator */}
+          {generatingTeamPersonality && (
+            <div className="flex items-center gap-3 rounded-lg border border-violet-500/20 bg-violet-500/5 p-3">
+              <Loader2 className="h-5 w-5 text-violet-400 animate-spin" />
+              <div>
+                <p className="text-sm font-medium text-violet-300">Discovering your team&apos;s personality...</p>
+                <p className="text-xs text-zinc-500">Analyzing observation patterns and crafting your team&apos;s identity</p>
+              </div>
+            </div>
+          )}
+
+          {/* Team Personality stats badge */}
+          {!generatingTeamPersonality && teamPersonalityStats && (
+            <div className="flex items-start gap-3 rounded-lg border border-violet-500/20 bg-violet-500/5 p-3">
+              <Fingerprint className="h-4 w-4 text-violet-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-violet-300">Team Personality generated</p>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  {teamPersonalityStats.observationsAnalyzed} obs &middot; {teamPersonalityStats.sessionsIncluded} sessions &middot; {teamPersonalityStats.playersObserved} players &middot; {teamPersonalityStats.healthScore}% positive
+                </p>
+              </div>
+              <button
+                onClick={() => setTeamPersonalityStats(null)}
+                className="text-zinc-600 hover:text-zinc-400 shrink-0"
+                aria-label="Dismiss team personality stats"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Game Day Prep generating indicator */}
+          {generatingGameday && (
+            <div className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+              <Loader2 className="h-5 w-5 text-emerald-400 animate-spin" />
+              <div>
+                <p className="text-sm font-medium text-emerald-300">Building game day prep sheet...</p>
+                <p className="text-xs text-zinc-500">Analyzing scouting notes and generating matchup strategies</p>
+              </div>
+            </div>
+          )}
+
+          {/* Storyline stats badge — shown after successful generation */}
+          {!generatingStoryline && storylineStats && (
+            <div className="flex items-start gap-3 rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-3">
+              <BookOpen className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-indigo-300">Season Storyline generated</p>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  {storylineStats.totalObservations} observations &middot; {storylineStats.weeksOfData} week{storylineStats.weeksOfData !== 1 ? 's' : ''} of data &middot; {storylineStats.firstObservationDate} – {storylineStats.latestObservationDate}
+                </p>
+              </div>
+              <button
+                onClick={() => setStorylineStats(null)}
+                className="text-zinc-600 hover:text-zinc-400 shrink-0"
+                aria-label="Dismiss"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Newsletter stats badge — shown after successful generation */}
+          {!generatingNewsletter && newsletterStats && (
+            <div className="flex items-start gap-3 rounded-lg border border-violet-500/20 bg-violet-500/5 p-3">
+              <Newspaper className="h-4 w-4 text-violet-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-violet-300">Newsletter generated</p>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  {newsletterStats.dateRange} &middot; {newsletterStats.sessionsIncluded} session{newsletterStats.sessionsIncluded !== 1 ? 's' : ''} &middot; {newsletterStats.observationsIncluded} observations &middot; {newsletterStats.playerSpotlightsCount} player spotlight{newsletterStats.playerSpotlightsCount !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => setNewsletterStats(null)}
+                className="text-zinc-600 hover:text-zinc-400 shrink-0"
+                aria-label="Dismiss"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Data-driven badge — shown after successful generation */}
+          {!generating && lastInsights && lastInsights.totalObs > 0 && (
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
+              <div className="flex items-start gap-3">
+                <Activity className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-emerald-300">
+                    Trend-driven plan generated
+                  </p>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    Analyzed {lastInsights.totalObs} observation{lastInsights.totalObs !== 1 ? 's' : ''} across two 7-day windows
+                    {lastInsights.trendData && (
+                      <> · {lastInsights.trendData.totalRecentObs} recent vs {lastInsights.trendData.totalPriorObs} prior</>
+                    )}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setLastInsights(null)}
+                  className="text-zinc-600 hover:text-zinc-400 shrink-0"
+                  aria-label="Dismiss"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              {lastInsights.trendData && (lastInsights.trendData.declining.length > 0 || lastInsights.trendData.persistent.length > 0 || lastInsights.trendData.improving.length > 0) && (
+                <div className="space-y-1.5 pl-7">
+                  {lastInsights.trendData.declining.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs font-semibold text-red-400 shrink-0 mt-0.5">↑ Declining</span>
+                      <div className="flex flex-wrap gap-1">
+                        {lastInsights.trendData.declining.map((e) => (
+                          <span key={e.category} className="text-xs bg-red-500/10 text-red-300 border border-red-500/20 rounded-full px-2 py-0.5">
+                            {e.category}
+                            {e.priorCount > 0 && <span className="text-red-500/60 ml-1">{e.priorCount}→{e.recentCount}</span>}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {lastInsights.trendData.persistent.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs font-semibold text-amber-400 shrink-0 mt-0.5">! Persistent</span>
+                      <div className="flex flex-wrap gap-1">
+                        {lastInsights.trendData.persistent.map((cat) => (
+                          <span key={cat} className="text-xs bg-amber-500/10 text-amber-300 border border-amber-500/20 rounded-full px-2 py-0.5">{cat}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {lastInsights.trendData.improving.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs font-semibold text-emerald-400 shrink-0 mt-0.5">↓ Improving</span>
+                      <div className="flex flex-wrap gap-1">
+                        {lastInsights.trendData.improving.map((e) => (
+                          <span key={e.category} className="text-xs bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-full px-2 py-0.5">
+                            {e.category}
+                            {e.recentCount > 0 && <span className="text-emerald-600/70 ml-1">{e.priorCount}→{e.recentCount}</span>}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {(!lastInsights.trendData || (lastInsights.trendData.declining.length === 0 && lastInsights.trendData.persistent.length === 0 && lastInsights.trendData.improving.length === 0)) && lastInsights.topNeedsWork.length > 0 && (
+                <p className="text-xs text-zinc-500 pl-7">
+                  Targeting: <span className="text-zinc-400">{lastInsights.topNeedsWork.slice(0, 3).map((c) => c.category).join(', ')}</span>
+                </p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Plans list */}
-      {plansLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 text-orange-400 animate-spin" />
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">
+            Previous Plans
+            {planTypeFilter && filteredPlans.length > 0 && (
+              <span className="ml-1.5 text-zinc-500 normal-case font-normal">({filteredPlans.length})</span>
+            )}
+          </h2>
+          {planTypeFilter && (
+            <button
+              onClick={() => setPlanTypeFilter(null)}
+              className="text-xs text-orange-400 hover:text-orange-300 font-medium transition-colors"
+              aria-label="Clear plan type filter"
+            >
+              Clear filter
+            </button>
+          )}
         </div>
-      ) : plans.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-900 border border-zinc-800">
-            <ClipboardList className="h-8 w-8 text-zinc-600" />
-          </div>
-          <div>
-            <p className="font-semibold text-zinc-300">No training plans yet</p>
-            <p className="text-sm text-zinc-600 mt-1">
-              Generate AI-powered practice plans tailored to your team.
-            </p>
-          </div>
-          <Button
-            onClick={() => setView('create')}
-            className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
-          >
-            <Wand2 className="h-4 w-4" />
-            Create Your First Plan
-          </Button>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {plans.map((plan) => (
-            <PlanListItem
-              key={plan.id}
-              plan={plan}
-              isActive={plan.id === activePlanId}
-              onClick={() => setActivePlanId(plan.id)}
-              onDelete={() => deletePlan.mutate(plan.id)}
-            />
-          ))}
-        </div>
-      )}
 
-      {shareOpen && shareText && (
-        <ShareSheet text={shareText} onClose={() => { setShareOpen(false); setShareText(''); }} />
-      )}
+        {/* Type filter chips — only shown when there are 2+ plan types */}
+        {!isLoading && planTypeOptions.length >= 2 && (
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4">
+            {planTypeOptions.map(({ type, count, label }) => {
+              const isActive = planTypeFilter === type;
+              return (
+                <button
+                  key={type}
+                  onClick={() => setPlanTypeFilter(isActive ? null : type)}
+                  aria-pressed={isActive}
+                  className={`shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors touch-manipulation ${
+                    isActive
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-300'
+                  }`}
+                >
+                  {label}
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${isActive ? 'bg-white/20 text-white' : 'bg-zinc-700 text-zinc-500'}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full rounded-xl" />
+            ))}
+          </div>
+        ) : plans?.length === 0 ? (
+          <Card className="border-dashed border-zinc-700">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-800/50 mb-5">
+                <ClipboardList className="h-8 w-8 text-zinc-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-zinc-300">No plans yet</h3>
+              <p className="text-zinc-500 text-sm mt-2 max-w-xs text-center">
+                Describe what you need above and AI will generate a plan tailored to your roster and curriculum.
+              </p>
+            </CardContent>
+          </Card>
+        ) : filteredPlans.length === 0 ? (
+          <Card className="border-dashed border-zinc-700">
+            <CardContent className="flex flex-col items-center justify-center py-10">
+              <p className="text-zinc-500 text-sm text-center">
+                No {planTypeFilter && PLAN_TYPE_CONFIG[planTypeFilter] ? PLAN_TYPE_CONFIG[planTypeFilter].label : ''} plans yet.
+              </p>
+              <button
+                onClick={() => setPlanTypeFilter(null)}
+                className="mt-2 text-xs text-orange-400 hover:text-orange-300 font-medium transition-colors"
+              >
+                Show all plans
+              </button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {filteredPlans.map((plan) => {
+              const typeConfig = PLAN_TYPE_CONFIG[plan.type] || PLAN_TYPE_CONFIG.custom;
+              const TypeIcon = typeConfig.icon;
+              const isExpanded = expandedPlanId === plan.id;
+
+              return (
+                <div key={plan.id}>
+                  <Card
+                    className="cursor-pointer transition-colors hover:border-zinc-700"
+                  >
+                    <CardContent className="flex items-center gap-3 p-4">
+                      <TypeIcon className={`h-5 w-5 shrink-0 ${typeConfig.color}`} />
+                      <div
+                        className="flex-1 min-w-0"
+                        onClick={() => setExpandedPlanId(isExpanded ? null : plan.id)}
+                      >
+                        <p className="text-sm font-medium truncate">
+                          {plan.title || typeConfig.label}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs text-zinc-500">
+                            {formatDate(plan.created_at)}
+                          </span>
+                          {plan.curriculum_week && (
+                            <span className="text-xs text-zinc-600">
+                              Week {plan.curriculum_week}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm('Delete this plan?')) {
+                              deleteMutation.mutate(plan.id);
+                            }
+                          }}
+                          aria-label={`Delete ${plan.title || typeConfig.label}`}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => setSelectedPlan(plan)}
+                          aria-label={`View ${plan.title || typeConfig.label}`}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-300 transition-colors"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => setExpandedPlanId(isExpanded ? null : plan.id)}
+                          aria-label={isExpanded ? `Collapse ${plan.title || typeConfig.label}` : `Expand ${plan.title || typeConfig.label}`}
+                          aria-expanded={isExpanded}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-300 transition-colors"
+                        >
+                          <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                        </button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Expanded preview — rendered with structured content parser */}
+                  {isExpanded && (
+                    <Card className="mt-1 border-zinc-800/50">
+                      <CardContent className="p-4 max-h-80 overflow-y-auto">
+                        {renderStructuredContent(plan)}
+                        <button
+                          onClick={() => setSelectedPlan(plan)}
+                          className="mt-3 text-xs text-orange-500 hover:text-orange-400 font-medium"
+                        >
+                          View full plan
+                        </button>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
+    </PullToRefresh>
   );
 }
