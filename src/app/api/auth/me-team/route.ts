@@ -13,10 +13,11 @@ export async function GET() {
   const admin = await createServiceSupabase();
   const { data } = await admin
     .from('team_coaches')
-    .select('team_id')
+    .select('team_id, teams(sports(slug))')
     .eq('coach_id', user.id)
     .limit(1)
     .single();
 
-  return NextResponse.json({ teamId: data?.team_id ?? null });
+  const sportSlug = (data?.teams as any)?.sports?.slug ?? null;
+  return NextResponse.json({ teamId: data?.team_id ?? null, sportSlug });
 }
