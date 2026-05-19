@@ -23,6 +23,18 @@ import { trackEvent } from '@/lib/analytics';
 
 type CaptureState = 'idle' | 'recording' | 'processing' | 'error';
 
+function getCapturePlaceholder(sportSlug: string): string {
+  switch (sportSlug) {
+    case 'soccer':       return 'e.g., Marcus great first touch · Sofia needs work on passing';
+    case 'volleyball':   return 'e.g., Marcus great serve · Sofia needs work on setting';
+    case 'flag_football':return 'e.g., Marcus sharp route running · Sofia needs work on blocking';
+    case 'baseball':     return 'e.g., Marcus good contact at plate · Sofia needs work on fielding';
+    case 'lacrosse':     return 'e.g., Marcus quick stick work · Sofia needs work on cradling';
+    case 'tennis':       return 'e.g., Marcus consistent groundstrokes · Sofia needs work on net play';
+    default:             return 'e.g., Marcus great ball handling · Sofia needs work on spacing';
+  }
+}
+
 export default function CapturePage() {
   const router = useRouter();
   const { activeTeam, coach, sportSlug } = useActiveTeam();
@@ -1178,7 +1190,7 @@ export default function CapturePage() {
                   </div>
                   <div className="flex gap-2">
                     <Input
-                      placeholder={urlPlayerName ? `What did ${urlPlayerName} do?` : 'e.g., Marcus showed great ball handling today...'}
+                      placeholder={urlPlayerName ? `What did ${urlPlayerName} do?` : getCapturePlaceholder(sportSlug)}
                       value={quickNote}
                       onChange={(e) => setQuickNote(e.target.value)}
                       onKeyDown={(e) => {
