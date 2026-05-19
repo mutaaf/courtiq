@@ -4065,6 +4065,11 @@ export default function SessionDetailPage() {
                                 <Badge variant="outline" className="text-[10px]">
                                   {obs.source}
                                 </Badge>
+                                {obs.created_at && (
+                                  <span className="ml-auto text-[10px] text-zinc-600 tabular-nums">
+                                    {new Date(obs.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                                  </span>
+                                )}
                               </div>
                               <p className="text-sm text-zinc-300">{obs.text}</p>
                               <div className="flex items-center gap-2 mt-2">
