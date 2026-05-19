@@ -1634,6 +1634,20 @@ export default function PracticeTimerPage({
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [mode, isPaused, clearIntervals]);
 
+  // Screen Wake Lock: keep the display on while the timer is counting down so
+  // coaches don't have to unlock their phone between drills.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('wakeLock' in navigator)) return;
+    if (mode !== 'running' || isPaused) return;
+
+    let lock: WakeLockSentinel | null = null;
+    (navigator as any).wakeLock.request('screen').then((l: WakeLockSentinel) => {
+      lock = l;
+    }).catch(() => { /* permission denied or unsupported — silent */ });
+
+    return () => { lock?.release().catch(() => {}); };
+  }, [mode, isPaused]);
+
   // Auto-persist captured notes so they survive accidental app closes
   useEffect(() => {
     if (typeof window === 'undefined') return;
