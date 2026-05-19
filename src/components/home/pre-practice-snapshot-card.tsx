@@ -53,9 +53,9 @@ export function PrePracticeSnapshotCard({
   const { data: rosterPlayers = [] } = useQuery({
     queryKey: ['pre-practice-roster', teamId],
     queryFn: () =>
-      query<{ id: string; name: string }[]>({
+      query<{ id: string; name: string; jersey_number: number | null }[]>({
         table: 'players',
-        select: 'id, name',
+        select: 'id, name, jersey_number',
         filters: { team_id: teamId, is_active: true },
       }).then((r) => r ?? []),
     staleTime: 10 * 60_000,
@@ -81,7 +81,7 @@ export function PrePracticeSnapshotCard({
     const neglected = rosterPlayers
       .filter((p) => !observedIds.has(p.id))
       .slice(0, 3)
-      .map((p) => p.name.split(' ')[0]);
+      .map((p) => p.jersey_number != null ? `#${p.jersey_number}` : p.name.split(' ')[0]);
 
     if (!topGapEntry && neglected.length === 0) return null;
 
