@@ -26,6 +26,8 @@ import {
   AlertTriangle,
   Sparkles,
   Calendar,
+  Share2,
+  MessageCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { findPlayerByName } from '@/lib/player-match';
@@ -91,6 +93,7 @@ export default function ReviewPage() {
   const [aiUpgrade, setAiUpgrade] = useState<{ message: string } | null>(null);
   const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [parentUpdateShared, setParentUpdateShared] = useState(false);
 
   // Roster for player reassignment picker
   const { data: rosterPlayers = [] } = useQuery<RosterPlayer[]>({
@@ -437,6 +440,48 @@ export default function ReviewPage() {
     const uniquePlayers = new Set(savedObs.map((o) => o.player_name)).size;
     const topHighlights = positiveObs.slice(0, 2);
 
+    // Build top positive skill categories for the quick parent update message
+    const topPositiveCats = positiveObs
+      .map((o) => o.category)
+      .filter((c, i, arr) => arr.indexOf(c) === i && c !== 'general')
+      .slice(0, 2)
+      .map((c) => c.charAt(0).toUpperCase() + c.slice(1).replace(/_/g, ' '));
+
+    function buildQuickParentUpdate(): string {
+      const coachFirst = coach?.full_name?.split(' ')[0] ?? 'Coach';
+      const teamName = activeTeam?.name ?? 'the team';
+      const lines: string[] = [];
+      lines.push(`📋 Practice update from Coach ${coachFirst}!`);
+      lines.push('');
+      if (uniquePlayers > 0) {
+        lines.push(
+          `Great session! ${savedCount} coaching moment${savedCount !== 1 ? 's' : ''} captured across ${uniquePlayers} player${uniquePlayers !== 1 ? 's' : ''}.`
+        );
+      } else {
+        lines.push('Great practice today! The team put in some solid work.');
+      }
+      if (topPositiveCats.length > 0) {
+        lines.push(`Highlights today: ${topPositiveCats.join(' & ')}.`);
+      }
+      if (needsWorkObs.length > 0) {
+        lines.push('Keep practising at home to stay sharp!');
+      }
+      lines.push('');
+      lines.push(`— Coach ${coachFirst}, ${teamName}`);
+      return lines.join('\n');
+    }
+
+    async function handleShareParentUpdate() {
+      const msg = buildQuickParentUpdate();
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        try { await navigator.share({ text: msg }); } catch { /* dismissed */ }
+      } else {
+        await navigator.clipboard.writeText(msg);
+      }
+      setParentUpdateShared(true);
+      setTimeout(() => setParentUpdateShared(false), 2500);
+    }
+
     return (
       <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center p-4">
         <Card className="w-full max-w-md border-emerald-500/20">
@@ -490,6 +535,36 @@ export default function ReviewPage() {
                     </p>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Quick parent update — instant, no-AI WhatsApp/SMS message */}
+            {positiveObs.length > 0 && (
+              <div className="rounded-xl border border-teal-500/30 bg-teal-500/10 p-3.5 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 text-teal-400 shrink-0" />
+                  <p className="text-sm font-semibold text-teal-300">Quick parent update ready</p>
+                </div>
+                <p className="text-xs text-zinc-400 leading-relaxed whitespace-pre-line">
+                  {buildQuickParentUpdate()}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleShareParentUpdate}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-500/20 border border-teal-500/30 px-3 py-2 text-sm font-medium text-teal-300 hover:bg-teal-500/30 active:scale-[0.98] transition-all touch-manipulation"
+                >
+                  {parentUpdateShared ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      {typeof navigator !== 'undefined' && 'share' in navigator ? 'Sent!' : 'Copied!'}
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="h-4 w-4" />
+                      Send to Parent Group Chat
+                    </>
+                  )}
+                </button>
               </div>
             )}
 
