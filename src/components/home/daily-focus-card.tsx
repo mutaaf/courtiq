@@ -28,7 +28,7 @@ export function DailyFocusCard({ teamId }: DailyFocusCardProps) {
     queryFn: () =>
       query<RosterPlayer[]>({
         table: 'players',
-        select: 'id, name',
+        select: 'id, name, jersey_number',
         filters: { team_id: teamId, is_active: true },
       }).then((r) => r ?? []),
     staleTime: 5 * 60_000,
@@ -82,7 +82,7 @@ export function DailyFocusCard({ teamId }: DailyFocusCardProps) {
             href={`/roster/${suggestion.playerId}`}
             className="text-blue-300 hover:text-blue-200 underline underline-offset-2"
           >
-            {suggestion.playerName}
+            {suggestion.jerseyNumber != null ? `#${suggestion.jerseyNumber} ` : ''}{suggestion.playerName}
           </Link>
         </p>
         <div className="flex items-center gap-1.5 mt-1">
