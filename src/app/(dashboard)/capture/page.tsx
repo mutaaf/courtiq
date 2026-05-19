@@ -45,6 +45,7 @@ export default function CapturePage() {
   const [urlSessionId, setUrlSessionId] = useState<string | null>(null);
   const [urlPlayerId, setUrlPlayerId] = useState<string | null>(null);
   const [urlPlayerName, setUrlPlayerName] = useState<string | null>(null);
+  const [urlLoaded, setUrlLoaded] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -60,6 +61,7 @@ export default function CapturePage() {
         setShowQuickNote(true);
       }
     }
+    setUrlLoaded(true);
   }, []);
 
   const [captureState, setCaptureState] = useState<CaptureState>('idle');
@@ -802,6 +804,20 @@ export default function CapturePage() {
               {urlPlayerName
                 ? <>Capturing for <span className="font-semibold text-blue-200">{urlPlayerName}</span> · linked to session</>
                 : 'Observations will be linked to your session'}
+            </p>
+          </div>
+        )}
+
+        {/* No-session nudge — shown when no active practice and no session URL param */}
+        {urlLoaded && !urlSessionId && !practiceActive && (
+          <div className="flex items-start gap-2.5 rounded-xl border border-zinc-700/50 bg-zinc-900/60 px-4 py-3">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />
+            <p className="text-sm text-zinc-400">
+              No active session — these observations won&apos;t link to a practice.{' '}
+              <Link href="/sessions/new" className="text-orange-400 hover:text-orange-300 underline underline-offset-2 transition-colors">
+                Start a session first
+              </Link>{' '}
+              to enable coverage tracking and AI debrief.
             </p>
           </div>
         )}
