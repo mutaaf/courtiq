@@ -1767,24 +1767,33 @@ export default function PlayerDetailPage({
                   )}
                 </div>
                 {/* Row 2: Category chips */}
-                {uniqueCategories.length > 1 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {uniqueCategories.map((cat) => (
-                      <button
-                        key={cat}
-                        onClick={() => setObsCategoryFilter(obsCategoryFilter === cat ? null : cat)}
-                        aria-pressed={obsCategoryFilter === cat}
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors touch-manipulation capitalize ${
-                          obsCategoryFilter === cat
-                            ? 'bg-blue-500/30 text-blue-300 ring-1 ring-blue-500/50'
-                            : 'bg-zinc-800/70 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700/70'
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {uniqueCategories.length > 1 && (() => {
+                  const catCounts: Record<string, number> = {};
+                  for (const o of observations) {
+                    if (o.category) catCounts[o.category] = (catCounts[o.category] ?? 0) + 1;
+                  }
+                  return (
+                    <div className="flex flex-wrap gap-1.5">
+                      {uniqueCategories.map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => setObsCategoryFilter(obsCategoryFilter === cat ? null : cat)}
+                          aria-pressed={obsCategoryFilter === cat}
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors touch-manipulation capitalize ${
+                            obsCategoryFilter === cat
+                              ? 'bg-blue-500/30 text-blue-300 ring-1 ring-blue-500/50'
+                              : 'bg-zinc-800/70 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700/70'
+                          }`}
+                        >
+                          {cat}
+                          <span className={`text-[10px] tabular-nums ${obsCategoryFilter === cat ? 'text-blue-400/70' : 'text-zinc-600'}`}>
+                            {catCounts[cat] ?? 0}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}
