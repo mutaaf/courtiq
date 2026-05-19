@@ -4001,8 +4001,14 @@ export default function SessionDetailPage() {
               <p className="text-xs text-zinc-500 mt-1 max-w-[220px]">
                 Watch practice and note standout moments — skills to reinforce or areas to work on.
               </p>
+              {session?.start_time && (
+                <p className="text-[11px] text-zinc-600 mt-2">
+                  Session started at {formatTime(session.start_time)}
+                  {session.end_time && ` · ends ${formatTime(session.end_time)}`}
+                </p>
+              )}
               <Link href={`/capture?sessionId=${sessionId}`} className="mt-4">
-                <Button variant="outline" size="sm">
+                <Button size="sm" className="bg-orange-600 hover:bg-orange-500 text-white gap-1.5">
                   <Mic className="h-4 w-4" />
                   Start capturing
                 </Button>
