@@ -1636,7 +1636,20 @@ export default function PlayerDetailPage({
             </CardHeader>
             <CardContent className="space-y-3">
               {observations.length === 0 ? (
-                <p className="text-sm text-zinc-500">No observations yet.</p>
+                <div className="flex flex-col items-center gap-3 py-4 text-center">
+                  <MessageSquare className="h-8 w-8 text-zinc-700" />
+                  <div>
+                    <p className="text-sm font-medium text-zinc-400">No observations yet</p>
+                    <p className="text-xs text-zinc-600 mt-0.5">Capture your first note for {player.name.split(' ')[0]}</p>
+                  </div>
+                  <Link
+                    href={`/capture?playerId=${player.id}&player=${encodeURIComponent(player.name.split(' ')[0])}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-orange-500/15 border border-orange-500/30 px-3 py-1.5 text-xs font-medium text-orange-400 hover:bg-orange-500/25 transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Capture observation
+                  </Link>
+                </div>
               ) : (
                 observations.slice(0, 5).map((obs) => (
                   <div
