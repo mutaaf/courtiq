@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
+import { getReviewCategoriesForSport, type ReviewCategory } from '@/lib/observation-templates';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
 import { CACHE_PROFILES } from '@/lib/query/config';
@@ -74,11 +75,7 @@ const SENTIMENT_FILTERS = [
   { value: 'neutral' as const, label: 'Neutral' },
 ];
 
-const CATEGORIES = [
-  'offense', 'defense', 'passing', 'dribbling', 'shooting',
-  'footwork', 'rebounding', 'hustle', 'teamwork', 'leadership',
-  'awareness', 'iq', 'effort', 'general',
-];
+// Sport-specific categories are computed per-render from useActiveTeam().sportSlug
 
 const PAGE_SIZE = 50;
 
@@ -159,6 +156,7 @@ function ObservationCard({
   parentPhone,
   coachFirstName,
   teamName,
+  editCategories,
   onToggleHighlight,
   onEdit,
   onDelete,
@@ -168,6 +166,7 @@ function ObservationCard({
   parentPhone?: string | null;
   coachFirstName?: string;
   teamName?: string;
+  editCategories: ReviewCategory[];
   onToggleHighlight: (id: string, next: boolean) => void;
   onEdit: (id: string, updates: EditDraft) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -274,8 +273,8 @@ function ObservationCard({
                 aria-label="Category"
               >
                 <option value="">No category</option>
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat} className="capitalize">{cat}</option>
+                {editCategories.map((cat) => (
+                  <option key={cat.value} value={cat.value}>{cat.label}</option>
                 ))}
               </select>
               <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" aria-hidden />
@@ -467,8 +466,9 @@ function ObservationCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ObservationsPage() {
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
   const qc = useQueryClient();
+  const editCategories = useMemo(() => getReviewCategoriesForSport(sportSlug), [sportSlug]);
 
   // Filter state
   const [searchText, setSearchText] = useState('');
@@ -736,9 +736,12 @@ export default function ObservationsPage() {
                 className="h-10 appearance-none rounded-lg border border-zinc-700 bg-zinc-800 pl-3 pr-8 text-sm text-zinc-100 outline-none focus:border-orange-500 transition-colors cursor-pointer capitalize"
               >
                 <option value="all">All categories</option>
-                {categories.map((cat) => (
-                  <option key={cat} value={cat} className="capitalize">{cat}</option>
-                ))}
+                {categories.map((cat) => {
+                  const found = editCategories.find((c) => c.value === cat);
+                  return (
+                    <option key={cat} value={cat}>{found?.label ?? (cat.charAt(0).toUpperCase() + cat.slice(1))}</option>
+                  );
+                })}
               </select>
               <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" aria-hidden />
             </div>
@@ -821,6 +824,7 @@ export default function ObservationsPage() {
                     parentPhone={obs.player_id ? playerPhoneMap.get(obs.player_id) : null}
                     coachFirstName={coachFirstName}
                     teamName={activeTeam?.name}
+                    editCategories={editCategories}
                     onToggleHighlight={handleToggleHighlight}
                     onEdit={handleEditObservation}
                     onDelete={handleDeleteObservation}

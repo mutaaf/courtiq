@@ -4,6 +4,7 @@ import {
   ALL_OBSERVATION_TEMPLATES,
   getTemplatesBySentiment,
   findTemplateById,
+  getReviewCategoriesForSport,
   type ObservationTemplate,
 } from '@/lib/observation-templates';
 
@@ -809,5 +810,125 @@ describe('getTemplatesBySentiment — tennis', () => {
     for (const t of all) {
       expect(t.text.length, `Tennis template "${t.id}" text too long: "${t.text}"`).toBeLessThanOrEqual(40);
     }
+  });
+});
+
+// ─── getReviewCategoriesForSport ─────────────────────────────────────────────
+
+describe('getReviewCategoriesForSport', () => {
+  it('returns an array of { value, label } pairs', () => {
+    const cats = getReviewCategoriesForSport('basketball');
+    expect(Array.isArray(cats)).toBe(true);
+    for (const c of cats) {
+      expect(typeof c.value).toBe('string');
+      expect(typeof c.label).toBe('string');
+      expect(c.value.trim()).not.toBe('');
+      expect(c.label.trim()).not.toBe('');
+    }
+  });
+
+  it('basketball includes Shooting, Ball Handling, Rebounding, and Basketball IQ', () => {
+    const cats = getReviewCategoriesForSport('basketball');
+    const values = cats.map((c) => c.value);
+    const labels = cats.map((c) => c.label);
+    expect(values).toContain('shooting');
+    expect(values).toContain('dribbling');
+    expect(values).toContain('rebounding');
+    expect(values).toContain('iq');
+    expect(labels).toContain('Shooting');
+    expect(labels).toContain('Ball Handling');
+    expect(labels).toContain('Rebounding');
+    expect(labels).toContain('Basketball IQ');
+  });
+
+  it('swimming uses "Stroke Technique" for shooting and "Kick & Turns" for footwork', () => {
+    const cats = getReviewCategoriesForSport('swimming');
+    const shootingCat = cats.find((c) => c.value === 'shooting');
+    const footworkCat = cats.find((c) => c.value === 'footwork');
+    expect(shootingCat?.label).toBe('Stroke Technique');
+    expect(footworkCat?.label).toBe('Kick & Turns');
+  });
+
+  it('swimming does NOT include dribbling or rebounding', () => {
+    const cats = getReviewCategoriesForSport('swimming');
+    const values = cats.map((c) => c.value);
+    expect(values).not.toContain('dribbling');
+    expect(values).not.toContain('rebounding');
+    expect(values).not.toContain('iq');
+  });
+
+  it('gymnastics uses "Tumbling" for shooting and "Balance & Landings" for footwork', () => {
+    const cats = getReviewCategoriesForSport('gymnastics');
+    const shootingCat = cats.find((c) => c.value === 'shooting');
+    const footworkCat = cats.find((c) => c.value === 'footwork');
+    expect(shootingCat?.label).toBe('Tumbling');
+    expect(footworkCat?.label).toBe('Balance & Landings');
+  });
+
+  it('tennis uses "Serves & Groundstrokes" for shooting', () => {
+    const cats = getReviewCategoriesForSport('tennis');
+    const shootingCat = cats.find((c) => c.value === 'shooting');
+    expect(shootingCat?.label).toBe('Serves & Groundstrokes');
+  });
+
+  it('baseball uses "Batting" for shooting and "Throwing" for passing', () => {
+    const cats = getReviewCategoriesForSport('baseball');
+    const shootingCat = cats.find((c) => c.value === 'shooting');
+    const passingCat = cats.find((c) => c.value === 'passing');
+    expect(shootingCat?.label).toBe('Batting');
+    expect(passingCat?.label).toBe('Throwing');
+  });
+
+  it('lacrosse uses "Cradling" for dribbling', () => {
+    const cats = getReviewCategoriesForSport('lacrosse');
+    const dribbleCat = cats.find((c) => c.value === 'dribbling');
+    expect(dribbleCat?.label).toBe('Cradling');
+  });
+
+  it('volleyball uses "Serving" for shooting', () => {
+    const cats = getReviewCategoriesForSport('volleyball');
+    const shootingCat = cats.find((c) => c.value === 'shooting');
+    expect(shootingCat?.label).toBe('Serving');
+  });
+
+  it('all sports include universal categories (defense, hustle, teamwork, leadership)', () => {
+    for (const sport of ['basketball', 'soccer', 'swimming', 'gymnastics', 'tennis', 'baseball', 'lacrosse', 'volleyball']) {
+      const cats = getReviewCategoriesForSport(sport);
+      const values = cats.map((c) => c.value);
+      expect(values, `${sport} missing defense`).toContain('defense');
+      expect(values, `${sport} missing hustle`).toContain('hustle');
+      expect(values, `${sport} missing teamwork`).toContain('teamwork');
+      expect(values, `${sport} missing leadership`).toContain('leadership');
+    }
+  });
+
+  it('falls back to basketball set for unknown sport', () => {
+    const unknown = getReviewCategoriesForSport('unknown_sport');
+    const basketball = getReviewCategoriesForSport('basketball');
+    expect(unknown).toEqual(basketball);
+  });
+
+  it('falls back to basketball set when sportSlug is null or undefined', () => {
+    const nullResult = getReviewCategoriesForSport(null);
+    const undefinedResult = getReviewCategoriesForSport(undefined);
+    const basketball = getReviewCategoriesForSport('basketball');
+    expect(nullResult).toEqual(basketball);
+    expect(undefinedResult).toEqual(basketball);
+  });
+
+  it('has no duplicate values within a sport', () => {
+    for (const sport of ['basketball', 'soccer', 'swimming', 'gymnastics', 'tennis', 'baseball', 'lacrosse', 'volleyball', 'flag_football']) {
+      const cats = getReviewCategoriesForSport(sport);
+      const values = cats.map((c) => c.value);
+      const unique = new Set(values);
+      expect(unique.size, `${sport} has duplicate category values`).toBe(values.length);
+    }
+  });
+
+  it('sport-specific categories appear before universal ones', () => {
+    const swimming = getReviewCategoriesForSport('swimming');
+    const shootingIdx = swimming.findIndex((c) => c.value === 'shooting');
+    const defenseIdx = swimming.findIndex((c) => c.value === 'defense');
+    expect(shootingIdx).toBeLessThan(defenseIdx);
   });
 });

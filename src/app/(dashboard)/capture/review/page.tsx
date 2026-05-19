@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
+import { getReviewCategoriesForSport } from '@/lib/observation-templates';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
@@ -57,11 +58,7 @@ interface RosterPlayer {
   name_variants: string[] | null;
 }
 
-const REVIEW_CATEGORIES = [
-  'shooting', 'defense', 'dribbling', 'passing', 'hustle',
-  'awareness', 'teamwork', 'footwork', 'attitude', 'leadership',
-  'conditioning', 'offense', 'rebounding', 'iq', 'effort', 'general',
-];
+// Sport-specific categories are computed per-render from useActiveTeam().sportSlug
 
 const sentimentVariant: Record<Sentiment, 'success' | 'destructive' | 'secondary'> = {
   positive: 'success',
@@ -77,7 +74,8 @@ const sentimentLabel: Record<Sentiment, string> = {
 
 export default function ReviewPage() {
   const router = useRouter();
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
+  const reviewCategories = useMemo(() => getReviewCategoriesForSport(sportSlug), [sportSlug]);
   const queryClient = useQueryClient();
 
   const [observations, setObservations] = useState<ParsedObservation[]>([]);
@@ -779,8 +777,8 @@ export default function ReviewPage() {
                       className="bg-zinc-800 border border-zinc-700 rounded-md px-1.5 py-0.5 text-xs text-zinc-300 capitalize cursor-pointer focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
                       aria-label="Skill category"
                     >
-                      {REVIEW_CATEGORIES.map((cat) => (
-                        <option key={cat} value={cat} className="capitalize">{cat}</option>
+                      {reviewCategories.map((cat) => (
+                        <option key={cat.value} value={cat.value}>{cat.label}</option>
                       ))}
                     </select>
                     <button

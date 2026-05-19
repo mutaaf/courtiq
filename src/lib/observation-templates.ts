@@ -310,3 +310,92 @@ export function getTemplatesBySentiment(
 export function findTemplateById(id: string): ObservationTemplate | undefined {
   return ALL_OBSERVATION_TEMPLATES.find((t) => t.id === id);
 }
+
+export interface ReviewCategory {
+  value: string;
+  label: string;
+}
+
+// Universal categories applicable to every sport
+const UNIVERSAL_CATEGORIES: ReviewCategory[] = [
+  { value: 'defense',      label: 'Defense' },
+  { value: 'passing',      label: 'Passing' },
+  { value: 'hustle',       label: 'Hustle' },
+  { value: 'awareness',    label: 'Awareness' },
+  { value: 'teamwork',     label: 'Teamwork' },
+  { value: 'footwork',     label: 'Footwork' },
+  { value: 'leadership',   label: 'Leadership' },
+  { value: 'conditioning', label: 'Conditioning' },
+  { value: 'attitude',     label: 'Attitude' },
+  { value: 'effort',       label: 'Effort' },
+  { value: 'general',      label: 'General' },
+];
+
+// Sport-specific categories shown BEFORE the universal ones
+const SPORT_LEAD_CATEGORIES: Record<string, ReviewCategory[]> = {
+  basketball: [
+    { value: 'shooting',   label: 'Shooting' },
+    { value: 'dribbling',  label: 'Ball Handling' },
+    { value: 'offense',    label: 'Offense' },
+    { value: 'rebounding', label: 'Rebounding' },
+    { value: 'iq',         label: 'Basketball IQ' },
+  ],
+  soccer: [
+    { value: 'shooting',   label: 'Shooting' },
+    { value: 'dribbling',  label: 'Ball Control' },
+    { value: 'offense',    label: 'Offense' },
+  ],
+  lacrosse: [
+    { value: 'shooting',   label: 'Shooting' },
+    { value: 'dribbling',  label: 'Cradling' },
+    { value: 'offense',    label: 'Offense' },
+  ],
+  flag_football: [
+    { value: 'shooting',   label: 'Passing / Routes' },
+    { value: 'offense',    label: 'Offense' },
+  ],
+  volleyball: [
+    { value: 'shooting',   label: 'Serving' },
+    { value: 'offense',    label: 'Offense' },
+  ],
+  swimming: [
+    { value: 'shooting',   label: 'Stroke Technique' },
+    { value: 'footwork',   label: 'Kick & Turns' },
+  ],
+  tennis: [
+    { value: 'shooting',   label: 'Serves & Groundstrokes' },
+    { value: 'offense',    label: 'Offense' },
+  ],
+  gymnastics: [
+    { value: 'shooting',   label: 'Tumbling' },
+    { value: 'footwork',   label: 'Balance & Landings' },
+  ],
+  baseball: [
+    { value: 'shooting',   label: 'Batting' },
+    { value: 'passing',    label: 'Throwing' },
+    { value: 'offense',    label: 'Offense' },
+  ],
+  softball: [
+    { value: 'shooting',   label: 'Batting' },
+    { value: 'passing',    label: 'Throwing' },
+    { value: 'offense',    label: 'Offense' },
+  ],
+};
+
+/**
+ * Returns a sport-appropriate ordered list of { value, label } pairs for
+ * category dropdowns on the capture-review and observation-edit pages.
+ * Sport-specific categories appear first; universal ones follow.
+ * Falls back to the basketball set when the sport slug is unrecognised.
+ */
+export function getReviewCategoriesForSport(sportSlug?: string | null): ReviewCategory[] {
+  const lead = (sportSlug ? SPORT_LEAD_CATEGORIES[sportSlug] : undefined)
+    ?? SPORT_LEAD_CATEGORIES.basketball;
+
+  const seen = new Set(lead.map((c) => c.value));
+  const universal = UNIVERSAL_CATEGORIES.filter((c) => !seen.has(c.value));
+
+  // For non-basketball sports, also exclude passing/throwing from universal
+  // when the sport already lists it in lead (e.g. baseball)
+  return [...lead, ...universal];
+}
