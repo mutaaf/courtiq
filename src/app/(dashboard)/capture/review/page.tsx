@@ -95,6 +95,20 @@ export default function ReviewPage() {
   const [loading, setLoading] = useState(true);
   const [parentUpdateShared, setParentUpdateShared] = useState(false);
 
+  // Lightweight session fetch — shows which session observations will be saved to
+  const { data: sessionMeta } = useQuery<{ date: string; type: string } | null>({
+    queryKey: ['review-session-meta', sessionId],
+    queryFn: () =>
+      query<{ date: string; type: string }[]>({
+        table: 'sessions',
+        select: 'date, type',
+        filters: { id: sessionId! },
+        limit: 1,
+      }).then((r) => r?.[0] ?? null),
+    enabled: !!sessionId && !!activeTeam,
+    staleTime: 10 * 60_000,
+  });
+
   // Roster for player reassignment picker
   const { data: rosterPlayers = [] } = useQuery<RosterPlayer[]>({
     queryKey: ['roster-for-review', activeTeam?.id],
@@ -636,6 +650,20 @@ export default function ReviewPage() {
         <ArrowLeft className="h-4 w-4" />
         Capture
       </Link>
+
+      {/* Session context banner — confirms which session observations will be saved to */}
+      {sessionId && sessionMeta && (
+        <div className="flex items-center gap-2.5 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2.5">
+          <Calendar className="h-4 w-4 shrink-0 text-blue-400" />
+          <p className="text-sm text-blue-300">
+            Saving to:{' '}
+            <span className="font-semibold text-blue-200">
+              {(sessionMeta.type.charAt(0).toUpperCase() + sessionMeta.type.slice(1))} ·{' '}
+              {new Date(sessionMeta.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </span>
+          </p>
+        </div>
+      )}
 
       {/* AI Error Banner */}
       {aiError && (
