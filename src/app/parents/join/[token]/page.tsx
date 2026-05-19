@@ -31,6 +31,7 @@ export default function ParentJoinPage({ params }: { params: Promise<{ token: st
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [successName, setSuccessName] = useState('');
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -80,6 +81,7 @@ export default function ParentJoinPage({ params }: { params: Promise<{ token: st
       }
 
       setSuccessName(data.playerFirstName || '');
+      setShareUrl(data.shareUrl || null);
       setStep('success');
     } catch {
       setSubmitError('Connection error. Please check your internet and try again.');
@@ -136,15 +138,40 @@ export default function ParentJoinPage({ params }: { params: Promise<{ token: st
               </p>
             )}
           </div>
-          <div className="w-full rounded-xl border border-orange-100 bg-orange-50 p-4 text-left">
-            <div className="flex items-start gap-2">
-              <Sparkles className="h-4 w-4 shrink-0 mt-0.5 text-orange-500" />
-              <p className="text-sm text-gray-700 leading-relaxed">
-                You'll receive <strong>personalised progress updates</strong> after each practice
-                — straight to your phone, no app needed.
+
+          {shareUrl ? (
+            <div className="w-full space-y-3">
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 text-left">
+                <div className="flex items-start gap-2">
+                  <Sparkles className="h-4 w-4 shrink-0 mt-0.5 text-emerald-600" />
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    <strong>{successName}&apos;s progress report is ready!</strong> See how they&apos;re
+                    developing this season — skill progress, observations, and goals.
+                  </p>
+                </div>
+              </div>
+              <Link
+                href={shareUrl}
+                className="flex items-center justify-center gap-2 w-full rounded-xl bg-emerald-600 px-4 py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 active:scale-95 transition-all"
+              >
+                View {successName}&apos;s Progress Report
+                <span aria-hidden="true">→</span>
+              </Link>
+              <p className="text-xs text-gray-400">
+                You&apos;ll also receive updates straight to your phone after each practice.
               </p>
             </div>
-          </div>
+          ) : (
+            <div className="w-full rounded-xl border border-orange-100 bg-orange-50 p-4 text-left">
+              <div className="flex items-start gap-2">
+                <Sparkles className="h-4 w-4 shrink-0 mt-0.5 text-orange-500" />
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  You&apos;ll receive <strong>personalised progress updates</strong> after each practice
+                  — straight to your phone, no app needed.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </PageShell>
     );
