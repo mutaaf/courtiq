@@ -18,6 +18,7 @@ import { AnnouncementsPanel } from '@/components/sessions/announcements-panel';
 import type { Session, SessionType } from '@/types/database';
 import {
   parseResult,
+  extractScore,
   getResultBadgeClasses,
   getResultLabel,
   buildResultString,
@@ -320,6 +321,7 @@ export default function SessionsPage() {
             // Use optimistic override if present, otherwise DB value
             const effectiveResult = localResults[session.id] ?? session.result;
             const parsedResult = parseResult(effectiveResult);
+            const gameScore = extractScore(effectiveResult);
             const isGame = isGameType(session.type);
             const isSavingThis = savingResult?.sessionId === session.id;
             // Debrief pending: past session, ≥3 obs, no AI debrief yet
@@ -369,6 +371,9 @@ export default function SessionsPage() {
                               className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold ${getResultBadgeClasses(parsedResult)}`}
                             >
                               {getResultLabel(parsedResult)}
+                              {gameScore && (
+                                <span className="ml-1 font-normal opacity-80">{gameScore}</span>
+                              )}
                             </span>
                           )}
                           {session.opponent && (
