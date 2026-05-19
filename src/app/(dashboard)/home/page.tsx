@@ -466,6 +466,15 @@ function LastSessionCard({ session }: {
   );
 }
 
+// ─── Greeting helpers ────────────────────────────────────────────────────────────────────────
+
+function getTimeGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
@@ -897,6 +906,53 @@ export default function HomePage() {
     return map;
   }, [rosterPlayers]);
 
+  const coachFirstName = coach?.full_name?.split(' ')[0] ?? null;
+
+  // Contextual one-liner shown beneath the team name — uses only already-fetched data
+  const greetingInsight = useMemo<{ emoji: string; text: string; color: string } | null>(() => {
+    // Practice is live
+    if (practiceActive && sessionObsStats && sessionObsStats.count >= 1) {
+      const { count, players, positiveCount } = sessionObsStats;
+      const pctStr = count > 0 ? ` · ${Math.round((positiveCount / count) * 100)}% positive` : '';
+      return {
+        emoji: '🏃',
+        text: `Live now — ${count} obs · ${players} player${players !== 1 ? 's' : ''} covered${pctStr}`,
+        color: 'text-emerald-400',
+      };
+    }
+    // Game / scrimmage / tournament today
+    const competitiveToday = todaySessions.find(
+      (s) => s.type === 'game' || s.type === 'scrimmage' || s.type === 'tournament',
+    );
+    if (!practiceActive && competitiveToday) {
+      const typeLabel = ({ game: 'Game', scrimmage: 'Scrimmage', tournament: 'Tournament' } as Record<string, string>)[competitiveToday.type] ?? 'Game';
+      const opp = competitiveToday.opponent ? ` vs ${competitiveToday.opponent}` : '';
+      return { emoji: '🏆', text: `${typeLabel} day${opp}!`, color: 'text-orange-400' };
+    }
+    // Practice / training today (not yet started)
+    const practiceToday = todaySessions.find((s) => s.type === 'practice' || s.type === 'training');
+    if (!practiceActive && practiceToday) {
+      return { emoji: '👟', text: 'Practice today — tap Start Practice when you\'re ready', color: 'text-blue-400' };
+    }
+    // Recent session highlight
+    if (!practiceActive && lastSession) {
+      const obsArr = lastSession.observations as { count: number }[] | undefined;
+      const obsCount = Array.isArray(obsArr) ? (obsArr[0]?.count ?? 0) : 0;
+      if (obsCount >= 5) {
+        const daysAgo = Math.floor(
+          (Date.now() - new Date(lastSession.date + 'T12:00:00').getTime()) / 86_400_000,
+        );
+        const when = daysAgo <= 0 ? 'today' : daysAgo === 1 ? 'yesterday' : `${daysAgo}d ago`;
+        return {
+          emoji: '💪',
+          text: `Last session ${when} · ${obsCount} observations captured`,
+          color: 'text-zinc-400',
+        };
+      }
+    }
+    return null;
+  }, [practiceActive, sessionObsStats, todaySessions, lastSession]);
+
   if (!activeTeam) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center min-h-[60vh]">
@@ -922,8 +978,13 @@ export default function HomePage() {
     <>
     <div className="p-4 lg:p-8 space-y-6 pb-8">
       <div>
+        {coachFirstName && (
+          <p className="text-sm font-medium text-zinc-500 mb-0.5">
+            {getTimeGreeting()}, {coachFirstName}! 👋
+          </p>
+        )}
         <h1 className="text-2xl font-bold">{activeTeam.name}</h1>
-        <p className="text-zinc-400">
+        <p className="text-zinc-400 text-sm">
           Season {activeTeam.season || 'Not set'} &middot;{' '}
           <Link
             href="/curriculum"
@@ -933,6 +994,11 @@ export default function HomePage() {
             Week {activeTeam.current_week}
           </Link>
         </p>
+        {greetingInsight && (
+          <p className={`text-sm font-medium mt-1 ${greetingInsight.color}`}>
+            {greetingInsight.emoji} {greetingInsight.text}
+          </p>
+        )}
       </div>
 
       <BirthdayCard teamId={activeTeam.id} teamName={activeTeam.name} />
