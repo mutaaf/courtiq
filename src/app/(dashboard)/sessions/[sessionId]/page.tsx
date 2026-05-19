@@ -4094,6 +4094,16 @@ export default function SessionDetailPage() {
                                     {actionState === 'share' ? 'Sent!' : 'Send to parent'}
                                   </button>
                                 )}
+                                {obs.sentiment === 'needs-work' && obs.category && obs.category !== 'general' && (
+                                  <Link
+                                    href={`/drills?category=${encodeURIComponent(obs.category)}`}
+                                    className="flex items-center gap-1 text-[10px] text-amber-500 hover:text-amber-300 transition-colors"
+                                    aria-label={`Find drills for ${obs.category}`}
+                                  >
+                                    <Dumbbell className="h-3 w-3" />
+                                    Find drill
+                                  </Link>
+                                )}
                               </div>
                             </div>
                           </div>
