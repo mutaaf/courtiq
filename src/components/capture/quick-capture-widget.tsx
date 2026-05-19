@@ -51,6 +51,7 @@ export function QuickCaptureWidget() {
   const [roster, setRoster] = useState<{ id: string; name: string; jersey_number: number | null }[]>([]);
   const [rosterLoading, setRosterLoading] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [lastObsByPlayer, setLastObsByPlayer] = useState<Map<string, string>>(new Map());
 
   const trapRef = useFocusTrap<HTMLDivElement>({
     enabled: isOpen,
@@ -60,18 +61,45 @@ export function QuickCaptureWidget() {
     },
   });
 
-  // Load roster when templates tab is opened
+  // Load roster + last-observation date per player when templates tab opens.
+  // Players are sorted by recency so unobserved/cold players float to the top.
   useEffect(() => {
     if (!isOpen || activeTab !== 'templates' || !activeTeam?.id || roster.length > 0) return;
     setRosterLoading(true);
-    query<{ id: string; name: string; jersey_number: number | null }[]>({
-      table: 'players',
-      select: 'id, name, jersey_number',
-      filters: { team_id: activeTeam.id, is_active: true },
-    }).then((data) => {
-      setRoster(data || []);
+    Promise.all([
+      query<{ id: string; name: string; jersey_number: number | null }[]>({
+        table: 'players',
+        select: 'id, name, jersey_number',
+        filters: { team_id: activeTeam.id, is_active: true },
+      }),
+      query<{ player_id: string; created_at: string }[]>({
+        table: 'observations',
+        select: 'player_id, created_at',
+        filters: { team_id: activeTeam.id },
+        order: { column: 'created_at', ascending: false },
+        limit: 500,
+      }),
+    ]).then(([playersData, obsData]) => {
+      const players = playersData || [];
+      if (obsData) {
+        const map = new Map<string, string>();
+        for (const obs of obsData) {
+          if (!map.has(obs.player_id)) map.set(obs.player_id, obs.created_at);
+        }
+        setLastObsByPlayer(map);
+        // Never observed → oldest last obs → observed today
+        players.sort((a, b) => {
+          const aDate = map.get(a.id);
+          const bDate = map.get(b.id);
+          if (!aDate && !bDate) return 0;
+          if (!aDate) return -1;
+          if (!bDate) return 1;
+          return new Date(aDate).getTime() - new Date(bDate).getTime();
+        });
+      }
+      setRoster(players);
       setRosterLoading(false);
-    });
+    }).catch(() => setRosterLoading(false));
   }, [isOpen, activeTab, activeTeam?.id, roster.length]);
 
   const cleanupMedia = useCallback(() => {
@@ -673,7 +701,14 @@ export function QuickCaptureWidget() {
                       </p>
                     ) : (
                       <div className="grid max-h-52 grid-cols-2 gap-1.5 overflow-y-auto pb-1">
-                        {roster.map((player) => (
+                        {roster.map((player) => {
+                          const lastIso = lastObsByPlayer.get(player.id);
+                          const days = lastIso ? Math.floor((Date.now() - new Date(lastIso).getTime()) / 86_400_000) : null;
+                          const ring = lastObsByPlayer.size === 0 ? '' :
+                            days === null ? 'ring-1 ring-zinc-500/70' :
+                            days === 0 ? 'ring-1 ring-emerald-500/60' :
+                            days < 7 ? 'ring-1 ring-amber-500/60' : 'ring-1 ring-red-500/70';
+                          return (
                           <button
                             key={player.id}
                             type="button"
@@ -685,12 +720,13 @@ export function QuickCaptureWidget() {
                               savingTemplate && 'pointer-events-none opacity-50'
                             )}
                           >
-                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500/20 text-xs font-bold text-orange-400">
+                            <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500/20 text-xs font-bold text-orange-400', ring)}>
                               {player.jersey_number != null ? `#${player.jersey_number}` : player.name.charAt(0).toUpperCase()}
                             </span>
                             <span className="truncate">{player.name.split(' ')[0]}</span>
                           </button>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
 
