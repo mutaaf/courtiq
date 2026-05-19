@@ -1317,7 +1317,7 @@ export default function HomePage() {
         </Link>
       </div>
 
-      {!practiceActive && activeTeam && stats && stats.observations >= 5 && (
+      {!practiceActive && activeTeam && stats && (
         <PrePracticeSnapshotCard
           teamId={activeTeam.id}
           sessionId={todaySessions[0]?.id}
@@ -1340,7 +1340,7 @@ export default function HomePage() {
         <DailyFocusCard teamId={activeTeam.id} />
       )}
 
-      {!isLoadingStats && stats && stats.observations >= 5 && (
+      {!isLoadingStats && stats && stats.observations >= 3 && (
         <DrillOfDayCard
           teamId={activeTeam.id}
           sportId={activeTeam.sport_id}
@@ -1430,7 +1430,7 @@ export default function HomePage() {
         />
       )}
 
-      {activeTeam && stats && stats.observations >= 5 && (
+      {activeTeam && (
         <TeamSkillTrendsCard teamId={activeTeam.id} />
       )}
 
@@ -1446,24 +1446,24 @@ export default function HomePage() {
 
       {activeTeam && <GoalDeadlineCard teamId={activeTeam.id} />}
 
-      {activeTeam && stats && stats.observations >= 5 && (
+      {activeTeam && (
         <PlayerBreakthroughCard
           teamId={activeTeam.id}
           coachName={coach?.full_name ?? undefined}
         />
       )}
 
-      {activeTeam && stats && stats.observations >= 5 && (
+      {activeTeam && (
         <PlayerOnARollCard teamId={activeTeam.id} />
       )}
 
-      {activeTeam && stats && stats.observations >= 5 && (
+      {activeTeam && (
         <StrugglingPlayerCard teamId={activeTeam.id} />
       )}
 
       {activeTeam && <ParentReactionsCard teamId={activeTeam.id} />}
 
-      {activeTeam && coach && stats && stats.observations >= 5 && (
+      {activeTeam && coach && stats && (
         <WeeklyWrapCard
           teamId={activeTeam.id}
           teamName={activeTeam.name}
