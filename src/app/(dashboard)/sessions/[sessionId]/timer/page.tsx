@@ -75,6 +75,7 @@ import {
 } from '@/lib/timer-focus-utils';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 import { useAnnouncer } from '@/hooks/use-announcer';
+import { useHaptic } from '@/hooks/use-haptic';
 import {
   buildDrillAnnouncement,
   buildBreakAnnouncement,
@@ -1558,10 +1559,13 @@ export default function PracticeTimerPage({
     };
   }, [clearIntervals]);
 
-  // ── Audio announcements ──────────────────────────────────────────────────
+  // ── Audio + haptic announcements ─────────────────────────────────────────
   const { speak } = useAnnouncer(audioEnabled);
   const speakRef = useRef(speak);
   useEffect(() => { speakRef.current = speak; }, [speak]);
+  const haptic = useHaptic();
+  const hapticRef = useRef(haptic);
+  useEffect(() => { hapticRef.current = haptic; }, [haptic]);
   // Keep refs in sync so the mode-change effect reads latest data without
   // triggering on every note/queue mutation.
   useEffect(() => { queueRef.current = queue; }, [queue]);
@@ -1586,10 +1590,13 @@ export default function PracticeTimerPage({
     const drill = queueRef.current[currentIdx];
     if (mode === 'running' && drill) {
       speakRef.current(buildDrillAnnouncement(drill.name, drill.durationSecs, drill.cues[0]));
+      hapticRef.current.tap(); // single pulse — new drill starting
     } else if (mode === 'break') {
       speakRef.current(buildBreakAnnouncement());
+      hapticRef.current.success(); // double pulse — drill ended, observe now
     } else if (mode === 'done') {
       speakRef.current(buildPracticeCompleteAnnouncement(notesRef.current.length));
+      hapticRef.current.success(); // double pulse — practice complete
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, currentIdx]);
