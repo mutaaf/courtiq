@@ -4339,7 +4339,7 @@ export default function SessionDetailPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               {([1, 2, 3, 4, 5] as const).map((n) => {
                 const current = session?.quality_rating ?? 0;
@@ -4364,16 +4364,25 @@ export default function SessionDetailPage() {
                 <Loader2 className="h-4 w-4 animate-spin text-zinc-500 ml-1" />
               )}
             </div>
-            {isValidRating(session?.quality_rating) && (
-              <p className={`text-sm font-medium ${getRatingColor(session!.quality_rating!)}`}>
-                {getRatingLabel(session!.quality_rating! as 1 | 2 | 3 | 4 | 5)}
-                {qualityMutation.isSuccess && (
-                  <span className="ml-2 text-xs text-zinc-500 font-normal">Saved</span>
-                )}
-              </p>
-            )}
-            {!session?.quality_rating && (
-              <p className="text-xs text-zinc-500">Tap a star to rate this session&apos;s quality.</p>
+            {/* Rating labels — always visible so coaches know what each star means */}
+            <div className="flex items-center gap-2">
+              {(['Poor', 'Fair', 'Good', 'Great', 'Excellent'] as const).map((label, i) => {
+                const n = (i + 1) as 1 | 2 | 3 | 4 | 5;
+                const isSelected = session?.quality_rating === n;
+                return (
+                  <span
+                    key={n}
+                    className={`w-11 text-center text-[10px] leading-none ${
+                      isSelected ? getRatingColor(n) : 'text-zinc-600'
+                    }`}
+                  >
+                    {label}
+                  </span>
+                );
+              })}
+            </div>
+            {qualityMutation.isSuccess && (
+              <p className="text-xs text-zinc-500 mt-1">Saved</p>
             )}
           </div>
         </CardContent>
