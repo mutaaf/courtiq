@@ -97,11 +97,24 @@ const PLAN_TYPE_CONFIG: Record<
   season_letter: { label: 'Season Letter', icon: Mail, color: 'text-pink-400' },
 };
 
-const SUGGESTION_CHIPS = [
-  '60-min practice',
-  'Game day sheet',
-  'Ball handling drills',
-];
+function getSuggestionChips(sportSlug: string): string[] {
+  switch (sportSlug) {
+    case 'soccer':
+      return ['60-min practice', 'Game day sheet', 'Passing & movement drills'];
+    case 'volleyball':
+      return ['60-min practice', 'Game day sheet', 'Serving & passing drills'];
+    case 'flag_football':
+      return ['60-min practice', 'Game day sheet', 'Route running drills'];
+    case 'baseball':
+      return ['60-min practice', 'Game day sheet', 'Hitting & fielding drills'];
+    case 'lacrosse':
+      return ['60-min practice', 'Game day sheet', 'Stick skills drills'];
+    case 'tennis':
+      return ['60-min practice', 'Match prep sheet', 'Groundstroke drills'];
+    default:
+      return ['60-min practice', 'Game day sheet', 'Ball handling drills'];
+  }
+}
 
 function PlayerMsgItem({ msg }: { msg: { player_name: string; message: string; highlight: string; next_focus: string } }) {
   const [copied, setCopied] = useState(false);
@@ -3732,7 +3745,7 @@ export default function PlansPage() {
 
             {/* Generic suggestion chips */}
             <div className="flex flex-wrap gap-2">
-              {SUGGESTION_CHIPS.map((chip) => (
+              {getSuggestionChips(sportSlug).map((chip) => (
                 <button
                   key={chip}
                   onClick={() => handleChipClick(chip)}
