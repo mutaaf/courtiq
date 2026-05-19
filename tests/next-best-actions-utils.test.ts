@@ -215,11 +215,11 @@ describe('isGameSession', () => {
 // ── Gate ──────────────────────────────────────────────────────────────────────
 
 describe('hasSufficientDataForWins', () => {
-  it('returns true when ≥5 obs and ≥1 session', () => {
-    expect(hasSufficientDataForWins(5, 1)).toBe(true);
+  it('returns true when ≥1 session regardless of obs count', () => {
+    expect(hasSufficientDataForWins(0, 1)).toBe(true);
   });
-  it('returns false when fewer than 5 obs', () => {
-    expect(hasSufficientDataForWins(4, 1)).toBe(false);
+  it('returns true with 4 obs and 1 session', () => {
+    expect(hasSufficientDataForWins(4, 1)).toBe(true);
   });
   it('returns false when 0 sessions', () => {
     expect(hasSufficientDataForWins(10, 0)).toBe(false);
