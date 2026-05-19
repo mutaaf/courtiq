@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2, Star, Sparkles, Trophy, Share2, X, History } from 'lucide-react';
+import { Calendar, MapPin, Eye, Plus, Filter, Mic, ArrowRight, Loader2, Star, Sparkles, Trophy, Share2, X, History, Dumbbell, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { RecurringSessionsPanel } from '@/components/sessions/recurring-sessions-panel';
@@ -25,12 +25,12 @@ import {
   type ResultValue,
 } from '@/lib/season-record-utils';
 
-const SESSION_TYPE_CONFIG: Record<SessionType, { label: string; color: string }> = {
-  practice: { label: 'Practice', color: 'bg-blue-500/20 text-blue-400' },
-  game: { label: 'Game', color: 'bg-emerald-500/20 text-emerald-400' },
-  scrimmage: { label: 'Scrimmage', color: 'bg-purple-500/20 text-purple-400' },
-  tournament: { label: 'Tournament', color: 'bg-amber-500/20 text-amber-400' },
-  training: { label: 'Training', color: 'bg-orange-500/20 text-orange-400' },
+const SESSION_TYPE_CONFIG: Record<SessionType, { label: string; color: string; icon: any }> = {
+  practice: { label: 'Practice', color: 'bg-blue-500/20 text-blue-400', icon: Dumbbell },
+  game: { label: 'Game', color: 'bg-emerald-500/20 text-emerald-400', icon: Trophy },
+  scrimmage: { label: 'Scrimmage', color: 'bg-purple-500/20 text-purple-400', icon: Zap },
+  tournament: { label: 'Tournament', color: 'bg-amber-500/20 text-amber-400', icon: Star },
+  training: { label: 'Training', color: 'bg-orange-500/20 text-orange-400', icon: Sparkles },
 };
 
 const FILTER_OPTIONS: { value: SessionType | 'all'; label: string }[] = [
@@ -347,8 +347,9 @@ export default function SessionsPage() {
                       <div className="space-y-1.5 flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span
-                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${typeConfig.color}`}
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${typeConfig.color}`}
                           >
+                            <typeConfig.icon className="h-3 w-3 shrink-0" aria-hidden="true" />
                             {typeConfig.label}
                           </span>
                           {parsedResult && (
