@@ -48,6 +48,7 @@ import {
   VolumeX,
   Users,
   BookOpen,
+  Award,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Drill, Player, Session, Plan } from '@/types/database';
@@ -676,6 +677,21 @@ function BreakScreen({
 
 // ─── Done Screen ─────────────────────────────────────────────────────────────
 
+const BADGE_NAMES: Record<string, string> = {
+  first_star: '⭐ First Star',
+  team_player: '🤝 Team Player',
+  grinder: '💪 Grinder',
+  all_rounder: '🎯 All-Rounder',
+  breakthrough: '🚀 Breakthrough',
+  game_changer: '⚡ Game Changer',
+  session_regular: '📅 Session Regular',
+};
+
+interface EarnedBadge {
+  playerName: string;
+  badgeName: string;
+}
+
 function DoneScreen({
   drillsRun,
   notes,
@@ -690,6 +706,7 @@ function DoneScreen({
   saveSuccess,
   coachName,
   teamName,
+  newlyAwardedBadges,
 }: {
   drillsRun: QueueItem[];
   notes: CapturedNote[];
@@ -704,6 +721,7 @@ function DoneScreen({
   saveSuccess?: boolean;
   coachName?: string;
   teamName?: string;
+  newlyAwardedBadges?: EarnedBadge[];
 }) {
   const [rating, setRating] = useState<number>(0);
   const [ratingSaved, setRatingSaved] = useState(false);
@@ -1021,6 +1039,35 @@ function DoneScreen({
               </p>
             </div>
 
+            {/* Badge celebration — shown when players earned new badges this practice */}
+            {newlyAwardedBadges && newlyAwardedBadges.length > 0 && (
+              <div className="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <Award className="h-4 w-4 text-amber-400 shrink-0" />
+                  <p className="text-sm font-semibold text-amber-300">
+                    {newlyAwardedBadges.length === 1
+                      ? '1 player earned a badge!'
+                      : `${newlyAwardedBadges.length} badges earned this practice!`}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {newlyAwardedBadges.map((b, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1 rounded-lg bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 text-xs"
+                    >
+                      <span className="font-semibold text-amber-200">{b.playerName}</span>
+                      <span className="text-amber-500">·</span>
+                      <span className="text-amber-300">{b.badgeName}</span>
+                    </span>
+                  ))}
+                </div>
+                <p className="text-xs text-amber-500/70">
+                  Badges appear on their parent report card 🎉
+                </p>
+              </div>
+            )}
+
             {/* Quick parent update card — pre-built message, zero AI, instant display */}
             <div className="w-full rounded-xl border border-teal-500/30 bg-teal-500/10 p-4 space-y-3">
               <div className="flex items-center gap-2">
@@ -1158,6 +1205,7 @@ export default function PracticeTimerPage({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [newlyAwardedBadges, setNewlyAwardedBadges] = useState<EarnedBadge[]>([]);
   const [loadedPlanTitle, setLoadedPlanTitle] = useState<string | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [showSwapSheet, setShowSwapSheet] = useState(false);
@@ -1802,7 +1850,37 @@ export default function PracticeTimerPage({
       } catch { /* ignore */ }
       setSaveSuccess(true);
       setIsSaving(false);
-      // Coach sees success state with parent update card; navigates via "View Session & AI Debrief" button.
+
+      // Fire-and-forget: check badges for all observed players and surface any wins
+      const observedPlayerIds = [...new Set(notes.filter((n) => n.playerId).map((n) => n.playerId!))];
+      if (observedPlayerIds.length > 0) {
+        Promise.all(
+          observedPlayerIds.map(async (playerId) => {
+            try {
+              const res = await fetch('/api/player-achievements', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'check', player_id: playerId }),
+              });
+              if (!res.ok) return [];
+              const data = await res.json();
+              const awarded: any[] = data.newly_awarded ?? [];
+              if (awarded.length === 0) return [];
+              const playerName =
+                notes.find((n) => n.playerId === playerId)?.playerName ?? 'Player';
+              return awarded.map((b) => ({
+                playerName: playerName.split(' ')[0],
+                badgeName: BADGE_NAMES[b.badge_type] ?? b.badge_type,
+              }));
+            } catch {
+              return [];
+            }
+          })
+        ).then((results) => {
+          const all = (results as EarnedBadge[][]).flat();
+          if (all.length > 0) setNewlyAwardedBadges(all);
+        });
+      }
     } catch (err: any) {
       setSaveError(err.message || 'Failed to save observations');
       setIsSaving(false);
@@ -2083,6 +2161,7 @@ export default function PracticeTimerPage({
         saveSuccess={saveSuccess}
         coachName={coach?.full_name ?? undefined}
         teamName={activeTeam?.name ?? undefined}
+        newlyAwardedBadges={newlyAwardedBadges}
       />
     );
   }
