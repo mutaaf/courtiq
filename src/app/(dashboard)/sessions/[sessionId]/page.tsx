@@ -323,6 +323,10 @@ function SessionCoverageTracker({
   const observedIds = new Set(
     observations.filter((o) => o.player_id).map((o) => o.player_id)
   );
+  const obsCountByPlayer: Record<string, number> = {};
+  for (const o of observations) {
+    if (o.player_id) obsCountByPlayer[o.player_id] = (obsCountByPlayer[o.player_id] ?? 0) + 1;
+  }
   const unobserved = rosterPlayers.filter((p) => !observedIds.has(p.id));
   const observed = rosterPlayers.filter((p) => observedIds.has(p.id));
   const allCovered = unobserved.length === 0;
@@ -427,6 +431,7 @@ function SessionCoverageTracker({
                 >
                   <CheckCircle2 className="h-3 w-3" />
                   {player.name}
+                  <span className="text-emerald-600 text-[10px] tabular-nums">×{obsCountByPlayer[player.id] ?? 1}</span>
                 </span>
               ))}
             </div>
