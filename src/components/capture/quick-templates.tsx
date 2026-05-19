@@ -52,6 +52,15 @@ const TAB_LABELS: { value: TemplateSentiment; label: string; color: string; ring
   },
 ];
 
+// ── Recency helper (inline — avoids coupling to player-card) ─────────────────
+function fmtRecency(iso: string | null | undefined): { label: string; cls: string } {
+  if (!iso) return { label: 'never observed', cls: 'text-zinc-600' };
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (days === 0) return { label: 'seen today', cls: 'text-emerald-400' };
+  if (days < 7) return { label: `${days}d ago`, cls: 'text-amber-400' };
+  return { label: `${days}d ago`, cls: 'text-red-400' };
+}
+
 // ── Player picker bottom sheet ─────────────────────────────────────────────────
 
 interface PlayerPickerProps {
@@ -77,18 +86,37 @@ function PlayerPicker({
   const [savingId, setSavingId] = useState<string | null>(null);
   const [players, setPlayers] = useState<Player[] | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const [lastObsByPlayer, setLastObsByPlayer] = useState<Map<string, string>>(new Map());
 
   const sheetRef = useFocusTrap<HTMLDivElement>({ enabled: true, onEscape: onClose });
 
-  // Load players lazily when sheet opens
+  // Load players + latest observation date per player when sheet opens
   useState(() => {
-    query<Player[]>({
-      table: 'players',
-      select: 'id, name, jersey_number',
-      filters: { team_id: teamId, is_active: true },
-      order: { column: 'name', ascending: true },
-    })
-      .then((data) => setPlayers(data ?? []))
+    Promise.all([
+      query<Player[]>({
+        table: 'players',
+        select: 'id, name, jersey_number',
+        filters: { team_id: teamId, is_active: true },
+        order: { column: 'name', ascending: true },
+      }),
+      query<{ player_id: string; created_at: string }[]>({
+        table: 'observations',
+        select: 'player_id, created_at',
+        filters: { team_id: teamId },
+        order: { column: 'created_at', ascending: false },
+        limit: 500,
+      }),
+    ])
+      .then(([playersData, obsData]) => {
+        setPlayers(playersData ?? []);
+        if (obsData) {
+          const map = new Map<string, string>();
+          for (const obs of obsData) {
+            if (!map.has(obs.player_id)) map.set(obs.player_id, obs.created_at);
+          }
+          setLastObsByPlayer(map);
+        }
+      })
       .catch(() => setLoadError(true));
   });
 
@@ -208,13 +236,14 @@ function PlayerPicker({
             .map((player) => {
             const isSaving = savingId === player.id;
             const isPreselected = preselectPlayerId === player.id;
+            const recency = fmtRecency(lastObsByPlayer.get(player.id));
             return (
               <button
                 key={player.id}
                 onClick={() => save(player)}
                 disabled={!!savingId}
                 className={cn(
-                  'flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition-colors hover:bg-zinc-800/70 active:scale-[0.98] touch-manipulation disabled:opacity-60',
+                  'flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-zinc-800/70 active:scale-[0.98] touch-manipulation disabled:opacity-60',
                   isPreselected && 'border border-orange-500/40 bg-orange-500/8'
                 )}
               >
@@ -225,14 +254,17 @@ function PlayerPicker({
                 )}>
                   {player.jersey_number != null ? `#${player.jersey_number}` : '—'}
                 </div>
-                <span className={cn('flex-1 text-sm font-medium', isPreselected ? 'text-orange-200' : 'text-zinc-200')}>
-                  {player.name}
-                  {isPreselected && <span className="ml-2 text-xs text-orange-400/80">suggested</span>}
-                </span>
+                <div className="min-w-0 flex-1">
+                  <p className={cn('text-sm font-medium leading-tight', isPreselected ? 'text-orange-200' : 'text-zinc-200')}>
+                    {player.name}
+                    {isPreselected && <span className="ml-2 text-xs text-orange-400/80">suggested</span>}
+                  </p>
+                  <p className={cn('text-xs mt-0.5', recency.cls)}>{recency.label}</p>
+                </div>
                 {isSaving ? (
                   <Loader2 className="h-4 w-4 animate-spin text-orange-400" />
                 ) : (
-                  <ChevronRight className={cn('h-4 w-4', isPreselected ? 'text-orange-400' : 'text-zinc-600')} />
+                  <ChevronRight className={cn('h-4 w-4 shrink-0', isPreselected ? 'text-orange-400' : 'text-zinc-600')} />
                 )}
               </button>
             );
