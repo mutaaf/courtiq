@@ -97,6 +97,12 @@ export function DashboardShell({ coach, children }: Props) {
   const [selectedTemplate, setSelectedTemplate] = useState<ObservationTemplate | null>(null);
   const [practiceRoster, setPracticeRoster] = useState<{ id: string; name: string; jersey_number: number | null }[]>([]);
   const [savingQuick, setSavingQuick] = useState(false);
+  // Tracks players already observed in the current session so the picker can
+  // sort uncovered players to the front and dim covered ones.
+  const [coveredInSession, setCoveredInSession] = useState<Set<string>>(new Set());
+
+  // Clear coverage when a new session starts
+  useEffect(() => { setCoveredInSession(new Set()); }, [practiceSessionId]);
 
   // Identify the signed-in coach to PostHog so events tie to a person
   useEffect(() => {
@@ -150,15 +156,30 @@ export function DashboardShell({ coach, children }: Props) {
     return () => clearInterval(nudgeInterval);
   }, [practiceActive]);
 
-  // Load roster when mini-dropdown opens so the player picker is ready
+  // Load roster + current-session coverage when mini-dropdown opens.
+  // Uncovered players sort to the front of the picker so coaches notice gaps.
   useEffect(() => {
     if (!showPracticeMini || !activeTeam?.id) return;
-    query<{ id: string; name: string; jersey_number: number | null }[]>({
-      table: 'players',
-      select: 'id, name, jersey_number',
-      filters: { team_id: activeTeam.id, is_active: true },
-    }).then((data) => setPracticeRoster(data || []));
-  }, [showPracticeMini, activeTeam?.id]);
+    Promise.all([
+      query<{ id: string; name: string; jersey_number: number | null }[]>({
+        table: 'players',
+        select: 'id, name, jersey_number',
+        filters: { team_id: activeTeam.id, is_active: true },
+      }),
+      practiceSessionId
+        ? query<{ player_id: string }[]>({
+            table: 'observations',
+            select: 'player_id',
+            filters: { session_id: practiceSessionId },
+          })
+        : Promise.resolve([] as { player_id: string }[]),
+    ]).then(([roster, obs]) => {
+      setPracticeRoster(roster || []);
+      if (obs) {
+        setCoveredInSession(new Set((obs as { player_id: string }[]).map((o) => o.player_id)));
+      }
+    }).catch(() => {});
+  }, [showPracticeMini, activeTeam?.id, practiceSessionId]);
 
   // Reset mini-dropdown state when it closes
   useEffect(() => {
@@ -186,6 +207,7 @@ export function DashboardShell({ coach, children }: Props) {
           source: 'template',
         },
       });
+      setCoveredInSession((prev) => new Set([...prev, playerId]));
       setMiniStep('saved');
       // Auto-reset so coach can log another observation immediately
       setTimeout(() => {
@@ -491,19 +513,33 @@ export function DashboardShell({ coach, children }: Props) {
                 {practiceRoster.length === 0 ? (
                   <p className="w-full py-3 text-center text-xs text-zinc-500">Loading players…</p>
                 ) : (
-                  practiceRoster.map((p) => (
+                  [...practiceRoster]
+                    .sort((a, b) => {
+                      const aCov = coveredInSession.has(a.id);
+                      const bCov = coveredInSession.has(b.id);
+                      if (aCov === bCov) return 0;
+                      return aCov ? 1 : -1; // uncovered first
+                    })
+                    .map((p) => {
+                    const covered = coveredInSession.has(p.id);
+                    return (
                     <button
                       key={p.id}
                       onClick={() => saveQuickObservation(p.id)}
                       disabled={savingQuick}
-                      className="rounded-full bg-zinc-800 border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:border-orange-500/50 hover:text-orange-300 active:scale-95 touch-manipulation disabled:opacity-50"
+                      className={cn(
+                        'rounded-full bg-zinc-800 border px-3 py-1.5 text-xs text-zinc-300 hover:border-orange-500/50 hover:text-orange-300 active:scale-95 touch-manipulation disabled:opacity-50',
+                        covered ? 'border-zinc-700/40 opacity-50' : 'border-zinc-700'
+                      )}
                     >
+                      {covered && <span className="mr-1 text-emerald-400">✓</span>}
                       {p.jersey_number != null && (
                         <span className="mr-1 font-bold text-zinc-500">#{p.jersey_number}</span>
                       )}
                       {p.name.split(' ')[0]}
                     </button>
-                  ))
+                    );
+                  })
                 )}
               </div>
             )}
