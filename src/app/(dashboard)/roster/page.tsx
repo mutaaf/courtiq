@@ -28,6 +28,7 @@ export default function RosterPage() {
   const [search, setSearch] = useState('');
   const [positionFilter, setPositionFilter] = useState<string>('all');
   const [sortMode, setSortMode] = useState<SortMode>('alpha');
+  const [showUnobserved, setShowUnobserved] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -168,8 +169,15 @@ export default function RosterPage() {
     if (positionFilter !== 'all') {
       result = result.filter((p) => p.position === positionFilter);
     }
+    if (showUnobserved) {
+      const cutoff = Date.now() - 14 * 86_400_000;
+      result = result.filter((p) => {
+        const last = lastObsMap[p.id];
+        return !last || new Date(last).getTime() < cutoff;
+      });
+    }
     return result;
-  }, [players, search, positionFilter]);
+  }, [players, search, positionFilter, showUnobserved, lastObsMap]);
 
   const sorted = useMemo(() => {
     const result = [...filtered];
@@ -366,6 +374,17 @@ export default function RosterPage() {
                 <option value="momentum">By Momentum</option>
               </select>
             </div>
+            <button
+              onClick={() => setShowUnobserved((v) => !v)}
+              aria-pressed={showUnobserved}
+              className={`h-10 rounded-lg border px-3 text-sm font-medium transition-colors touch-manipulation ${
+                showUnobserved
+                  ? 'border-amber-500/50 bg-amber-500/15 text-amber-300'
+                  : 'border-zinc-700 bg-zinc-900 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600'
+              }`}
+            >
+              {showUnobserved ? '👁 Unobserved only' : 'Unobserved'}
+            </button>
           </div>
         </div>
       )}
