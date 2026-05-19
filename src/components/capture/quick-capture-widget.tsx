@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { Mic, X, CheckCircle2, Loader2, AlertCircle, Square, Zap, Keyboard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { findPlayerByName } from '@/lib/player-match';
@@ -696,9 +697,15 @@ export function QuickCaptureWidget() {
                         <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
                       </div>
                     ) : roster.length === 0 ? (
-                      <p className="py-3 text-center text-xs text-zinc-500">
-                        No active players on roster yet
-                      </p>
+                      <div className="py-4 text-center space-y-2">
+                        <p className="text-xs text-zinc-500">No active players on roster yet</p>
+                        <Link
+                          href="/roster/add"
+                          className="inline-block rounded-lg bg-orange-500/15 px-3 py-1.5 text-xs font-medium text-orange-400 hover:bg-orange-500/25 transition-colors"
+                        >
+                          Build your roster →
+                        </Link>
+                      </div>
                     ) : (
                       <div className="grid max-h-52 grid-cols-2 gap-1.5 overflow-y-auto pb-1">
                         {roster.map((player) => {
