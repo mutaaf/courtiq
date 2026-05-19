@@ -104,6 +104,20 @@ export default function CapturePage() {
   // Resolve the session ID for photo capture — prefer URL param, fall back to active practice
   const resolvedSessionId = urlSessionId ?? (practiceActive ? practiceSessionId : null);
 
+  // Fetch session metadata when entering capture during an active practice (no URL session param)
+  const { data: activePracticeMeta } = useQuery<{ date: string; type: string } | null>({
+    queryKey: ['capture-active-session-meta', practiceSessionId],
+    queryFn: () =>
+      query<{ date: string; type: string }[]>({
+        table: 'sessions',
+        select: 'date, type',
+        filters: { id: practiceSessionId! },
+        limit: 1,
+      }).then((r) => r?.[0] ?? null),
+    enabled: !!practiceSessionId && practiceActive && !urlSessionId,
+    staleTime: 10 * 60_000,
+  });
+
   // Fetch player's recent observations for coaching brief when player is pre-selected
   const since30d = useMemo(() => new Date(Date.now() - 30 * 86_400_000).toISOString(), []);
   const { data: playerRecentObs } = useQuery({
@@ -804,6 +818,23 @@ export default function CapturePage() {
               {urlPlayerName
                 ? <>Capturing for <span className="font-semibold text-blue-200">{urlPlayerName}</span> · linked to session</>
                 : 'Observations will be linked to your session'}
+            </p>
+          </div>
+        )}
+
+        {/* Active practice banner — shown when practice is running but no session URL param */}
+        {practiceActive && practiceSessionId && !urlSessionId && (
+          <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <p className="text-sm text-emerald-300">
+              Active practice
+              {activePracticeMeta && (
+                <> · <span className="font-semibold text-emerald-200">
+                  {activePracticeMeta.type.charAt(0).toUpperCase() + activePracticeMeta.type.slice(1)}{' '}·{' '}
+                  {new Date(activePracticeMeta.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </span></>
+              )}
+              {' '}— observations will link automatically
             </p>
           </div>
         )}
