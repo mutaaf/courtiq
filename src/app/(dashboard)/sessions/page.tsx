@@ -381,6 +381,16 @@ export default function SessionsPage() {
                               vs {session.opponent}
                             </span>
                           )}
+                          {sessionDaysAgo === 0 && (
+                            <span className="inline-flex items-center rounded-full bg-orange-500/20 px-2 py-0.5 text-xs font-semibold text-orange-400">
+                              Today
+                            </span>
+                          )}
+                          {sessionDaysAgo === 1 && (
+                            <span className="inline-flex items-center rounded-full bg-zinc-700/50 px-2 py-0.5 text-xs font-semibold text-zinc-400">
+                              Yesterday
+                            </span>
+                          )}
                           {session.curriculum_week && (
                             <Badge variant="secondary">
                               Week {session.curriculum_week}
