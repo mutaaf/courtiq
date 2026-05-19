@@ -3995,10 +3995,13 @@ export default function SessionDetailPage() {
 
         {observations?.length === 0 ? (
           <Card>
-            <CardContent className="flex flex-col items-center justify-center py-8">
+            <CardContent className="flex flex-col items-center justify-center py-8 text-center">
               <MessageSquare className="h-10 w-10 text-zinc-600 mb-3" />
-              <p className="text-sm text-zinc-400">No observations yet</p>
-              <Link href={`/capture?sessionId=${sessionId}`} className="mt-3">
+              <p className="text-sm font-medium text-zinc-300">No observations yet</p>
+              <p className="text-xs text-zinc-500 mt-1 max-w-[220px]">
+                Watch practice and note standout moments — skills to reinforce or areas to work on.
+              </p>
+              <Link href={`/capture?sessionId=${sessionId}`} className="mt-4">
                 <Button variant="outline" size="sm">
                   <Mic className="h-4 w-4" />
                   Start capturing
