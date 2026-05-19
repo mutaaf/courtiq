@@ -664,6 +664,10 @@ export default function PlayerDetailPage({
     enabled: activeTab === 'overview',
   });
 
+  const daysSinceLastObs = observations.length > 0
+    ? Math.floor((Date.now() - new Date(observations[0].created_at).getTime()) / 86_400_000)
+    : null;
+
   // Category breakdown
   const categoryBreakdown = observations.reduce<Record<string, number>>((acc, obs) => {
     acc[obs.category] = (acc[obs.category] || 0) + 1;
@@ -1414,6 +1418,21 @@ export default function PlayerDetailPage({
                 &ldquo;{player.nickname}&rdquo;
               </p>
             )}
+            <p className={`mt-1 flex items-center gap-1 text-xs ${
+              daysSinceLastObs === null ? 'text-zinc-600' :
+              daysSinceLastObs === 0 ? 'text-emerald-400' :
+              daysSinceLastObs >= 7 ? 'text-amber-400' :
+              'text-zinc-500'
+            }`}>
+              <Clock className="h-3 w-3 shrink-0" />
+              {daysSinceLastObs === null
+                ? 'No observations yet'
+                : daysSinceLastObs === 0
+                ? 'Observed today'
+                : daysSinceLastObs === 1
+                ? 'Observed yesterday'
+                : `Last observed ${daysSinceLastObs}d ago`}
+            </p>
             {photoError && (
               <p className="mt-1 text-xs text-red-400">{photoError}</p>
             )}
