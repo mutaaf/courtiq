@@ -35,6 +35,37 @@ export function PrePracticeSnapshotCard({
     []
   );
 
+  const since90d = useMemo(
+    () => new Date(Date.now() - 90 * 86_400_000).toISOString(),
+    []
+  );
+
+  const { data: lastObsAll = [] } = useQuery({
+    queryKey: ['pre-practice-last-obs', teamId],
+    queryFn: () =>
+      query<{ player_id: string; created_at: string }[]>({
+        table: 'observations',
+        select: 'player_id, created_at',
+        filters: {
+          team_id: teamId,
+          player_id: { op: 'neq', value: null },
+          created_at: { op: 'gte', value: since90d },
+        },
+        order: { column: 'created_at', ascending: false },
+        limit: 500,
+      }).then((r) => r ?? []),
+    staleTime: 10 * 60_000,
+    enabled: !!teamId,
+  });
+
+  const lastObsMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const o of lastObsAll) {
+      if (o.player_id && !map[o.player_id]) map[o.player_id] = o.created_at;
+    }
+    return map;
+  }, [lastObsAll]);
+
   const { data: recentObs } = useQuery({
     queryKey: ['pre-practice-obs', teamId],
     queryFn: async () =>
@@ -81,7 +112,14 @@ export function PrePracticeSnapshotCard({
     const neglected = rosterPlayers
       .filter((p) => !observedIds.has(p.id))
       .slice(0, 3)
-      .map((p) => p.jersey_number != null ? `#${p.jersey_number}` : p.name.split(' ')[0]);
+      .map((p) => {
+        const display = p.jersey_number != null ? `#${p.jersey_number}` : p.name.split(' ')[0];
+        const lastIso = lastObsMap[p.id];
+        const days = lastIso
+          ? Math.floor((Date.now() - new Date(lastIso).getTime()) / 86_400_000)
+          : null;
+        return { display, days };
+      });
 
     if (!topGapEntry && neglected.length === 0) return null;
 
@@ -97,7 +135,7 @@ export function PrePracticeSnapshotCard({
       : null;
 
     return { topGap, neglected };
-  }, [recentObs, rosterPlayers]);
+  }, [recentObs, rosterPlayers, lastObsMap]);
 
   if (!snapshot) return null;
 
@@ -124,9 +162,19 @@ export function PrePracticeSnapshotCard({
             <Eye className="h-3 w-3 shrink-0 text-zinc-500" />
             Watch:{' '}
             <span className="text-zinc-200 font-medium">
-              {snapshot.neglected.join(', ')}
+              {snapshot.neglected.map((p, i) => (
+                <span key={i}>
+                  {i > 0 && <span className="text-zinc-600"> · </span>}
+                  {p.display}
+                  {p.days != null && (
+                    <span className="text-zinc-500 font-normal ml-0.5">({p.days}d)</span>
+                  )}
+                  {p.days == null && (
+                    <span className="text-zinc-500 font-normal ml-0.5">(new)</span>
+                  )}
+                </span>
+              ))}
             </span>
-            <span className="text-zinc-600 ml-1">· 14d unobserved</span>
           </div>
         )}
       </div>
