@@ -1420,7 +1420,7 @@ export default function HomePage() {
         <WeeklyFocusCard teamId={activeTeam.id} />
       )}
 
-      {!practiceActive && activeTeam && stats && stats.observations >= 5 && stats.sessions >= 1 && (
+      {!practiceActive && activeTeam && stats && stats.sessions >= 1 && (
         <QuickWinsCard
           teamId={activeTeam.id}
           lastSession={lastSession ?? null}
