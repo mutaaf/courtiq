@@ -131,7 +131,7 @@ export default function SessionsPage() {
       }
       const data = await query<any[]>({
         table: 'sessions',
-        select: 'id, type, date, start_time, location, opponent, result, curriculum_week, quality_rating, coach_debrief_text, coach_debrief_extracts, observations:observations(count)',
+        select: 'id, type, date, start_time, end_time, location, opponent, result, curriculum_week, quality_rating, coach_debrief_text, coach_debrief_extracts, observations:observations(count)',
         filters,
         order: { column: 'date', ascending: false },
       });
@@ -210,6 +210,18 @@ export default function SessionsPage() {
     const ampm = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour % 12 || 12;
     return `${displayHour}:${m} ${ampm}`;
+  }
+
+  function formatSessionDuration(startTime: string | null, endTime: string | null): string | null {
+    if (!startTime || !endTime) return null;
+    const [sh, sm] = startTime.split(':').map(Number);
+    const [eh, em] = endTime.split(':').map(Number);
+    const totalMins = (eh * 60 + em) - (sh * 60 + sm);
+    if (totalMins <= 0) return null;
+    if (totalMins < 60) return `${totalMins} min`;
+    const hours = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    return mins === 0 ? `${hours}h` : `${hours}h ${mins}m`;
   }
 
   return (
@@ -377,6 +389,11 @@ export default function SessionsPage() {
                             {session.start_time && (
                               <span className="ml-1">
                                 at {formatTime(session.start_time)}
+                              </span>
+                            )}
+                            {formatSessionDuration(session.start_time, session.end_time) && (
+                              <span className="ml-1 text-zinc-600">
+                                · {formatSessionDuration(session.start_time, session.end_time)}
                               </span>
                             )}
                           </span>
