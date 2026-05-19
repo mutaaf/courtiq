@@ -1698,6 +1698,18 @@ export default function PlayerDetailPage({
 
       {activeTab === 'observations' && (
         <div className="space-y-3">
+          {/* Section header with persistent capture CTA */}
+          {observations.length > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-zinc-500">{observations.length} observation{observations.length !== 1 ? 's' : ''}</span>
+              <Link href={`/capture?playerId=${playerId}`}>
+                <Button size="sm" variant="outline" className="h-7 gap-1.5 border-orange-500/40 text-orange-400 hover:bg-orange-500/10 text-xs px-2.5">
+                  <Plus className="h-3.5 w-3.5" />
+                  Capture
+                </Button>
+              </Link>
+            </div>
+          )}
           {/* Filter bar */}
           {observations.length > 0 && (() => {
             const uniqueCategories = Array.from(new Set(observations.map((o) => o.category).filter(Boolean))).sort();
