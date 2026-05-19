@@ -3829,6 +3829,12 @@ export default function SessionDetailPage() {
           {quickShareState === 'shared' ? '✓ Sent!' : quickShareState === 'copied' ? '✓ Copied!' : '⚡ Quick Update'}
         </button>
         <button
+          onClick={() => document.getElementById('observations-section')?.scrollIntoView({ behavior: 'smooth' })}
+          className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-orange-500/50 hover:text-orange-400 transition-colors touch-manipulation active:scale-95"
+        >
+          📋 Observations
+        </button>
+        <button
           onClick={() => document.getElementById('ai-debrief-section')?.scrollIntoView({ behavior: 'smooth' })}
           className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-orange-500/50 hover:text-orange-400 transition-colors touch-manipulation active:scale-95"
         >
@@ -3958,7 +3964,7 @@ export default function SessionDetailPage() {
       )}
 
       {/* Observations */}
-      <div className="space-y-3">
+      <div id="observations-section" className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-orange-500" />

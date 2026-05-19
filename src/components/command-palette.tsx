@@ -16,6 +16,7 @@ import {
   Settings,
   ArrowRight,
   Loader2,
+  Eye,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
@@ -50,9 +51,10 @@ const QUICK_ACTIONS: CommandItem[] = [
   { id: 'action-capture',  label: 'Capture Observation', group: 'actions', href: '/capture',  icon: Mic },
   { id: 'action-assistant',label: 'Open AI Assistant',   group: 'actions', href: '/assistant',icon: Sparkles },
   { id: 'action-roster',   label: 'View Roster',         group: 'actions', href: '/roster',   icon: Users },
-  { id: 'action-sessions', label: 'View Sessions',       group: 'actions', href: '/sessions', icon: Calendar },
-  { id: 'action-plans',    label: 'View Plans',          group: 'actions', href: '/plans',    icon: ClipboardList },
-  { id: 'action-analytics',label: 'View Analytics',      group: 'actions', href: '/analytics',icon: BarChart3 },
+  { id: 'action-sessions',     label: 'View Sessions',         group: 'actions', href: '/sessions',     icon: Calendar },
+  { id: 'action-observations', label: 'View All Observations', group: 'actions', href: '/observations', icon: Eye, keywords: 'feed log history search filter' },
+  { id: 'action-plans',        label: 'View Plans',            group: 'actions', href: '/plans',        icon: ClipboardList },
+  { id: 'action-analytics',    label: 'View Analytics',        group: 'actions', href: '/analytics',    icon: BarChart3 },
   { id: 'action-drills',   label: 'Drill Library',       group: 'actions', href: '/drills',   icon: Dumbbell },
   { id: 'action-settings', label: 'Settings',            group: 'actions', href: '/settings', icon: Settings },
 ];
