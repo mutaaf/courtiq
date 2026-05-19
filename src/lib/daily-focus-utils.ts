@@ -7,6 +7,7 @@ export interface PlayerObsSummary {
   sentiment: string;
   category: string;
   created_at: string;
+  text?: string;
 }
 
 export interface SkillTrendSummary {
