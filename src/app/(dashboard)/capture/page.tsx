@@ -154,7 +154,8 @@ export default function CapturePage() {
     const ageMs = Date.now() - new Date(lastObs.created_at).getTime();
     const ageDays = Math.floor(ageMs / 86_400_000);
     const ageLabel = ageDays === 0 ? 'Today' : ageDays === 1 ? 'Yesterday' : `${ageDays}d ago`;
-    return { lastObs, topNeedsWork, ageLabel };
+    const obsCount30d = playerRecentObs.length;
+    return { lastObs, topNeedsWork, ageLabel, obsCount30d };
   }, [playerRecentObs]);
 
   // Cleanup on unmount
@@ -865,7 +866,10 @@ export default function CapturePage() {
                 <p className={`text-sm leading-snug ${playerCoachingBrief.lastObs.sentiment === 'positive' ? 'text-emerald-300' : playerCoachingBrief.lastObs.sentiment === 'needs-work' ? 'text-amber-300' : 'text-zinc-300'}`}>
                   {playerCoachingBrief.lastObs.text.length > 72 ? playerCoachingBrief.lastObs.text.slice(0, 72) + '…' : playerCoachingBrief.lastObs.text}
                 </p>
-                <p className="text-[11px] text-zinc-500 mt-0.5">{playerCoachingBrief.ageLabel}</p>
+                <p className="text-[11px] text-zinc-500 mt-0.5">
+                  {playerCoachingBrief.ageLabel}
+                  <span className="ml-1.5 text-zinc-600">· {playerCoachingBrief.obsCount30d} obs (30d)</span>
+                </p>
               </div>
             </div>
             {playerCoachingBrief.topNeedsWork && (
