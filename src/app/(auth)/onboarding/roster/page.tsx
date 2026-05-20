@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, X, Loader2, AlertCircle, Users, ListChecks, Sparkles, ArrowRight, Camera, Check } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
+import { parseRosterPaste } from '@/lib/roster-paste-utils';
 
 type ImportMode = 'one-by-one' | 'paste' | 'photo';
 
@@ -123,10 +124,7 @@ export default function RosterSetupPage() {
     setPlayers(players.map((p, j) => j === i ? { ...p, pronunciation: val } : p));
   }
 
-  const parsedPasteNames = pasteText
-    .split('\n')
-    .map(l => l.trim())
-    .filter(l => l.length >= 2 && l.length <= 60);
+  const { names: parsedPasteNames } = parseRosterPaste(pasteText);
 
   async function save(
     rows: { name: string; name_variants?: string[] }[],
