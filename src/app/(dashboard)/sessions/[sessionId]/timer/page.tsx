@@ -123,6 +123,7 @@ import {
   matchesCategoryFilter,
   getCategoryIcon,
   hasMultipleCategories,
+  computeTopGapCategories,
 } from '@/lib/drill-category-utils';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -1942,17 +1943,10 @@ export default function PracticeTimerPage({
   }, [drills, drillSearch, showFavoritesOnly, selectedCategory, favoriteIds, activeTeam?.id]);
 
   // ── Skill-gap categories (top 3 needs-work) ─────────────────────────────
-  const gapCategories = useMemo(() => {
-    if (!needsWorkObs.length) return [] as string[];
-    const counts: Record<string, number> = {};
-    for (const obs of needsWorkObs) {
-      if (obs.category) counts[obs.category] = (counts[obs.category] ?? 0) + 1;
-    }
-    return Object.entries(counts)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 3)
-      .map(([cat]) => cat);
-  }, [needsWorkObs]);
+  const gapCategories = useMemo(
+    () => computeTopGapCategories(needsWorkObs, 3),
+    [needsWorkObs],
+  );
 
   // ── Skill-gap drill suggestions for the empty queue screen ───────────────
   // Uses already-fetched needsWorkObs + drills — no extra API call.
@@ -2741,7 +2735,7 @@ export default function PracticeTimerPage({
                 <Input
                   placeholder="Search drills…"
                   value={drillSearch}
-                  onChange={(e) => { setDrillSearch(e.target.value); setShowFavoritesOnly(false); }}
+                  onChange={(e) => { setDrillSearch(e.target.value); setShowFavoritesOnly(false); setSelectedCategory(null); }}
                   className="pl-9 h-9 text-sm bg-zinc-800 border-zinc-700"
                   autoFocus
                 />

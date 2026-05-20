@@ -13,6 +13,7 @@ import {
   getAllCategoryLabels,
   getGapCategoryChips,
   countTotalDrillsInChips,
+  computeTopGapCategories,
   type CategoryChip,
 } from '@/lib/drill-category-utils';
 
@@ -326,5 +327,69 @@ describe('countTotalDrillsInChips', () => {
 
   it('returns 0 for empty chips', () => {
     expect(countTotalDrillsInChips([])).toBe(0);
+  });
+});
+
+// ── computeTopGapCategories ───────────────────────────────────────────────────
+
+describe('computeTopGapCategories', () => {
+  it('returns top categories by observation count', () => {
+    const obs = [
+      { category: 'Dribbling' },
+      { category: 'Dribbling' },
+      { category: 'Dribbling' },
+      { category: 'Passing' },
+      { category: 'Passing' },
+      { category: 'Shooting' },
+    ];
+    const result = computeTopGapCategories(obs, 2);
+    expect(result[0]).toBe('Dribbling');
+    expect(result[1]).toBe('Passing');
+    expect(result).toHaveLength(2);
+  });
+
+  it('defaults to top 3 when limit omitted', () => {
+    const obs = [
+      { category: 'A' },
+      { category: 'B' },
+      { category: 'C' },
+      { category: 'D' },
+    ];
+    expect(computeTopGapCategories(obs)).toHaveLength(3);
+  });
+
+  it('returns empty array when no observations', () => {
+    expect(computeTopGapCategories([])).toEqual([]);
+  });
+
+  it('skips observations with null or missing category', () => {
+    const obs = [
+      { category: null },
+      { category: undefined },
+      { category: 'Dribbling' },
+    ];
+    const result = computeTopGapCategories(obs);
+    expect(result).toEqual(['Dribbling']);
+  });
+
+  it('returns fewer than limit when not enough distinct categories', () => {
+    const obs = [{ category: 'Dribbling' }, { category: 'Passing' }];
+    const result = computeTopGapCategories(obs, 5);
+    expect(result).toHaveLength(2);
+  });
+
+  it('preserves the original category string (no normalization)', () => {
+    const obs = [{ category: 'dribbling' }, { category: 'dribbling' }];
+    expect(computeTopGapCategories(obs)[0]).toBe('dribbling');
+  });
+
+  it('handles limit of 1', () => {
+    const obs = [
+      { category: 'Passing' },
+      { category: 'Dribbling' },
+      { category: 'Dribbling' },
+    ];
+    const result = computeTopGapCategories(obs, 1);
+    expect(result).toEqual(['Dribbling']);
   });
 });

@@ -133,6 +133,22 @@ export function getCategoryIcon(category: string): string {
 
 // ── Utility ───────────────────────────────────────────────────────────────────
 
+// Extract the top N skill-gap categories from a list of needs-work observations.
+// Matches the component-side gapCategories memo so the logic is tested.
+export function computeTopGapCategories(
+  observations: { category?: string | null }[],
+  limit = 3,
+): string[] {
+  const counts: Record<string, number> = {};
+  for (const obs of observations) {
+    if (obs.category) counts[obs.category] = (counts[obs.category] ?? 0) + 1;
+  }
+  return Object.entries(counts)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, limit)
+    .map(([cat]) => cat);
+}
+
 export function hasMultipleCategories(drills: { category: string }[]): boolean {
   return extractCategories(drills).length > 1;
 }
