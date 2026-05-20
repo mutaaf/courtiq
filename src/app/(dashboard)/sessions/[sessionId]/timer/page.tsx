@@ -1051,9 +1051,9 @@ function DoneScreen({
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {newlyAwardedBadges.map((b, i) => (
+                  {newlyAwardedBadges.map((b) => (
                     <span
-                      key={i}
+                      key={`${b.playerName}-${b.badgeName}`}
                       className="inline-flex items-center gap-1 rounded-lg bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 text-xs"
                     >
                       <span className="font-semibold text-amber-200">{b.playerName}</span>
