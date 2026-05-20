@@ -1111,6 +1111,7 @@ export default function HomePage() {
                       <button
                         key={p.id}
                         onClick={() => { setQoPlayer(p); setQoSentiment('positive'); setQoTemplate(null); setQoText(''); }}
+                        aria-label={`Quick observe ${p.name}`}
                         className="inline-flex items-center gap-1 rounded-full border border-orange-500/30 bg-orange-500/10 px-2.5 py-1 text-xs font-medium text-orange-300 hover:bg-orange-500/20 transition-colors touch-manipulation active:scale-95"
                       >
                         {label}
@@ -1591,6 +1592,7 @@ export default function HomePage() {
         onClose={() => setShowDebrief(false)}
       />
     )}
+
     </>
   );
 }
