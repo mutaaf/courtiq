@@ -1,7 +1,7 @@
 ---
 id: 0002
 title: End-to-end checkout flow test — upgrade → pay → tier unlocks features
-status: in-progress
+status: shipped
 priority: P0
 area: billing
 created: 2026-05-20
@@ -115,3 +115,9 @@ contract, the AC intent is preserved):
 the documented Node-25-environmental reds (`use-local-storage` `localStorage.clear is not a function`,
 `player-of-match` `Apr 27` vs `Apr 28`, and jsdom 5s render timeouts in `command-palette`/`recording-button`/
 `screen-reader-accessibility`/`weekly-wrap`); none touch Stripe/webhook/me/tier. CI (Node 20) arbitrates.
+
+### 2026-05-20 — implementation-dev — shipped
+
+- PR #213 merged to `main` (squash, auto-merge) with both gating checks green on CI Node 20:
+  `lint` pass (1m17s), `unit-tests` pass (1m12s). The local Node-25 environmental reds did not appear on CI,
+  exactly as LESSONS.md predicted. Status → `shipped` via the standard follow-up chore PR (mirrors 0001's #212).
