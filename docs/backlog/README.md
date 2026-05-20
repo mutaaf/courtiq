@@ -76,7 +76,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0001 | Stripe webhook signature verification on the live endpoint | P0 | groomed | billing |
+| 0001 | Stripe webhook signature verification on the live endpoint | P0 | shipped | billing |
 | 0002 | End-to-end checkout flow test — upgrade → pay → tier unlocks features | P0 | groomed | billing |
 | 0003 | Cancellation flow test — cancel → webhook → downgrade at period end | P0 | groomed | billing |
 | 0004 | Payment-failure handling — failed payment → past_due → warning banner | P0 | groomed | billing |
