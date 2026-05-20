@@ -43,7 +43,11 @@ jobs:
   e2e-tests:
     runs-on: ubuntu-latest
     needs: [unit-tests]
-    if: github.ref == 'refs/heads/main'
+    # Gating check on PRs to main (and on pushes to main/develop).
+    # Branch protection on `main` should list `e2e-tests` as a required check
+    # alongside `lint` and `unit-tests`. Configure via:
+    #   gh api repos/{owner}/{repo}/branches/main/protection --method PUT ...
+    # or via the GitHub UI: Settings → Branches → main → Require status checks.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -80,7 +84,7 @@ jobs:
             curl -s http://localhost:3000 > /dev/null && break
             sleep 1
           done
-      - run: npm run test:e2e || true
+      - run: npm run test:e2e
         env:
           E2E_BASE_URL: http://localhost:3000
       - uses: actions/upload-artifact@v4
