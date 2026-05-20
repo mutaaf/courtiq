@@ -433,6 +433,9 @@ NO code changes needed — it's all env-var driven.
 ### P61 — Player-Focused Capture UX
 - [x] **Show player name on capture page when tapped from coverage grid** — when a coach taps a player chip (e.g. "#7 Marcus") in the Live Coverage Grid during active practice, the capture page now shows "Capturing for Marcus · linked to session" in the context banner, a blue "Capturing for Marcus" chip below the recording button while recording, and "What did Marcus do?" as the quick-note placeholder; on mobile (<640px) the quick-note field auto-opens so the coach can type immediately without a second tap; zero new API routes, DB tables, or utility modules — 31-line change to `src/app/(dashboard)/capture/page.tsx` (`urlPlayerName` state + UUID-heuristic parse + three UI render points); closes the "I tapped a player but can't tell if the page registered the right one" friction in the core observation loop
 
+### P62 — Weekly Parent Update UX
+- [x] **Editable weekly parent update message in WeeklyWrapCard** — the home-dashboard "This Week's Update" card previously showed a 3-line truncated preview and sent a pre-built message coaches had never fully read; coaches now see the complete auto-generated message in the card with a ✏️ pencil button; tapping it opens a full editable textarea so coaches can personalise the player shoutout, adjust the tone, or remove anything that doesn't fit before sending; "Done editing" collapses the textarea; "Send to Parents" and "Copy" both use the edited text; data has a 10-min staleTime so the editable buffer is never refreshed during an active editing session; also installs `vitest` in `node_modules` (was in `package.json` but missing from `node_modules`, causing recurring "Cannot find type definition file for vitest/globals" TypeScript error on fresh checkouts); `Pencil` + `CheckCheck` icons added; zero new API routes, DB tables, or utility modules; PR #56
+
 ---
 
 ## Architecture Rules
