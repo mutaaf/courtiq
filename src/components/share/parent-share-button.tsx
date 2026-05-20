@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Share2, Check, X } from 'lucide-react';
+import { buildParentShareMessage, getFirstName } from '@/lib/parent-share-utils';
 
 interface ParentShareButtonProps {
   playerName: string;
@@ -18,22 +19,10 @@ export function ParentShareButton({
 }: ParentShareButtonProps) {
   const [state, setState] = useState<'idle' | 'shared' | 'dismissed'>('idle');
 
-  const firstName = playerName.split(' ')[0] || playerName;
-
-  function buildShareMessage(): string {
-    const parts: string[] = [];
-    parts.push(`${firstName}'s progress report is in! 🎉`);
-    if (coachName && teamName) {
-      parts.push(`Coach ${coachName.split(' ')[0]} from ${teamName} just sent an update.`);
-    } else if (teamName) {
-      parts.push(`${teamName} sent a coaching update.`);
-    }
-    parts.push(`See how ${firstName} is doing: ${shareUrl}`);
-    return parts.join(' ');
-  }
+  const firstName = getFirstName(playerName);
 
   async function handleShare() {
-    const msg = buildShareMessage();
+    const msg = buildParentShareMessage({ playerName, teamName, coachName, shareUrl });
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({ text: msg, url: shareUrl });
