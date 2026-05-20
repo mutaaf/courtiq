@@ -1162,6 +1162,7 @@ export default function PracticeTimerPage({
             name: src.warmup.name,
             durationSecs: Math.max(60, (src.warmup.duration_minutes ?? 5) * 60),
             cues: [],
+            category: 'warmup',
             description: src.warmup.description || '',
           });
         }
@@ -1172,6 +1173,7 @@ export default function PracticeTimerPage({
             name: d.name,
             durationSecs: Math.max(60, (d.duration_minutes ?? 10) * 60),
             cues: Array.isArray(d.coaching_cues) ? d.coaching_cues : [],
+            category: d.category || undefined,
             description: d.description || '',
           });
         });
@@ -1182,6 +1184,7 @@ export default function PracticeTimerPage({
             name: src.scrimmage.focus ? `Scrimmage: ${src.scrimmage.focus}` : 'Scrimmage',
             durationSecs: Math.max(60, src.scrimmage.duration_minutes * 60),
             cues: [],
+            category: 'scrimmage',
             description: '',
           });
         }
@@ -1192,6 +1195,7 @@ export default function PracticeTimerPage({
             name: 'Cool Down',
             durationSecs: Math.max(60, src.cooldown.duration_minutes * 60),
             cues: [],
+            category: 'cooldown',
             description: src.cooldown.notes || '',
           });
         }
@@ -1329,7 +1333,8 @@ export default function PracticeTimerPage({
   useEffect(() => {
     const drill = queueRef.current[currentIdx];
     if (mode === 'running' && drill) {
-      const firstCue = drill.cues[0] || getPhraseByIndex(drill.category, activeTeam?.sport_id, 0) || undefined;
+      const sportSlug = (coach as any)?.organization?.sport_config?.default_sport_slug || '';
+      const firstCue = drill.cues[0] || getPhraseByIndex(drill.category, sportSlug, 0) || undefined;
       speakRef.current(buildDrillAnnouncement(drill.name, drill.durationSecs, firstCue));
     } else if (mode === 'break') {
       speakRef.current(buildBreakAnnouncement());
@@ -1619,6 +1624,7 @@ export default function PracticeTimerPage({
       name: d.name,
       durationSecs: d.durationMins * 60,
       cues: d.cues,
+      category: (d as any).category || undefined,
       description: d.description,
     }));
     setQueue(items);
@@ -1689,8 +1695,9 @@ export default function PracticeTimerPage({
     const progress = drill
       ? ((drill.durationSecs - timeLeft) / drill.durationSecs) * 100
       : 0;
+    const sportSlug = (coach as any)?.organization?.sport_config?.default_sport_slug || '';
     const currentCue = drill?.cues[cueIdx] ||
-      getPhraseByIndex(drill?.category, activeTeam?.sport_id, cueIdx) ||
+      getPhraseByIndex(drill?.category || 'hustle', sportSlug, cueIdx) ||
       undefined;
     const isLowTime = timeLeft <= 30 && timeLeft > 0;
 

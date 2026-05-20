@@ -300,6 +300,11 @@ const GENERIC_PHRASES: Record<string, string[]> = {
     "Stay goal-side and force them away from where they want to go",
     "Communicate defensive assignments — talk constantly",
   ],
+  cooldown: [
+    "Great work today — finish strong with this cool-down",
+    "Light movement and deep breaths — let your body recover",
+    "Reflect on one thing you did well and one thing to improve",
+  ],
 };
 
 /**
