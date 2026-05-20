@@ -43,7 +43,13 @@ jobs:
   e2e-tests:
     runs-on: ubuntu-latest
     needs: [unit-tests]
-    if: github.ref == 'refs/heads/main'
+    # Informational on PRs (no Supabase running in CI → data-dependent specs
+    # fail). Gating-check promotion is pending docs/backlog/0006 (seed a local
+    # Supabase + test data so PR runs are meaningful). Until that ships:
+    #   - PR runs: this job runs and may show red — that's expected.
+    #   - main pushes: same. Red e2e on main is not a deploy blocker.
+    # When 0006 lands: remove `|| true` from `npm run test:e2e` and re-add
+    # `e2e-tests` to branch protection's required_status_checks.contexts.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

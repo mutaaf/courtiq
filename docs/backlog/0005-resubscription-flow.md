@@ -1,0 +1,63 @@
+---
+id: 0005
+title: Resubscription flow — free user re-upgrades after cancellation
+status: groomed
+priority: P0
+area: billing
+created: 2026-05-20
+owner: product-groomer
+---
+
+## User story
+
+As a coach who cancelled my Coach subscription mid-summer and is now starting a new season, I want to re-upgrade through the same `/settings/upgrade` flow — and have SportsIQ recognize me as an existing Stripe customer (no duplicate customer record), reactivate features the moment Stripe confirms the new subscription, and surface my old observations and players exactly as I left them — all covered by an automated test, so that the most natural re-revenue path can't silently double-charge or fail to unlock.
+
+## Why now (four lenses)
+
+### Product Owner
+Resubscription is the most common revenue path after the initial upgrade. The user already has a `stripe_customer_id` on their `organizations` row from their prior subscription; the checkout flow must reuse it rather than minting a new customer (which would orphan their billing history and risk a duplicate charge if Stripe tries to reconcile). Today the code likely handles this correctly (`createSession` passes `customer: existing_id` when present) but there's no test that proves it.
+
+### Stakeholder
+Off-season cancellation and pre-season resubscription is the natural cadence for youth-sports coaching. Coaches go dormant for 3-6 months, then come back for the next sport season. The resubscription loop is where the LTV multiplier lives. Breaking it is breaking the entire seasonal business model.
+
+### User (at 5:45pm on a Tuesday in late August, about to start fall season)
+The coach signs back in. Their old roster is still there (ticket 0003 protected the data on cancellation). They tap Upgrade. Stripe Checkout opens, recognizes their saved card, charges $9.99, and within seconds report cards / parent sharing / Practice Arc work again — same data, same observations, same Practice Arc continuity. This is the high-trust moment. If anything stutters here, they churn permanently.
+
+### Growth
+Conservatively, 30-50% of cancellers within a youth-sports calendar cycle will re-upgrade for the next season if the UX is frictionless. This ticket is what makes "frictionless" provable.
+
+## Acceptance criteria
+
+Each box maps 1:1 to a vitest test scenario.
+
+- [ ] POST `/api/stripe/create-checkout` for a coach whose `organizations.stripe_customer_id` is non-null calls `stripe.checkout.sessions.create()` with `customer: <existing_id>` (NOT `customer_email`, NOT undefined).
+- [ ] POST `/api/stripe/create-checkout` for a coach whose `organizations.stripe_customer_id` is null calls `stripe.checkout.sessions.create()` with `customer_email: <coach.email>` (no customer id), and on a subsequent `customer.subscription.created` webhook the new `stripe_customer_id` is persisted back to `organizations`.
+- [ ] After a resubscription's `customer.subscription.created` webhook fires for an org currently in `plan: 'free'` + `subscription_status: 'canceled'`, the org returns to `plan: 'coach'` + `subscription_status: 'active'`.
+- [ ] Resubscription does NOT create a second `organizations` row, does NOT create a second `stripe_customer_id`, and does NOT clear or duplicate the org's existing `observations` / `players` / `teams` / `practice_sessions` rows.
+- [ ] After resubscription, `canAccess(orgId, 'report_cards')` returns `true` immediately on the next `/api/me` call (cache invalidation must not mask the re-upgrade — same constraint as 0002).
+- [ ] If the coach attempts to resubscribe while still `subscription_status: 'past_due'`, the checkout route returns 409 with a message directing them to the Billing Portal to settle the prior balance first (Stripe will not let us create a second sub on an unpaid customer anyway; we should fail fast with a clear error).
+- [ ] Resubscription to a different tier than the cancelled one (e.g. cancelled Coach, re-upgrade to Pro) works: `plan = 'pro'` after the webhook, `canAccess(orgId, 'org_analytics')` is still false (Pro doesn't include Org features), `canAccess(orgId, 'analytics')` is now true.
+
+## Out of scope
+
+- Discount codes / promo for resubscribers. Separate growth ticket if we want to add a "welcome back" offer.
+- Email outreach to lapsed coaches. Out of scope for this technical ticket; that's a marketing automation question.
+- Migrating data from a different account (e.g. a coach who signed up with a different email). Cross-account merge is intentionally not supported.
+- Annual-billing tier on resubscription. The same handler covers both billing periods; this ticket asserts monthly to keep the test surface bounded.
+
+## Engineering notes
+
+- `src/app/api/stripe/create-checkout/route.ts` — confirm the route reads `organizations.stripe_customer_id` for the caller's org, and branches `customer` vs `customer_email` accordingly. If today's code uses `customer_email` unconditionally, that's a bug — fix it as part of this ticket and call it out in the implementation log.
+- `src/app/api/stripe/webhook/route.ts` — confirm the `customer.subscription.created` branch persists `stripe_customer_id` to `organizations` when the org previously had `null`. Should already work; verify.
+- `tests/stripe/resubscription.spec.ts` (new) — vitest spec. Drive both the customer-already-exists and the customer-is-null paths. Drive the upgrade-to-different-tier path. Assert on the row-count invariants (no duplicate orgs, no duplicated observations).
+- `tests/stripe/checkout-flow.spec.ts` (from ticket 0002) — extend with the past-due 409 case so we don't have to mock the same setup twice.
+- `tests/db/data-preservation.spec.ts` (new or extend) — assert that the cancel → resubscribe cycle preserves at least one row in `observations`, `players`, `teams`, `practice_sessions` for the test org. This is the data-trust guarantee.
+- New deps: none.
+- Migration needed: no.
+- Env vars needed: none beyond 0001.
+- AI prompt change: no.
+- Tier feature key: no.
+
+## Implementation log
+
+(Appended by the implementation-dev agent during execution.)
