@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Send, X, Copy, Check, MessageSquare, Pencil, CheckCheck } from 'lucide-react';
 import { query } from '@/lib/api';
@@ -44,7 +44,7 @@ export function WeeklyWrapCard({
   const [dismissed, setDismissed] = useState(false);
   const [shareState, setShareState] = useState<'idle' | 'copied' | 'sent'>('idle');
   const [editMode, setEditMode] = useState(false);
-  const [editedMessage, setEditedMessage] = useState('');
+  const [editedMessage, setEditedMessage] = useState<string | null>(null);
 
   const cutoff7 = useMemo(() => getCutoffIso(7), []);
 
@@ -145,12 +145,6 @@ export function WeeklyWrapCard({
     };
   }, [rawObs, recentSessions, players, teamId, teamName, coachName, totalPlayerCount, topPlayerId]);
 
-  // Sync the editable buffer when the computed message becomes available or refreshes.
-  // Data has a 10-min staleTime so this never fires during an active editing session.
-  useEffect(() => {
-    if (message) setEditedMessage(message);
-  }, [message]);
-
   if (!hasData || alreadyDismissed || dismissed) return null;
 
   function handleDismiss() {
@@ -158,9 +152,14 @@ export function WeeklyWrapCard({
     setDismissed(true);
   }
 
+  function handleOpenEdit() {
+    if (editedMessage === null) setEditedMessage(message);
+    setEditMode(true);
+  }
+
   async function handleShare() {
     setEditMode(false);
-    const textToSend = editedMessage || message;
+    const textToSend = editedMessage ?? message;
     if (navigator.share) {
       try {
         await navigator.share({ text: textToSend });
@@ -177,7 +176,7 @@ export function WeeklyWrapCard({
   }
 
   async function handleCopy() {
-    const textToSend = editedMessage || message;
+    const textToSend = editedMessage ?? message;
     try {
       await navigator.clipboard.writeText(textToSend);
     } catch {
@@ -196,7 +195,7 @@ export function WeeklyWrapCard({
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wider text-violet-400">
-            This Week&#39;s Update
+            This Week's Update
           </p>
           <p className="text-sm font-bold text-zinc-100 mt-0.5 leading-snug">
             Send a quick update to parent group chat
@@ -237,7 +236,7 @@ export function WeeklyWrapCard({
       {editMode ? (
         <div className="space-y-2">
           <textarea
-            value={editedMessage}
+            value={editedMessage ?? ''}
             onChange={(e) => setEditedMessage(e.target.value)}
             rows={9}
             aria-label="Edit parent update message"
@@ -257,10 +256,10 @@ export function WeeklyWrapCard({
             Parent update · tap ✏️ to personalise
           </p>
           <p className="text-xs text-zinc-300 leading-relaxed whitespace-pre-wrap line-clamp-4">
-            {editedMessage || preview}
+            {editedMessage ?? preview}
           </p>
           <button
-            onClick={() => setEditMode(true)}
+            onClick={handleOpenEdit}
             className="absolute top-2 right-2 rounded-md p-1.5 text-zinc-600 hover:text-violet-400 hover:bg-violet-500/10 transition-colors touch-manipulation"
             aria-label="Edit message before sending"
           >
