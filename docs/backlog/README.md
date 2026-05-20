@@ -81,6 +81,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | 0003 | Cancellation flow test — cancel → webhook → downgrade at period end | P0 | groomed | billing |
 | 0004 | Payment-failure handling — failed payment → past_due → warning banner | P0 | groomed | billing |
 | 0005 | Resubscription flow — free user re-upgrades after cancellation | P0 | groomed | billing |
+| 0006 | Harden e2e-tests for PR-gating (seed Supabase, restore as required check) | P0 | groomed | infra |
 
 ## Hand-off discipline
 

@@ -143,7 +143,10 @@ Grade the PR against:
   • Lessons in docs/LESSONS.md (don't re-approve a pattern a past lesson
     warned against).
 
-CI judgement: only "lint", "unit-tests", and "e2e-tests" gate a merge.
+CI judgement: only "lint" and "unit-tests" gate a merge today. "e2e-tests"
+is informational until ticket 0006 (Harden e2e-tests for PR-gating) ships —
+a red e2e-tests is expected and must NOT trigger a request-changes. Once
+0006 ships, e2e-tests becomes a third gating check.
 A red "Vercel" / "Vercel Preview Comments" check is informational — NEVER
 request changes over it.
 

@@ -82,9 +82,12 @@ PHASE 1 — Tend the in-flight PR (self-healing). This phase REPLACES any
   If non-empty, tend the LOWEST-numbered one (the oldest); call it PR #N on
   branch B. Diagnose it:
 
-  Gating checks are EXACTLY these three (everything else, including Vercel and
-  "Vercel Preview Comments", is informational and MUST be ignored):
-      "lint", "unit-tests", "e2e-tests"
+  Gating checks are EXACTLY these two (until ticket 0006 hardens e2e-tests
+  for PR-gating, e2e-tests is INFORMATIONAL like Vercel — a red e2e is
+  expected and must not be "healed"):
+      "lint", "unit-tests"
+  (e2e-tests, Vercel, "Vercel Preview Comments", and the nightly jobs are
+  all informational. Ignore them when deciding mergeability or recovery.)
 
   Decide and act (do exactly ONE healing action, then exit — never heal AND ship
   in the same run):
@@ -100,14 +103,8 @@ PHASE 1 — Tend the in-flight PR (self-healing). This phase REPLACES any
             Run the command for the FAILING gating check:
               "lint"        → npm run lint && npx tsc --noEmit
               "unit-tests"  → npx vitest run
-              "e2e-tests"   → npx playwright install --with-deps chromium
-                              (then) npm run build  (with the dummy env vars
-                              from .github/workflows/ci.yml's e2e-tests job)
-                              (then) npm start &  and  npm run test:e2e
-                              If reproducing E2E locally is impractical (port
-                              5432 in use, etc.), read the failing run's
-                              playwright-report artifact and infer the root
-                              cause from there.
+            (e2e-tests is informational until 0006 ships — do NOT attempt to
+            reproduce or heal a red e2e-tests check.)
           Read the real failure. Make the MINIMUM fix that addresses the root
           cause. Never weaken/skip a test to make it pass. Re-run the failing
           gate locally until green. Commit as:
@@ -136,8 +133,9 @@ PHASE 1 — Tend the in-flight PR (self-healing). This phase REPLACES any
         mid-flight and healthy. Print "PR #N in-flight (checks running) — waiting"
         and exit.
 
-  (e) Else (all three gating checks green, mergeStateStatus CLEAN, not yet
-        merged) → make sure auto-merge is actually enabled:
+  (e) Else (both gating checks green — lint + unit-tests — mergeStateStatus
+        CLEAN, not yet merged; a red e2e-tests is fine and expected until 0006
+        ships) → make sure auto-merge is actually enabled:
           gh pr merge N --auto --squash
         Print "PR #N healthy, auto-merge armed — waiting" and exit.
 

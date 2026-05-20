@@ -14,7 +14,7 @@ This file is the contract for any AI agent (Claude, GPT, etc.) or human contribu
 
 These are not opinions, they're the product:
 
-1. **No regressions allowed.** Every change passes `npm run lint`, `npx tsc --noEmit`, and `npx vitest run` locally before commit. PRs must also pass `e2e-tests` (chromium) on GitHub Actions. Branch protection enforces the three gating checks — never bypass it.
+1. **No regressions allowed.** Every change passes `npm run lint`, `npx tsc --noEmit`, and `npx vitest run` locally before commit. Branch protection on `main` enforces `lint` and `unit-tests` as the gating checks. `e2e-tests` runs on every PR but is **informational** until `docs/backlog/0006` (Harden e2e-tests for PR-gating) ships — see that ticket for the promotion plan. Never bypass branch protection.
 2. **Children's data is the contract, not a feature.** SportsIQ is COPPA-compliant by construction. Signups require age 13+, the privacy page lives at `/privacy`, and we collect the minimum data needed to coach a youth team. No "let's also capture X for analytics" — if you find yourself adding a tracking field on a player record, stop.
 3. **Service-role on the server, helper-functions on the client.** API routes use `createServiceSupabase()` (which bypasses RLS). Client code uses `query()` / `mutate()` from `src/lib/api.ts` — never `createClient()` for DB reads. The only sanctioned client-Supabase call is `supabase.auth.signOut()`.
 4. **Every AI call goes through `callAI()` / `callAIWithJSON()`.** Multi-provider abstraction in `src/lib/ai/client.ts` resolves Anthropic / OpenAI / Gemini per-org. Every call is logged to `ai_interactions` for quota enforcement. Never `import Anthropic from '@anthropic-ai/sdk'` directly in a route — that breaks tier limits and provider failover.
@@ -48,7 +48,7 @@ All three agents run **locally** via your `claude` CLI, so they run against your
 
 Each handoff is gated:
 - **Dev → Reviewer**: Dev opens the PR with `gh pr merge --auto --squash`. GitHub holds the merge.
-- **Reviewer → merge**: branch protection requires three checks green — `lint`, `unit-tests`, and `e2e-tests` (chromium). The local reviewer agent posts a `--comment` sign-off (informational) or a `--request-changes` review which **blocks** the auto-merge. Because the reviewer runs as the repo owner (same identity as the PR author), GitHub forbids self-approval — we use the request-changes path as the blocker instead of approval as the unblocker.
+- **Reviewer → merge**: branch protection requires `lint` and `unit-tests` green (and `e2e-tests` once 0006 ships; until then it runs informationally). The local reviewer agent posts a `--comment` sign-off (informational) or a `--request-changes` review which **blocks** the auto-merge. Because the reviewer runs as the repo owner (same identity as the PR author), GitHub forbids self-approval — we use the request-changes path as the blocker instead of approval as the unblocker.
 - **merge → deploy**: Vercel watches the GitHub repo; every push to `main` triggers a production deploy automatically.
 
 **Gating vs non-gating checks.** Only the three checks named above gate a merge. Every other status — including `Vercel`, `Vercel Preview Comments`, and the nightly AI-contract job — is informational. A red Vercel check never blocks a merge and is never a reason to "fix" a PR. (See `docs/LESSONS.md`.)
@@ -188,7 +188,7 @@ Never push to `main` directly. Never bypass branch protection. Never disable a p
 
 - **Unit / contract**: `vitest` under `tests/`. Run with `npx vitest run`. Includes the AI contract suite under `tests/ai/` (validates prompts produce structurally-correct output across providers — nightly).
 - **E2E**: `@playwright/test` under `e2e/`. Run with `npx playwright test`. Currently chromium-only on PR gate; mobile-webkit can be added later as it stabilizes.
-- **CI**: see `.github/workflows/ci.yml`. Three jobs: `lint` (lint + tsc), `unit-tests` (vitest), `e2e-tests` (playwright + Next.js build). All three gate PRs to `main`. Branch protection on `main` must list all three as required status checks (the workflow file alone doesn't enforce it; configure via GitHub UI or `gh api ... /branches/main/protection`).
+- **CI**: see `.github/workflows/ci.yml`. Three jobs: `lint` (lint + tsc), `unit-tests` (vitest), `e2e-tests` (playwright + Next.js build). `lint` + `unit-tests` gate PRs to `main`; `e2e-tests` runs informationally until ticket 0006 hardens its setup (currently fails because CI has no Supabase + no seed data). Branch protection lists the required checks on the server; the workflow file alone doesn't enforce gating.
 - **Auto-merge**: see `.github/workflows/auto-merge.yml`. Flips drafts to ready and arms squash auto-merge. Auto-merge waits on the three gating checks; a request-changes review from the Reviewer agent blocks it.
 
 ## Running locally

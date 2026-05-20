@@ -14,15 +14,14 @@ The goal is compounding: a problem solved once should never cost a full debuggin
 
 ## Gating vs non-gating CI checks (load-bearing — read before judging mergeability)
 
-Branch protection gates merges on exactly these three checks:
+Branch protection currently gates merges on TWO checks:
 
 - `lint`
 - `unit-tests`
-- `e2e-tests` (Playwright chromium)
 
-**Every other check is informational and must be ignored when deciding whether a PR can merge** — including `Vercel`, `Vercel Preview Comments`, and the nightly `ai-contract-validation` / `full-test-suite` jobs. A red Vercel check never blocks a merge and is never a reason to "fix" anything.
+`e2e-tests` runs on every PR (no longer main-only) but is **informational** (`npm run test:e2e || true`) because CI has no Supabase instance — data-dependent specs like `share-flow.spec.ts` fail expecting seeded rows. The promotion-to-gating work lives in ticket `docs/backlog/0006`. When that ships, remove `|| true` from `ci.yml` and add `e2e-tests` back to `required_status_checks.contexts` on `main`.
 
-**Setup note**: as of 2026-05-20 the `e2e-tests` job is wired to run on PRs (previously main-only) and to fail-block on a red Playwright run (previously `|| true`). Branch protection settings on `main` must list `e2e-tests` as a required status check; if it isn't, the auto-merge will fire on `lint` + `unit-tests` green alone. Verify with: `gh api repos/{owner}/{repo}/branches/main/protection --jq '.required_status_checks.contexts'`.
+**Every other check is informational and must be ignored when deciding whether a PR can merge** — including `Vercel`, `Vercel Preview Comments`, the nightly `ai-contract-validation` / `full-test-suite` jobs, and (for now) `e2e-tests`. A red Vercel or e2e-tests check never blocks a merge today and is never a reason to "fix" anything except as work scoped under ticket 0006.
 
 ## Entries
 
@@ -31,5 +30,5 @@ Branch protection gates merges on exactly these three checks:
 - 2026-05-13 [legacy-agent] The previous single-agent loop included `git push origin main` in its prompt, which silently failed against branch protection for weeks → branch protection on `main` blocks direct pushes from any non-bypass identity → autonomous agents MUST use `git push -u origin HEAD` to a `feat/<ticket-id>-<slug>` branch and `gh pr create --fill`, never push to main.
 - 2026-05-20 [ship] Single-PR-at-a-time gate without a healing phase causes one stuck PR to freeze ALL shipping → if step 1 exits whenever any `feat/` PR is open, a `BEHIND` or red PR no one tends will block the backlog indefinitely → tend the PR FIRST (rebase BEHIND, recover red gating check, wait if healthy) and only ship a new ticket when nothing's stuck.
 - 2026-05-20 [ship] A PR with all gating checks green still won't auto-merge and shows `mergeStateStatus: BEHIND` → branch protection requires the branch to be up to date with `main`, and nothing rebases it automatically → run `gh pr update-branch <n>`; CI re-runs on the new merge commit and auto-merge fires when green.
-- 2026-05-20 [ship] `Vercel` check reports FAILURE but the PR is otherwise mergeable → Vercel is NOT a branch-protection gating check → ignore its state entirely when deciding mergeability or whether to attempt a fix. Only `lint`, `unit-tests`, and `e2e-tests` gate.
-- 2026-05-20 [infra] The `e2e-tests` job was promoted from main-only (with `|| true` swallowing failures) to a PR-gating check that actually fails CI on red Playwright → the job runs with dummy Supabase + Stripe env vars (see `.github/workflows/ci.yml`) and may be flaky until the test setup is hardened → expect early agent PRs to hit red E2E; the ship agent's healing phase should attempt up to 2 recoveries per PR before posting a human-escalation comment.
+- 2026-05-20 [ship] `Vercel` check reports FAILURE but the PR is otherwise mergeable → Vercel is NOT a branch-protection gating check → ignore its state entirely when deciding mergeability or whether to attempt a fix. Only `lint` and `unit-tests` gate (and `e2e-tests` once 0006 ships).
+- 2026-05-20 [infra] First attempt to promote `e2e-tests` to a PR-gating check failed: PR #209 ran the suite without Supabase + without seeded data, and `share-flow.spec.ts` failed expecting "Alice Walker" / "E2E Test Team" rows that don't exist → CI's dummy env vars (`localhost:54321` for Supabase, `dummy` for Stripe) make data-dependent specs structurally unrunnable → reverted to `|| true` informational mode; gating promotion now lives in ticket 0006 (Harden e2e-tests for PR-gating). Do NOT re-promote until that ticket lands.
