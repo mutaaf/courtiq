@@ -1,7 +1,7 @@
 ---
 id: 0003
 title: Cancellation flow test — cancel → webhook → downgrade at period end
-status: groomed
+status: in-progress
 priority: P0
 area: billing
 created: 2026-05-20
@@ -60,4 +60,38 @@ Each box maps 1:1 to a vitest test scenario.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+### 2026-05-20 — implementation-dev (in-progress)
+
+Picked up ticket 0003. Branch `feat/0003-cancellation-flow-test`. Marked in-progress in
+frontmatter + the `README.md` index row.
+
+Reconciliations of the ticket's groomer-shorthand against the REAL contract (verified by
+reading `src/types/database.ts`, `src/lib/tier.ts`, `src/app/api/stripe/webhook/route.ts`,
+`src/app/api/me/route.ts`, `src/hooks/use-tier.ts`, and
+`src/components/layout/dashboard-shell.tsx`):
+
+- **Column is `organizations.tier`, not `plan`.** There is no `plan` column. The webhook
+  writes `tier`; `/api/me` selects `tier`. Tests assert on `tier`.
+- **`canAccess(tier: Tier, feature)` takes a TIER STRING, not an orgId.** Tests drive it with
+  the tier produced by the live chain (the org row the webhook mutated), honoring the AC's
+  intent that `report_cards` is granted while active+cancel-at-period-end and denied once
+  downgraded to free.
+- **All three billing columns already exist** in `database.ts` (`cancel_at_period_end`,
+  `current_period_end`, `subscription_status`). No migration needed (ticket confirmed this).
+- **Banner reconciliation:** the real banner in `dashboard-shell.tsx` formats the date with
+  `toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })` (e.g.
+  "Jun 1, 2026"), NOT literal "MM/DD", and its CTA links to `/settings/upgrade` (the in-app
+  upgrade/resubscribe surface), NOT a distinct "Billing Portal route". The component test
+  asserts the REAL rendered date + the real CTA href; the ticket's "MM/DD" / "Billing Portal"
+  wording is groomer shorthand for "the period-end date" / "the billing surface".
+- **Test filenames:** the ticket names `*.spec.ts` / `*.spec.tsx`, but `vitest.config.ts`
+  excludes `**/*.spec.ts` (reserved for Playwright). Created the vitest files as
+  `tests/stripe/cancellation-flow.test.ts` and
+  `tests/components/dashboard-shell-cancel-banner.test.tsx` so they actually gate.
+- **Idempotency approach:** the `customer.subscription.deleted` mutation is naturally
+  idempotent — it sets `tier='free'`, `subscription_status='canceled'`,
+  `cancel_at_period_end=false`, `stripe_subscription_id=null`. The first delivery nulls
+  `stripe_subscription_id`, so a replay's `organizations.select().eq('stripe_subscription_id',
+  sub.id).single()` lookup no longer matches any row and the handler writes nothing further
+  (and never errors). The test asserts the replay returns 200, performs no second mutation,
+  and leaves all related-row counts unchanged.
