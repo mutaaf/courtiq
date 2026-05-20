@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
+import { resolveInsertedId, buildQuickGamePayload, quickGameDestination, type QuickGameType } from '@/lib/quick-game-utils';
 import { useElapsedTime } from '@/hooks/use-elapsed-time';
 import { shouldShowWrapUpNudge } from '@/lib/elapsed-time-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -409,9 +410,10 @@ export default function HomePage() {
   const queryClient = useQueryClient();
   const [showDebrief, setShowDebrief] = useState(false);
   const [showGameQuickStart, setShowGameQuickStart] = useState(false);
-  const [gameType, setGameType] = useState<'game' | 'scrimmage' | 'tournament'>('game');
+  const [gameType, setGameType] = useState<QuickGameType>('game');
   const [gameOpponent, setGameOpponent] = useState('');
   const [startingGame, setStartingGame] = useState(false);
+  const [gameError, setGameError] = useState(false);
 
   const hasAIKeys = (() => {
     if (aiPlatformAvailable) return true;
@@ -486,28 +488,25 @@ export default function HomePage() {
   async function quickStartGame() {
     if (!activeTeam || !coach || startingGame) return;
     setStartingGame(true);
+    setGameError(false);
     try {
       const session = await mutate<{ id: string }>({
         table: 'sessions',
         operation: 'insert',
-        data: {
-          team_id: activeTeam.id,
-          coach_id: coach.id,
-          type: gameType,
-          date: new Date().toISOString().split('T')[0],
-          opponent: gameOpponent.trim() || null,
-          notes: 'Quick-start game session',
-        },
+        data: buildQuickGamePayload(activeTeam.id, coach.id, gameType, gameOpponent),
         select: 'id',
       });
-      const id = Array.isArray(session) ? (session as any)[0]?.id : session?.id;
+      const id = resolveInsertedId(session);
       if (id) {
         queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all(activeTeam.id) });
-        // Go straight to game tracker for games; session detail for scrimmage/tournament
-        router.push(gameType === 'game' ? `/sessions/${id}/game-tracker` : `/sessions/${id}`);
+        router.push(quickGameDestination(gameType, id));
+      } else {
+        setGameError(true);
       }
     } catch (err) {
       console.warn('Failed to create game session:', err);
+      setGameError(true);
+    } finally {
       setStartingGame(false);
     }
   }
@@ -929,7 +928,7 @@ export default function HomePage() {
                   <span className="text-sm font-semibold text-blue-300">Quick Game Start</span>
                 </div>
                 <button
-                  onClick={() => { setShowGameQuickStart(false); setGameOpponent(''); setGameType('game'); }}
+                  onClick={() => { setShowGameQuickStart(false); setGameOpponent(''); setGameType('game'); setGameError(false); }}
                   className="rounded-full p-1 text-zinc-500 hover:text-zinc-300 transition-colors touch-manipulation"
                   aria-label="Close"
                 >
@@ -975,6 +974,10 @@ export default function HomePage() {
                   <><Trophy className="h-4 w-4" />Go Live</>
                 )}
               </button>
+
+              {gameError && (
+                <p className="text-xs text-red-400 text-center">Couldn&apos;t create session — please try again.</p>
+              )}
             </div>
           )}
         </div>
