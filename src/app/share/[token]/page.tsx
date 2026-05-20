@@ -4,6 +4,12 @@ import { ParentViralCTA } from '@/components/share/parent-viral-cta';
 import { ParentReactionForm } from '@/components/share/parent-reaction-form';
 import { CalendarDays, Megaphone, MessageCircle } from 'lucide-react';
 import {
+  SESSION_EMOJI,
+  SESSION_LABEL,
+  formatSessionDate,
+  isCompetitiveSession,
+} from '@/lib/upcoming-session-utils';
+import {
   buildSeasonStats,
   getImprovingSkills,
   formatCategoryLabel,
@@ -462,50 +468,6 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     nextChallenge = typeof area === 'string' ? area : area.skill || area.description || area.name || String(area);
   }
 
-  // Upcoming sessions helpers
-  const SESSION_EMOJI: Record<string, string> = {
-    practice: '🏀',
-    game: '🏆',
-    scrimmage: '⚔️',
-    tournament: '🥇',
-    training: '💪',
-  };
-  const SESSION_LABEL: Record<string, string> = {
-    practice: 'Practice',
-    game: 'Game',
-    scrimmage: 'Scrimmage',
-    tournament: 'Tournament',
-    training: 'Training',
-  };
-
-  function formatSessionDate(dateStr: string, timeStr: string | null): string {
-    const d = new Date(`${dateStr}T12:00:00`); // noon to avoid TZ-shift date-off-by-one
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-    const sessionDay = new Date(d);
-    sessionDay.setHours(0, 0, 0, 0);
-
-    let dayLabel: string;
-    if (sessionDay.getTime() === today.getTime()) {
-      dayLabel = 'Today';
-    } else if (sessionDay.getTime() === tomorrow.getTime()) {
-      dayLabel = 'Tomorrow';
-    } else {
-      dayLabel = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-    }
-
-    if (!timeStr) return dayLabel;
-
-    // timeStr is "HH:MM:SS" or "HH:MM"
-    const [hh, mm] = timeStr.split(':').map(Number);
-    const period = hh >= 12 ? 'PM' : 'AM';
-    const hour12 = hh % 12 || 12;
-    const minPart = mm > 0 ? `:${String(mm).padStart(2, '0')}` : '';
-    return `${dayLabel} · ${hour12}${minPart} ${period}`;
-  }
-
   const safeUpcomingSessions: Array<{
     id: string; type: string; date: string; start_time: string | null;
     location: string | null; opponent: string | null;
@@ -679,7 +641,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-gray-800">
                       {SESSION_LABEL[s.type] ?? s.type}
-                      {(s.type === 'game' || s.type === 'scrimmage' || s.type === 'tournament') && s.opponent
+                      {isCompetitiveSession(s.type) && s.opponent
                         ? <span className="font-normal text-gray-600"> vs. {s.opponent}</span>
                         : null}
                     </p>
