@@ -4,6 +4,12 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  formatPlayerChipLabel,
+  getUnobservedPlayers,
+  countUnobservedPlayers,
+  hasAllPlayersObserved,
+} from '@/lib/capture-coverage-utils';
 import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -109,9 +115,15 @@ export default function ReviewPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const unobservedPlayers = useMemo(() => {
-    if (!sessionObservedIds || !rosterPlayers) return [];
-    return rosterPlayers.filter((p) => !sessionObservedIds.has(p.id)).slice(0, 4);
+  const { unobservedChips, unobservedTotal, allObserved } = useMemo(() => {
+    if (!sessionObservedIds || !rosterPlayers) {
+      return { unobservedChips: [], unobservedTotal: 0, allObserved: false };
+    }
+    return {
+      unobservedChips: getUnobservedPlayers(rosterPlayers, sessionObservedIds),
+      unobservedTotal: countUnobservedPlayers(rosterPlayers, sessionObservedIds),
+      allObserved: hasAllPlayersObserved(rosterPlayers, sessionObservedIds),
+    };
   }, [sessionObservedIds, rosterPlayers]);
 
   const isApiKeyError = (msg: string): boolean => {
@@ -475,33 +487,35 @@ export default function ReviewPage() {
               </div>
             )}
 
-            {/* Next player to observe — shown during active sessions */}
-            {sessionId && unobservedPlayers.length > 0 && (
+            {/* Unobserved player chips — shown during active sessions */}
+            {sessionId && unobservedChips.length > 0 && (
               <div className="space-y-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                  Not yet observed this session
+                  Not yet observed this session ({unobservedTotal})
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {unobservedPlayers.map((p) => {
-                    const label = p.jersey_number != null
-                      ? `#${p.jersey_number} ${p.name.split(' ')[0]}`
-                      : p.name.split(' ')[0];
-                    return (
-                      <Link
-                        key={p.id}
-                        href={`/capture?sessionId=${sessionId}&playerId=${p.id}&player=${encodeURIComponent(p.name)}`}
-                      >
-                        <span className="inline-flex items-center rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-xs font-medium text-orange-300 hover:bg-orange-500/20 transition-colors touch-manipulation active:scale-95">
-                          {label} →
-                        </span>
-                      </Link>
-                    );
-                  })}
+                  {unobservedChips.map((p) => (
+                    <Link
+                      key={p.id}
+                      href={`/capture?sessionId=${sessionId}&playerId=${p.id}&player=${encodeURIComponent(p.name)}`}
+                    >
+                      <span className="inline-flex items-center rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-xs font-medium text-orange-300 hover:bg-orange-500/20 transition-colors touch-manipulation active:scale-95">
+                        {formatPlayerChipLabel(p.name, p.jersey_number)} →
+                      </span>
+                    </Link>
+                  ))}
+                  {unobservedTotal > unobservedChips.length && (
+                    <Link href={`/sessions/${sessionId}`}>
+                      <span className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 transition-colors touch-manipulation active:scale-95">
+                        +{unobservedTotal - unobservedChips.length} more
+                      </span>
+                    </Link>
+                  )}
                 </div>
               </div>
             )}
 
-            {sessionId && unobservedPlayers.length === 0 && rosterPlayers && rosterPlayers.length > 0 && (
+            {sessionId && allObserved && rosterPlayers && rosterPlayers.length > 0 && (
               <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
                 <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                 <span>Every player observed this session — great coverage!</span>
