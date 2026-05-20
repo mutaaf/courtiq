@@ -1,7 +1,7 @@
 ---
 id: 0002
 title: End-to-end checkout flow test — upgrade → pay → tier unlocks features
-status: groomed
+status: in-progress
 priority: P0
 area: billing
 created: 2026-05-20
@@ -61,4 +61,8 @@ Each box maps 1:1 to a vitest test scenario.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+### 2026-05-20 — implementation-dev — picked up
+
+- Branch `feat/0002-checkout-flow-test`. Status → `in-progress`.
+- This is a test-addition ticket: the checkout/webhook/tier surface already exists. Goal is to wire the
+  whole chain under one vitest spec and only make the minimum code change a failing test reveals.
