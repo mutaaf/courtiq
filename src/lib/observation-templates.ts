@@ -53,3 +53,40 @@ export function getTemplatesBySentiment(
 export function findTemplateById(id: string): ObservationTemplate | undefined {
   return OBSERVATION_TEMPLATES.find((t) => t.id === id);
 }
+
+export interface QuickObsPayload {
+  team_id: string;
+  org_id: string | null;
+  player_name: string;
+  player_id: string;
+  session_id: string;
+  text: string;
+  sentiment: TemplateSentiment;
+  category: string;
+  source: 'template';
+}
+
+interface QuickObsParams {
+  template: ObservationTemplate;
+  player: { id: string; name: string };
+  sentiment: TemplateSentiment;
+  sessionId: string;
+  teamId: string;
+  orgId?: string | null;
+}
+
+/** Build the DB payload for a quick-observe template save. Pure, testable, no side effects. */
+export function buildQuickObsPayload(params: QuickObsParams): QuickObsPayload {
+  const { template, player, sentiment, sessionId, teamId, orgId } = params;
+  return {
+    team_id: teamId,
+    org_id: orgId ?? null,
+    player_name: player.name,
+    player_id: player.id,
+    session_id: sessionId,
+    text: template.text,
+    sentiment,
+    category: template.category,
+    source: 'template',
+  };
+}

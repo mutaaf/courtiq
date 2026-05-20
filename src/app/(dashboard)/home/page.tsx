@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { query, mutate } from '@/lib/api';
 import { useElapsedTime } from '@/hooks/use-elapsed-time';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { shouldShowWrapUpNudge } from '@/lib/elapsed-time-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,7 +30,7 @@ import {
   Check,
   Loader2,
 } from 'lucide-react';
-import { OBSERVATION_TEMPLATES, getTemplatesBySentiment } from '@/lib/observation-templates';
+import { getTemplatesBySentiment, findTemplateById, buildQuickObsPayload } from '@/lib/observation-templates';
 import type { Session, Plan } from '@/types/database';
 import { useAppStore } from '@/lib/store';
 import { PostPracticeDebrief } from '@/components/capture/post-practice-debrief';
@@ -417,12 +418,16 @@ export default function HomePage() {
   const [qoTemplate, setQoTemplate] = useState<string | null>(null);
   const [qoSaving, setQoSaving] = useState(false);
   const [qoSaved, setQoSaved] = useState(false);
+  const [qoError, setQoError] = useState(false);
+
+  const qoSheetRef = useFocusTrap<HTMLDivElement>({ enabled: !!qoPlayer, onEscape: () => closeQO() });
 
   function openQO(p: QuickObsPlayer) {
     setQoPlayer(p);
     setQoSentiment('positive');
     setQoTemplate(null);
     setQoSaved(false);
+    setQoError(false);
   }
 
   function closeQO() {
@@ -431,35 +436,34 @@ export default function HomePage() {
     setQoTemplate(null);
     setQoSentiment('positive');
     setQoSaved(false);
+    setQoError(false);
   }
 
   async function saveQO() {
     if (!activeTeam || !qoPlayer || !practiceSessionId || !qoTemplate) return;
-    const template = OBSERVATION_TEMPLATES.find((t) => t.id === qoTemplate);
+    const template = findTemplateById(qoTemplate);
     if (!template) return;
     setQoSaving(true);
+    setQoError(false);
     try {
       await mutate({
         table: 'observations',
         operation: 'insert',
-        data: {
-          team_id: activeTeam.id,
-          org_id: (activeTeam as any).org_id ?? null,
-          player_name: qoPlayer.name,
-          player_id: qoPlayer.id,
-          session_id: practiceSessionId,
-          text: template.text,
+        data: buildQuickObsPayload({
+          template,
+          player: qoPlayer,
           sentiment: qoSentiment,
-          category: template.category,
-          source: 'template',
-        },
+          sessionId: practiceSessionId,
+          teamId: activeTeam.id,
+          orgId: (activeTeam as any).org_id,
+        }),
       });
       queryClient.invalidateQueries({ queryKey: ['session-obs-count', practiceSessionId] });
       queryClient.invalidateQueries({ queryKey: ['home-stats', activeTeam.id] });
       setQoSaved(true);
       setTimeout(closeQO, 1200);
     } catch {
-      // silent — coach can retry
+      setQoError(true);
     } finally {
       setQoSaving(false);
     }
@@ -1154,6 +1158,7 @@ export default function HomePage() {
         />
         {/* Sheet */}
         <div
+          ref={qoSheetRef}
           role="dialog"
           aria-modal="true"
           aria-label={`Quick observation for ${qoPlayer.name}`}
@@ -1244,6 +1249,11 @@ export default function HomePage() {
               'Save Observation'
             )}
           </button>
+          {qoError && (
+            <p className="text-center text-xs text-red-400">
+              Failed to save — tap Save to try again
+            </p>
+          )}
         </div>
       </>
     )}

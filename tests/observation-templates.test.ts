@@ -3,7 +3,9 @@ import {
   OBSERVATION_TEMPLATES,
   getTemplatesBySentiment,
   findTemplateById,
+  buildQuickObsPayload,
   type ObservationTemplate,
+  type QuickObsPayload,
 } from '@/lib/observation-templates';
 
 // ─── Template data integrity ───────────────────────────────────────────────────
@@ -118,6 +120,70 @@ describe('findTemplateById', () => {
   it('can find every template by its own id (no orphaned ids)', () => {
     for (const t of OBSERVATION_TEMPLATES) {
       expect(findTemplateById(t.id)).toEqual(t);
+    }
+  });
+});
+
+// ─── buildQuickObsPayload ─────────────────────────────────────────────────────
+
+describe('buildQuickObsPayload', () => {
+  const template = findTemplateById('pos-hustle')!;
+  const player = { id: 'player-1', name: 'Marcus Johnson' };
+  const base = {
+    template,
+    player,
+    sentiment: 'positive' as const,
+    sessionId: 'session-abc',
+    teamId: 'team-xyz',
+  };
+
+  it('returns all required DB fields', () => {
+    const payload = buildQuickObsPayload(base);
+    expect(payload).toMatchObject<QuickObsPayload>({
+      team_id: 'team-xyz',
+      org_id: null,
+      player_name: 'Marcus Johnson',
+      player_id: 'player-1',
+      session_id: 'session-abc',
+      text: template.text,
+      sentiment: 'positive',
+      category: template.category,
+      source: 'template',
+    });
+  });
+
+  it('sets org_id to null when orgId is undefined', () => {
+    const { org_id } = buildQuickObsPayload(base);
+    expect(org_id).toBeNull();
+  });
+
+  it('sets org_id to null when orgId is explicitly null', () => {
+    const { org_id } = buildQuickObsPayload({ ...base, orgId: null });
+    expect(org_id).toBeNull();
+  });
+
+  it('passes orgId through when provided', () => {
+    const { org_id } = buildQuickObsPayload({ ...base, orgId: 'org-999' });
+    expect(org_id).toBe('org-999');
+  });
+
+  it('picks text and category from the template, not the sentiment param', () => {
+    const nwTemplate = findTemplateById('nw-defense')!;
+    const payload = buildQuickObsPayload({ ...base, template: nwTemplate, sentiment: 'needs-work' });
+    expect(payload.text).toBe(nwTemplate.text);
+    expect(payload.category).toBe(nwTemplate.category);
+    expect(payload.sentiment).toBe('needs-work');
+  });
+
+  it('always sets source to "template"', () => {
+    expect(buildQuickObsPayload(base).source).toBe('template');
+  });
+
+  it('works for every OBSERVATION_TEMPLATE without throwing', () => {
+    for (const t of OBSERVATION_TEMPLATES) {
+      expect(() =>
+        buildQuickObsPayload({ ...base, template: t, sentiment: t.sentiment })
+      ).not.toThrow();
     }
   });
 });
