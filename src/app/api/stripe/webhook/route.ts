@@ -8,17 +8,26 @@ export async function POST(request: Request) {
   const body = await request.text();
   const sig = request.headers.get('stripe-signature');
 
+  // Fail closed: with no signing secret we cannot prove an event came from
+  // Stripe, so we must refuse to act on ANY webhook rather than trust the body.
+  // Read at request time (not module load) so a missing env var can't crash
+  // `next build`, and so verification can never fall through to `undefined`.
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.error('[stripe/webhook] STRIPE_WEBHOOK_SECRET is not set');
+    return NextResponse.json(
+      { error: 'webhook secret not configured' },
+      { status: 503 }
+    );
+  }
+
   if (!sig) {
     return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
   }
 
   let event;
   try {
-    event = getStripe().webhooks.constructEvent(
-      body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
+    event = getStripe().webhooks.constructEvent(body, sig, webhookSecret);
   } catch (err) {
     console.error('[stripe/webhook] Signature verification failed:', err);
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
