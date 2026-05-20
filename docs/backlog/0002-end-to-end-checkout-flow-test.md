@@ -1,7 +1,7 @@
 ---
 id: 0002
 title: End-to-end checkout flow test — upgrade → pay → tier unlocks features
-status: groomed
+status: in-progress
 priority: P0
 area: billing
 created: 2026-05-20
@@ -61,4 +61,57 @@ Each box maps 1:1 to a vitest test scenario.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+### 2026-05-20 — implementation-dev — picked up
+
+- Branch `feat/0002-checkout-flow-test`. Status → `in-progress`.
+- This is a test-addition ticket: the checkout/webhook/tier surface already exists. Goal is to wire the
+  whole chain under one vitest spec and only make the minimum code change a failing test reveals.
+
+### 2026-05-20 — implementation-dev — shipped the test + minimum code
+
+**Test file:** `tests/stripe/checkout-flow.test.ts` (NOT `.spec.ts`). `vitest.config.ts` excludes
+`**/*.spec.ts` (reserved for Playwright), so the ticket's `checkout-flow.spec.ts` wording would have made
+the proof invisible to `npx vitest run`. Created as `.test.ts`. (LESSONS.md 2026-05-20.) All 8 acceptance
+criteria map 1:1 to test cases; the whole spec runs in ~80ms (well under the 5s budget).
+
+**Reconciliations between the ticket's groomer-shorthand and the real code** (the tests assert the real
+contract, the AC intent is preserved):
+
+- **`tier`, not `plan`.** There is no `organizations.plan` column. `/api/me` selects `organizations(... tier ...)`
+  and the webhook writes `tier`. Tests assert `tier === 'coach'`.
+- **`canAccess(tier, feature)` takes a `Tier` string, not an `orgId`.** The signature in `src/lib/tier.ts` is
+  `canAccess(tier, feature)`. The tests drive it with the tier produced by the live chain (the org row the
+  webhook flipped, surfaced by `/api/me`), honoring the AC: coach grants `report_cards`, denies `org_analytics`.
+- **create-checkout reads `interval`, not `billing`.** Happy path posts `{ tier:'coach', interval:'monthly' }`;
+  a body missing `interval` is a 400, consistent with the AC intent that malformed bodies are rejected.
+- **`STRIPE_PRICE_*` load-order.** `src/lib/stripe.ts` freezes `PRICE_IDS` from `process.env` at module load,
+  which (vitest hoists imports) happens before any test setup. The `@/lib/stripe` mock overrides `getPriceId`
+  /`tierFromPriceId` deterministically so the route's real logic runs without the env-load race — no change to
+  CI's `price_dummy` env was needed.
+
+**Minimum code changes (a failing test revealed two genuine gaps):**
+
+1. **`src/app/api/stripe/webhook/route.ts` — added a `customer.subscription.created` case.** The handler had
+   `checkout.session.completed` + `customer.subscription.updated`/`deleted` + `invoice.payment_failed`, but no
+   `created` case, so the AC's literal event (`customer.subscription.created`) flipped nothing. The new case
+   resolves the org by the event's `stripe_customer_id` (stamped by create-checkout before redirect), maps the
+   price → tier via `tierFromPriceId`, and sets `tier`/`subscription_status`/`current_period_end`/
+   `cancel_at_period_end`/`stripe_subscription_id`. Signature verification is untouched (0001 stays intact;
+   the 7 webhook tests still pass).
+
+2. **`/api/me` cache invalidation — chosen pattern: BUST-ON-WEBHOOK (not a shorter TTL).** `/api/me` caches
+   `{ coach, teams }` (incl. `organizations.tier`) under `me:${user.id}` for `TTL.MEDIUM` (2 min). After a paid
+   webhook, that key would serve the stale free row for up to 2 minutes — the exact gap this ticket closes.
+   Rather than weaken the TTL for everyone (which would re-add DB load on every dashboard hit), the webhook now
+   busts the cache surgically: a `bustOrgMeCache(admin, orgId)` helper looks up the org's coaches and calls
+   `memBust(me:${coach.id})` for each (the cache key is the auth user id, which equals `coaches.id`). It runs
+   after every billing-state mutation (`created`, `session.completed`, `updated`, `deleted`, `payment_failed`),
+   so any tier transition invalidates the cache immediately. `/api/me` itself is unchanged.
+   - Rationale for bust-over-TTL: billing webhooks are rare; a per-event bust costs one extra `coaches` lookup
+     on a low-frequency path, vs. a shorter TTL which would tax the high-frequency `/api/me` read continuously.
+
+**Local gate:** `npm run lint` → 0 errors (129 pre-existing warnings, none in touched files); `npx tsc --noEmit`
+→ 0 errors; `npx vitest run tests/stripe/` → 15/15 pass (8 new + 7 from 0001). Full `npx vitest run` shows only
+the documented Node-25-environmental reds (`use-local-storage` `localStorage.clear is not a function`,
+`player-of-match` `Apr 27` vs `Apr 28`, and jsdom 5s render timeouts in `command-palette`/`recording-button`/
+`screen-reader-accessibility`/`weekly-wrap`); none touch Stripe/webhook/me/tier. CI (Node 20) arbitrates.
