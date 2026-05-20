@@ -3,6 +3,15 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Gift, Share2, Copy, Check, X, Users } from 'lucide-react';
+import {
+  isInviteDismissed,
+  dismissInviteCard,
+  meetsShowThreshold,
+  extractFirstName,
+  buildReferralUrl,
+  buildInviteMessage,
+  buildReferralBadgeText,
+} from '@/lib/invite-coach-utils';
 
 interface InviteCoachCardProps {
   coachId: string;
@@ -19,24 +28,6 @@ interface ReferralData {
   rewardEarned: boolean;
 }
 
-function getDismissKey(coachId: string): string {
-  return `sportsiq-invite-dismiss-${coachId}`;
-}
-
-function isDismissed(coachId: string): boolean {
-  if (typeof window === 'undefined') return false;
-  const stored = localStorage.getItem(getDismissKey(coachId));
-  if (!stored) return false;
-  return Date.now() < Number(stored);
-}
-
-function doDismisc(coachId: string): void {
-  if (typeof window !== 'undefined') {
-    const expires = Date.now() + 30 * 24 * 60 * 60 * 1000;
-    localStorage.setItem(getDismissKey(coachId), String(expires));
-  }
-}
-
 export function InviteCoachCard({
   coachId,
   coachName,
@@ -45,8 +36,10 @@ export function InviteCoachCard({
   players,
   sessions,
 }: InviteCoachCardProps) {
-  const [dismissed, setDismissed] = useState(() => isDismissed(coachId));
+  const [dismissed, setDismissed] = useState(() => isInviteDismissed(coachId));
   const [shareState, setShareState] = useState<'idle' | 'copied' | 'shared'>('idle');
+
+  const eligible = meetsShowThreshold(sessions, observations);
 
   const { data } = useQuery<ReferralData>({
     queryKey: ['referrals'],
@@ -56,19 +49,18 @@ export function InviteCoachCard({
       return res.json();
     },
     staleTime: 30 * 60_000,
-    enabled: !dismissed && sessions >= 2,
+    enabled: !dismissed && eligible,
   });
 
-  if (dismissed || sessions < 2 || observations < 10) return null;
-  if (!data?.code) return null;
+  if (dismissed || !eligible || !data?.code) return null;
 
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://sportsiq.app';
-  const referralUrl = `${origin}/signup?ref=${data.code}`;
-  const firstName = coachName?.split(' ')[0] ?? 'Coach';
-  const msg = `Hey! I've been using SportsIQ to track my ${teamName} coaching — I've captured ${observations} observations across ${players} player${players !== 1 ? 's' : ''} this season. It auto-generates parent progress reports and practice plans. Try it free: ${referralUrl}\n\n(Full disclosure: I get a free month when you sign up with my link 😊)`;
+  const referralUrl = buildReferralUrl(origin, data.code);
+  const firstName = extractFirstName(coachName);
+  const msg = buildInviteMessage({ teamName, players, observations, referralUrl });
 
   function handleDismiss() {
-    doDismisc(coachId);
+    dismissInviteCard(coachId);
     setDismissed(true);
   }
 
@@ -80,7 +72,7 @@ export function InviteCoachCard({
         setTimeout(() => setShareState('idle'), 2500);
         return;
       } catch {
-        // fall through
+        // fall through to WhatsApp
       }
     }
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
@@ -110,7 +102,7 @@ export function InviteCoachCard({
             Invite a Coach
           </p>
           <p className="text-sm font-bold text-zinc-100 mt-0.5 leading-snug">
-            {firstName}, know a coach who'd love this?
+            {firstName}, know a coach who&apos;d love this?
           </p>
         </div>
         <button
@@ -133,7 +125,7 @@ export function InviteCoachCard({
         </span>
         {data.referralCount > 0 && (
           <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-2.5 py-1 text-xs text-rose-400">
-            🎉 {data.referralCount} coach{data.referralCount > 1 ? 'es' : ''} referred
+            {buildReferralBadgeText(data.referralCount)}
           </span>
         )}
       </div>
