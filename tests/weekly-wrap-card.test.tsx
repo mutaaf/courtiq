@@ -12,8 +12,8 @@
  */
 
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
 
@@ -42,25 +42,40 @@ vi.mock('@/lib/api', () => ({
 
 // ─── Browser API mocks ────────────────────────────────────────────────────────
 
-const mockWriteText = vi.fn().mockResolvedValue(undefined);
-Object.defineProperty(navigator, 'clipboard', {
-  value: { writeText: mockWriteText },
-  writable: true,
-  configurable: true,
+// Declared at file scope so assertions can reference them across tests.
+let mockWriteText: ReturnType<typeof vi.fn>;
+let mockWindowOpen: ReturnType<typeof vi.fn>;
+
+beforeEach(() => {
+  mockWriteText = vi.fn().mockResolvedValue(undefined);
+  mockWindowOpen = vi.fn();
+
+  // vi.stubGlobal is Node-version-safe: Vitest handles configurable descriptors
+  // internally, unlike direct Object.defineProperty on window.open which can
+  // throw on Node 20 / jsdom combinations where it is non-configurable.
+  vi.stubGlobal('open', mockWindowOpen);
+
+  // jsdom doesn't implement the Clipboard API; assign the property directly so
+  // the assignment doesn't fight an existing non-configurable descriptor.
+  Object.defineProperty(globalThis.navigator, 'clipboard', {
+    value: { writeText: mockWriteText },
+    writable: true,
+    configurable: true,
+  });
+
+  // Ensure navigator.share is absent so the component falls through to the
+  // window.open / WhatsApp path.
+  Object.defineProperty(globalThis.navigator, 'share', {
+    value: undefined,
+    writable: true,
+    configurable: true,
+  });
 });
 
-const mockWindowOpen = vi.fn();
-Object.defineProperty(window, 'open', {
-  value: mockWindowOpen,
-  writable: true,
-  configurable: true,
-});
-
-// Ensure navigator.share is absent so tests go through the window.open path.
-Object.defineProperty(navigator, 'share', {
-  value: undefined,
-  writable: true,
-  configurable: true,
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+  vi.clearAllMocks();
 });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -82,10 +97,6 @@ function renderCard() {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('WeeklyWrapCard', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('shows short preview text before any editing', async () => {
     renderCard();
     expect(await screen.findByText('Short preview text')).toBeInTheDocument();
