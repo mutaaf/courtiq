@@ -2,6 +2,7 @@
 
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useState, useMemo } from 'react';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { query, mutate } from '@/lib/api';
@@ -417,6 +418,10 @@ export default function HomePage() {
   const [inlineObsTemplate, setInlineObsTemplate] = useState<ObservationTemplate | null>(null);
   const [inlineObsSaving, setInlineObsSaving] = useState(false);
   const [inlineObsSaved, setInlineObsSaved] = useState<string | null>(null);
+  const inlineObsSheetRef = useFocusTrap<HTMLDivElement>({
+    enabled: inlineObsPlayer !== null,
+    onEscape: () => setInlineObsPlayer(null),
+  });
 
   const hasAIKeys = (() => {
     if (aiPlatformAvailable) return true;
@@ -1144,10 +1149,16 @@ export default function HomePage() {
     {/* Inline observation sheet — opens when coach taps a player chip in coverage row */}
     {inlineObsPlayer && (
       <div
-        className="fixed inset-0 z-40 flex items-end"
+        className="fixed inset-0 z-50 flex items-end bg-black/60 backdrop-blur-sm"
         onClick={(e) => { if (e.target === e.currentTarget) setInlineObsPlayer(null); }}
       >
-        <div className="w-full rounded-t-2xl border-t border-zinc-800 bg-zinc-950 p-4 pb-10 space-y-4 shadow-2xl">
+        <div
+          ref={inlineObsSheetRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Log observation for ${inlineObsPlayer.name}`}
+          className="w-full rounded-t-2xl border-t border-zinc-800 bg-zinc-950 p-4 pb-[calc(2.5rem+4rem+env(safe-area-inset-bottom))] space-y-4 shadow-2xl"
+        >
           {/* Header */}
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold">
