@@ -1,18 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { useQueryClient } from '@tanstack/react-query';
-import { mutate } from '@/lib/api';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { mutate, query } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Save, Loader2, Shield, Users, UserPlus, CheckCircle2 } from 'lucide-react';
+import {
+  ArrowLeft, Save, Loader2, Shield, Users, UserPlus, CheckCircle2, AlertTriangle,
+} from 'lucide-react';
 import Link from 'next/link';
 import { SYSTEM_DEFAULTS } from '@/lib/config/defaults';
 import { trackEvent } from '@/lib/analytics';
+import {
+  parseRosterPaste,
+  buildSkippedWarning,
+  findDuplicatesAgainstRoster,
+} from '@/lib/roster-paste-utils';
 
 type Mode = 'single' | 'paste';
 
@@ -42,11 +49,36 @@ export default function AddPlayerPage() {
   // ── Paste roster state ───────────────────────────────────────────────────
   const [pasteText, setPasteText] = useState('');
   const [savedCount, setSavedCount] = useState<number | null>(null);
+  const [partialFailCount, setPartialFailCount] = useState(0);
 
-  const parsedNames = pasteText
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0 && l.length <= 80);
+  // Fetch existing roster for dedup check (enabled only in paste mode)
+  const { data: existingPlayers = [] } = useQuery({
+    queryKey: queryKeys.players.all(activeTeam?.id ?? ''),
+    queryFn: () => query<{ name: string }[]>({
+      table: 'players',
+      select: 'name',
+      filters: { team_id: activeTeam!.id, is_active: true },
+    }),
+    enabled: !!activeTeam && mode === 'paste',
+    staleTime: 60_000,
+  });
+
+  const existingNames = useMemo(
+    () => (existingPlayers ?? []).map((p) => p.name),
+    [existingPlayers],
+  );
+
+  const { names: parsedNames, skipped: skippedLines } = useMemo(
+    () => parseRosterPaste(pasteText),
+    [pasteText],
+  );
+
+  const skippedWarning = buildSkippedWarning(skippedLines);
+
+  const alreadyOnRoster = useMemo(
+    () => findDuplicatesAgainstRoster(parsedNames, existingNames),
+    [parsedNames, existingNames],
+  );
 
   const updateField = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -117,38 +149,47 @@ export default function AddPlayerPage() {
 
     setSaving(true);
     setError(null);
+    setPartialFailCount(0);
 
-    try {
-      await Promise.all(
-        parsedNames.map((name) =>
-          mutate({
-            table: 'players',
-            operation: 'insert',
-            data: {
-              team_id: activeTeam.id,
-              name,
-              age_group: SYSTEM_DEFAULTS.sport.age_groups[0],
-              is_active: true,
-            },
-          })
-        )
-      );
+    // Use allSettled so a single failed insert doesn't prevent others
+    // from saving, and coaches aren't left with a partial roster on retry.
+    const results = await Promise.allSettled(
+      parsedNames.map((name) =>
+        mutate({
+          table: 'players',
+          operation: 'insert',
+          data: {
+            team_id: activeTeam.id,
+            name,
+            age_group: SYSTEM_DEFAULTS.sport.age_groups[0],
+            is_active: true,
+          },
+        })
+      )
+    );
 
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.players.all(activeTeam.id),
-      });
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.length - succeeded;
 
-      trackEvent('players_bulk_added', {
-        count: parsedNames.length,
-        method: 'paste',
-      });
+    setSaving(false);
 
-      setSavedCount(parsedNames.length);
-    } catch (err: any) {
-      setError(err.message || 'Failed to save players.');
-    } finally {
-      setSaving(false);
+    if (succeeded === 0) {
+      setError('Failed to save players. Please try again.');
+      return;
     }
+
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.players.all(activeTeam.id),
+    });
+
+    trackEvent('players_bulk_added', {
+      count: succeeded,
+      failed,
+      method: 'paste',
+    });
+
+    setPartialFailCount(failed);
+    setSavedCount(succeeded);
   };
 
   if (!activeTeam) {
@@ -179,8 +220,13 @@ export default function AddPlayerPage() {
             <h2 className="text-2xl font-bold text-zinc-100">
               {savedCount} player{savedCount !== 1 ? 's' : ''} added!
             </h2>
+            {partialFailCount > 0 && (
+              <p className="mt-1 text-sm text-amber-400">
+                {partialFailCount} name{partialFailCount !== 1 ? 's' : ''} couldn&apos;t be saved — they may already exist or contain invalid characters.
+              </p>
+            )}
             <p className="mt-2 text-sm text-zinc-400">
-              You can now add jersey numbers and parent contacts from each player&apos;s profile.
+              You can now add jersey numbers, age groups, and parent contacts from each player&apos;s profile.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
@@ -195,6 +241,7 @@ export default function AddPlayerPage() {
               className="w-full sm:w-auto h-12 sm:h-10"
               onClick={() => {
                 setSavedCount(null);
+                setPartialFailCount(0);
                 setPasteText('');
                 setError(null);
               }}
@@ -221,9 +268,11 @@ export default function AddPlayerPage() {
 
       <h1 className="text-2xl font-bold text-zinc-100">Add Player{mode === 'paste' ? 's' : ''}</h1>
 
-      {/* Mode toggle */}
-      <div className="flex rounded-xl border border-zinc-800 bg-zinc-900 p-1 gap-1">
+      {/* Mode toggle — tab semantics */}
+      <div role="tablist" aria-label="Add player mode" className="flex rounded-xl border border-zinc-800 bg-zinc-900 p-1 gap-1">
         <button
+          role="tab"
+          aria-selected={mode === 'single'}
           onClick={() => { setMode('single'); setError(null); }}
           className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors touch-manipulation ${
             mode === 'single'
@@ -235,6 +284,8 @@ export default function AddPlayerPage() {
           Add One
         </button>
         <button
+          role="tab"
+          aria-selected={mode === 'paste'}
           onClick={() => { setMode('paste'); setError(null); }}
           className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors touch-manipulation ${
             mode === 'paste'
@@ -265,20 +316,28 @@ export default function AddPlayerPage() {
               <p className="text-sm text-zinc-400 leading-relaxed">
                 Paste your full player list — one name per line. Copy from an email, league website, or Google Doc.
               </p>
-              <textarea
-                value={pasteText}
-                onChange={(e) => { setPasteText(e.target.value); setError(null); }}
-                placeholder={'Marcus Johnson\nSarah Williams\nJordan Lee\n...'}
-                rows={10}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 resize-none"
-              />
+              <div className="space-y-1.5">
+                <label htmlFor="roster-paste" className="text-sm font-medium text-zinc-300">
+                  Player names <span className="text-zinc-500 font-normal">(one per line)</span>
+                </label>
+                <textarea
+                  id="roster-paste"
+                  value={pasteText}
+                  onChange={(e) => { setPasteText(e.target.value); setError(null); }}
+                  placeholder={'Marcus Johnson\nSarah Williams\nJordan Lee\n...'}
+                  rows={10}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 resize-none"
+                />
+              </div>
+
+              {/* Counts row */}
               <div className="flex items-center justify-between">
                 <span className="text-xs text-zinc-500">
                   {parsedNames.length > 0
                     ? <span className="text-orange-400 font-medium">{parsedNames.length} player{parsedNames.length !== 1 ? 's' : ''} detected</span>
                     : 'Enter one name per line'}
                 </span>
-                {parsedNames.length > 0 && (
+                {pasteText.length > 0 && (
                   <button
                     onClick={() => setPasteText('')}
                     className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
@@ -287,6 +346,25 @@ export default function AddPlayerPage() {
                   </button>
                 )}
               </div>
+
+              {/* Skipped-line warning */}
+              {skippedWarning && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                  <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-300">{skippedWarning}</p>
+                </div>
+              )}
+
+              {/* Already-on-roster soft warning */}
+              {alreadyOnRoster.length > 0 && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                  <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-300">
+                    {alreadyOnRoster.length} name{alreadyOnRoster.length !== 1 ? 's match' : ' matches'} an existing player ({alreadyOnRoster.slice(0, 3).join(', ')}{alreadyOnRoster.length > 3 ? '…' : ''}).
+                    They will be added again — edit or remove them from the list to avoid duplicates.
+                  </p>
+                </div>
+              )}
 
               {/* Preview of detected names */}
               {parsedNames.length > 0 && parsedNames.length <= 20 && (
@@ -306,7 +384,7 @@ export default function AddPlayerPage() {
               )}
 
               <p className="text-[11px] text-zinc-500">
-                Jersey numbers, positions, and parent contacts can be added from each player&apos;s profile after import.
+                Jersey numbers, age groups, and parent contacts can be added from each player&apos;s profile after import.
               </p>
             </CardContent>
           </Card>
