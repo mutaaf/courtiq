@@ -3,6 +3,28 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { getStripe, tierFromPriceId } from '@/lib/stripe';
 import { createServiceSupabase } from '@/lib/supabase/server';
+import { memBust } from '@/lib/cache/memory';
+
+type ServiceClient = Awaited<ReturnType<typeof createServiceSupabase>>;
+
+/**
+ * Invalidate the per-coach `me:` cache for every coach in an org.
+ *
+ * `/api/me` caches `{ coach, teams }` (including `organizations.tier`) under
+ * `me:${user.id}` for 2 minutes. A billing webhook that flips an org's tier must
+ * bust those keys, or a coach who paid sees the stale free row until the TTL lapses
+ * (the exact gap ticket 0002 closes). We bust by coach id because the cache key is
+ * the auth user id, which equals `coaches.id`.
+ */
+async function bustOrgMeCache(admin: ServiceClient, orgId: string) {
+  const { data: coaches } = await admin
+    .from('coaches')
+    .select('id')
+    .eq('org_id', orgId);
+  for (const c of coaches ?? []) {
+    memBust(`me:${c.id}`);
+  }
+}
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -54,6 +76,40 @@ export async function POST(request: Request) {
               subscription_status: 'active',
             })
             .eq('id', orgId);
+          await bustOrgMeCache(admin, orgId);
+        }
+        break;
+      }
+
+      case 'customer.subscription.created': {
+        // The subscription's first event after checkout. Resolve the org by the
+        // Stripe customer on the event (the create-checkout route stamps the org's
+        // stripe_customer_id before redirecting), map the price to a tier, and flip
+        // the org so paid features unlock immediately.
+        const sub = event.data.object;
+        const firstItem = sub.items.data[0];
+        const tier = tierFromPriceId(firstItem.price.id) || 'free';
+
+        const { data: org } = await admin
+          .from('organizations')
+          .select('id')
+          .eq('stripe_customer_id', sub.customer as string)
+          .single();
+
+        if (org) {
+          await admin
+            .from('organizations')
+            .update({
+              tier,
+              stripe_subscription_id: sub.id,
+              subscription_status: sub.status,
+              current_period_end: new Date(
+                firstItem.current_period_end * 1000
+              ).toISOString(),
+              cancel_at_period_end: sub.cancel_at_period_end,
+            })
+            .eq('id', org.id);
+          await bustOrgMeCache(admin, org.id);
         }
         break;
       }
@@ -80,32 +136,52 @@ export async function POST(request: Request) {
               cancel_at_period_end: sub.cancel_at_period_end,
             })
             .eq('id', org.id);
+          await bustOrgMeCache(admin, org.id);
         }
         break;
       }
 
       case 'customer.subscription.deleted': {
         const sub = event.data.object;
-        await admin
+        const { data: org } = await admin
           .from('organizations')
-          .update({
-            tier: 'free',
-            subscription_status: 'canceled',
-            stripe_subscription_id: null,
-            cancel_at_period_end: false,
-          })
-          .eq('stripe_subscription_id', sub.id);
+          .select('id')
+          .eq('stripe_subscription_id', sub.id)
+          .single();
+
+        if (org) {
+          await admin
+            .from('organizations')
+            .update({
+              tier: 'free',
+              subscription_status: 'canceled',
+              stripe_subscription_id: null,
+              cancel_at_period_end: false,
+            })
+            .eq('id', org.id);
+          await bustOrgMeCache(admin, org.id);
+        }
         break;
       }
 
       case 'invoice.payment_failed': {
         const invoice = event.data.object;
-        await admin
+        const customerId = invoice.customer as string;
+        const { data: org } = await admin
           .from('organizations')
-          .update({
-            subscription_status: 'past_due',
-          })
-          .eq('stripe_customer_id', invoice.customer as string);
+          .select('id')
+          .eq('stripe_customer_id', customerId)
+          .single();
+
+        if (org) {
+          await admin
+            .from('organizations')
+            .update({
+              subscription_status: 'past_due',
+            })
+            .eq('id', org.id);
+          await bustOrgMeCache(admin, org.id);
+        }
         break;
       }
 
