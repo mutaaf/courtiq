@@ -1,7 +1,7 @@
 ---
 id: 0001
 title: Stripe webhook signature verification on the live endpoint
-status: in-progress
+status: shipped
 priority: P0
 area: billing
 created: 2026-05-20
@@ -59,3 +59,7 @@ Each box maps 1:1 to a vitest test scenario.
 ## Implementation log
 
 - 2026-05-20 [implementation-dev] Picked up ticket; status → in-progress. Branch `feat/0001-stripe-webhook-signature-verification`.
+- 2026-05-20 [implementation-dev] Verified the first five acceptance criteria (missing-sig 400, invalid-sig 400, known-event update, unknown-customer 200, raw-body verification) were already satisfied by the existing route. The only gaps were the two fail-closed criteria: when `STRIPE_WEBHOOK_SECRET` is unset the route passed `undefined` into `constructEvent`, which threw and returned a generic 400 instead of a 503. Added an explicit fail-closed guard at the top of the handler returning `503 { error: "webhook secret not configured" }` with zero DB writes, reading the secret at request time.
+- 2026-05-20 [implementation-dev] Test filename note: the ticket named the spec `tests/stripe/webhook.spec.ts`, but `vitest.config.ts` excludes `**/*.spec.ts` (Playwright owns `.spec.ts`); a `.spec.ts` here would never run. Created it as `tests/stripe/webhook.test.ts` so it actually gates — one expectation block per acceptance criterion, mocking `createServiceSupabase` and asserting `.update()` is/ isn't called.
+- 2026-05-20 [implementation-dev] Did NOT rewrite the out-of-scope tier-resolution logic. The `customer.subscription.updated` branch matches on `stripe_subscription_id`; the happy-path test asserts against that actual existing behavior rather than the ticket's "match on customer" phrasing (which would require changing out-of-scope code).
+- 2026-05-20 [implementation-dev] Shipped in PR #211 (squash-merged to `main`). Gating CI green: `lint` pass, `unit-tests` pass on CI Node 20. Status → shipped.
