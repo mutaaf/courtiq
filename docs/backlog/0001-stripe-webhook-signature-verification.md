@@ -1,7 +1,7 @@
 ---
 id: 0001
 title: Stripe webhook signature verification on the live endpoint
-status: groomed
+status: in-progress
 priority: P0
 area: billing
 created: 2026-05-20
@@ -58,4 +58,4 @@ Each box maps 1:1 to a vitest test scenario.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-05-20 [implementation-dev] Picked up ticket; status → in-progress. Branch `feat/0001-stripe-webhook-signature-verification`.
