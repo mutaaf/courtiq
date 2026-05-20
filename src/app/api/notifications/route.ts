@@ -28,6 +28,29 @@ export function buildNotificationId(type: NotificationType, entityId: string): s
   return `${type}:${entityId}`;
 }
 
+// ─── Parent-view notification helpers (exported for testing) ─────────────────
+
+/** Convert elapsed minutes to a human-readable time label. */
+export function formatParentViewTimeLabel(minutesAgo: number): string {
+  if (minutesAgo < 60) return `${minutesAgo} min ago`;
+  return `${Math.floor(minutesAgo / 60)} hr ago`;
+}
+
+/** Build the notification body copy for a parent-viewed-report entry. */
+export function formatParentViewBody(viewCount: number, timeLabel: string): string {
+  const countLabel = viewCount > 1 ? `${viewCount} times` : '1 time';
+  return `Viewed ${countLabel} · ${timeLabel}`;
+}
+
+// ─── Typed DB row shape for parent_shares query ───────────────────────────────
+
+interface ParentShareRow {
+  id: string;
+  player_id: string | null;
+  view_count: number;
+  last_viewed_at: string;
+}
+
 export function priorityOrder(p: NotificationPriority): number {
   return p === 'high' ? 0 : p === 'medium' ? 1 : 2;
 }
@@ -219,7 +242,7 @@ export async function GET(request: Request) {
     notifications.push({
       id: buildNotificationId('birthday_today', (player as any).id),
       type: 'birthday_today',
-      title: `\u{1F382} ${playerName}'s birthday!`,
+      title: `🎂 ${playerName}'s birthday!`,
       body: `${playerName}${ageText} — send a birthday message to the family.`,
       href: `/roster/${(player as any).id}`,
       priority: 'high',
@@ -228,23 +251,18 @@ export async function GET(request: Request) {
   }
 
   // ── 6. Parent viewed a report card in the last 24 hours ───────────────────
-  for (const share of viewedShares) {
-    const playerName = playerMap[(share as any).player_id] ?? 'A player';
-    const viewedAt = (share as any).last_viewed_at as string;
-    const viewCount = (share as any).view_count as number;
-    const minutesAgo = Math.floor((now - new Date(viewedAt).getTime()) / 60_000);
-    const timeLabel =
-      minutesAgo < 60
-        ? `${minutesAgo} min ago`
-        : `${Math.floor(minutesAgo / 60)} hr ago`;
+  for (const share of viewedShares as ParentShareRow[]) {
+    const playerName = playerMap[share.player_id ?? ''] ?? 'A player';
+    const minutesAgo = Math.floor((now - new Date(share.last_viewed_at).getTime()) / 60_000);
+    const timeLabel = formatParentViewTimeLabel(minutesAgo);
     notifications.push({
-      id: buildNotificationId('parent_viewed_report', (share as any).id),
+      id: buildNotificationId('parent_viewed_report', share.id),
       type: 'parent_viewed_report',
       title: `${playerName}'s family opened their report card`,
-      body: `Viewed ${viewCount > 1 ? `${viewCount} times` : 'just now'} · ${timeLabel}`,
-      href: `/roster/${(share as any).player_id}`,
+      body: formatParentViewBody(share.view_count, timeLabel),
+      href: `/roster/${share.player_id}`,
       priority: 'low',
-      timestamp: viewedAt,
+      timestamp: share.last_viewed_at,
     });
   }
 

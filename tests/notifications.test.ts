@@ -3,6 +3,8 @@ import {
   buildNotificationId,
   priorityOrder,
   sortNotifications,
+  formatParentViewTimeLabel,
+  formatParentViewBody,
 } from '../src/app/api/notifications/route';
 import type { AppNotification, NotificationPriority } from '../src/app/api/notifications/route';
 
@@ -36,6 +38,8 @@ describe('buildNotificationId', () => {
     expect(buildNotificationId('goal_deadline', 'goal-1')).toBe('goal_deadline:goal-1');
     expect(buildNotificationId('session_today', 'session-9')).toBe('session_today:session-9');
     expect(buildNotificationId('achievement_earned', 'ach-7')).toBe('achievement_earned:ach-7');
+    expect(buildNotificationId('birthday_today', 'player-5')).toBe('birthday_today:player-5');
+    expect(buildNotificationId('parent_viewed_report', 'share-42')).toBe('parent_viewed_report:share-42');
   });
 
   it('preserves UUIDs unchanged', () => {
@@ -152,5 +156,64 @@ describe('sortNotifications', () => {
     expect(sorted[3].priority).toBe('low');
     expect(sorted[4].priority).toBe('low');
     expect(new Date(sorted[3].timestamp) >= new Date(sorted[4].timestamp)).toBe(true);
+  });
+});
+
+// ─── formatParentViewTimeLabel ────────────────────────────────────────────────
+
+describe('formatParentViewTimeLabel', () => {
+  it('returns "0 min ago" for 0 minutes', () => {
+    expect(formatParentViewTimeLabel(0)).toBe('0 min ago');
+  });
+
+  it('returns "X min ago" for values < 60', () => {
+    expect(formatParentViewTimeLabel(1)).toBe('1 min ago');
+    expect(formatParentViewTimeLabel(30)).toBe('30 min ago');
+    expect(formatParentViewTimeLabel(59)).toBe('59 min ago');
+  });
+
+  it('returns "1 hr ago" at exactly 60 minutes', () => {
+    expect(formatParentViewTimeLabel(60)).toBe('1 hr ago');
+  });
+
+  it('returns "X hr ago" for values >= 60', () => {
+    expect(formatParentViewTimeLabel(61)).toBe('1 hr ago');
+    expect(formatParentViewTimeLabel(119)).toBe('1 hr ago');
+    expect(formatParentViewTimeLabel(120)).toBe('2 hr ago');
+    expect(formatParentViewTimeLabel(180)).toBe('3 hr ago');
+    expect(formatParentViewTimeLabel(1380)).toBe('23 hr ago');
+  });
+
+  it('truncates partial hours (floor, not round)', () => {
+    // 89 minutes = 1.48 hours → should be "1 hr ago", not "2 hr ago"
+    expect(formatParentViewTimeLabel(89)).toBe('1 hr ago');
+  });
+});
+
+// ─── formatParentViewBody ─────────────────────────────────────────────────────
+
+describe('formatParentViewBody', () => {
+  it('shows "1 time" for view_count === 1', () => {
+    expect(formatParentViewBody(1, '5 min ago')).toBe('Viewed 1 time · 5 min ago');
+  });
+
+  it('shows "N times" for view_count > 1', () => {
+    expect(formatParentViewBody(2, '5 min ago')).toBe('Viewed 2 times · 5 min ago');
+    expect(formatParentViewBody(10, '3 hr ago')).toBe('Viewed 10 times · 3 hr ago');
+  });
+
+  it('never produces "just now" (the removed copy)', () => {
+    expect(formatParentViewBody(1, '45 min ago')).not.toContain('just now');
+    expect(formatParentViewBody(1, '0 min ago')).not.toContain('just now');
+  });
+
+  it('always includes the time label', () => {
+    expect(formatParentViewBody(1, '2 hr ago')).toContain('2 hr ago');
+    expect(formatParentViewBody(5, '12 min ago')).toContain('12 min ago');
+  });
+
+  it('count label and time label are separated by " · "', () => {
+    const body = formatParentViewBody(3, '10 min ago');
+    expect(body).toMatch(/Viewed 3 times · 10 min ago/);
   });
 });
