@@ -407,6 +407,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     playerGoals,
     hasParentContact,
     playerSpotlight,
+    referralCode,
   } = data;
 
   const safeStarred: any[] = starredObservations ?? [];
@@ -1207,7 +1208,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
 
         {/* ─── Viral CTA ─── */}
         <div className="mx-4 mt-6">
-          <ParentViralCTA coachName={coachName} teamName={team?.name} />
+          <ParentViralCTA coachName={coachName} teamName={team?.name} referralCode={referralCode} />
         </div>
 
         {/* ─── Footer ─── */}

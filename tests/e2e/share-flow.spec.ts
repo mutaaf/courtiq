@@ -21,6 +21,13 @@ import {
 const SHARE_TOKEN = 'test-share-token-e2e-001';
 const SHARE_URL = `/share/${SHARE_TOKEN}`;
 
+// Ticket 0011: the seeded coach (id 00000000-0000-4000-a000-000000000001) has
+// NO preferences.referral_code, so GET /api/share/<token> lazily generates
+// makeReferralCode(coach uuid) — all-zero hex bytes → CHARS[0]='A' ×6 = 'AAAAAA'
+// (the same code team-card-flow.spec.ts asserts for the same coach). The
+// "Share with your other coach" CTA must thread it into /signup?ref=AAAAAA.
+const SHARE_REF = 'AAAAAA';
+
 // Shared portal data mirroring GET /api/share/[token] response.
 //
 // NOTE: the parent portal is a SERVER component — its getShareData() fetch runs
@@ -163,6 +170,31 @@ test.describe('Parent portal (/share/[token]) — public', () => {
     await expect(page.getByText('Practice at Home')).toBeVisible();
     // The viral CTA component renders near the bottom of every portal.
     await expect(page.getByText(/SportsIQ/).first()).toBeVisible();
+  });
+
+  // ── Ticket 0011: referral code threaded into the viral CTA ────────────────
+
+  test('the "Share with your other coach" CTA carries the coach referral code', async ({ page }) => {
+    // The seeded coach has no referral_code, so the real /api/share path lazily
+    // generates 'AAAAAA' and the server-rendered page passes it to the CTA.
+    await page.goto(SHARE_URL);
+    const cta = page.getByRole('button', { name: /share with your other coach/i });
+    await expect(cta).toBeVisible({ timeout: 10000 });
+    // The CTA shares via navigator.share/clipboard (no <a href>), so it exposes
+    // the constructed URL on the button via data-share-url for assertion.
+    const shareUrl = await cta.getAttribute('data-share-url');
+    expect(shareUrl).toContain(`/signup?ref=${SHARE_REF}`);
+  });
+
+  // Regression: the /signup?ref=CODE capture path (/api/auth/setup → preferences
+  // .referred_by_code) is unchanged and still honored. The signup page reflects
+  // the applied referral when arrived-at via the CTA's deep link.
+  test('/signup?ref=CODE is still honored — the signup page shows the referral applied', async ({ page }) => {
+    await page.goto(`/signup?ref=${SHARE_REF}`);
+    await expect(page).toHaveURL(/\/signup\?ref=/);
+    // Signup page surfaces the captured referral; /api/auth/setup persists it on
+    // submit (referred_by_code), unchanged by ticket 0011.
+    await expect(page.getByText(/referral applied/i)).toBeVisible({ timeout: 10000 });
   });
 
   test('expired share token shows error state', async ({ page }) => {
