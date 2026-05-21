@@ -406,6 +406,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     skillChallenge,
     playerGoals,
     hasParentContact,
+    playerSpotlight,
   } = data;
 
   const safeStarred: any[] = starredObservations ?? [];
@@ -467,6 +468,19 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     const area = reportCard.areas_for_improvement[0];
     nextChallenge = typeof area === 'string' ? area : area.skill || area.description || area.name || String(area);
   }
+
+  // Player of the Week / Player of the Match spotlight (ticket 0009).
+  // content_structured carries either a weekly_star shape (week_label +
+  // coach_shoutout + growth_moment + challenge_ahead) or a player_of_match
+  // shape (session_label + coach_message + key_moment). We render defensively
+  // from whichever fields are present. The presence of session_label (vs
+  // week_label) tells us which celebratory title to show.
+  const spotlight: any = playerSpotlight || null;
+  const isMatchSpotlight = !!spotlight?.session_label;
+  const spotlightTitle = isMatchSpotlight ? 'Player of the Match' : 'Player of the Week';
+  const spotlightLabel: string | null = spotlight?.session_label || spotlight?.week_label || null;
+  const spotlightCoachNote: string | null = spotlight?.coach_shoutout || spotlight?.coach_message || null;
+  const spotlightDetail: string | null = spotlight?.growth_moment || spotlight?.key_moment || null;
 
   // Get the first recommended drill for home practice
   let homePractice: { name: string; description?: string } | null = null;
@@ -560,6 +574,52 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             />
           </div>
         </div>
+
+        {/* ─── Player of the Week / Player of the Match spotlight (0009) ─── */}
+        {spotlight && spotlight.headline && (
+          <div className="mx-4 mt-4 rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg" aria-hidden="true">⭐</span>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-orange-600">
+                  {spotlightTitle}
+                </h3>
+              </div>
+              {spotlightLabel && (
+                <span className="text-[11px] text-gray-400">{spotlightLabel}</span>
+              )}
+            </div>
+
+            <p className="text-base font-bold leading-snug text-gray-900">
+              {spotlight.headline}
+            </p>
+
+            {spotlight.achievement && (
+              <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                {spotlight.achievement}
+              </p>
+            )}
+
+            {spotlightDetail && (
+              <div className="mt-3 rounded-xl bg-white/70 px-3 py-2.5">
+                <p className="text-sm leading-relaxed text-gray-700">{spotlightDetail}</p>
+              </div>
+            )}
+
+            {spotlightCoachNote && (
+              <div className="mt-3 border-l-2 border-orange-300 pl-3">
+                <p className="text-sm italic leading-relaxed text-gray-800">
+                  &ldquo;{spotlightCoachNote}&rdquo;
+                </p>
+                {coachName && (
+                  <p className="mt-1 text-xs font-medium text-gray-500">
+                    &mdash; Coach {coachName.split(' ')[0]}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ─── Coach's Latest Session Update ─── */}
         {latestSessionMessage && (

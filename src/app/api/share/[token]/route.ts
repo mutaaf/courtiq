@@ -253,6 +253,19 @@ export async function GET(
       .limit(1);
     reportData.skillChallenge = skillChallengePlans?.[0]?.content_structured || null;
 
+    // Player of the Week / Player of the Match spotlight — the most recent
+    // celebratory artifact for THIS player (ticket 0009). Scoped to the share's
+    // player_id so a sibling player's spotlight never leaks. weekly_star and
+    // player_of_match share the same "type IN (...)" lane; most recent wins.
+    const { data: spotlightPlans } = await supabase
+      .from('plans')
+      .select('content_structured, created_at, type')
+      .eq('player_id', share.player_id)
+      .in('type', ['weekly_star', 'player_of_match'])
+      .order('created_at', { ascending: false })
+      .limit(1);
+    reportData.playerSpotlight = spotlightPlans?.[0]?.content_structured ?? null;
+
     // Player development goals — active and achieved goals give parents concrete
     // targets to celebrate and encourage at home. Archived/stalled goals are hidden.
     const { data: playerGoals } = await supabase

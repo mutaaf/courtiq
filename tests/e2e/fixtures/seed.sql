@@ -146,13 +146,95 @@ on conflict (id) do nothing;
 -- share_token 'test-share-token-e2e-001' matches SHARE_TOKEN in
 -- share-flow.spec.ts. is_active=true, far-future expiry so the real
 -- /api/share/<token> route returns 200 (not 404/410) for the un-mocked path.
-insert into parent_shares (id, player_id, team_id, coach_id, share_token, include_highlights, include_observations, is_active, expires_at)
+insert into parent_shares (id, player_id, team_id, coach_id, share_token, include_report_card, include_highlights, include_observations, is_active, expires_at)
 values (
   '00000000-0000-4000-a000-000000000060',
   '00000000-0000-4000-a000-000000000030',
   '00000000-0000-4000-a000-000000000020',
   '00000000-0000-4000-a000-000000000001',
   'test-share-token-e2e-001',
+  true, true, true, true,
+  now() + interval '365 days'
+)
+on conflict (share_token) do nothing;
+
+-- ── plans: existing portal sections for Alice (ticket 0009 regression) ──────
+-- The share-flow "existing sections still render" spec asserts the Practice at
+-- Home card (skill_challenge) renders alongside Coach's Best Moments (the
+-- starred observation seeded above) for a player who has all sections. Alice
+-- has NO weekly_star/player_of_match plan, so her portal shows NO spotlight
+-- card — that's the spotlight-absent regression case.
+insert into plans (id, team_id, coach_id, player_id, type, title, content, content_structured)
+values
+  ('00000000-0000-4000-a000-000000000071',
+   '00000000-0000-4000-a000-000000000020',
+   '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000030',
+   'skill_challenge',
+   'Skill Challenge — Alice Walker',
+   '{}',
+   '{
+     "player_name": "Alice Walker",
+     "week_label": "Week of May 18",
+     "parent_note": "Two quick drills to try at home this week.",
+     "challenges": [
+       {"title": "Defensive Slides", "skill_area": "Defense", "difficulty": "beginner", "minutes_per_day": 10, "description": "Practice lateral slides.", "steps": ["Set two cones", "Slide between them"], "success_criteria": "10 clean slides", "encouragement": "Stay low!"}
+     ]
+   }'::jsonb),
+  ('00000000-0000-4000-a000-000000000072',
+   '00000000-0000-4000-a000-000000000020',
+   '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000030',
+   'report_card',
+   'Report Card — Alice Walker',
+   '{}',
+   '{
+     "player_name": "Alice Walker",
+     "skills": [],
+     "strengths": ["On-ball defense"],
+     "growth_areas": ["Off-hand finishing"],
+     "coach_note": "A real anchor on defense this season."
+   }'::jsonb)
+on conflict (id) do nothing;
+
+-- ── plans: a Player of the Match spotlight for Bob Carter (ticket 0009) ─────
+-- The share-flow spotlight spec asserts a "Player of the Match" card with this
+-- artifact's headline + coach_message. content_structured carries the
+-- player_of_match shape (session_label + headline + achievement + key_moment +
+-- coach_message). player_id scopes the spotlight to Bob so it never leaks onto
+-- Alice's portal. type='player_of_match' is allowed by the plans table.
+insert into plans (id, team_id, coach_id, player_id, session_id, type, title, content, content_structured)
+values (
+  '00000000-0000-4000-a000-000000000070',
+  '00000000-0000-4000-a000-000000000020',
+  '00000000-0000-4000-a000-000000000001',
+  '00000000-0000-4000-a000-000000000031',
+  '00000000-0000-4000-a000-000000000040',
+  'player_of_match',
+  'Player of the Match — Bob Carter (Game vs. Lincoln)',
+  '{}',
+  '{
+    "player_name": "Bob Carter",
+    "session_label": "Game vs. Lincoln",
+    "headline": "Owned the paint all game",
+    "achievement": "Crashed the boards relentlessly and protected the rim on every possession.",
+    "key_moment": "Blocked the buzzer-beater to seal the win.",
+    "coach_message": "You were the difference-maker out there today, Bob!"
+  }'::jsonb
+)
+on conflict (id) do nothing;
+
+-- ── parent_shares: spotlight token resolving to Bob Carter (ticket 0009) ────
+-- share_token 'test-share-token-e2e-spotlight' matches SPOTLIGHT_TOKEN in
+-- share-flow.spec.ts. Points at Bob (player ...031) so the un-mocked
+-- /api/share/<token> path renders his Player of the Match spotlight.
+insert into parent_shares (id, player_id, team_id, coach_id, share_token, include_highlights, include_observations, is_active, expires_at)
+values (
+  '00000000-0000-4000-a000-000000000061',
+  '00000000-0000-4000-a000-000000000031',
+  '00000000-0000-4000-a000-000000000020',
+  '00000000-0000-4000-a000-000000000001',
+  'test-share-token-e2e-spotlight',
   true, true, true,
   now() + interval '365 days'
 )
