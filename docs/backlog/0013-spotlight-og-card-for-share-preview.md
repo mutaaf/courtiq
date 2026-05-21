@@ -1,7 +1,7 @@
 ---
 id: 0013
 title: Give the Player-of-the-Week spotlight its own rich link preview when a parent forwards the portal
-status: in-progress
+status: shipped
 priority: P2
 area: parent-portal
 created: 2026-05-21
@@ -93,5 +93,5 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 - 2026-05-21 — failing test added in `tests/share/spotlight-og.test.ts` (`.test.ts`, per LESSONS) — `isMatchSpotlight`, `buildSpotlightPreview` (COPPA: first-name + headline only), `buildShareMetadata` title/description branching, and OG-image render-path (200 ImageResponse for spotlight / no-spotlight / missing-data / throwing / malformed, `next/og` mocked). Confirmed it failed first for the right reason (`@/lib/share-metadata` + spotlight helpers absent).
 - 2026-05-21 — implemented: extracted pure `buildShareMetadata` into `src/lib/share-metadata.ts` (page.tsx `generateMetadata` delegates; generic path byte-identical), added `isMatchSpotlight` + `buildSpotlightPreview` to `src/lib/player-spotlight-utils.ts`, and one spotlight-vs-generic branch in `opengraph-image.tsx` (reuses the dark #09090b + #F97316 chrome, SPORTSIQ wordmark, accent stripe; `runtime='nodejs'`, 1200×630). Extended `tests/e2e/share-flow.spec.ts` with `<meta property="og:title">` assertions for both seeded tokens.
 - 2026-05-21 — local gate: `npm run lint` 0 errors, `npx tsc --noEmit` 0 errors, full `npx vitest run --no-file-parallelism` = 4040 passed / 1 failed; the lone fail is the pre-existing known-environmental TZ off-by-one in `tests/player-of-match-utils.test.ts` (LESSONS: `Apr 27` vs `Apr 28`), untouched by this ticket. e2e arbitrated by CI's seeded `e2e-tests` (no local Supabase; the OG-meta assertions only resolve against the seed per LESSONS ship/0009).
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-21 — PR #243 opened, auto-merge armed; CI green on all three gating checks (lint 1m15s, unit-tests 1m23s, e2e-tests 3m35s — the e2e seed-backed `<meta og:title>` assertions confirmed "Player of the Match" for the spotlight token and "Progress Report" for the non-spotlight token).
+- 2026-05-21 — merged to main (squash, commit 5f07caf). Ticket flipped to `shipped` (frontmatter + README index row) in chore/0013-mark-shipped. LESSONS appended: testing `next/og` `ImageResponse` via a `next/og` mock + extracting `generateMetadata` into a pure `buildShareMetadata` builder.
