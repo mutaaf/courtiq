@@ -95,25 +95,47 @@ export async function POST(request: Request) {
       }
 
       case 'customer.subscription.created': {
-        // The subscription's first event after checkout. Resolve the org by the
-        // Stripe customer on the event (the create-checkout route stamps the org's
-        // stripe_customer_id before redirecting), map the price to a tier, and flip
-        // the org so paid features unlock immediately.
+        // The subscription's first event after checkout. Map the price to a tier and
+        // flip the org so paid features unlock immediately.
+        //
+        // Resolving the org: the resubscription path already has the customer id on the
+        // org row (it survived cancellation), so we look up by customer first. But a
+        // FIRST-TIME upgrade goes through the `customer_email` checkout branch — Stripe
+        // mints a brand-new customer that isn't on the org row yet, so the customer
+        // lookup misses. For that case the create-checkout route stamps `org_id` into
+        // the subscription metadata; we fall back to it, and persist the new customer id
+        // back to the org so every later lookup (and the next resubscription) finds it.
+        // (ticket 0005)
         const sub = event.data.object;
         const firstItem = sub.items.data[0];
         const tier = tierFromPriceId(firstItem.price.id) || 'free';
+        const customerId = sub.customer as string;
 
-        const { data: org } = await admin
+        let org: { id: string } | null = null;
+        const byCustomer = await admin
           .from('organizations')
           .select('id')
-          .eq('stripe_customer_id', sub.customer as string)
+          .eq('stripe_customer_id', customerId)
           .single();
+        org = byCustomer.data;
+
+        if (!org && sub.metadata?.org_id) {
+          const byMeta = await admin
+            .from('organizations')
+            .select('id')
+            .eq('id', sub.metadata.org_id)
+            .single();
+          org = byMeta.data;
+        }
 
         if (org) {
           await admin
             .from('organizations')
             .update({
               tier,
+              // Persist the customer id (a no-op when it already matched the lookup;
+              // the write that closes the first-time customer_email loop otherwise).
+              stripe_customer_id: customerId,
               stripe_subscription_id: sub.id,
               subscription_status: sub.status,
               current_period_end: new Date(
