@@ -1,7 +1,7 @@
 ---
 id: 0006
 title: Harden e2e-tests for PR-gating (seed a local Supabase, restore as required check)
-status: groomed
+status: in-progress
 priority: P0
 area: infra
 created: 2026-05-20
