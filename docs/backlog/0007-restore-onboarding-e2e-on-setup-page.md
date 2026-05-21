@@ -1,12 +1,21 @@
 ---
 id: 0007
 title: Restore onboarding E2E coverage against the combined /onboarding/setup page
-status: proposed
+status: groomed
 priority: P1
 area: infra
 created: 2026-05-20
 owner: implementation-dev
 ---
+
+> Groom note (2026-05-21, product-groomer): moved `proposed → groomed`. The
+> acceptance criteria are genuinely test-shaped — they name the exact describe
+> blocks to un-skip, the real selectors on the live `/onboarding/setup` page
+> (`SPORTS` incl. Basketball/Volleyball, `AGE_GROUPS`, the team-name + `season`
+> inputs — all verified present), and require both blocks to pass against the
+> 0006-seeded local Supabase. It is test-only and low-risk. Ready for a dev to
+> pick up. Owner left as `implementation-dev` to preserve provenance (spawned
+> from 0006 during the e2e hardening pass).
 
 ## User story
 
