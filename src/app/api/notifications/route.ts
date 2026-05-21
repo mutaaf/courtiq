@@ -100,7 +100,6 @@ export async function GET(request: Request) {
   const fourteenDaysAgo = new Date(now - 14 * day).toISOString();
   const sevenDaysFromNow = new Date(now + 7 * day).toISOString().split('T')[0];
   const fortyEightHoursAgo = new Date(now - 48 * 60 * 60 * 1000).toISOString();
-
   const twentyFourHoursAgo = new Date(now - 24 * 60 * 60 * 1000).toISOString();
 
   // Fetch all data in parallel for minimal latency
@@ -170,7 +169,7 @@ export async function GET(request: Request) {
         type: 'unobserved_player',
         title: `${(player as any).name} needs attention`,
         body: 'No observations recorded in the last 14 days.',
-        href: `/roster/${(player as any).id}`,
+        href: `/roster/${(player as any).id}?tab=observations`,
         priority: 'medium',
         timestamp: new Date(now - 14 * day).toISOString(),
       });
@@ -191,7 +190,7 @@ export async function GET(request: Request) {
         ? `${playerName}'s goal is overdue`
         : `${playerName}'s goal due in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`,
       body: (goal as any).goal_text as string,
-      href: `/roster/${(goal as any).player_id}`,
+      href: `/roster/${(goal as any).player_id}?tab=goals`,
       priority: daysLeft <= 1 ? 'high' : 'medium',
       timestamp: ((goal as any).target_date as string) + 'T00:00:00.000Z',
     });
@@ -224,7 +223,7 @@ export async function GET(request: Request) {
       type: 'achievement_earned',
       title: `${playerName} earned a badge!`,
       body: `Awarded the "${badgeName}" badge.`,
-      href: `/roster/${(ach as any).player_id}`,
+      href: `/roster/${(ach as any).player_id}?tab=overview`,
       priority: 'low',
       timestamp: (ach as any).earned_at as string,
     });
@@ -244,7 +243,7 @@ export async function GET(request: Request) {
       type: 'birthday_today',
       title: `🎂 ${playerName}'s birthday!`,
       body: `${playerName}${ageText} — send a birthday message to the family.`,
-      href: `/roster/${(player as any).id}`,
+      href: `/roster/${(player as any).id}?tab=share`,
       priority: 'high',
       timestamp: new Date().toISOString(),
     });
@@ -260,7 +259,7 @@ export async function GET(request: Request) {
       type: 'parent_viewed_report',
       title: `${playerName}'s family opened their report card`,
       body: formatParentViewBody(share.view_count, timeLabel),
-      href: `/roster/${share.player_id}`,
+      href: `/roster/${share.player_id}?tab=share`,
       priority: 'low',
       timestamp: share.last_viewed_at,
     });
