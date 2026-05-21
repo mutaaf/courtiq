@@ -164,6 +164,77 @@ export async function getConfiguredProvider(
   throw new Error('No AI provider configured. Add an API key in settings or set an environment variable.');
 }
 
+/**
+ * Resolve the API key for a SPECIFIC provider from org settings, then env.
+ * Mirrors getConfiguredProvider's org-key-first / env-fallback precedence, but
+ * for a single named provider. Returns null when no usable key exists.
+ */
+function keyForProvider(orgSettings: OrgAISettings | null, provider: AIProvider): string | null {
+  const orgKey = orgSettings?.ai_keys?.[provider];
+  if (orgKey) return orgKey;
+  const envKey =
+    provider === 'anthropic'
+      ? process.env.ANTHROPIC_API_KEY
+      : provider === 'openai'
+      ? process.env.OPENAI_API_KEY
+      : process.env.GEMINI_API_KEY;
+  return envKey || null;
+}
+
+/**
+ * Pick the next eligible fallback provider after a primary failure (ticket 0012).
+ *
+ * Deterministic, key-gated: walks anthropic → openai → gemini in fixed order,
+ * skips the already-failed `exclude` provider and any provider with no usable
+ * key (org settings first, then env). Returns null when no fallback exists, so
+ * a single-key org's behavior is unchanged. Does NOT alter primary selection —
+ * getConfiguredProvider() still chooses the primary; this only chooses the next.
+ */
+export async function getFallbackProvider(
+  supabase: any,
+  orgId: string,
+  exclude: AIProvider
+): Promise<{ provider: AIProvider; apiKey: string } | null> {
+  let orgSettings: OrgAISettings | null = null;
+  try {
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('settings')
+      .eq('id', orgId)
+      .single();
+    orgSettings = (org?.settings as OrgAISettings) || null;
+  } catch {
+    // Org lookup failed — env keys can still provide a fallback.
+  }
+
+  for (const p of ['anthropic', 'openai', 'gemini'] as AIProvider[]) {
+    if (p === exclude) continue;
+    const apiKey = keyForProvider(orgSettings, p);
+    if (apiKey) return { provider: p, apiKey };
+  }
+  return null;
+}
+
+/**
+ * Classify a provider transport error as retryable-on-another-provider (ticket 0012).
+ *
+ * Retryable: HTTP >= 500 (incl. Anthropic's 529 overload), a provider-side 429
+ * (their rate-limit IS retryable on a DIFFERENT provider — note callAI keeps
+ * logging it as status:'rate_limited'), and network errors with no HTTP status.
+ * NOT retryable: 4xx client errors (400 bad request, 401 invalid key, 403) — a
+ * second provider won't fix a malformed request or a bad key path.
+ *
+ * Note: TierLimitError/RateLimitError are NOT provider errors and never reach
+ * this classifier — callAI rethrows them before failover.
+ */
+export function isRetryableProviderError(err: any): boolean {
+  const status = typeof err?.status === 'number' ? err.status : undefined;
+  if (status === undefined) return true; // network / transport error → try another provider
+  if (status >= 500) return true; // includes 529 overload
+  if (status === 429) return true; // provider rate-limited → retryable on a different provider
+  return false; // 400 / 401 / 403 and other 4xx → not retryable
+}
+
 // ---------------------------------------------------------------------------
 // Provider-specific calls
 // ---------------------------------------------------------------------------
@@ -464,18 +535,11 @@ export async function callAI(options: AICallOptions, supabase: any): Promise<AIC
 
   const startTime = Date.now();
 
-  try {
-    const providerResult = await callProvider(
-      provider,
-      apiKey,
-      systemPrompt,
-      userPrompt,
-      model, // Use the fully resolved model (cost-effective or default), not the raw override
-      maxTokens,
-      temperature,
-      conversationHistory
-    );
-
+  // Run the shared success path for a completed provider call: log cost, insert
+  // the status:'success' ai_interactions row, write the dedup cache, and return
+  // the AICallResult. Used for BOTH the primary call and a successful failover
+  // so the failover path is observably identical to a normal call.
+  const recordSuccess = async (providerResult: ProviderCallResult): Promise<AICallResult> => {
     const latencyMs = Date.now() - startTime;
 
     // Log estimated cost
@@ -517,21 +581,79 @@ export async function callAI(options: AICallOptions, supabase: any): Promise<AIC
     }
 
     return result;
-  } catch (error: any) {
-    const latencyMs = Date.now() - startTime;
+  };
 
+  // Insert a failed-call ai_interactions row. The 429-as-'rate_limited' label is
+  // preserved exactly as before so a provider rate-limit still reads correctly in
+  // the audit trail even though it IS retryable on a different provider.
+  const recordError = async (failModel: string, error: any): Promise<void> => {
     await supabase.from('ai_interactions').insert({
       coach_id: coachId,
       team_id: teamId,
       interaction_type: interactionType,
-      model,
+      model: failModel,
       system_prompt: systemPrompt,
       user_prompt: userPrompt,
       prompt_context: promptContext || null,
-      response_latency_ms: latencyMs,
-      status: error.status === 429 ? 'rate_limited' : 'error',
-      error_message: error.message,
+      response_latency_ms: Date.now() - startTime,
+      status: error?.status === 429 ? 'rate_limited' : 'error',
+      error_message: error?.message,
     });
+  };
+
+  try {
+    const providerResult = await callProvider(
+      provider,
+      apiKey,
+      systemPrompt,
+      userPrompt,
+      model, // Use the fully resolved model (cost-effective or default), not the raw override
+      maxTokens,
+      temperature,
+      conversationHistory
+    );
+
+    return await recordSuccess(providerResult);
+  } catch (error: any) {
+    // Quota / rate-limit refusals are the product working as designed, not a
+    // provider outage — propagate unchanged, never fail over (ticket 0012).
+    if (error instanceof TierLimitError || error instanceof RateLimitError) {
+      throw error;
+    }
+
+    // Always log the failed-primary row first — it's half the failover audit trail
+    // and the count query's .eq('status','success') naturally excludes it.
+    await recordError(model, error);
+
+    // Only retryable transport errors are worth a second provider; a 401/400 won't
+    // be fixed by another key path, so rethrow as today.
+    if (isRetryableProviderError(error)) {
+      const fallback = await getFallbackProvider(supabase, orgId, provider);
+      if (fallback) {
+        // Resolve the fallback's model the same way a normal call would (cost-effective
+        // for cost-effective types, else default), but never carry the primary's override.
+        const fallbackModel = useCostEffective
+          ? COST_EFFECTIVE_MODELS[fallback.provider]
+          : modelOverride || DEFAULT_MODELS[fallback.provider];
+        try {
+          const fallbackResult = await callProvider(
+            fallback.provider,
+            fallback.apiKey,
+            systemPrompt,
+            userPrompt,
+            fallbackModel,
+            maxTokens,
+            temperature,
+            conversationHistory
+          );
+          return await recordSuccess(fallbackResult);
+        } catch (fallbackError: any) {
+          // The fallback also failed: log its error row too and surface it.
+          await recordError(fallbackModel, fallbackError);
+          throw fallbackError;
+        }
+      }
+    }
 
     throw error;
   }

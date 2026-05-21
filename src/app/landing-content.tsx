@@ -385,7 +385,7 @@ export default function LandingContent() {
             <blockquote className="text-base sm:text-lg text-zinc-800 leading-relaxed italic text-center">
               &ldquo;I used to forget what I wanted to work on by the time I got home. Now everything&apos;s captured before I even leave the gym.&rdquo;
             </blockquote>
-            <p className="mt-4 text-sm text-zinc-500 text-center">-- A YMCA Youth Basketball Coach</p>
+            <p className="mt-4 text-sm text-zinc-500 text-center">— A YMCA Youth Basketball Coach</p>
           </Card>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -664,7 +664,7 @@ export default function LandingContent() {
               },
               {
                 q: 'What sports do you support?',
-                a: 'Basketball, flag football, and soccer are fully supported today. More sports are added regularly based on coach feedback.',
+                a: 'Basketball, soccer, volleyball, flag football, baseball, softball, lacrosse, swimming, tennis, and gymnastics are fully supported with sport-specific observation templates and practice drills. More sports are added regularly based on coach feedback.',
               },
               {
                 q: 'Can I cancel anytime?',
@@ -693,22 +693,26 @@ export default function LandingContent() {
       <section className="py-12 sm:py-16">
         <div className="mx-auto max-w-4xl px-4">
           <div className="text-center mb-8">
-            <p className="text-sm text-zinc-400 font-medium uppercase tracking-wider mb-4">Works with your sport</p>
-            <div className="flex justify-center gap-8">
+            <p className="text-sm text-zinc-400 font-medium uppercase tracking-wider mb-3">10 sports fully supported</p>
+            <p className="text-xs text-zinc-500 mb-6">Sport-specific templates, drills, and coaching cues for every team</p>
+            <div className="grid grid-cols-5 gap-4 sm:grid-cols-10 justify-items-center">
               {[
-                { emoji: '\u{1F3C0}', name: 'Basketball' },
-                { emoji: '\u{1F3C8}', name: 'Flag Football' },
-                { emoji: '\u26BD', name: 'Soccer' },
+                { emoji: '🏀', name: 'Basketball' },
+                { emoji: '⚽', name: 'Soccer' },
+                { emoji: '🏐', name: 'Volleyball' },
+                { emoji: '🏈', name: 'Flag Football' },
+                { emoji: '⚾', name: 'Baseball' },
+                { emoji: '🥎', name: 'Softball' },
+                { emoji: '🥍', name: 'Lacrosse' },
+                { emoji: '🏊', name: 'Swimming' },
+                { emoji: '🎾', name: 'Tennis' },
+                { emoji: '🤸', name: 'Gymnastics' },
               ].map((s) => (
-                <div key={s.name} className="flex flex-col items-center gap-1.5">
-                  <span className="text-3xl">{s.emoji}</span>
-                  <span className="text-xs font-medium text-zinc-400">{s.name}</span>
+                <div key={s.name} className="flex flex-col items-center gap-1">
+                  <span className="text-2xl sm:text-3xl">{s.emoji}</span>
+                  <span className="text-[10px] font-medium text-zinc-400 text-center leading-tight">{s.name}</span>
                 </div>
               ))}
-              <div className="flex flex-col items-center gap-1.5 opacity-50">
-                <span className="text-3xl">+</span>
-                <span className="text-xs font-medium text-zinc-400">More coming</span>
-              </div>
             </div>
           </div>
 
@@ -744,7 +748,7 @@ export default function LandingContent() {
       {/* ── Footer ── */}
       <footer className="border-t border-zinc-200 py-8">
         <div className="mx-auto max-w-4xl px-4 text-center">
-          <p className="text-sm text-zinc-400">SportsIQ -- Coaching Intelligence Platform</p>
+          <p className="text-sm text-zinc-400">SportsIQ — Coaching Intelligence Platform</p>
           <div className="mt-3 flex items-center justify-center gap-4 text-xs text-zinc-400 flex-wrap">
             <Link href="/privacy" className="hover:text-zinc-400 transition-colors">Privacy Policy</Link>
             <span>&middot;</span>

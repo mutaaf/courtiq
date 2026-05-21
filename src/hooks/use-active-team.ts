@@ -22,12 +22,19 @@ export function useActiveTeam() {
   const teams = meData?.teams || [];
   const activeTeam = teams.find((t: any) => t.id === activeTeamId) || teams[0] || null;
 
+  const coach = meData?.coach || null;
+  const sportSlug: string =
+    (activeTeam as any)?.sports?.slug ??
+    (coach?.organizations as any)?.sport_config?.default_sport_slug ??
+    'basketball';
+
   return {
     activeTeam,
     activeTeamId: activeTeam?.id || null,
     teams,
     setActiveTeamId,
-    coach: meData?.coach || null,
+    coach,
+    sportSlug,
     aiPlatformAvailable: meData?.aiPlatformAvailable ?? false,
   };
 }

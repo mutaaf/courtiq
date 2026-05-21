@@ -107,7 +107,9 @@ import {
   getHealthBarColor,
   type SnapshotObs,
 } from '@/lib/session-snapshot-utils';
-import { OBSERVATION_TEMPLATES, getTemplatesBySentiment } from '@/lib/observation-templates';
+import { findTemplateById, getTemplatesBySentiment } from '@/lib/observation-templates';
+import { getSportEmoji } from '@/lib/sport-utils';
+import { getWeeklyFocus, getFocusCategoryConfig } from '@/lib/weekly-focus-utils';
 
 const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   practice: 'Practice',
@@ -321,6 +323,10 @@ function SessionCoverageTracker({
   const observedIds = new Set(
     observations.filter((o) => o.player_id).map((o) => o.player_id)
   );
+  const obsCountByPlayer: Record<string, number> = {};
+  for (const o of observations) {
+    if (o.player_id) obsCountByPlayer[o.player_id] = (obsCountByPlayer[o.player_id] ?? 0) + 1;
+  }
   const unobserved = rosterPlayers.filter((p) => !observedIds.has(p.id));
   const observed = rosterPlayers.filter((p) => observedIds.has(p.id));
   const allCovered = unobserved.length === 0;
@@ -425,6 +431,7 @@ function SessionCoverageTracker({
                 >
                   <CheckCircle2 className="h-3 w-3" />
                   {player.name}
+                  <span className="text-emerald-600 text-[10px] tabular-nums">×{obsCountByPlayer[player.id] ?? 1}</span>
                 </span>
               ))}
             </div>
@@ -447,6 +454,26 @@ function GameRecapCard({
   const [recap, setRecap] = useState<GameRecapResult | null>(null);
   const [expanded, setExpanded] = useState(true);
   const [copied, setCopied] = useState(false);
+
+  const { data: savedRecapRows } = useQuery<any[]>({
+    queryKey: ['session-plan', sessionId, 'game_recap'],
+    queryFn: () => query<any[]>({
+      table: 'plans',
+      filters: { team_id: teamId, type: 'game_recap', session_id: sessionId },
+      order: { column: 'created_at', ascending: false },
+      limit: 1,
+    }),
+    staleTime: 5 * 60 * 1000,
+    enabled: !recap,
+  });
+  useEffect(() => {
+    if (savedRecapRows?.length && !recap) {
+      try {
+        const d = savedRecapRows[0].content_structured ?? JSON.parse(savedRecapRows[0].content);
+        if (d?.title) setRecap(d as GameRecapResult);
+      } catch { /* ignore */ }
+    }
+  }, [savedRecapRows, recap]);
 
   async function handleGenerate() {
     setIsGenerating(true);
@@ -1150,6 +1177,27 @@ function PlayerSessionMessagesCard({
   const [emailSending, setEmailSending] = useState(false);
   const [emailResult, setEmailResult] = useState<{ sent: number; skipped: number } | null>(null);
 
+  // Auto-load the most recently saved plan for this session so coaches don't regenerate on return visits
+  const { data: savedMsgRows } = useQuery<any[]>({
+    queryKey: ['session-plan', sessionId, 'player_messages'],
+    queryFn: () => query<any[]>({
+      table: 'plans',
+      filters: { team_id: teamId, type: 'player_messages', session_id: sessionId },
+      order: { column: 'created_at', ascending: false },
+      limit: 1,
+    }),
+    staleTime: 5 * 60 * 1000,
+    enabled: !messages,
+  });
+  useEffect(() => {
+    if (savedMsgRows?.length && !messages) {
+      try {
+        const d = savedMsgRows[0].content_structured ?? JSON.parse(savedMsgRows[0].content);
+        if (d?.messages) setMessages(d as PlayerSessionMessagesResult);
+      } catch { /* ignore */ }
+    }
+  }, [savedMsgRows, messages]);
+
   // Fetch roster contacts (email + phone) — only once messages are generated
   const { data: rosterContacts = [] } = useQuery<ParentEmailPlayer[]>({
     queryKey: ['roster-contacts', teamId],
@@ -1501,10 +1549,12 @@ function TeamGroupMessageCard({
   sessionId,
   teamId,
   observationCount,
+  sportSlug,
 }: {
   sessionId: string;
   teamId: string;
   observationCount: number;
+  sportSlug?: string;
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1512,6 +1562,26 @@ function TeamGroupMessageCard({
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState(false);
   const [editedMessage, setEditedMessage] = useState('');
+
+  const { data: savedGroupMsgRows } = useQuery<any[]>({
+    queryKey: ['session-plan', sessionId, 'team_group_message'],
+    queryFn: () => query<any[]>({
+      table: 'plans',
+      filters: { team_id: teamId, type: 'team_group_message', session_id: sessionId },
+      order: { column: 'created_at', ascending: false },
+      limit: 1,
+    }),
+    staleTime: 5 * 60 * 1000,
+    enabled: !result,
+  });
+  useEffect(() => {
+    if (savedGroupMsgRows?.length && !result) {
+      try {
+        const d = savedGroupMsgRows[0].content_structured ?? JSON.parse(savedGroupMsgRows[0].content);
+        if (d?.message) { setResult(d as TeamGroupMessageResult); setEditedMessage(d.message); }
+      } catch { /* ignore */ }
+    }
+  }, [savedGroupMsgRows, result]);
 
   async function handleGenerate() {
     setIsGenerating(true);
@@ -1538,7 +1608,7 @@ function TeamGroupMessageCard({
 
   function buildFullText(msg: TeamGroupMessageResult): string {
     return [
-      `🏀 ${msg.session_label}`,
+      `${getSportEmoji(sportSlug)} ${msg.session_label}`,
       '',
       editedMessage || msg.message,
       msg.coaching_focus?.length ? `\nToday we focused on: ${msg.coaching_focus.join(', ')}` : '',
@@ -1717,6 +1787,26 @@ function HuddleScriptCard({
   const [script, setScript] = useState<HuddleScript | null>(null);
   const [copied, setCopied] = useState(false);
   const [nextSessionHint, setNextSessionHint] = useState('');
+
+  const { data: savedHuddleRows } = useQuery<any[]>({
+    queryKey: ['session-plan', sessionId, 'huddle_script'],
+    queryFn: () => query<any[]>({
+      table: 'plans',
+      filters: { team_id: teamId, type: 'huddle_script', session_id: sessionId },
+      order: { column: 'created_at', ascending: false },
+      limit: 1,
+    }),
+    staleTime: 5 * 60 * 1000,
+    enabled: !script,
+  });
+  useEffect(() => {
+    if (savedHuddleRows?.length && !script) {
+      try {
+        const d = savedHuddleRows[0].content_structured ?? JSON.parse(savedHuddleRows[0].content);
+        if (d?.huddle_script) setScript(d as HuddleScript);
+      } catch { /* ignore */ }
+    }
+  }, [savedHuddleRows, script]);
 
   async function handleGenerate() {
     setIsGenerating(true);
@@ -2019,6 +2109,26 @@ function PlayerOfMatchCard({
   const [expanded, setExpanded] = useState(true);
   const [copied, setCopied] = useState(false);
 
+  const { data: savedPomRows } = useQuery<any[]>({
+    queryKey: ['session-plan', sessionId, 'player_of_match'],
+    queryFn: () => query<any[]>({
+      table: 'plans',
+      filters: { team_id: teamId, type: 'player_of_match', session_id: sessionId },
+      order: { column: 'created_at', ascending: false },
+      limit: 1,
+    }),
+    staleTime: 5 * 60 * 1000,
+    enabled: !result,
+  });
+  useEffect(() => {
+    if (savedPomRows?.length && !result) {
+      try {
+        const d = savedPomRows[0].content_structured ?? JSON.parse(savedPomRows[0].content);
+        if (d?.player_name) setResult(d as PlayerOfMatch);
+      } catch { /* ignore */ }
+    }
+  }, [savedPomRows, result]);
+
   async function handleGenerate() {
     setIsGenerating(true);
     setError(null);
@@ -2191,18 +2301,35 @@ function TeamTalkCard({
   const [expanded, setExpanded] = useState(true);
   const [copied, setCopied] = useState(false);
 
+  const { data: savedTalkRows } = useQuery<any[]>({
+    queryKey: ['session-plan', sessionId, 'team_talk'],
+    queryFn: () => query<any[]>({
+      table: 'plans',
+      filters: { team_id: teamId, type: 'team_talk', session_id: sessionId },
+      order: { column: 'created_at', ascending: false },
+      limit: 1,
+    }),
+    staleTime: 5 * 60 * 1000,
+    enabled: !result,
+  });
+  useEffect(() => {
+    if (savedTalkRows?.length && !result) {
+      try {
+        const d = savedTalkRows[0].content_structured ?? JSON.parse(savedTalkRows[0].content);
+        if (d?.script) setResult(d as TeamTalk);
+      } catch { /* ignore */ }
+    }
+  }, [savedTalkRows, result]);
+
   async function handleGenerate() {
     setIsGenerating(true);
     setError(null);
     try {
-      // Read weekly focus from localStorage if available
+      // Read weekly focus from localStorage if available (team-scoped key)
       let weeklyFocusLabel: string | undefined;
       try {
-        const raw = localStorage.getItem('weekly-focus');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed?.label) weeklyFocusLabel = parsed.label;
-        }
+        const focus = getWeeklyFocus(teamId);
+        if (focus) weeklyFocusLabel = getFocusCategoryConfig(focus.category)?.label;
       } catch { /* ignore */ }
 
       const res = await fetch('/api/ai/team-talk', {
@@ -2379,10 +2506,17 @@ function PreSessionBriefingCard({
     setIsGenerating(true);
     setError(null);
     try {
+      // Include weekly focus so briefing aligns with the coach's weekly theme
+      let weeklyFocusLabel: string | undefined;
+      try {
+        const focus = getWeeklyFocus(teamId);
+        if (focus) weeklyFocusLabel = getFocusCategoryConfig(focus.category)?.label;
+      } catch { /* ignore */ }
+
       const res = await fetch('/api/ai/session-briefing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, teamId }),
+        body: JSON.stringify({ sessionId, teamId, weeklyFocusLabel }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -2614,10 +2748,17 @@ function AIDebriefCard({
     setPlanCreated(false);
     setPlanError(null);
     try {
+      // Include weekly focus so the debrief explicitly addresses the coach's theme
+      let weeklyFocusLabel: string | undefined;
+      try {
+        const focus = getWeeklyFocus(teamId);
+        if (focus) weeklyFocusLabel = getFocusCategoryConfig(focus.category)?.label;
+      } catch { /* ignore */ }
+
       const res = await fetch('/api/ai/session-debrief', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, teamId }),
+        body: JSON.stringify({ sessionId, teamId, weeklyFocusLabel }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -2979,7 +3120,7 @@ export default function SessionDetailPage() {
   const params = useParams();
   const sessionId = params.sessionId as string;
   const searchParams = useSearchParams();
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
   const queryClient = useQueryClient();
 
   // Practice Complete banner — shown when arriving from the practice timer
@@ -3014,6 +3155,15 @@ export default function SessionDetailPage() {
   const [qoSaving, setQoSaving] = useState(false);
   const [qoSaved, setQoSaved] = useState(false);
 
+  // Quick Update — zero-AI instant session summary share
+  const [quickShareState, setQuickShareState] = useState<'idle' | 'shared' | 'copied'>('idle');
+
+  // Session notes / focus — editable inline
+  const [sessionNotes, setSessionNotes] = useState('');
+  const [sessionNotesInitialized, setSessionNotesInitialized] = useState(false);
+  const [sessionNotesSaved, setSessionNotesSaved] = useState(false);
+  const sessionNotesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const { data: session, isLoading: sessionLoading } = useQuery({
     queryKey: ['session', sessionId],
     queryFn: async () => {
@@ -3026,6 +3176,10 @@ export default function SessionDetailPage() {
       if (!debriefInitialized && data) {
         setDebrief(data.coach_debrief_text || '');
         setDebriefInitialized(true);
+      }
+      if (!sessionNotesInitialized && data) {
+        setSessionNotes(data.notes || '');
+        setSessionNotesInitialized(true);
       }
       return data;
     },
@@ -3143,6 +3297,20 @@ export default function SessionDetailPage() {
     },
   });
 
+  const sessionNotesMutation = useMutation({
+    mutationFn: async (text: string) => {
+      await mutate({
+        table: 'sessions',
+        operation: 'update',
+        data: { notes: text || null },
+        filters: { id: sessionId },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
+    },
+  });
+
   const qualityMutation = useMutation({
     mutationFn: async (rating: number) => {
       await mutate({
@@ -3183,7 +3351,7 @@ export default function SessionDetailPage() {
 
   async function handleQuickObsSave() {
     if (!activeTeam || !qoPlayer) return;
-    const template = OBSERVATION_TEMPLATES.find((t) => t.id === qoTemplate);
+    const template = findTemplateById(qoTemplate ?? '');
     const text = qoText.trim() || template?.text || '';
     if (!text) return;
     setQoSaving(true);
@@ -3218,6 +3386,79 @@ export default function SessionDetailPage() {
     } finally {
       setQoSaving(false);
     }
+  }
+
+  function buildQuickSessionSummary(): string {
+    if (!session || !activeTeam) return '';
+    const SESSION_EMOJI: Record<string, string> = {
+      practice: '🏃', game: '🏆', scrimmage: '⚡', tournament: '🏅', training: '💪',
+    };
+    const SESSION_LABEL: Record<string, string> = {
+      practice: 'Practice', game: 'Game', scrimmage: 'Scrimmage', tournament: 'Tournament', training: 'Training',
+    };
+    const emoji = SESSION_EMOJI[session.type] ?? '📋';
+    const typeLabel = SESSION_LABEL[session.type] ?? session.type;
+    const date = new Date(session.date + 'T00:00:00').toLocaleDateString('en-US', {
+      weekday: 'long', month: 'short', day: 'numeric',
+    });
+
+    // One positive highlight per player (most recent first)
+    const seen = new Set<string>();
+    const highlights: { name: string; text: string }[] = [];
+    for (const obs of (observations ?? [])) {
+      if (obs.sentiment !== 'positive' || !obs.player_id || seen.has(obs.player_id)) continue;
+      const playerName = obs.players?.name ?? rosterPlayers.find((p: Player) => p.id === obs.player_id)?.name;
+      if (!playerName) continue;
+      seen.add(obs.player_id);
+      const snippet = obs.text.length > 60 ? obs.text.slice(0, 57) + '…' : obs.text;
+      highlights.push({ name: playerName, text: snippet });
+    }
+
+    // Top needs-work categories
+    const catCounts = new Map<string, number>();
+    for (const obs of (observations ?? [])) {
+      if (obs.sentiment === 'needs-work' && obs.category && obs.category !== 'general') {
+        catCounts.set(obs.category, (catCounts.get(obs.category) ?? 0) + 1);
+      }
+    }
+    const focusAreas = [...catCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([cat]) => cat.charAt(0).toUpperCase() + cat.slice(1));
+
+    let msg = `${emoji} ${typeLabel} · ${date}`;
+    if (session.opponent) msg += `\nvs ${session.opponent}`;
+    msg += '\n';
+    if (highlights.length > 0) {
+      msg += '\n✅ Highlights today:\n';
+      for (const { name, text } of highlights) msg += `• ${name} — ${text}\n`;
+    }
+    if (focusAreas.length > 0) {
+      msg += `\n📈 We're working on: ${focusAreas.join(', ')}\n`;
+    }
+    const first = coach?.full_name?.split(' ')[0] ?? 'Coach';
+    msg += `\n— ${first}, ${activeTeam.name}`;
+    return msg.trim();
+  }
+
+  async function handleQuickShare() {
+    const msg = buildQuickSessionSummary();
+    if (!msg) return;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ text: msg });
+        setQuickShareState('shared');
+      } else {
+        await navigator.clipboard.writeText(msg);
+        setQuickShareState('copied');
+      }
+    } catch {
+      try {
+        await navigator.clipboard.writeText(msg);
+        setQuickShareState('copied');
+      } catch { /* ignore */ }
+    }
+    setTimeout(() => setQuickShareState('idle'), 2500);
   }
 
   function formatDate(dateStr: string) {
@@ -3311,6 +3552,10 @@ export default function SessionDetailPage() {
   }
 
   const savedDebrief = session.coach_debrief_extracts as SessionDebriefResult | null;
+
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+  const isSessionUpcoming = new Date(session.date + 'T00:00:00') >= todayMidnight;
 
   return (
     <>
@@ -3524,12 +3769,76 @@ export default function SessionDetailPage() {
 
             return null;
           })()}
+
+          {/* Session focus / pre-practice notes — editable inline */}
+          {sessionNotesInitialized && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <Target className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                  Session focus
+                </span>
+                {sessionNotesSaved && (
+                  <span className="flex items-center gap-1 text-[11px] text-emerald-500 ml-auto">
+                    <Check className="h-2.5 w-2.5" /> Saved
+                  </span>
+                )}
+              </div>
+              <textarea
+                value={sessionNotes}
+                placeholder="Add a focus or agenda for this session…"
+                rows={sessionNotes ? Math.max(2, Math.ceil(sessionNotes.length / 60)) : 1}
+                className="w-full rounded-lg border border-zinc-700/60 bg-zinc-800/40 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/20 resize-none transition-colors"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSessionNotes(val);
+                  setSessionNotesSaved(false);
+                  if (sessionNotesTimer.current) clearTimeout(sessionNotesTimer.current);
+                  sessionNotesTimer.current = setTimeout(() => {
+                    sessionNotesMutation.mutate(val, {
+                      onSuccess: () => {
+                        setSessionNotesSaved(true);
+                        setTimeout(() => setSessionNotesSaved(false), 2000);
+                      },
+                    });
+                  }, 1200);
+                }}
+                onBlur={() => {
+                  if (sessionNotesTimer.current) {
+                    clearTimeout(sessionNotesTimer.current);
+                    sessionNotesTimer.current = null;
+                  }
+                  sessionNotesMutation.mutate(sessionNotes, {
+                    onSuccess: () => {
+                      setSessionNotesSaved(true);
+                      setTimeout(() => setSessionNotesSaved(false), 2000);
+                    },
+                  });
+                }}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Jump-to nav — horizontal scroll chips for quick access to key sections */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
         <span className="shrink-0 text-[11px] font-medium text-zinc-600 mr-0.5">Jump to:</span>
+        {/* Quick Update — zero-AI instant parent summary, no scroll needed */}
+        <button
+          onClick={handleQuickShare}
+          disabled={obsLoading || !observations?.some((o) => o.sentiment === 'positive')}
+          className="shrink-0 flex items-center gap-1 rounded-full border border-teal-600/40 bg-teal-500/10 px-2.5 py-1 text-[11px] text-teal-400 hover:border-teal-500/60 hover:bg-teal-500/15 transition-colors touch-manipulation active:scale-95 disabled:opacity-40"
+          aria-label="Quick parent update — share session highlights instantly without AI"
+        >
+          {quickShareState === 'shared' ? '✓ Sent!' : quickShareState === 'copied' ? '✓ Copied!' : '⚡ Quick Update'}
+        </button>
+        <button
+          onClick={() => document.getElementById('observations-section')?.scrollIntoView({ behavior: 'smooth' })}
+          className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-orange-500/50 hover:text-orange-400 transition-colors touch-manipulation active:scale-95"
+        >
+          📋 Observations
+        </button>
         <button
           onClick={() => document.getElementById('ai-debrief-section')?.scrollIntoView({ behavior: 'smooth' })}
           className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-orange-500/50 hover:text-orange-400 transition-colors touch-manipulation active:scale-95"
@@ -3570,6 +3879,20 @@ export default function SessionDetailPage() {
         >
           📣 Group Chat
         </button>
+        <button
+          onClick={() => document.getElementById('huddle-section')?.scrollIntoView({ behavior: 'smooth' })}
+          className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-lime-500/50 hover:text-lime-400 transition-colors touch-manipulation active:scale-95"
+        >
+          🎤 Huddle
+        </button>
+        {(session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
+          <button
+            onClick={() => document.getElementById('halftime-section')?.scrollIntoView({ behavior: 'smooth' })}
+            className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-[11px] text-zinc-400 hover:border-purple-500/50 hover:text-purple-400 transition-colors touch-manipulation active:scale-95"
+          >
+            🔄 Halftime
+          </button>
+        )}
       </div>
 
       {/* Practice Complete Banner — shown when arriving from practice timer */}
@@ -3629,16 +3952,16 @@ export default function SessionDetailPage() {
         <PracticeReminderCard session={session} teamName={activeTeam.name} />
       )}
 
-      {/* Pre-Session AI Briefing */}
-      {activeTeam && (
+      {/* Pre-Session AI Briefing — only for upcoming/today sessions */}
+      {activeTeam && isSessionUpcoming && (
         <PreSessionBriefingCard
           sessionId={sessionId}
           teamId={activeTeam.id}
         />
       )}
 
-      {/* Opening Team Talk — AI-written motivational script for any session */}
-      {activeTeam && (
+      {/* Opening Team Talk — only for upcoming/today sessions */}
+      {activeTeam && isSessionUpcoming && (
         <TeamTalkCard
           sessionId={sessionId}
           teamId={activeTeam.id}
@@ -3646,7 +3969,7 @@ export default function SessionDetailPage() {
       )}
 
       {/* Observations */}
-      <div className="space-y-3">
+      <div id="observations-section" className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-orange-500" />
@@ -3677,11 +4000,20 @@ export default function SessionDetailPage() {
 
         {observations?.length === 0 ? (
           <Card>
-            <CardContent className="flex flex-col items-center justify-center py-8">
+            <CardContent className="flex flex-col items-center justify-center py-8 text-center">
               <MessageSquare className="h-10 w-10 text-zinc-600 mb-3" />
-              <p className="text-sm text-zinc-400">No observations yet</p>
-              <Link href={`/capture?sessionId=${sessionId}`} className="mt-3">
-                <Button variant="outline" size="sm">
+              <p className="text-sm font-medium text-zinc-300">No observations yet</p>
+              <p className="text-xs text-zinc-500 mt-1 max-w-[220px]">
+                Watch practice and note standout moments — skills to reinforce or areas to work on.
+              </p>
+              {session?.start_time && (
+                <p className="text-[11px] text-zinc-600 mt-2">
+                  Session started at {formatTime(session.start_time)}
+                  {session.end_time && ` · ends ${formatTime(session.end_time)}`}
+                </p>
+              )}
+              <Link href={`/capture?sessionId=${sessionId}`} className="mt-4">
+                <Button size="sm" className="bg-orange-600 hover:bg-orange-500 text-white gap-1.5">
                   <Mic className="h-4 w-4" />
                   Start capturing
                 </Button>
@@ -3747,6 +4079,11 @@ export default function SessionDetailPage() {
                                 <Badge variant="outline" className="text-[10px]">
                                   {obs.source}
                                 </Badge>
+                                {obs.created_at && (
+                                  <span className="ml-auto text-[10px] text-zinc-600 tabular-nums">
+                                    {new Date(obs.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                                  </span>
+                                )}
                               </div>
                               <p className="text-sm text-zinc-300">{obs.text}</p>
                               <div className="flex items-center gap-2 mt-2">
@@ -3808,11 +4145,13 @@ export default function SessionDetailPage() {
 
       {/* Half-Time Adjustments — game/scrimmage/tournament only */}
       {activeTeam && (session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
-        <HalftimeAdjustmentsCard
-          sessionId={sessionId}
-          teamId={activeTeam.id}
-          opponent={session.opponent}
-        />
+        <div id="halftime-section">
+          <HalftimeAdjustmentsCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+            opponent={session.opponent}
+          />
+        </div>
       )}
 
       {/* Game Recap — game/scrimmage/tournament only */}
@@ -3865,17 +4204,20 @@ export default function SessionDetailPage() {
             sessionId={sessionId}
             teamId={activeTeam.id}
             observationCount={observations?.length || 0}
+            sportSlug={sportSlug}
           />
         )}
       </div>
 
       {/* Huddle Script — 30-second end-of-practice script to read to the team */}
       {activeTeam && (
-        <HuddleScriptCard
-          sessionId={sessionId}
-          teamId={activeTeam.id}
-          observationCount={observations?.length || 0}
-        />
+        <div id="huddle-section">
+          <HuddleScriptCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+            observationCount={observations?.length || 0}
+          />
+        </div>
       )}
 
       {/* Media Upload Section */}
@@ -4002,7 +4344,7 @@ export default function SessionDetailPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               {([1, 2, 3, 4, 5] as const).map((n) => {
                 const current = session?.quality_rating ?? 0;
@@ -4027,16 +4369,25 @@ export default function SessionDetailPage() {
                 <Loader2 className="h-4 w-4 animate-spin text-zinc-500 ml-1" />
               )}
             </div>
-            {isValidRating(session?.quality_rating) && (
-              <p className={`text-sm font-medium ${getRatingColor(session!.quality_rating!)}`}>
-                {getRatingLabel(session!.quality_rating! as 1 | 2 | 3 | 4 | 5)}
-                {qualityMutation.isSuccess && (
-                  <span className="ml-2 text-xs text-zinc-500 font-normal">Saved</span>
-                )}
-              </p>
-            )}
-            {!session?.quality_rating && (
-              <p className="text-xs text-zinc-500">Tap a star to rate this session&apos;s quality.</p>
+            {/* Rating labels — always visible so coaches know what each star means */}
+            <div className="flex items-center gap-2">
+              {(['Poor', 'Fair', 'Good', 'Great', 'Excellent'] as const).map((label, i) => {
+                const n = (i + 1) as 1 | 2 | 3 | 4 | 5;
+                const isSelected = session?.quality_rating === n;
+                return (
+                  <span
+                    key={n}
+                    className={`w-11 text-center text-[10px] leading-none ${
+                      isSelected ? getRatingColor(n) : 'text-zinc-600'
+                    }`}
+                  >
+                    {label}
+                  </span>
+                );
+              })}
+            </div>
+            {qualityMutation.isSuccess && (
+              <p className="text-xs text-zinc-500 mt-1">Saved</p>
             )}
           </div>
         </CardContent>
@@ -4149,7 +4500,7 @@ export default function SessionDetailPage() {
 
           {/* Template chips */}
           <div className="flex flex-wrap gap-2">
-            {getTemplatesBySentiment(qoSentiment).slice(0, 8).map((t) => (
+            {getTemplatesBySentiment(qoSentiment, sportSlug).slice(0, 8).map((t) => (
               <button
                 key={t.id}
                 onClick={() => { setQoTemplate(qoTemplate === t.id ? null : t.id); setQoText(''); }}

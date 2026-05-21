@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { mutate } from '@/lib/api';
+import { mutate, query } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RecordingButton } from '@/components/capture/recording-button';
+import { AIUsageMeter, type AIUsageStatus } from '@/components/capture/ai-usage-meter';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Send, Keyboard, Mic, AlertCircle, Sparkles, Upload, FileAudio, Camera, Lock } from 'lucide-react';
 import { generateId } from '@/lib/utils';
@@ -22,9 +24,21 @@ import { trackEvent } from '@/lib/analytics';
 
 type CaptureState = 'idle' | 'recording' | 'processing' | 'error';
 
+function getCapturePlaceholder(sportSlug: string): string {
+  switch (sportSlug) {
+    case 'soccer':       return 'e.g., Marcus great first touch · Sofia needs work on passing';
+    case 'volleyball':   return 'e.g., Marcus great serve · Sofia needs work on setting';
+    case 'flag_football':return 'e.g., Marcus sharp route running · Sofia needs work on blocking';
+    case 'baseball':     return 'e.g., Marcus good contact at plate · Sofia needs work on fielding';
+    case 'lacrosse':     return 'e.g., Marcus quick stick work · Sofia needs work on cradling';
+    case 'tennis':       return 'e.g., Marcus consistent groundstrokes · Sofia needs work on net play';
+    default:             return 'e.g., Marcus great ball handling · Sofia needs work on spacing';
+  }
+}
+
 export default function CapturePage() {
   const router = useRouter();
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
   const { canAccess } = useTier();
   const canUsePhoto = canAccess('media_upload');
 
@@ -32,6 +46,7 @@ export default function CapturePage() {
   const [urlSessionId, setUrlSessionId] = useState<string | null>(null);
   const [urlPlayerId, setUrlPlayerId] = useState<string | null>(null);
   const [urlPlayerName, setUrlPlayerName] = useState<string | null>(null);
+  const [urlLoaded, setUrlLoaded] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -47,6 +62,7 @@ export default function CapturePage() {
         setShowQuickNote(true);
       }
     }
+    setUrlLoaded(true);
   }, []);
 
   const [captureState, setCaptureState] = useState<CaptureState>('idle');
@@ -83,6 +99,86 @@ export default function CapturePage() {
 
   const setIsRecording = useAppStore((s) => s.setIsRecording);
   const setGlobalRecordingDuration = useAppStore((s) => s.setRecordingDuration);
+  const practiceActive = useAppStore((s) => s.practiceActive);
+  const practiceSessionId = useAppStore((s) => s.practiceSessionId);
+
+  // Resolve the session ID for photo capture — prefer URL param, fall back to active practice
+  const resolvedSessionId = urlSessionId ?? (practiceActive ? practiceSessionId : null);
+
+  // Fetch session metadata when entering capture during an active practice (no URL session param)
+  const { data: activePracticeMeta } = useQuery<{ date: string; type: string } | null>({
+    queryKey: ['capture-active-session-meta', practiceSessionId],
+    queryFn: () =>
+      query<{ date: string; type: string }[]>({
+        table: 'sessions',
+        select: 'date, type',
+        filters: { id: practiceSessionId! },
+        limit: 1,
+      }).then((r) => r?.[0] ?? null),
+    enabled: !!practiceSessionId && practiceActive && !urlSessionId,
+    staleTime: 10 * 60_000,
+  });
+
+  // Best-effort AI usage meter (ticket 0008): surfaces "N of 5 AI notes left this
+  // month" for free-tier coaches so the monthly wall stops being a surprise. This
+  // is a fire-and-forget read — it never gates capture. On failure/timeout the
+  // query resolves undefined and the meter renders nothing; the record button is
+  // unaffected. Re-reads on window focus so returning from review reflects a fresh
+  // count. NOT a direct Supabase call (AGENTS.md rule 3) — it hits /api/ai/usage.
+  const { data: aiUsage } = useQuery<AIUsageStatus | undefined>({
+    queryKey: ['ai-usage'],
+    queryFn: async () => {
+      try {
+        const res = await fetch('/api/ai/usage');
+        if (!res.ok) return undefined;
+        return (await res.json()) as AIUsageStatus;
+      } catch {
+        return undefined; // degrade silently — capture must never be blocked by this read
+      }
+    },
+    retry: false,
+    staleTime: 60_000,
+  });
+
+  // Fetch player's recent observations for coaching brief when player is pre-selected
+  const since30d = useMemo(() => new Date(Date.now() - 30 * 86_400_000).toISOString(), []);
+  const { data: playerRecentObs } = useQuery({
+    queryKey: ['capture-player-brief', urlPlayerId],
+    queryFn: async () => {
+      if (!urlPlayerId) return null;
+      const obs = await query<{ id: string; text: string; sentiment: string; category: string | null; created_at: string }[]>({
+        table: 'observations',
+        select: 'id, text, sentiment, category, created_at',
+        filters: { player_id: urlPlayerId, created_at: { op: 'gte', value: since30d } },
+        order: { column: 'created_at', ascending: false },
+        limit: 10,
+      });
+      return obs ?? null;
+    },
+    // Only run when urlPlayerId looks like a UUID (not a plain player name)
+    enabled: !!urlPlayerId && urlPlayerId.includes('-') && urlPlayerId.length > 20,
+    staleTime: 5 * 60_000,
+  });
+
+  // Derive coaching brief from recent observations
+  const playerCoachingBrief = useMemo(() => {
+    if (!playerRecentObs || playerRecentObs.length === 0) return null;
+    const lastObs = playerRecentObs[0];
+    // Top needs-work category
+    const needsWorkCounts: Record<string, number> = {};
+    for (const o of playerRecentObs) {
+      if (o.sentiment === 'needs-work' && o.category && o.category !== 'general') {
+        needsWorkCounts[o.category] = (needsWorkCounts[o.category] ?? 0) + 1;
+      }
+    }
+    const topNeedsWork = Object.entries(needsWorkCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    // Time label
+    const ageMs = Date.now() - new Date(lastObs.created_at).getTime();
+    const ageDays = Math.floor(ageMs / 86_400_000);
+    const ageLabel = ageDays === 0 ? 'Today' : ageDays === 1 ? 'Yesterday' : `${ageDays}d ago`;
+    const obsCount30d = playerRecentObs.length;
+    return { lastObs, topNeedsWork, ageLabel, obsCount30d };
+  }, [playerRecentObs]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -749,6 +845,72 @@ export default function CapturePage() {
           </div>
         )}
 
+        {/* Active practice banner — shown when practice is running but no session URL param */}
+        {practiceActive && practiceSessionId && !urlSessionId && (
+          <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <p className="text-sm text-emerald-300">
+              Active practice
+              {activePracticeMeta && (
+                <> · <span className="font-semibold text-emerald-200">
+                  {activePracticeMeta.type.charAt(0).toUpperCase() + activePracticeMeta.type.slice(1)}{' '}·{' '}
+                  {new Date(activePracticeMeta.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </span></>
+              )}
+              {' '}— observations will link automatically
+            </p>
+          </div>
+        )}
+
+        {/* No-session nudge — shown when no active practice and no session URL param */}
+        {urlLoaded && !urlSessionId && !practiceActive && (
+          <div className="flex items-start gap-2.5 rounded-xl border border-zinc-700/50 bg-zinc-900/60 px-4 py-3">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />
+            <p className="text-sm text-zinc-400">
+              No active session — these observations won&apos;t link to a practice.{' '}
+              <Link href="/sessions/new" className="text-orange-400 hover:text-orange-300 underline underline-offset-2 transition-colors">
+                Start a session first
+              </Link>{' '}
+              to enable coverage tracking and AI debrief.
+            </p>
+          </div>
+        )}
+
+        {/* Coaching brief — player context when tapped from practice coverage chips */}
+        {urlPlayerId && playerCoachingBrief && (
+          <div className="rounded-xl border border-zinc-700/60 bg-zinc-900/60 px-4 py-3 space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Coaching Brief</p>
+            <div className="flex items-start gap-2">
+              <span className="shrink-0 mt-0.5 text-sm leading-none">
+                {playerCoachingBrief.lastObs.sentiment === 'positive' ? '✅' : playerCoachingBrief.lastObs.sentiment === 'needs-work' ? '⚠️' : '·'}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm leading-snug ${playerCoachingBrief.lastObs.sentiment === 'positive' ? 'text-emerald-300' : playerCoachingBrief.lastObs.sentiment === 'needs-work' ? 'text-amber-300' : 'text-zinc-300'}`}>
+                  {playerCoachingBrief.lastObs.text.length > 72 ? playerCoachingBrief.lastObs.text.slice(0, 72) + '…' : playerCoachingBrief.lastObs.text}
+                </p>
+                <p className="text-[11px] text-zinc-500 mt-0.5">
+                  {playerCoachingBrief.ageLabel}
+                  <span className="ml-1.5 text-zinc-600">· {playerCoachingBrief.obsCount30d} obs (30d)</span>
+                </p>
+              </div>
+            </div>
+            {playerCoachingBrief.topNeedsWork && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-zinc-500">Focus:</span>
+                <span className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[11px] font-medium text-amber-400 capitalize">
+                  {playerCoachingBrief.topNeedsWork.replace(/-/g, ' ')}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+        {urlPlayerId && playerRecentObs && playerRecentObs.length === 0 && (
+          <div className="flex items-center gap-2 rounded-xl border border-zinc-700/40 bg-zinc-900/40 px-4 py-2.5">
+            <span className="text-zinc-500 text-xs">🌱</span>
+            <p className="text-xs text-zinc-500">First observation for this player — what do you notice?</p>
+          </div>
+        )}
+
         {/* Recovery Banner */}
         {recoveryData && captureState === 'idle' && (
           <Card className="border-amber-500/30 bg-amber-500/5">
@@ -792,6 +954,10 @@ export default function CapturePage() {
               onToggle={toggleRecording}
               disabled={false}
             />
+
+            {/* AI usage meter — free-tier "N of 5 AI notes left" (ticket 0008).
+                Best-effort: absent for paid tiers and when the read fails; never gates. */}
+            {captureState !== 'recording' && <AIUsageMeter usage={aiUsage} />}
 
             {/* Segment progress during recording */}
             {captureState === 'recording' && segmentCount > 0 && (
@@ -934,7 +1100,7 @@ export default function CapturePage() {
                 />
               </label>
               <Link
-                href={canUsePhoto ? '/capture/photo' : '/settings/upgrade'}
+                href={canUsePhoto ? (resolvedSessionId ? `/capture/photo?sessionId=${resolvedSessionId}` : '/capture/photo') : '/settings/upgrade'}
                 className="text-sm text-zinc-400 flex items-center gap-1.5 hover:text-zinc-200 active:scale-95 touch-manipulation"
               >
                 {canUsePhoto ? <Camera className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
@@ -977,7 +1143,7 @@ export default function CapturePage() {
                 />
               </label>
               <Link
-                href={canUsePhoto ? '/capture/photo' : '/settings/upgrade'}
+                href={canUsePhoto ? (resolvedSessionId ? `/capture/photo?sessionId=${resolvedSessionId}` : '/capture/photo') : '/settings/upgrade'}
                 className="flex items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 text-left transition-colors hover:border-zinc-700 hover:bg-zinc-800/50 active:scale-[0.98] touch-manipulation"
               >
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
@@ -1101,7 +1267,7 @@ export default function CapturePage() {
                   </div>
                   <div className="flex gap-2">
                     <Input
-                      placeholder={urlPlayerName ? `What did ${urlPlayerName} do?` : 'e.g., Marcus showed great ball handling today...'}
+                      placeholder={urlPlayerName ? `What did ${urlPlayerName} do?` : getCapturePlaceholder(sportSlug)}
                       value={quickNote}
                       onChange={(e) => setQuickNote(e.target.value)}
                       onKeyDown={(e) => {
@@ -1142,6 +1308,7 @@ export default function CapturePage() {
               coachId={coach.id}
               sessionId={urlSessionId}
               preselectPlayerId={urlPlayerId}
+              sportSlug={sportSlug}
             />
           </>
         )}

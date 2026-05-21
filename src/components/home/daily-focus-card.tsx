@@ -28,7 +28,7 @@ export function DailyFocusCard({ teamId }: DailyFocusCardProps) {
     queryFn: () =>
       query<RosterPlayer[]>({
         table: 'players',
-        select: 'id, name',
+        select: 'id, name, jersey_number',
         filters: { team_id: teamId, is_active: true },
       }).then((r) => r ?? []),
     staleTime: 5 * 60_000,
@@ -39,7 +39,7 @@ export function DailyFocusCard({ teamId }: DailyFocusCardProps) {
     queryFn: () =>
       query<PlayerObsSummary[]>({
         table: 'observations',
-        select: 'player_id, sentiment, category, created_at',
+        select: 'player_id, sentiment, category, created_at, text',
         filters: {
           team_id: teamId,
           created_at: { op: 'gte', value: cutoff },
@@ -55,6 +55,11 @@ export function DailyFocusCard({ teamId }: DailyFocusCardProps) {
     if (!hasSufficientDataForFocus(players, observations)) return null;
     return buildDailyFocusSuggestion(players, observations, [], new Date());
   }, [players, observations]);
+
+  const lastObs = useMemo(() => {
+    if (!suggestion) return null;
+    return observations.find((o) => o.player_id === suggestion.playerId && o.text) ?? null;
+  }, [suggestion, observations]);
 
   if (!suggestion) return null;
 
@@ -82,7 +87,7 @@ export function DailyFocusCard({ teamId }: DailyFocusCardProps) {
             href={`/roster/${suggestion.playerId}`}
             className="text-blue-300 hover:text-blue-200 underline underline-offset-2"
           >
-            {suggestion.playerName}
+            {suggestion.jerseyNumber != null ? `#${suggestion.jerseyNumber} ` : ''}{suggestion.playerName}
           </Link>
         </p>
         <div className="flex items-center gap-1.5 mt-1">
@@ -92,6 +97,14 @@ export function DailyFocusCard({ teamId }: DailyFocusCardProps) {
         {skillLabel && (
           <p className="text-xs text-zinc-500 mt-0.5 ml-5">
             Focus skill: <span className="text-zinc-300 font-medium">{skillLabel}</span>
+          </p>
+        )}
+        {lastObs?.text && (
+          <p className="text-xs text-zinc-600 mt-1 ml-5 italic leading-snug">
+            <span className={lastObs.sentiment === 'positive' ? 'text-emerald-600' : lastObs.sentiment === 'needs-work' ? 'text-amber-600' : 'text-zinc-600'}>
+              {lastObs.sentiment === 'positive' ? '✓' : lastObs.sentiment === 'needs-work' ? '△' : '·'}
+            </span>{' '}
+            {lastObs.text.length > 65 ? lastObs.text.slice(0, 65) + '…' : lastObs.text}
           </p>
         )}
       </div>
