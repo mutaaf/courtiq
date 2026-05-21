@@ -1,7 +1,7 @@
 ---
 id: 0009
 title: Put the Player of the Week / Player of the Match spotlight on the parent portal
-status: in-progress
+status: shipped
 priority: P2
 area: parent-portal
 created: 2026-05-21
@@ -92,3 +92,10 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 ## Implementation log
 
 - 2026-05-21 [implementation-dev] Picked up; branch `feat/0009-player-spotlight-portal`. Status → in-progress.
+- 2026-05-21 [implementation-dev] Shipped in PR #234 (squash-merged to `main`). All three gating checks green: `lint`, `unit-tests`, `e2e-tests`.
+  - Stamped `player_id: candidate.player_id` on the `weekly_star` insert (`src/app/api/ai/weekly-star/route.ts`).
+  - **Contract reconciliation 1:** the ticket said `player-of-match` already inserts `player_id` "around line 165" — but line 165 is the *response* object; the `.insert({...})` block did NOT carry it. Added `player_id` to `src/app/api/ai/player-of-match/route.ts` too.
+  - `GET /api/share/[token]` now returns `playerSpotlight` = most-recent `weekly_star`/`player_of_match` `content_structured` for the share's `player_id` (player-scoped, `null` when none).
+  - New light-mode gray/orange spotlight card on `src/app/share/[token]/page.tsx`, rendered defensively for both artifact shapes (session_label/coach_message vs week_label/coach_shoutout); `session_label` presence picks "Player of the Match" vs "Player of the Week".
+  - **Contract reconciliation 2:** the `plans.type` CHECK constraint (last touched in `009`) still only allowed legacy types up to `'newsletter'` and rejected `weekly_star`/`player_of_match`. The hosted DB tolerated these out-of-band, but the CI e2e seed (fresh DB, `ON_ERROR_STOP=1`) would reject the seeded `player_of_match` row. Added **migration `034_plans_type_check_align.sql`** aligning the constraint with the plan types the AI routes already write. No new columns, no minor-data widening, no tier gate. (The ticket's "no migration" line was premised on `player_id` already existing — true, and it needed none; this orthogonal constraint gap was a hard blocker for the explicitly-required seeded e2e.)
+  - Tests: `tests/ai/weekly-star.test.ts` (player_id stamp + share `playerSpotlight` present/null/scoped); `tests/e2e/share-flow.spec.ts` (spotlight present/absent + existing-sections regression); `tests/e2e/fixtures/seed.sql` gained a `player_of_match` plan + share token for Bob and `report_card`/`skill_challenge` for Alice. (The portal is a server component — `page.route()` doesn't intercept its server fetch, so the CI assertions are seed-backed, confirmed empirically.)
