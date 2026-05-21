@@ -79,6 +79,29 @@ export function DashboardShell({ coach, children }: Props) {
   const { subscriptionStatus, cancelAtPeriodEnd, currentPeriodEnd } = useTier();
   const queryClient = useQueryClient();
 
+  // Past-due banner CTA: open the Stripe Billing Portal so a coach with a declined card
+  // can update their payment method in one tap. POST to our route (it resolves the org's
+  // Stripe customer and mints a portal session), then send the browser to the returned
+  // billing.stripe.com url. (ticket 0004)
+  const [openingPortal, setOpeningPortal] = useState(false);
+  const openBillingPortal = useCallback(async () => {
+    setOpeningPortal(true);
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' });
+      const data = await res.json();
+      if (data?.url) {
+        window.location.assign(data.url);
+        return;
+      }
+      // No portal session (e.g. no Stripe customer) — fall back to the upgrade page.
+      window.location.assign('/settings/upgrade');
+    } catch {
+      window.location.assign('/settings/upgrade');
+    } finally {
+      setOpeningPortal(false);
+    }
+  }, []);
+
   const isRecording = useAppStore((s) => s.isRecording);
   const practiceActive = useAppStore((s) => s.practiceActive);
   const practiceStartedAt = useAppStore((s) => s.practiceStartedAt);
@@ -338,11 +361,26 @@ export function DashboardShell({ coach, children }: Props) {
             </span>
           </div>
         )}
-        {/* Past-due subscription warning */}
+        {/* Past-due subscription warning.
+            A declined renewal charge is recoverable churn: the coach keeps paid features
+            during Stripe's retry window (the webhook holds the tier — see ticket 0004) but
+            needs a one-tap path to update the card. The CTA opens the Stripe Billing Portal
+            via /api/stripe/portal rather than the in-app upgrade page so the coach lands
+            directly on the payment-method form. */}
         {subscriptionStatus === 'past_due' && (
           <div className="bg-red-500/10 border-b border-red-500/30 px-4 py-2 flex items-center gap-2 text-sm text-red-400">
-            <AlertCircle className="h-4 w-4" />
-            <span>Payment failed — <Link href="/settings/upgrade" className="underline font-medium">update your payment method</Link></span>
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>
+              Your card was declined — your Coach features stay on while we retry.{' '}
+              <button
+                type="button"
+                onClick={openBillingPortal}
+                disabled={openingPortal}
+                className="underline font-medium hover:text-red-300 disabled:opacity-60"
+              >
+                {openingPortal ? 'Opening…' : 'Update your payment method'}
+              </button>
+            </span>
           </div>
         )}
         {/* Cancel-at-period-end warning */}

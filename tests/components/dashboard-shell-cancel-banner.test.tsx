@@ -224,9 +224,13 @@ describe('DashboardShell cancellation banner (ticket 0003, AC6)', () => {
     expect(
       screen.queryByRole('link', { name: /resubscribe to keep access/i })
     ).not.toBeInTheDocument();
-    // The past-due warning is the one that shows instead.
+    // The past-due warning is the one that shows instead. Ticket 0004 changed its CTA from
+    // a `<Link href="/settings/upgrade">` to a `<button>` that opens the Stripe Billing
+    // Portal (POST /api/stripe/portal → redirect), so the past-due CTA is now a button, not
+    // a link. This test's intent — "cancel banner suppressed, past-due banner shown when
+    // past_due" — is unchanged; only the matched role moves link → button.
     expect(
-      screen.getByRole('link', { name: /update your payment method/i })
+      screen.getByRole('button', { name: /update your payment method/i })
     ).toBeInTheDocument();
   });
 }, 30_000);
