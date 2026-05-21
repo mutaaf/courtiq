@@ -240,4 +240,54 @@ values (
 )
 on conflict (share_token) do nothing;
 
+-- ── plans: a team_personality artifact for the team (ticket 0010) ───────────
+-- The public team-card surface renders ONLY team-level content_structured
+-- fields (team_type / type_emoji / tagline / description / traits / strengths /
+-- growth_areas / coaching_tips / team_motto). player_id is NULL — this is a
+-- team-level artifact, never per-player. type='team_personality' is allowed by
+-- the plans_type_check constraint (migration 034). The team_type / tagline /
+-- first trait below are asserted by team-card-flow.spec.ts.
+insert into plans (id, team_id, coach_id, player_id, type, title, content, content_structured)
+values (
+  '00000000-0000-4000-a000-000000000080',
+  '00000000-0000-4000-a000-000000000020',
+  '00000000-0000-4000-a000-000000000001',
+  null,
+  'team_personality',
+  '🔥 The Grinders',
+  '{}',
+  '{
+    "team_type": "The Grinders",
+    "type_emoji": "🔥",
+    "tagline": "Hard work is their superpower",
+    "description": "A relentless, defense-first team that never quits, no matter the scoreboard.",
+    "traits": [
+      {"name": "Work Ethic", "score": 92, "description": "They out-hustle everyone on the floor."},
+      {"name": "Defense", "score": 85, "description": "First one back every possession."},
+      {"name": "Grit", "score": 88, "description": "They thrive when the game gets tight."}
+    ],
+    "strengths": ["Relentless effort", "Lockdown defense"],
+    "growth_areas": ["Half-court offense"],
+    "coaching_tips": ["Lean into their effort identity", "Run more set plays in the half court"],
+    "team_motto": "Leave it all on the court"
+  }'::jsonb
+)
+on conflict (id) do nothing;
+
+-- ── team_card_shares: the public referral token resolving to that plan (0010) ─
+-- token 'test-team-card-token-e2e-001' matches TEAM_CARD_TOKEN in
+-- team-card-flow.spec.ts. is_active=true so the public /api/team-card/<token>
+-- route returns 200. The seeded coach has NO preferences.referral_code, so the
+-- route lazily generates makeReferralCode(coach uuid) = 'AAAAAA' (all-zero hex
+-- bytes) and the page CTA deep-links to /signup?ref=AAAAAA.
+insert into team_card_shares (id, token, plan_id, coach_id, is_active)
+values (
+  '00000000-0000-4000-a000-000000000081',
+  'test-team-card-token-e2e-001',
+  '00000000-0000-4000-a000-000000000080',
+  '00000000-0000-4000-a000-000000000001',
+  true
+)
+on conflict (token) do nothing;
+
 commit;

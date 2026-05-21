@@ -1,17 +1,8 @@
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
-
-// Alphabet excludes visually confusing characters (0/O, 1/I/L)
-const CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-
-/** Deterministic 6-char code from the first 6 bytes of the user UUID */
-function makeReferralCode(userId: string): string {
-  const hex = userId.replace(/-/g, '');
-  return Array.from({ length: 6 }, (_, i) => {
-    const byte = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-    return CHARS[byte % CHARS.length];
-  }).join('');
-}
+// Shared with the public team-card GET route so both resolve identical codes
+// (ticket 0010). Do not re-inline this algorithm.
+import { makeReferralCode } from '@/lib/referral-code';
 
 // GET /api/referrals — get or create caller's referral code + referral count
 export async function GET() {
