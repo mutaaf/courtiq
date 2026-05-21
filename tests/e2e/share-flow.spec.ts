@@ -58,7 +58,12 @@ test.describe('Parent portal (/share/[token]) — public', () => {
 
   test('share page shows team name', async ({ page }) => {
     await page.goto(SHARE_URL);
-    await expect(page.getByText('E2E Test Team')).toBeVisible({ timeout: 10000 });
+    // The team name renders in the <h1> heading AND inside the greeting
+    // sentence ("…with E2E Test Team."), so a plain getByText is a strict-mode
+    // violation. Target the heading — that's the element this test is about.
+    await expect(
+      page.getByRole('heading', { name: 'E2E Test Team' })
+    ).toBeVisible({ timeout: 10000 });
   });
 
   test('expired share token shows error state', async ({ page }) => {
