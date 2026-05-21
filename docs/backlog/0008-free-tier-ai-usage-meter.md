@@ -1,7 +1,7 @@
 ---
 id: 0008
 title: Show free coaches their AI usage so the monthly wall stops being a surprise
-status: in-progress
+status: shipped
 priority: P1
 area: tier
 created: 2026-05-21
@@ -97,3 +97,4 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   - UI: extracted a small presentational `AIUsageMeter` (`src/components/capture/ai-usage-meter.tsx`) carrying `data-testid="ai-usage-meter"`, zinc/orange styling, amber state when `remaining <= 1`. It renders nothing for unlimited/paid tiers and nothing while loading or on fetch failure (best-effort) — so the meter NEVER gates the record button. Wired into `src/app/(dashboard)/capture/page.tsx` via a TanStack `useQuery` (already imported) hitting `/api/ai/usage`; the query is fire-and-forget and the `RecordingButton` stays `disabled={false}` regardless of its state (AGENTS.md rule 3: client never touches Supabase directly).
   - Tests for the four UI states live in `tests/components/ai-usage-meter.test.tsx` (render the component directly — same approach as `tests/components/dashboard-shell-*.test.tsx`): free shows `/\d+ of 5/`; paid/unlimited absent (`data-testid` not in the DOM); amber class present when `remaining <= 1` and absent otherwise; the meter contributes nothing that disables capture.
   - Playwright `tests/e2e/capture-usage-meter.spec.ts` exercises the real `/capture` wiring (free coach sees `/\d+ of 5/` near the record control; paid coach sees no meter; meter absent when `/api/ai/usage` fails while the record button stays operable). It follows the repo's existing authenticated-capture e2e convention (`signInViaUI` → `test.skip` when `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD` are unset), because `/capture` is a middleware-protected route that redirects to `/login` without real auth cookies — the same reason `signup-onboarding-capture.spec.ts`'s capture block skips in CI. The CI-gating proof for the four UI states is therefore the component vitest suite; the Playwright spec guards the live page when creds are supplied.
+- 2026-05-21 [implementation-dev] Shipped in PR #231 (squash-merged to `main`). All three gating checks green: `lint` pass, `unit-tests` pass, `e2e-tests` pass. Local full-suite showed 15 fails in untouched files (`use-local-storage`, `weekly-wrap-utils`, the `Apr 28` date-TZ assertion) — the documented environmental Node/jsdom/TZ failures (LESSONS 2026-05-20); CI on Node 20 ran the full suite green, confirming they were not a regression. Status → shipped.
