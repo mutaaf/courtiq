@@ -1,7 +1,7 @@
 ---
 id: 0009
 title: Put the Player of the Week / Player of the Match spotlight on the parent portal
-status: proposed
+status: in-progress
 priority: P2
 area: parent-portal
 created: 2026-05-21
@@ -91,4 +91,4 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-05-21 [implementation-dev] Picked up; branch `feat/0009-player-spotlight-portal`. Status → in-progress.
