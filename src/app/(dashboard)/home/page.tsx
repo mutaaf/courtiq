@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation';
 import { findTemplateById, getTemplatesBySentiment } from '@/lib/observation-templates';
 import { Textarea } from '@/components/ui/textarea';
 import { query, mutate } from '@/lib/api';
+import { queryKeys } from '@/lib/query/keys';
+import { resolveInsertedId, buildQuickGamePayload, quickGameDestination, type QuickGameType } from '@/lib/quick-game-utils';
 import { useElapsedTime } from '@/hooks/use-elapsed-time';
 import { shouldShowWrapUpNudge } from '@/lib/elapsed-time-utils';
 import { formatSkillLabel } from '@/lib/skill-trend-utils';
@@ -29,6 +31,7 @@ import {
   History,
   Star,
   Share2,
+  Trophy,
   CheckCircle2,
   X,
   Check,
@@ -482,6 +485,11 @@ export default function HomePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [showDebrief, setShowDebrief] = useState(false);
+  const [showGameQuickStart, setShowGameQuickStart] = useState(false);
+  const [gameType, setGameType] = useState<QuickGameType>('game');
+  const [gameOpponent, setGameOpponent] = useState('');
+  const [startingGame, setStartingGame] = useState(false);
+  const [gameError, setGameError] = useState(false);
   const [midPracticeShared, setMidPracticeShared] = useState(false);
 
   const [qoPlayer, setQoPlayer] = useState<{ id: string; name: string; jersey_number: number | null } | null>(null);
@@ -588,6 +596,32 @@ export default function HomePage() {
     }
   }
 
+  async function quickStartGame() {
+    if (!activeTeam || !coach || startingGame) return;
+    setStartingGame(true);
+    setGameError(false);
+    try {
+      const session = await mutate<{ id: string }>({
+        table: 'sessions',
+        operation: 'insert',
+        data: buildQuickGamePayload(activeTeam.id, coach.id, gameType, gameOpponent),
+        select: 'id',
+      });
+      const id = resolveInsertedId(session);
+      if (id) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all(activeTeam.id) });
+        router.push(quickGameDestination(gameType, id));
+      } else {
+        setGameError(true);
+      }
+    } catch (err) {
+      console.warn('Failed to create game session:', err);
+      setGameError(true);
+    } finally {
+      setStartingGame(false);
+    }
+  }
+
   async function handleHomeQuickObsSave() {
     if (!activeTeam || !qoPlayer || !practiceSessionId) return;
     const template = findTemplateById(qoTemplate ?? '');
@@ -634,6 +668,7 @@ export default function HomePage() {
     setQoSentiment('positive');
   }
 
+  // Core stats
   const { data: stats, isLoading: isLoadingStats } = useQuery({
     queryKey: ['home-stats', activeTeam?.id],
     queryFn: async () => {
@@ -1281,6 +1316,77 @@ export default function HomePage() {
               <span>Use Practice Timer</span>
               <ChevronRight className="h-3.5 w-3.5 shrink-0" />
             </button>
+          )}
+
+          {/* Quick Game shortcut */}
+          {!showGameQuickStart ? (
+            <button
+              onClick={() => setShowGameQuickStart(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/5 px-4 py-2.5 text-sm text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 transition-colors touch-manipulation active:scale-[0.98]"
+            >
+              <Trophy className="h-3.5 w-3.5 shrink-0" />
+              <span>Game day? Log a game</span>
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 ml-auto" />
+            </button>
+          ) : (
+            <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Trophy className="h-4 w-4 text-blue-400" />
+                  <span className="text-sm font-semibold text-blue-300">Quick Game Start</span>
+                </div>
+                <button
+                  onClick={() => { setShowGameQuickStart(false); setGameOpponent(''); setGameType('game'); setGameError(false); }}
+                  className="rounded-full p-1 text-zinc-500 hover:text-zinc-300 transition-colors touch-manipulation"
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Session type picker */}
+              <div className="flex gap-2">
+                {(['game', 'scrimmage', 'tournament'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setGameType(t)}
+                    className={`flex-1 rounded-lg border py-1.5 text-xs font-medium capitalize transition-colors touch-manipulation ${
+                      gameType === t
+                        ? 'border-blue-500 bg-blue-500/20 text-blue-300'
+                        : 'border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300'
+                    }`}
+                  >
+                    {t === 'game' ? '🏆 Game' : t === 'scrimmage' ? '⚡ Scrimmage' : '🏅 Tournament'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Opponent input */}
+              <input
+                type="text"
+                value={gameOpponent}
+                onChange={(e) => setGameOpponent(e.target.value)}
+                placeholder={gameType === 'tournament' ? 'Tournament name (optional)' : 'vs. Opponent (optional)'}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500 focus:border-blue-500/50 focus:outline-none transition-colors"
+                onKeyDown={(e) => { if (e.key === 'Enter') quickStartGame(); }}
+              />
+
+              <button
+                onClick={quickStartGame}
+                disabled={startingGame}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 hover:bg-blue-500 active:scale-[0.98] transition-all touch-manipulation disabled:opacity-60"
+              >
+                {startingGame ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" />Creating…</>
+                ) : (
+                  <><Trophy className="h-4 w-4" />Go Live</>
+                )}
+              </button>
+
+              {gameError && (
+                <p className="text-xs text-red-400 text-center">Couldn&apos;t create session — please try again.</p>
+              )}
+            </div>
           )}
         </div>
       )}
