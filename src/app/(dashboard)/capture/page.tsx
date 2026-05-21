@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RecordingButton } from '@/components/capture/recording-button';
+import { AIUsageMeter, type AIUsageStatus } from '@/components/capture/ai-usage-meter';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Send, Keyboard, Mic, AlertCircle, Sparkles, Upload, FileAudio, Camera, Lock } from 'lucide-react';
 import { generateId } from '@/lib/utils';
@@ -116,6 +117,27 @@ export default function CapturePage() {
       }).then((r) => r?.[0] ?? null),
     enabled: !!practiceSessionId && practiceActive && !urlSessionId,
     staleTime: 10 * 60_000,
+  });
+
+  // Best-effort AI usage meter (ticket 0008): surfaces "N of 5 AI notes left this
+  // month" for free-tier coaches so the monthly wall stops being a surprise. This
+  // is a fire-and-forget read — it never gates capture. On failure/timeout the
+  // query resolves undefined and the meter renders nothing; the record button is
+  // unaffected. Re-reads on window focus so returning from review reflects a fresh
+  // count. NOT a direct Supabase call (AGENTS.md rule 3) — it hits /api/ai/usage.
+  const { data: aiUsage } = useQuery<AIUsageStatus | undefined>({
+    queryKey: ['ai-usage'],
+    queryFn: async () => {
+      try {
+        const res = await fetch('/api/ai/usage');
+        if (!res.ok) return undefined;
+        return (await res.json()) as AIUsageStatus;
+      } catch {
+        return undefined; // degrade silently — capture must never be blocked by this read
+      }
+    },
+    retry: false,
+    staleTime: 60_000,
   });
 
   // Fetch player's recent observations for coaching brief when player is pre-selected
@@ -932,6 +954,10 @@ export default function CapturePage() {
               onToggle={toggleRecording}
               disabled={false}
             />
+
+            {/* AI usage meter — free-tier "N of 5 AI notes left" (ticket 0008).
+                Best-effort: absent for paid tiers and when the read fails; never gates. */}
+            {captureState !== 'recording' && <AIUsageMeter usage={aiUsage} />}
 
             {/* Segment progress during recording */}
             {captureState === 'recording' && segmentCount > 0 && (
