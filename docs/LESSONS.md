@@ -14,14 +14,15 @@ The goal is compounding: a problem solved once should never cost a full debuggin
 
 ## Gating vs non-gating CI checks (load-bearing — read before judging mergeability)
 
-Branch protection currently gates merges on TWO checks:
+Branch protection gates merges on THREE checks:
 
 - `lint`
 - `unit-tests`
+- `e2e-tests`
 
-`e2e-tests` runs on every PR (no longer main-only) but is **informational** (`npm run test:e2e || true`) because CI has no Supabase instance — data-dependent specs like `share-flow.spec.ts` fail expecting seeded rows. The promotion-to-gating work lives in ticket `docs/backlog/0006`. When that ships, remove `|| true` from `ci.yml` and add `e2e-tests` back to `required_status_checks.contexts` on `main`.
+`e2e-tests` (hardened by ticket `docs/backlog/0006`) runs the Playwright suite against a real local Supabase (`supabase start`) seeded by `tests/e2e/fixtures/seed.sql`. There is no `|| true` masking — a red Playwright run or a failed seed fails the job and blocks the merge. It is a real gate, treated exactly like `lint` and `unit-tests`.
 
-**Every other check is informational and must be ignored when deciding whether a PR can merge** — including `Vercel`, `Vercel Preview Comments`, the nightly `ai-contract-validation` / `full-test-suite` jobs, and (for now) `e2e-tests`. A red Vercel or e2e-tests check never blocks a merge today and is never a reason to "fix" anything except as work scoped under ticket 0006.
+**Every other check is informational and must be ignored when deciding whether a PR can merge** — including `Vercel`, `Vercel Preview Comments`, and the nightly `ai-contract-validation` / `full-test-suite` jobs. A red Vercel check never blocks a merge and is never a reason to "fix" anything.
 
 ## Entries
 
