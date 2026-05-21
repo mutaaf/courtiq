@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { buildShareMetadata } from '@/lib/share-metadata';
 import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { ParentViralCTA } from '@/components/share/parent-viral-cta';
 import { ParentReactionForm } from '@/components/share/parent-reaction-form';
@@ -318,58 +319,12 @@ export async function generateMetadata({
   const data = await getShareData(token);
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://youthsportsiq.com';
-  const shareUrl = `${appUrl}/share/${token}`;
-  const ogImageUrl = `${appUrl}/share/${token}/opengraph-image`;
 
-  if (!data || data.error) {
-    return {
-      title: 'Player Progress Report — SportsIQ',
-      openGraph: {
-        title: 'Player Progress Report — SportsIQ',
-        description: 'Coaching intelligence for youth sports.',
-        url: shareUrl,
-        images: [{ url: `${appUrl}/opengraph-image`, width: 1200, height: 630 }],
-      },
-    };
-  }
-
-  const playerName: string = data.player?.nickname || data.player?.name || 'Your Player';
-  const firstName: string = playerName.split(' ')[0];
-  const teamName: string = data.team?.name || 'the team';
-  const obsCount: number = data.totalObservationCount ?? 0;
-  const skillArr: any[] = Array.isArray(data.skillProgress) ? data.skillProgress : [];
-  const improvingCount = skillArr.filter(
-    (s) => s.proficiency_level === 'got_it' || s.proficiency_level === 'game_ready'
-  ).length;
-
-  const statParts: string[] = [];
-  if (obsCount > 0) statParts.push(`${obsCount} coaching observation${obsCount !== 1 ? 's' : ''}`);
-  if (improvingCount > 0)
-    statParts.push(`${improvingCount} skill${improvingCount !== 1 ? 's' : ''} at game level`);
-
-  const title = `${playerName}'s Progress Report — SportsIQ`;
-  const description =
-    statParts.length > 0
-      ? `${statParts.join(' · ')} — see how ${firstName} is growing this season with ${teamName}.`
-      : `See ${playerName}'s coaching report from ${teamName} this season. Powered by SportsIQ.`;
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      type: 'website',
-      url: shareUrl,
-      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: `${playerName}'s SportsIQ Progress Report` }],
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-      images: [ogImageUrl],
-    },
-  };
+  // Ticket 0013: the title/description branch (spotlight vs generic Progress
+  // Report) lives in the pure, unit-tested builder. Presentation only — when a
+  // well-formed playerSpotlight is present, the preview leads with the
+  // celebratory artifact; otherwise it keeps today's generic card unchanged.
+  return buildShareMetadata(data, { token, appUrl });
 }
 
 // ---------------------------------------------------------------------------
