@@ -1,7 +1,7 @@
 ---
 id: 0005
 title: Resubscription flow — free user re-upgrades after cancellation
-status: groomed
+status: in-progress
 priority: P0
 area: billing
 created: 2026-05-20
@@ -60,4 +60,41 @@ Each box maps 1:1 to a vitest test scenario.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+### 2026-05-20 — picked up, marked in-progress (implementation-dev)
+
+Branch `feat/0005-resubscription-flow` off `origin/main`. Test-first, vitest-only
+(billing/Stripe/tier change, no UI surface added).
+
+**Schema / API reconciliations (ticket prose vs. real code).** The groomer
+shorthand again names columns/signatures that don't exist; reconciled against
+`src/types/database.ts`, `src/lib/tier.ts`, and the two Stripe routes:
+
+- Column is `organizations.tier`, NOT `organizations.plan`. There is no `plan`
+  column. Tests assert on `tier`.
+- Subscription-status column IS `organizations.subscription_status` — the prose
+  got this one right (verified in `src/types/database.ts`).
+- `canAccess(tier: Tier, feature)` takes a Tier **string**, not an orgId. AC#5 /
+  AC#7 are driven by the tier produced by the live chain (org row surfaced by
+  `/api/me`), then `canAccess(tier, 'report_cards' | 'analytics' | 'org_analytics')`.
+- The "Pro" tier value is `pro_coach`, NOT `pro`. The analytics feature key is
+  `analytics` (granted at `pro_coach`); `org_analytics` is `organization`-only.
+  AC#7 asserts `pro_coach` grants `analytics` and denies `org_analytics`.
+
+**Behavior changes this ticket actually makes (the prose flagged AC#1/#2/#6 as
+"likely already correct" — they were not):**
+
+- `create-checkout` today *always* mints/reuses a Stripe customer and passes
+  `customer: <id>`. AC#1/#2 require: pass `customer: <existing_id>` when the org
+  already has one, but pass `customer_email: <coach.email>` (no customer id, no
+  pre-created customer) when it's null — letting Stripe Checkout create the
+  customer and the `customer.subscription.created` webhook persist the new
+  `stripe_customer_id` back. Implemented as the minimum branch change.
+- `create-checkout` has no past-due guard today. AC#6 requires a 409 + portal
+  message when the caller's org is `subscription_status: 'past_due'`. Added a
+  fail-fast guard before any Stripe call.
+
+**Filenames.** `vitest.config.ts` excludes `**/*.spec.ts` (reserved for
+Playwright). The ticket names `tests/stripe/resubscription.spec.ts` and
+`tests/db/data-preservation.spec.ts`; created as `*.test.ts` so they actually
+gate. The 0002 checkout spec is `tests/stripe/checkout-flow.test.ts` (extended
+in place with the past-due 409 case). (See docs/LESSONS.md 2026-05-20.)
