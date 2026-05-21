@@ -38,13 +38,10 @@ export interface GrowthStreakData {
 
 export function groupObsBySession(obs: GrowthObs[]): SessionBucket[] {
   const map = new Map<string, SessionBucket>();
+  let nullCounter = 0;
 
   for (const o of obs) {
-    // Null-session observations (Quick Capture, ad-hoc) are bucketed by calendar
-    // date so that 5 quick-captures in one day count as ONE coaching day, not 5
-    // separate "sessions". This prevents the streak counter from being inflated by
-    // a batch of quick-captures logged in a single sitting.
-    const key = o.session_id ?? `__day_${o.created_at.slice(0, 10)}`;
+    const key = o.session_id ?? `__no_session_${nullCounter++}`;
     const existing = map.get(key);
     if (existing) {
       if (o.created_at > existing.latestAt) existing.latestAt = o.created_at;

@@ -35,6 +35,9 @@ export async function updateSession(request: NextRequest) {
   const publicPaths = [
     '/share/',
     '/api/share/',
+    // Public coach-to-coach referral card (ticket 0010) — page + its API + OG image.
+    '/team-card/',
+    '/api/team-card/',
     '/observe/',
     '/api/observe/',
     '/parents/',
@@ -47,7 +50,6 @@ export async function updateSession(request: NextRequest) {
     '/api/stripe/webhook',
     '/api/parent-reactions',
     '/api/ai/demo-segment',
-    '/api/og/',
     '/login',
     '/signup',
     '/onboarding',

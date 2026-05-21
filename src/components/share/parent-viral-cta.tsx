@@ -6,12 +6,19 @@ import { Share2, Check, Sparkles, ArrowRight } from 'lucide-react';
 interface ParentViralCTAProps {
   coachName?: string;
   teamName?: string;
+  // Ticket 0011: the creating coach's referral code, resolved server-side and
+  // passed down (no Supabase access from this 'use client' component — AGENTS.md
+  // rule 3). When present, the forwarded link carries /signup?ref=<code> so the
+  // sharing coach earns the referral credit; null/absent falls back to the bare
+  // app URL so a missing code never breaks the share button.
+  referralCode?: string | null;
 }
 
-export function ParentViralCTA({ coachName, teamName }: ParentViralCTAProps) {
+export function ParentViralCTA({ coachName, teamName, referralCode }: ParentViralCTAProps) {
   const [shared, setShared] = useState(false);
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sportsiq.app';
+  const base = process.env.NEXT_PUBLIC_APP_URL || 'https://sportsiq.app';
+  const appUrl = referralCode ? `${base}/signup?ref=${referralCode}` : base;
   const shareText = coachName
     ? `${coachName} uses SportsIQ to track player development and share progress reports with parents. Check it out!`
     : 'SportsIQ helps coaches track player development and share progress reports with parents. Check it out!';
@@ -64,6 +71,9 @@ export function ParentViralCTA({ coachName, teamName }: ParentViralCTAProps) {
 
       <button
         onClick={handleShare}
+        // Surface the exact URL handleShare() forwards to navigator.share /
+        // clipboard so it's assertable (the CTA renders no <a href>). Ticket 0011.
+        data-share-url={appUrl}
         className="flex w-full items-center justify-center gap-2 rounded-xl border border-orange-300 bg-white px-4 py-3 text-sm font-medium text-orange-600 shadow-sm hover:bg-orange-50 hover:border-orange-400 active:scale-[0.98] transition-all touch-manipulation"
       >
         {shared ? (

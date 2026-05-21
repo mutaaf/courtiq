@@ -1,30 +1,5 @@
-import type { Metadata } from 'next';
 import Link from 'next/link';
-
-const DEMO_OG_IMAGE =
-  `${process.env.NEXT_PUBLIC_APP_URL || 'https://youthsportsiq.com'}/api/og/share?` +
-  new URLSearchParams({ name: 'Marcus Johnson', team: 'YMCA Rockets U12', coach: 'Sarah', obs: '47' }).toString();
-
-export const metadata: Metadata = {
-  title: "Marcus's Progress Report — YMCA Rockets U12 (Sample)",
-  description:
-    'See what a SportsIQ parent progress report looks like. Coaching highlights, skill radar, season achievements, and at-home challenges — all from one practice session.',
-  openGraph: {
-    title: "Marcus's Progress Report — YMCA Rockets U12",
-    description:
-      'Your kid\'s coach could share reports like this after every practice. Coaching highlights, skill progress, and personalized at-home challenges.',
-    type: 'website',
-    siteName: 'SportsIQ',
-    images: [{ url: DEMO_OG_IMAGE, width: 1200, height: 630, alt: "Marcus's Progress Report — Sample" }],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: "Marcus's Progress Report — YMCA Rockets U12",
-    description:
-      'See what a SportsIQ parent progress report looks like — skill radar, coaching highlights, and personalized challenges.',
-    images: [DEMO_OG_IMAGE],
-  },
-};
+import { ProgressTrendChart } from '@/components/share/progress-trend-chart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mock data — realistic season data for demo player "Marcus Johnson"
@@ -57,6 +32,62 @@ const SEASON_STATS = {
   recentObs: 12,
   mostActive: 'Dribbling',
 };
+
+// Realistic 10-week observation history showing Marcus's improvement arc.
+// Week offsets from "now" in days: 70, 63, 56, 49, 42, 35, 28, 21, 14, 7 (each ~midpoint).
+function daysAgo(d: number): string {
+  return new Date(Date.now() - d * 24 * 60 * 60 * 1000).toISOString();
+}
+const DEMO_OBS_HISTORY = [
+  // Week 10 (oldest) — early season, mixed results
+  { sentiment: 'positive', created_at: daysAgo(67) },
+  { sentiment: 'needs-work', created_at: daysAgo(66) },
+  { sentiment: 'needs-work', created_at: daysAgo(65) },
+  // Week 9 — improving slightly
+  { sentiment: 'positive', created_at: daysAgo(60) },
+  { sentiment: 'positive', created_at: daysAgo(59) },
+  { sentiment: 'needs-work', created_at: daysAgo(58) },
+  { sentiment: 'needs-work', created_at: daysAgo(57) },
+  // Week 8 — steady
+  { sentiment: 'positive', created_at: daysAgo(53) },
+  { sentiment: 'positive', created_at: daysAgo(52) },
+  { sentiment: 'needs-work', created_at: daysAgo(51) },
+  // Week 7 — breakthrough week
+  { sentiment: 'positive', created_at: daysAgo(45) },
+  { sentiment: 'positive', created_at: daysAgo(44) },
+  { sentiment: 'positive', created_at: daysAgo(43) },
+  { sentiment: 'needs-work', created_at: daysAgo(43) },
+  // Week 6 — strong
+  { sentiment: 'positive', created_at: daysAgo(38) },
+  { sentiment: 'positive', created_at: daysAgo(37) },
+  { sentiment: 'positive', created_at: daysAgo(36) },
+  // Week 5 — slightly dipped (game week)
+  { sentiment: 'positive', created_at: daysAgo(30) },
+  { sentiment: 'needs-work', created_at: daysAgo(29) },
+  { sentiment: 'needs-work', created_at: daysAgo(29) },
+  { sentiment: 'positive', created_at: daysAgo(28) },
+  // Week 4 — bouncing back
+  { sentiment: 'positive', created_at: daysAgo(23) },
+  { sentiment: 'positive', created_at: daysAgo(22) },
+  { sentiment: 'positive', created_at: daysAgo(22) },
+  { sentiment: 'needs-work', created_at: daysAgo(21) },
+  // Week 3 — excellent
+  { sentiment: 'positive', created_at: daysAgo(16) },
+  { sentiment: 'positive', created_at: daysAgo(16) },
+  { sentiment: 'positive', created_at: daysAgo(15) },
+  { sentiment: 'positive', created_at: daysAgo(15) },
+  // Week 2 — strong
+  { sentiment: 'positive', created_at: daysAgo(9) },
+  { sentiment: 'positive', created_at: daysAgo(9) },
+  { sentiment: 'positive', created_at: daysAgo(8) },
+  { sentiment: 'needs-work', created_at: daysAgo(8) },
+  // Week 1 (most recent) — great week
+  { sentiment: 'positive', created_at: daysAgo(3) },
+  { sentiment: 'positive', created_at: daysAgo(3) },
+  { sentiment: 'positive', created_at: daysAgo(2) },
+  { sentiment: 'positive', created_at: daysAgo(2) },
+  { sentiment: 'needs-work', created_at: daysAgo(2) },
+];
 
 const SKILLS_ON_RISE = ['Dribbling', 'Defense', 'Teamwork'];
 
@@ -106,6 +137,24 @@ const SEASON_GOALS = [
     goal_text: 'Hit Game Ready level in Dribbling — maintain ball control under full-court pressure for an entire scrimmage.',
     target_date: 'Apr 15, 2025',
     status: 'achieved',
+  },
+];
+
+const STARRED_OBS = [
+  {
+    text: "Outstanding defensive hustle — slid his feet perfectly and drew a charge in the final minutes. The whole team erupted. That's the kind of IQ you can't teach.",
+    category: 'Defense',
+    created_at: '2025-04-22T18:30:00Z',
+  },
+  {
+    text: "Best dribbling session I've seen from Marcus all season. Figure-8 at full speed with zero turnovers — the other kids were watching and asking how he does it.",
+    category: 'Dribbling',
+    created_at: '2025-04-08T18:15:00Z',
+  },
+  {
+    text: "Called a timeout play himself when the team was confused — exactly what a point guard should do. Real leadership moment.",
+    category: 'Leadership',
+    created_at: '2025-03-25T18:00:00Z',
   },
 ];
 
@@ -231,6 +280,15 @@ export default function DemoReportPage() {
               <p className="text-sm text-gray-500">
                 {PLAYER.position} &middot; #{PLAYER.jersey} &middot; {TEAM.season}
               </p>
+              <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs text-gray-400">Coach {TEAM.coach.split(' ')[0]}</span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200">
+                  <svg className="h-3 w-3 shrink-0" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <path d="M6 1L7.5 4.5L11 5L8.5 7.5L9 11L6 9.5L3 11L3.5 7.5L1 5L4.5 4.5L6 1Z" fill="currentColor" />
+                  </svg>
+                  SportsIQ Certified
+                </span>
+              </div>
             </div>
           </div>
 
@@ -303,6 +361,9 @@ export default function DemoReportPage() {
             Most practised: <span className="font-semibold text-gray-700">{SEASON_STATS.mostActive}</span>
           </p>
         </div>
+
+        {/* ─── Weekly Progress Trend ─── */}
+        <ProgressTrendChart obs={DEMO_OBS_HISTORY} firstName={PLAYER.firstName} />
 
         {/* ─── Skill Radar ─── */}
         <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
@@ -501,6 +562,31 @@ export default function DemoReportPage() {
               </li>
             ))}
           </ul>
+        </div>
+
+        {/* ─── Coach's Best Moments ─── */}
+        <div className="mx-4 mt-4 rounded-2xl bg-amber-50 border border-amber-100 p-5 shadow-sm">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-lg">⭐</span>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-600">Coach&apos;s Best Moments</h3>
+          </div>
+          <div className="space-y-4">
+            {STARRED_OBS.map((obs, i) => (
+              <div key={i} className="border-l-2 border-amber-300 pl-4">
+                <p className="text-sm leading-relaxed text-gray-800 italic">
+                  &ldquo;{obs.text}&rdquo;
+                </p>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                    {obs.category}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {new Date(obs.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* ─── Recent Observations ─── */}

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { query, mutate } from '@/lib/api';
+import { getTemplatesBySentiment } from '@/lib/observation-templates';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -23,7 +24,6 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import Link from 'next/link';
-import { getRatingLabel, getRatingColor, type QualityRating } from '@/lib/session-quality-utils';
 
 interface Props {
   sessionId: string;
@@ -39,39 +39,27 @@ interface SessionObs {
   player_id: string | null;
 }
 
-const POSITIVE_TEMPLATES: Template[] = [
-  { text: 'Great energy',      category: 'hustle'      },
-  { text: 'Strong passing',    category: 'passing'     },
-  { text: 'Good defense',      category: 'defense'     },
-  { text: 'Excellent hustle',  category: 'hustle'      },
-  { text: 'Smart plays',       category: 'awareness'   },
-  { text: 'Team leadership',   category: 'leadership'  },
-  { text: 'Great shooting',    category: 'shooting'    },
-  { text: 'Strong rebounding', category: 'rebounding'  },
-];
-
-const NEEDS_WORK_TEMPLATES: Template[] = [
-  { text: 'Ball handling',         category: 'dribbling' },
-  { text: 'Spacing',               category: 'awareness' },
-  { text: 'Transitions',           category: 'hustle'    },
-  { text: 'Communication',         category: 'teamwork'  },
-  { text: 'Shot selection',        category: 'shooting'  },
-  { text: 'Defensive positioning', category: 'defense'   },
-  { text: 'Footwork',              category: 'footwork'  },
-  { text: 'Free throws',           category: 'shooting'  },
-];
-
 type Step = 'standouts' | 'positives' | 'work' | 'notes' | 'done';
 
 interface SavedSummary {
   obsCount: number;
   playerCount: number;
+  workCategories: string[];
 }
 
 export function PostPracticeDebrief({ sessionId, onClose }: Props) {
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
   const qc = useQueryClient();
   const setPracticeActive = useAppStore((s) => s.setPracticeActive);
+
+  const positiveOptions = useMemo<Template[]>(
+    () => getTemplatesBySentiment('positive', sportSlug).slice(0, 8).map((t) => ({ text: t.text, category: t.category })),
+    [sportSlug],
+  );
+  const needsWorkOptions = useMemo<Template[]>(
+    () => getTemplatesBySentiment('needs-work', sportSlug).slice(0, 8).map((t) => ({ text: t.text, category: t.category })),
+    [sportSlug],
+  );
 
   const [step, setStep] = useState<Step>('standouts');
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
@@ -83,8 +71,9 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
   const [savedSummary, setSavedSummary] = useState<SavedSummary | null>(null);
   const [sessionObservedIds, setSessionObservedIds] = useState<Set<string>>(new Set());
   const [parentMsgShared, setParentMsgShared] = useState(false);
-  const [qualityRating, setQualityRating] = useState<QualityRating | null>(null);
-  const [ratingSaved, setRatingSaved] = useState(false);
+  const [isPlanGenerating, setIsPlanGenerating] = useState(false);
+  const [planCreated, setPlanCreated] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!activeTeam?.id) return;
@@ -213,8 +202,9 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
     const obsCount =
       selectedPlayers.length * (positives.length + needsWork.length) +
       (notes.trim() ? 1 : 0);
+    const workCategories = [...new Set(needsWork.map((t) => t.category))];
 
-    setSavedSummary({ obsCount, playerCount });
+    setSavedSummary({ obsCount, playerCount, workCategories });
     setSaving(false);
     setStep('done');
   }
@@ -228,6 +218,32 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
     onClose();
   }
 
+  async function handleCreatePlan() {
+    if (!activeTeam || !savedSummary?.workCategories?.length) return;
+    setIsPlanGenerating(true);
+    setPlanError(null);
+    try {
+      const res = await fetch('/api/ai/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId: activeTeam.id,
+          type: 'practice',
+          focusSkills: savedSummary.workCategories,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to create practice plan');
+      }
+      setPlanCreated(true);
+    } catch (err) {
+      setPlanError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsPlanGenerating(false);
+    }
+  }
+
   function buildDebriefParentUpdate(): string {
     const coachFirst = coach?.full_name?.split(' ')[0] ?? 'Coach';
     const teamName = activeTeam?.name ?? 'the team';
@@ -238,10 +254,6 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
       .filter((c, i, arr) => arr.indexOf(c) === i)
       .slice(0, 2)
       .map((c) => c.charAt(0).toUpperCase() + c.slice(1).replace(/_/g, ' '));
-
-    const standoutFirstNames = selectedPlayers
-      .map((id) => players.find((p) => p.id === id)?.name?.split(' ')[0])
-      .filter((n): n is string => !!n);
 
     const lines: string[] = [];
     lines.push(`📋 Practice update from Coach ${coachFirst}!`);
@@ -255,15 +267,6 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
     }
     if (topPositiveCats.length > 0) {
       lines.push(`Highlights today: ${topPositiveCats.join(' & ')}.`);
-    }
-    if (standoutFirstNames.length >= 5) {
-      lines.push(`Great team effort from everyone today! 🌟`);
-    } else if (standoutFirstNames.length >= 2) {
-      const last = standoutFirstNames[standoutFirstNames.length - 1];
-      const rest = standoutFirstNames.slice(0, -1).join(', ');
-      lines.push(`Special shoutout to ${rest} and ${last} for an outstanding effort today! 🌟`);
-    } else if (standoutFirstNames.length === 1) {
-      lines.push(`Special shoutout to ${standoutFirstNames[0]} for an outstanding effort today! 🌟`);
     }
     if (needsWork.length > 0) {
       lines.push('Keep practising at home to stay sharp!');
@@ -282,17 +285,6 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
     }
     setParentMsgShared(true);
     setTimeout(() => setParentMsgShared(false), 2500);
-  }
-
-  async function handleQualityRating(rating: QualityRating) {
-    setQualityRating(rating);
-    setRatingSaved(false);
-    try {
-      await mutate({ table: 'sessions', operation: 'update', data: { quality_rating: rating }, filters: { id: sessionId } });
-      setRatingSaved(true);
-    } catch {
-      // silent — rating is best-effort, never blocks the done screen
-    }
   }
 
   return (
@@ -432,7 +424,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                   <p className="text-xs text-zinc-500 mt-1">Tap all that apply</p>
                 </div>
                 <div className="flex flex-wrap gap-2 justify-center">
-                  {POSITIVE_TEMPLATES.map((t) => (
+                  {positiveOptions.map((t) => (
                     <button
                       key={t.text}
                       onClick={() => togglePositive(t)}
@@ -460,7 +452,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                   <p className="text-xs text-zinc-500 mt-1">Tap all that apply</p>
                 </div>
                 <div className="flex flex-wrap gap-2 justify-center">
-                  {NEEDS_WORK_TEMPLATES.map((t) => (
+                  {needsWorkOptions.map((t) => (
                     <button
                       key={t.text}
                       onClick={() => toggleWork(t)}
@@ -515,41 +507,13 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                 </div>
               </div>
 
-              {/* Quality rating — 1–5 stars, saves silently, feeds analytics */}
-              <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 px-4 py-3.5 space-y-2.5">
-                <p className="text-center text-sm font-medium text-zinc-300">How did practice go?</p>
-                <div className="flex justify-center gap-2">
-                  {([1, 2, 3, 4, 5] as QualityRating[]).map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => handleQualityRating(n)}
-                      aria-label={`Rate practice ${n} star${n !== 1 ? 's' : ''}`}
-                      className="p-1.5 touch-manipulation active:scale-90 transition-transform"
-                    >
-                      <Star
-                        className={`h-7 w-7 transition-colors ${
-                          qualityRating !== null && n <= qualityRating
-                            ? 'fill-amber-400 text-amber-400'
-                            : 'text-zinc-600 hover:text-amber-400'
-                        }`}
-                      />
-                    </button>
-                  ))}
-                </div>
-                {qualityRating !== null && (
-                  <p className={`text-center text-sm font-semibold ${getRatingColor(qualityRating)}`}>
-                    {getRatingLabel(qualityRating)}{ratingSaved ? ' ✓' : ''}
-                  </p>
-                )}
-              </div>
-
               {/* Quick parent update — pre-built WhatsApp/SMS message, zero AI */}
               <div className="rounded-xl border border-teal-500/30 bg-teal-500/10 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <MessageSquare className="h-4 w-4 text-teal-400 shrink-0" />
                   <p className="text-sm font-semibold text-teal-300">Quick parent update ready</p>
                 </div>
-                <p className="text-xs text-teal-400/70 leading-relaxed whitespace-pre-line line-clamp-6">
+                <p className="text-xs text-teal-400/70 leading-relaxed whitespace-pre-line line-clamp-4">
                   {buildDebriefParentUpdate()}
                 </p>
                 <button
@@ -582,14 +546,56 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                     <span className="text-xs text-zinc-500">AI debrief + timeline</span>
                   </button>
                 </Link>
-                <Link href="/plans" onClick={onClose}>
-                  <button className="w-full flex flex-col items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 p-4 text-center hover:border-orange-500/40 hover:bg-zinc-800 transition-colors touch-manipulation active:scale-[0.97]">
-                    <ClipboardList className="h-6 w-6 text-blue-400" />
-                    <span className="text-sm font-medium text-zinc-200">Plan Next Practice</span>
-                    <span className="text-xs text-zinc-500">AI-powered from today</span>
+
+                {planCreated ? (
+                  <Link href="/plans" onClick={onClose}>
+                    <button className="w-full flex flex-col items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-center touch-manipulation active:scale-[0.97]">
+                      <Check className="h-6 w-6 text-emerald-400" />
+                      <span className="text-sm font-medium text-emerald-300">Plan Created!</span>
+                      <span className="text-xs text-emerald-400/70">View in Plans →</span>
+                    </button>
+                  </Link>
+                ) : savedSummary.workCategories.length > 0 ? (
+                  <button
+                    onClick={handleCreatePlan}
+                    disabled={isPlanGenerating}
+                    className="w-full flex flex-col items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 p-4 text-center hover:border-blue-500/50 hover:bg-blue-500/15 transition-colors touch-manipulation active:scale-[0.97] disabled:opacity-60"
+                  >
+                    {isPlanGenerating ? (
+                      <>
+                        <Loader2 className="h-6 w-6 text-blue-400 animate-spin" />
+                        <span className="text-sm font-medium text-blue-300">Building plan…</span>
+                        <span className="text-xs text-blue-400/70">This takes ~10s</span>
+                      </>
+                    ) : (
+                      <>
+                        <ClipboardList className="h-6 w-6 text-blue-400" />
+                        <span className="text-sm font-medium text-zinc-200">Plan Next Practice</span>
+                        <span className="text-xs text-blue-400/70 capitalize">
+                          Focus: {savedSummary.workCategories.slice(0, 2).join(' & ')}
+                        </span>
+                      </>
+                    )}
                   </button>
-                </Link>
+                ) : (
+                  <Link href="/plans" onClick={onClose}>
+                    <button className="w-full flex flex-col items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 p-4 text-center hover:border-orange-500/40 hover:bg-zinc-800 transition-colors touch-manipulation active:scale-[0.97]">
+                      <ClipboardList className="h-6 w-6 text-blue-400" />
+                      <span className="text-sm font-medium text-zinc-200">Plan Next Practice</span>
+                      <span className="text-xs text-zinc-500">AI-powered from today</span>
+                    </button>
+                  </Link>
+                )}
               </div>
+
+              {planError && (
+                <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400 text-center">
+                  {planError} —{' '}
+                  <Link href="/plans" onClick={onClose} className="underline hover:text-red-300">
+                    try in Plans
+                  </Link>
+                </p>
+              )}
 
               <Button
                 variant="ghost"

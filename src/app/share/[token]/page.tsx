@@ -1,10 +1,18 @@
 import type { Metadata } from 'next';
+import { buildShareMetadata } from '@/lib/share-metadata';
 import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { ParentViralCTA } from '@/components/share/parent-viral-cta';
 import { ParentReactionForm } from '@/components/share/parent-reaction-form';
-import { PortalFamilyShare } from '@/components/share/portal-family-share';
 import { ParentContactForm } from '@/components/share/parent-contact-form';
-import { Megaphone, MessageCircle } from 'lucide-react';
+import { ShareReportButton } from '@/components/share/share-report-button';
+import { ProgressTrendChart } from '@/components/share/progress-trend-chart';
+import { CalendarDays, Megaphone, MessageCircle } from 'lucide-react';
+import {
+  SESSION_EMOJI,
+  SESSION_LABEL,
+  formatSessionDate,
+  isCompetitiveSession,
+} from '@/lib/upcoming-session-utils';
 import {
   buildSeasonStats,
   getImprovingSkills,
@@ -12,13 +20,8 @@ import {
   buildProgressMessage,
   hasEnoughDataForJourney,
   sortSkillsByImprovingFirst,
-  buildWeeklyProgress,
-  hasEnoughDataForWeeklyProgress,
-  isProgressTrending,
-  getWeeklyProgressMax,
 } from '@/lib/skill-journey-utils';
-import type { SkillProgress, ShareObservation, WeeklyProgressPoint } from '@/lib/skill-journey-utils';
-import type { GrowthObs } from '@/lib/player-growth-streak-utils';
+import type { SkillProgress, ShareObservation } from '@/lib/skill-journey-utils';
 import {
   buildGrowthStreakData,
   hasEnoughDataForGrowthStreak,
@@ -28,7 +31,6 @@ import {
   formatStreakCount,
 } from '@/lib/player-growth-streak-utils';
 
-// ---------------------------------------------------------------------------
 // Skill Radar Chart — pure SVG, server-component safe, light-mode
 // ---------------------------------------------------------------------------
 
@@ -265,17 +267,18 @@ function SkillBar({ skill }: { skill: any }) {
 
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between text-sm">
-        <span className="font-medium text-gray-800">
-          {skill.skill_name || formatCategoryLabel(skill.category || skill.skill_id || '')}
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-gray-800">
+          {skill.skill_name || skill.skill_id}
         </span>
-        <span className={`text-xs font-semibold ${prof.textColor}`}>
-          {prof.emoji} {prof.label}
+        <span className={`inline-flex items-center gap-1 text-xs font-medium ${prof.textColor}`}>
+          <span>{prof.emoji}</span>
+          {prof.label}
         </span>
       </div>
-      <div className="h-2.5 w-full rounded-full bg-gray-100 overflow-hidden">
+      <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
         <div
-          className={`h-full rounded-full ${prof.barColor} transition-all`}
+          className={`h-full rounded-full transition-all duration-500 ${prof.barColor}`}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -284,62 +287,25 @@ function SkillBar({ skill }: { skill: any }) {
 }
 
 // ---------------------------------------------------------------------------
-// Weekly Progress Chart (pure SVG)
-// ---------------------------------------------------------------------------
-
-function WeeklyProgressChart({ weeks }: { weeks: WeeklyProgressPoint[] }) {
-  const max = getWeeklyProgressMax(weeks);
-  if (max === 0) return null;
-
-  const barW = 22;
-  const gap = 10;
-  const chartH = 56;
-  const n = weeks.length;
-  const totalW = n * barW + (n - 1) * gap;
-  const svgW = totalW + 16;
-  const svgH = chartH + 20;
-
-  return (
-    <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" aria-hidden="true">
-      {weeks.map((w, i) => {
-        const h = w.positiveCount === 0 ? 3 : Math.max(4, (w.positiveCount / max) * chartH);
-        const x = 8 + i * (barW + gap);
-        const y = chartH - h;
-        const isRecent = i === n - 1;
-        return (
-          <rect
-            key={i}
-            x={x}
-            y={y}
-            width={barW}
-            height={h}
-            rx="4"
-            fill={w.positiveCount === 0 ? '#e5e7eb' : isRecent ? '#f97316' : '#fed7aa'}
-          />
-        );
-      })}
-    </svg>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Error states
+// Error state
 // ---------------------------------------------------------------------------
 
 function ErrorPage({ isExpired, needsPin }: { isExpired: boolean; needsPin: boolean }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <div className="max-w-sm text-center">
-        <div className="mb-4 text-5xl">{isExpired ? '⏰' : needsPin ? '🔒' : '🔍'}</div>
-        <h1 className="mb-2 text-xl font-bold text-gray-900">
-          {isExpired ? 'Link expired' : needsPin ? 'PIN required' : 'Report not found'}
-        </h1>
-        <p className="text-sm text-gray-500">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-sm">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-2xl">
+          {isExpired ? '\u{23F3}' : needsPin ? '\u{1F512}' : '\u{1F50D}'}
+        </div>
+        <h2 className="text-xl font-bold text-gray-900">
+          {isExpired ? 'Link Expired' : needsPin ? 'PIN Required' : 'Report Not Found'}
+        </h2>
+        <p className="mt-2 text-sm text-gray-500">
           {isExpired
-            ? 'This report link has expired. Ask your coach for a new link.'
+            ? 'This share link has expired. Please ask the coach for a new link.'
             : needsPin
-            ? 'This report is PIN-protected. Check with your coach for the access code.'
-            : 'This report link is no longer valid. Ask your coach for a new link.'}
+            ? 'This report requires a PIN to access. Please contact the coach.'
+            : 'This share link may have expired or been revoked.'}
         </p>
       </div>
     </div>
@@ -347,60 +313,28 @@ function ErrorPage({ isExpired, needsPin }: { isExpired: boolean; needsPin: bool
 }
 
 // ---------------------------------------------------------------------------
-// Metadata
+// Social metadata — rich previews when parents share the link
 // ---------------------------------------------------------------------------
 
-export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ token: string }>;
+}): Promise<Metadata> {
   const { token } = await params;
   const data = await getShareData(token);
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  const pageUrl = `${baseUrl}/share/${token}`;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://youthsportsiq.com';
 
-  if (!data || data.error) {
-    return {
-      title: 'Player Progress Report — SportsIQ',
-      description: 'View your child\'s coaching progress report.',
-    };
-  }
-
-  const { player, team, coachName, totalObservationCount } = data;
-
-  const playerName = player?.nickname || player?.name || 'Your Player';
-  const firstName = playerName.split(' ')[0];
-  const teamName = team?.name || 'the team';
-  const coachFirst = coachName ? coachName.split(' ')[0] : 'Coach';
-  const obsCount = totalObservationCount ?? 0;
-  const obsNote = obsCount > 0 ? ` · ${obsCount} coaching observation${obsCount !== 1 ? 's' : ''}` : '';
-
-  const title = `${playerName}'s Progress Report — ${teamName}`;
-  const description = `Coach ${coachFirst} has shared ${firstName}'s coaching highlights, skill progress, and season achievements${obsNote}. See how ${firstName} is developing this season!`;
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      url: pageUrl,
-      images: [`${baseUrl}/api/og/share?token=${token}`],
-      siteName: 'SportsIQ',
-      type: 'website',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-      images: [`${baseUrl}/api/og/share?token=${token}`],
-    },
-    other: {
-      team: teamName,
-    },
-  };
+  // Ticket 0013: the title/description branch (spotlight vs generic Progress
+  // Report) lives in the pure, unit-tested builder. Presentation only — when a
+  // well-formed playerSpotlight is present, the preview leads with the
+  // celebratory artifact; otherwise it keeps today's generic card unchanged.
+  return buildShareMetadata(data, { token, appUrl });
 }
 
 // ---------------------------------------------------------------------------
-// Page
+// Main Page
 // ---------------------------------------------------------------------------
 
 export default async function SharePage({ params }: { params: Promise<{ token: string }> }) {
@@ -415,25 +349,30 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     player,
     team,
     coachName,
+    isCoachCertified,
     branding,
     customMessage,
     reportCard,
     developmentCard,
     highlights,
     featuredHighlight,
+    starredObservations,
     skillProgress,
     recommendedDrills,
     announcements,
-    nextSession,
+    upcomingSessions,
     totalObservationCount,
     recentObservationActivity,
     achievements,
     latestSessionMessage,
     skillChallenge,
     playerGoals,
-    attendanceStats,
     hasParentContact,
+    playerSpotlight,
+    referralCode,
   } = data;
+
+  const safeStarred: any[] = starredObservations ?? [];
 
   const playerName = player?.nickname || player?.name || 'your player';
   const firstName = playerName.split(' ')[0];
@@ -442,135 +381,212 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
   const season = team?.season || null;
   const brandColor = branding?.primary_color || '#F97316'; // orange fallback
 
-  // ── Season-stats helpers ──────────────────────────────────────────────────
-  const obsActivity: ShareObservation[] = recentObservationActivity ?? [];
-  const seasonStats = buildSeasonStats(obsActivity, skillProgress ?? []);
-  const improvingSkills = getImprovingSkills(skillProgress ?? []);
+  // Achievement badge metadata — emoji + colour per badge type
+  const BADGE_META: Record<string, { emoji: string; name: string; description: string; color: string }> = {
+    first_star:       { emoji: '⭐', name: 'First Star',       description: 'Earned first positive observation',          color: 'bg-amber-50 border-amber-200 text-amber-800' },
+    team_player:      { emoji: '🤝', name: 'Team Player',      description: '10+ positive observations recorded',          color: 'bg-blue-50 border-blue-200 text-blue-800' },
+    grinder:          { emoji: '💪', name: 'Grinder',          description: '25+ total observations recorded',             color: 'bg-orange-50 border-orange-200 text-orange-800' },
+    all_rounder:      { emoji: '🎯', name: 'All-Rounder',      description: 'Observed in 4+ skill categories',             color: 'bg-purple-50 border-purple-200 text-purple-800' },
+    breakthrough:     { emoji: '🚀', name: 'Breakthrough',     description: 'Reached game-ready proficiency',              color: 'bg-emerald-50 border-emerald-200 text-emerald-800' },
+    game_changer:     { emoji: '⚡', name: 'Game Changer',     description: 'Stood out during a game or scrimmage',        color: 'bg-yellow-50 border-yellow-200 text-yellow-800' },
+    session_regular:  { emoji: '📅', name: 'Session Regular',  description: 'Showed up to 10+ sessions',                   color: 'bg-teal-50 border-teal-200 text-teal-800' },
+    coach_pick:       { emoji: '🏆', name: "Coach's Pick",     description: 'Awarded for outstanding effort or attitude',   color: 'bg-rose-50 border-rose-200 text-rose-800' },
+    most_improved:    { emoji: '📈', name: 'Most Improved',    description: 'Greatest improvement on the team',            color: 'bg-indigo-50 border-indigo-200 text-indigo-800' },
+    rising_star:      { emoji: '🌟', name: 'Rising Star',      description: 'Shows exceptional promise and potential',     color: 'bg-pink-50 border-pink-200 text-pink-800' },
+  };
+
+  // Skill journey — computed from the lightweight observation activity payload
+  const safeObs: ShareObservation[] = Array.isArray(recentObservationActivity)
+    ? recentObservationActivity
+    : [];
+  const safeSkills: SkillProgress[] = Array.isArray(skillProgress) ? skillProgress : [];
+  const seasonStats = buildSeasonStats(safeObs, safeSkills);
+  const improvingSkills = getImprovingSkills(safeSkills);
+  const sortedSkills = sortSkillsByImprovingFirst(safeSkills);
+  const showJourney = hasEnoughDataForJourney(safeObs, safeSkills) || (totalObservationCount ?? 0) >= 3;
   const progressMessage = buildProgressMessage(firstName, improvingSkills, totalObservationCount ?? 0);
-  const hasJourneyData = hasEnoughDataForJourney(obsActivity, skillProgress ?? []);
 
-  // ── Skill progress (sorted improving-first) ───────────────────────────────
-  const sortedSkills: SkillProgress[] = sortSkillsByImprovingFirst(skillProgress ?? []);
-
-  // ── Growth streak ─────────────────────────────────────────────────────────
-  const growthObs: GrowthObs[] = obsActivity.map((o) => ({
+  // Growth streak — computed from session-bucketed observation activity
+  const growthObs = safeObs.map((o) => ({
     session_id: o.session_id ?? null,
     sentiment: o.sentiment,
     created_at: o.created_at,
   }));
-  const growthStreak = hasEnoughDataForGrowthStreak(growthObs)
-    ? buildGrowthStreakData(growthObs)
-    : null;
+  const growthStreak = hasEnoughDataForGrowthStreak(growthObs) ? buildGrowthStreakData(growthObs) : null;
 
-  // ── Weekly progress chart ─────────────────────────────────────────────────
-  const weeklyProgress = buildWeeklyProgress(obsActivity);
-  const showWeeklyChart = hasEnoughDataForWeeklyProgress(weeklyProgress);
-  const weeklyTrending = isProgressTrending(weeklyProgress);
-
-  // ── Session type helpers ─────────────────────────────────────────────────
-  function getSessionTypeLabel(type: string): string {
-    const map: Record<string, string> = {
-      practice: 'Practice',
-      game: 'Game',
-      scrimmage: 'Scrimmage',
-      tournament: 'Tournament',
-      training: 'Training',
-    };
-    return map[type] || 'Session';
-  }
-
-  function getSessionTypeEmoji(type: string): string {
-    const map: Record<string, string> = {
-      practice: '⚽',
-      game: '🏆',
-      scrimmage: '🤝',
-      tournament: '🎖️',
-      training: '💪',
-    };
-    return map[type] || '📅';
-  }
-
-  function formatNextSessionDate(dateStr: string): string {
-    try {
-      const d = new Date(dateStr + 'T00:00:00');
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(today.getDate() + 1);
-      if (d.getTime() === today.getTime()) return 'Today';
-      if (d.getTime() === tomorrow.getTime()) return 'Tomorrow';
-      return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    } catch {
-      return dateStr;
+  // Extract celebratable items from report card
+  const celebrations: string[] = [];
+  if (reportCard?.strengths) {
+    for (const s of reportCard.strengths.slice(0, 3)) {
+      celebrations.push(typeof s === 'string' ? s : s.skill || s.description || s.name || String(s));
     }
   }
 
-  function formatSessionTime(startTime: string | null, endTime: string | null): string {
-    if (!startTime) return '';
-    try {
-      const [h, m] = startTime.split(':').map(Number);
-      const suffix = h >= 12 ? 'PM' : 'AM';
-      const hour = h % 12 || 12;
-      const start = `${hour}:${m.toString().padStart(2, '0')} ${suffix}`;
-      if (!endTime) return start;
-      const [eh, em] = endTime.split(':').map(Number);
-      const esuffix = eh >= 12 ? 'PM' : 'AM';
-      const ehour = eh % 12 || 12;
-      return `${start} – ${ehour}:${em.toString().padStart(2, '0')} ${esuffix}`;
-    } catch {
-      return startTime;
-    }
+  // Extract next challenge from development card or report card
+  let nextChallenge: string | null = null;
+  if (developmentCard?.growth_areas?.[0]) {
+    const area = developmentCard.growth_areas[0];
+    nextChallenge = typeof area === 'string' ? area : area.name || area.skill || String(area);
+  } else if (reportCard?.areas_for_improvement?.[0]) {
+    const area = reportCard.areas_for_improvement[0];
+    nextChallenge = typeof area === 'string' ? area : area.skill || area.description || area.name || String(area);
+  }
+
+  const safeUpcomingSessions: Array<{
+    id: string; type: string; date: string; start_time: string | null;
+    location: string | null; opponent: string | null;
+  }> = Array.isArray(upcomingSessions) ? upcomingSessions : [];
+
+  // Player of the Week / Player of the Match spotlight (ticket 0009).
+  // content_structured carries either a weekly_star shape (week_label +
+  // coach_shoutout + growth_moment + challenge_ahead) or a player_of_match
+  // shape (session_label + coach_message + key_moment). We render defensively
+  // from whichever fields are present. The presence of session_label (vs
+  // week_label) tells us which celebratory title to show.
+  const spotlight: any = playerSpotlight || null;
+  const isMatchSpotlight = !!spotlight?.session_label;
+  const spotlightTitle = isMatchSpotlight ? 'Player of the Match' : 'Player of the Week';
+  const spotlightLabel: string | null = spotlight?.session_label || spotlight?.week_label || null;
+  const spotlightCoachNote: string | null = spotlight?.coach_shoutout || spotlight?.coach_message || null;
+  const spotlightDetail: string | null = spotlight?.growth_moment || spotlight?.key_moment || null;
+
+  // Get the first recommended drill for home practice
+  let homePractice: { name: string; description?: string } | null = null;
+  if (recommendedDrills?.[0]) {
+    const drill = recommendedDrills[0];
+    homePractice = typeof drill === 'string'
+      ? { name: drill }
+      : { name: drill.name || drill.title || String(drill), description: drill.description };
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-16 font-sans">
-      {/* ─── Header banner ─── */}
-      <div
-        className="px-4 py-3 text-center text-sm font-medium text-white"
-        style={{ backgroundColor: brandColor }}
-      >
-        {branding?.report_header_text ||
-          `${teamName} · Powered by SportsIQ`}
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="mx-auto max-w-lg pb-10">
+        {/* ─── Header with branding ─── */}
+        <div className="px-6 pt-8 pb-6 text-center">
+          {branding?.logo_light_url && (
+            <img
+              src={branding.logo_light_url}
+              alt="Organization logo"
+              className="mx-auto mb-3 h-10 w-auto object-contain"
+            />
+          )}
+          <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">
+            {branding?.parent_portal_header_text || 'Progress Report'}
+          </p>
+          <h1
+            className="mt-1 text-2xl font-bold"
+            style={{ color: brandColor }}
+          >
+            {teamName}
+          </h1>
+        </div>
 
-      {/* ─── Player greeting card ─── */}
-      <div className="mx-4 mt-4 rounded-3xl bg-white p-5 shadow-sm">
-        <div className="flex items-center gap-3">
-          <PlayerAvatar
-            name={playerName}
-            photoUrl={player?.photo_url}
-            size={64}
-          />
-          <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-              {teamName}{season ? ` · ${season}` : ''}
+        {/* ─── Player card ─── */}
+        <div className="mx-4 rounded-2xl bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-4">
+            <PlayerAvatar
+              photoUrl={player?.photo_url}
+              name={player?.name || '?'}
+              size={64}
+              className="ring-0"
+            />
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">{player?.name || 'Player'}</h2>
+              <p className="text-sm text-gray-500">
+                {[player?.position, player?.jersey_number != null ? `#${player.jersey_number}` : null, season]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </p>
+              {coachName && (
+                <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs text-gray-400">
+                    Coach {coachName.split(' ')[0]}
+                  </span>
+                  {isCoachCertified && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200">
+                      <svg className="h-3 w-3 shrink-0" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                        <path d="M6 1L7.5 4.5L11 5L8.5 7.5L9 11L6 9.5L3 11L3.5 7.5L1 5L4.5 4.5L6 1Z" fill="currentColor" />
+                      </svg>
+                      SportsIQ Certified
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Greeting */}
+          <div className="mt-5 rounded-xl bg-gray-50 p-4">
+            <p className="text-sm leading-relaxed text-gray-700">
+              {parentName ? (
+                <>Dear {parentName},</>
+              ) : (
+                <>Hello!</>
+              )}
+              {' '}
+              Here&apos;s how <span className="font-semibold">{firstName}</span> is doing
+              {season ? ` this ${season.toLowerCase()}` : ''} with {teamName}.
+              {coachName && (
+                <> We&apos;re excited to share this update with you!</>
+              )}
             </p>
-            <h1 className="truncate text-xl font-bold text-gray-900">{playerName}</h1>
-            {progressMessage && (
-              <p className="mt-0.5 text-sm text-gray-500">{progressMessage}</p>
-            )}
+          </div>
+
+          {/* Share this report — lets parents forward to family */}
+          <div className="mt-4">
+            <ShareReportButton
+              firstName={firstName}
+              teamName={teamName}
+              coachName={coachName}
+            />
           </div>
         </div>
-      </div>
 
-        {/* ─── Share with Family ─── */}
-        <div className="mx-4 mt-3">
-          <PortalFamilyShare
-            playerName={firstName}
-            teamName={teamName}
-            coachName={coachName}
-            shareToken={token}
-          />
-        </div>
+        {/* ─── Player of the Week / Player of the Match spotlight (0009) ─── */}
+        {spotlight && spotlight.headline && (
+          <div className="mx-4 mt-4 rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg" aria-hidden="true">⭐</span>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-orange-600">
+                  {spotlightTitle}
+                </h3>
+              </div>
+              {spotlightLabel && (
+                <span className="text-[11px] text-gray-400">{spotlightLabel}</span>
+              )}
+            </div>
 
-        {/* ─── Parent Contact Opt-in ─── */}
-        {!hasParentContact && (
-          <ParentContactForm
-            shareToken={token}
-            playerFirstName={firstName}
-            coachName={coachName}
-            teamName={teamName}
-          />
+            <p className="text-base font-bold leading-snug text-gray-900">
+              {spotlight.headline}
+            </p>
+
+            {spotlight.achievement && (
+              <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                {spotlight.achievement}
+              </p>
+            )}
+
+            {spotlightDetail && (
+              <div className="mt-3 rounded-xl bg-white/70 px-3 py-2.5">
+                <p className="text-sm leading-relaxed text-gray-700">{spotlightDetail}</p>
+              </div>
+            )}
+
+            {spotlightCoachNote && (
+              <div className="mt-3 border-l-2 border-orange-300 pl-3">
+                <p className="text-sm italic leading-relaxed text-gray-800">
+                  &ldquo;{spotlightCoachNote}&rdquo;
+                </p>
+                {coachName && (
+                  <p className="mt-1 text-xs font-medium text-gray-500">
+                    &mdash; Coach {coachName.split(' ')[0]}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {/* ─── Coach's Latest Session Update ─── */}
@@ -581,33 +597,51 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100">
                   <MessageCircle className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">Coach&apos;s Update</p>
-                  {latestSessionMessage.session_label && (
-                    <p className="text-xs text-gray-400">{latestSessionMessage.session_label}</p>
-                  )}
-                </div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                  Coach&apos;s Update
+                </h3>
               </div>
+              {latestSessionMessage.session_label && (
+                <span className="text-[11px] text-gray-400">
+                  {latestSessionMessage.session_label}
+                </span>
+              )}
             </div>
 
-            <p className="text-sm leading-relaxed text-gray-700">{latestSessionMessage.message}</p>
+            <p className="text-sm leading-relaxed text-gray-800">
+              {latestSessionMessage.message}
+            </p>
 
             {latestSessionMessage.highlight && (
               <div className="mt-3 flex items-start gap-2 rounded-xl bg-emerald-50 px-3 py-2.5">
-                <span className="mt-0.5 text-sm">✨</span>
-                <p className="text-sm font-medium text-emerald-800">{latestSessionMessage.highlight}</p>
+                <span className="mt-0.5 shrink-0 text-sm" aria-hidden="true">✨</span>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+                    Highlight
+                  </p>
+                  <p className="mt-0.5 text-sm text-gray-700">
+                    {latestSessionMessage.highlight}
+                  </p>
+                </div>
               </div>
             )}
 
             {latestSessionMessage.next_focus && (
               <div className="mt-2 flex items-start gap-2 rounded-xl bg-orange-50 px-3 py-2.5">
-                <span className="mt-0.5 text-sm">🎯</span>
-                <p className="text-sm font-medium text-orange-800">{latestSessionMessage.next_focus}</p>
+                <span className="mt-0.5 shrink-0 text-sm" aria-hidden="true">🎯</span>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-orange-700">
+                    Next Focus
+                  </p>
+                  <p className="mt-0.5 text-sm text-gray-700">
+                    {latestSessionMessage.next_focus}
+                  </p>
+                </div>
               </div>
             )}
 
             {coachName && (
-              <p className="mt-3 text-right text-xs text-gray-400">
+              <p className="mt-3 text-right text-xs font-medium text-gray-500">
                 — Coach {coachName}
               </p>
             )}
@@ -619,289 +653,306 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           <div className="mx-4 mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <div className="mb-2 flex items-center gap-2">
               <Megaphone className="h-4 w-4 text-amber-600" aria-hidden="true" />
-              <p className="text-sm font-semibold text-amber-900">From the coach</p>
+              <span className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+                From the Coach
+              </span>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {announcements.map((ann: { id: string; title: string; body: string }) => (
                 <div key={ann.id}>
-                  <p className="text-sm font-semibold text-amber-800">{ann.title}</p>
-                  <p className="text-sm text-amber-700">{ann.body}</p>
+                  <p className="text-sm font-medium text-gray-800">{ann.title}</p>
+                  <p className="text-sm text-gray-600 leading-relaxed">{ann.body}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* ─── Next Session ─── */}
-        {nextSession && (
-          <div className="mx-4 mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-4 shadow-sm">
-            <div className="mb-2 flex items-center gap-2">
-              <span className="text-sky-600 text-sm font-bold">📅</span>
-              <p className="text-sm font-semibold text-sky-900">
-                Next {getSessionTypeLabel(nextSession.type)}
-              </p>
+        {/* ─── Coach's Best Moments (starred observations) ─── */}
+        {safeStarred.length > 0 && (
+          <div className="mx-4 mt-4 rounded-2xl bg-amber-50 border border-amber-100 p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-lg">⭐</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-600">
+                Coach&apos;s Best Moments
+              </h3>
             </div>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-sky-800">
-                  {getSessionTypeEmoji(nextSession.type)}{' '}
-                  {formatNextSessionDate(nextSession.date)}
-                  {nextSession.opponent && nextSession.type !== 'practice' && nextSession.type !== 'training' && (
-                    <span className="text-sky-700"> vs {nextSession.opponent}</span>
-                  )}
-                </p>
-                {(nextSession.start_time || nextSession.location) && (
-                  <p className="mt-1 text-xs text-sky-600 space-x-2">
-                    {nextSession.start_time && (
-                      <span>{formatSessionTime(nextSession.start_time, nextSession.end_time)}</span>
-                    )}
-                    {nextSession.start_time && nextSession.location && (
-                      <span>·</span>
-                    )}
-                    {nextSession.location && (
-                      <span>📍 {nextSession.location}</span>
-                    )}
+            <div className="space-y-4">
+              {safeStarred.map((obs: any, i: number) => (
+                <div key={i} className="border-l-2 border-amber-300 pl-4">
+                  <p className="text-sm leading-relaxed text-gray-800 italic">
+                    &ldquo;{obs.text}&rdquo;
                   </p>
-                )}
-              </div>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    {obs.category && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                        {obs.category.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-400">
+                      {new Date(obs.created_at).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* ─── Season at a Glance ─── */}
-        <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-100">
-              <span className="text-sm">📊</span>
+        {/* ─── Upcoming Sessions ─── */}
+        {safeUpcomingSessions.length > 0 && (
+          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm border border-sky-100">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-sky-100">
+                <CalendarDays className="h-3.5 w-3.5 text-sky-600" aria-hidden="true" />
+              </div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-sky-700">
+                Coming Up
+              </h3>
             </div>
-            <p className="text-sm font-semibold text-gray-900">Season at a Glance</p>
+            <div className="space-y-2.5">
+              {safeUpcomingSessions.map((s) => (
+                <div key={s.id} className="flex items-start gap-3 rounded-xl bg-sky-50 px-3 py-2.5">
+                  <span className="mt-0.5 shrink-0 text-base" aria-hidden="true">
+                    {SESSION_EMOJI[s.type] ?? '📅'}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800">
+                      {SESSION_LABEL[s.type] ?? s.type}
+                      {isCompetitiveSession(s.type) && s.opponent
+                        ? <span className="font-normal text-gray-600"> vs. {s.opponent}</span>
+                        : null}
+                    </p>
+                    <p className="mt-0.5 text-xs text-sky-700">
+                      {formatSessionDate(s.date, s.start_time)}
+                    </p>
+                    {s.location && (
+                      <p className="mt-0.5 text-xs text-gray-500 truncate">📍 {s.location}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-xl bg-orange-50 p-3 text-center">
-              <p className="text-xl font-bold text-orange-600">{seasonStats.totalObservations}</p>
-              <p className="text-xs text-gray-500">Coach observations</p>
-            </div>
-            <div className="rounded-xl bg-emerald-50 p-3 text-center">
-              <p className="text-xl font-bold text-emerald-600">{seasonStats.improvingSkillCount}</p>
-              <p className="text-xs text-gray-500">Skills improving</p>
-            </div>
-            <div className="rounded-xl bg-blue-50 p-3 text-center">
-              <p className="text-xl font-bold text-blue-600">{seasonStats.recentObsCount}</p>
-              <p className="text-xs text-gray-500">This fortnight</p>
-            </div>
-          </div>
-        </div>
+        )}
 
-        {/* ─── Practice Attendance ─── */}
-        {attendanceStats && attendanceStats.totalSessions >= 2 && (
+        {/* ─── Featured Highlight (fallback when no starred observations) ─── */}
+        {safeStarred.length === 0 && featuredHighlight && (
+          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-lg">✨</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                This Week&apos;s Highlight
+              </h3>
+            </div>
+            <p className="text-base leading-relaxed text-gray-800 italic">
+              &ldquo;{featuredHighlight.text}&rdquo;
+            </p>
+            <p className="mt-2 text-xs text-gray-400">
+              {new Date(featuredHighlight.created_at).toLocaleDateString('en-US', {
+                month: 'long',
+                day: 'numeric',
+              })}
+            </p>
+          </div>
+        )}
+
+        {/* ─── Season Stats ─── */}
+        {showJourney && (totalObservationCount > 0 || safeSkills.length > 0) && (
           <div className="mx-4 mt-4 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-100 p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-100">
-                <span className="text-sm">📅</span>
+              <span className="text-lg">{'\u{1F4C8}'}</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-orange-600">
+                Season at a Glance
+              </h3>
+            </div>
+            <p className="text-sm leading-relaxed text-gray-700 mb-4">{progressMessage}</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-xl bg-white/80 p-3 text-center shadow-sm">
+                <p className="text-2xl font-bold text-orange-500">{totalObservationCount ?? 0}</p>
+                <p className="mt-0.5 text-[11px] text-gray-500 leading-tight">Coach<br />Observations</p>
               </div>
-              <p className="text-sm font-semibold text-gray-900">Practice Attendance</p>
+              <div className="rounded-xl bg-white/80 p-3 text-center shadow-sm">
+                <p className="text-2xl font-bold text-emerald-500">{seasonStats.improvingSkillCount}</p>
+                <p className="mt-0.5 text-[11px] text-gray-500 leading-tight">Skills<br />Improving</p>
+              </div>
+              <div className="rounded-xl bg-white/80 p-3 text-center shadow-sm">
+                <p className="text-2xl font-bold text-blue-500">{seasonStats.recentObsCount}</p>
+                <p className="mt-0.5 text-[11px] text-gray-500 leading-tight">This<br />Fortnight</p>
+              </div>
             </div>
-            <div className="flex items-baseline gap-2 mb-3">
-              <span className="text-3xl font-bold text-orange-600">{attendanceStats.present}</span>
-              <span className="text-sm text-gray-500">of {attendanceStats.totalSessions} practices</span>
-              <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${
-                attendanceStats.pct >= 75 ? 'bg-emerald-100 text-emerald-700' :
-                attendanceStats.pct >= 60 ? 'bg-amber-100 text-amber-700' :
-                'bg-red-100 text-red-700'
-              }`}>{attendanceStats.pct}%</span>
+            {seasonStats.mostActiveCategory && (
+              <p className="mt-3 text-center text-xs text-gray-500">
+                Most practised: <span className="font-semibold text-gray-700">{formatCategoryLabel(seasonStats.mostActiveCategory)}</span>
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ─── Growth Streak ─── */}
+        {growthStreak && growthStreak.hasAnyPositive && (
+          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-lg" aria-hidden="true">
+                {getStreakEmoji(growthStreak.currentStreak) || '⭐'}
+              </span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                {isGrowthHotStreak(growthStreak) ? 'Hot Streak!' : 'Practice Streak'}
+              </h3>
             </div>
-            <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden mb-2">
-              <div
-                className={`h-full rounded-full ${
-                  attendanceStats.pct >= 75 ? 'bg-emerald-400' :
-                  attendanceStats.pct >= 60 ? 'bg-amber-400' : 'bg-red-400'
-                }`}
-                style={{ width: `${attendanceStats.pct}%` }}
-              />
-            </div>
-            <p className="text-xs text-gray-500 mb-3">
-              {attendanceStats.pct >= 75 ? '🌟 Excellent attendance!' :
-               attendanceStats.pct >= 60 ? '👍 Great commitment!' :
-               attendanceStats.pct >= 40 ? '📈 Good effort, keep showing up!' :
-               '💪 Every practice counts!'}
-            </p>
-            {attendanceStats.recentDots && attendanceStats.recentDots.length > 0 && (
-              <div>
-                <p className="text-xs text-gray-400 mb-1.5">Recent sessions</p>
-                <div className="flex gap-1.5 flex-wrap">
-                  {attendanceStats.recentDots.map((dot: string, i: number) => (
-                    <div
-                      key={i}
-                      className={`h-5 w-5 rounded-full ${
-                        dot === 'present' ? 'bg-emerald-400' :
-                        dot === 'excused' ? 'bg-amber-300' : 'bg-gray-200'
-                      }`}
-                      title={dot}
-                    />
-                  ))}
+
+            {growthStreak.currentStreak > 0 ? (
+              <>
+                <p className="text-2xl font-bold text-orange-500">
+                  {formatStreakCount(growthStreak.currentStreak)} in a row!
+                </p>
+                <p className="mt-1 text-sm text-gray-600">
+                  {firstName} has received positive coaching feedback in{' '}
+                  {growthStreak.currentStreak === 1
+                    ? 'their most recent practice'
+                    : `their last ${formatStreakCount(growthStreak.currentStreak)}`}
+                  . {getStreakLabel(growthStreak.currentStreak)}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-600">
+                {firstName} has had positive coaching feedback in{' '}
+                {growthStreak.positiveSessionCount} of{' '}
+                {growthStreak.totalObservedSessions} observed sessions.
+                {growthStreak.longestStreak > 1 && (
+                  <> Best streak: {formatStreakCount(growthStreak.longestStreak)} in a row.</>
+                )}
+              </p>
+            )}
+
+            {growthStreak.currentStreak > 0 && (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="rounded-xl bg-gray-50 p-3 text-center">
+                  <p className="text-lg font-bold text-emerald-600">{growthStreak.positiveSessionCount}</p>
+                  <p className="text-[11px] text-gray-500">positive sessions</p>
+                </div>
+                <div className="rounded-xl bg-gray-50 p-3 text-center">
+                  <p className="text-lg font-bold text-orange-500">{growthStreak.longestStreak}</p>
+                  <p className="text-[11px] text-gray-500">best streak ever</p>
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* ─── Weekly Progress Chart ─── */}
-        {showWeeklyChart && (
+        {/* ─── Weekly Progress Trend ─── */}
+        {safeObs.length >= 6 && <ProgressTrendChart obs={safeObs} firstName={firstName} />}
+
+        {/* ─── Skill Radar Chart ─── */}
+        {sortedSkills.length >= 3 && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
-            <div className="mb-3 flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-100">
-                <span className="text-sm">📈</span>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Positive Moments — Last 8 Weeks</p>
-              </div>
+            <div className="mb-1 flex items-center gap-2">
+              <span className="text-lg" aria-hidden="true">🗘️</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Skills at a Glance
+              </h3>
             </div>
-            <WeeklyProgressChart weeks={weeklyProgress} />
-            {weeklyTrending && (
-              <p className="mt-2 text-center text-xs font-medium text-emerald-600">
-                ↑ Positive moments trending up lately!
-              </p>
-            )}
-            <p className="mt-1 text-center text-xs text-gray-400">
-              Each bar shows how many positive coaching observations {firstName} received that week.
+            <p className="mb-4 text-xs text-gray-500 leading-relaxed">
+              {firstName}&apos;s skill profile across all tracked areas this season.
             </p>
-          </div>
-        )}
-
-        {/* ─── Player Growth Streak ─── */}
-        {growthStreak && (
-          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
-            <div className="mb-2 flex items-center gap-2">
-              <span className="text-xl">{getStreakEmoji(growthStreak.currentStreak)}</span>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Practice Streak</p>
-                <p className="text-xs text-gray-400">
-                  {getStreakLabel(growthStreak.currentStreak)}
-                </p>
-              </div>
-            </div>
-            {growthStreak.currentStreak > 0 ? (
-              <>
-                <p className="text-sm text-gray-700">
-                  {firstName} has received positive coaching feedback in{' '}
-                  {isGrowthHotStreak(growthStreak) ? (
-                    <strong className="text-orange-600">
-                      {formatStreakCount(growthStreak.currentStreak)} in a row!
-                    </strong>
-                  ) : (
-                    <>{`their last ${formatStreakCount(growthStreak.currentStreak)}`}</>
-                  )}
-                </p>
-                {growthStreak.longestStreak > growthStreak.currentStreak && (
-                  <p className="mt-1 text-xs text-gray-400">
-                    <> Best streak: {formatStreakCount(growthStreak.longestStreak)} in a row.</>
-                  </p>
-                )}
-              </>
-            ) : (
-              <p className="text-sm text-gray-500">Season just getting started!</p>
-            )}
-          </div>
-        )}
-
-        {/* ─── Skill Radar ─── */}
-        {skillProgress && skillProgress.length >= 3 && (
-          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
-            <div className="mb-3 flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-100">
-                <span className="text-sm">🕸️</span>
-              </div>
-              <p className="text-sm font-semibold text-gray-900">Skills at a Glance</p>
-            </div>
-            <SkillRadarChart skills={skillProgress} />
-            <div className="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1 border-t border-gray-100 pt-3">
-              {Object.values(PROFICIENCY_LEVELS).map((pl) => (
-                <span key={pl.label} className="text-xs text-gray-500">
-                  {pl.emoji} {pl.label}
+            <SkillRadarChart skills={sortedSkills} />
+            {/* Proficiency legend */}
+            <div className="mt-4 flex flex-wrap justify-center gap-x-3 gap-y-1 border-t border-gray-100 pt-3">
+              {[
+                { label: 'Exploring', color: 'bg-amber-400' },
+                { label: 'Practicing', color: 'bg-blue-400' },
+                { label: 'Got It!', color: 'bg-emerald-400' },
+                { label: 'Game Ready', color: 'bg-purple-500' },
+              ].map((l) => (
+                <span key={l.label} className="flex items-center gap-1 text-[10px] text-gray-500">
+                  <span className={`inline-block h-2 w-2 rounded-full ${l.color}`} />
+                  {l.label}
                 </span>
               ))}
             </div>
-            <p className="mt-2 text-center text-xs text-gray-400">
-              {firstName}&apos;s skill profile across all tracked areas this season.
-            </p>
           </div>
         )}
 
         {/* ─── Skills on the Rise ─── */}
-        {hasJourneyData && improvingSkills.length > 0 && (
+        {improvingSkills.length > 0 && (
           <div className="mx-4 mt-4 rounded-2xl bg-emerald-50 border border-emerald-100 p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100">
-                <span className="text-sm">🌱</span>
-              </div>
-              <p className="text-sm font-semibold text-gray-900">Skills on the Rise</p>
+              <span className="text-lg">{'\u{1F680}'}</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                Skills on the Rise
+              </h3>
             </div>
+            <p className="mb-3 text-sm text-gray-600 leading-relaxed">
+              {firstName}&apos;s coach has observed improvement in these areas:
+            </p>
             <div className="flex flex-wrap gap-2">
-              {improvingSkills.map((skill) => (
+              {improvingSkills.map((s) => (
                 <span
-                  key={skill.skill_id}
-                  className="rounded-full bg-emerald-100 px-3 py-1.5 text-sm font-medium text-emerald-800"
+                  key={s.skill_id}
+                  className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-sm font-medium text-emerald-800"
                 >
-                  ↑ {skill.skill_name || formatCategoryLabel(skill.category || skill.skill_id)}
+                  <span className="text-emerald-500">↑</span>
+                  {s.skill_name || formatCategoryLabel(s.category)}
                 </span>
               ))}
             </div>
           </div>
         )}
 
-        {/* ─── Practice at Home (Skill Challenges) ─── */}
-        {skillChallenge && skillChallenge.challenges && skillChallenge.challenges.length > 0 && (
+        {/* ─── Practice at Home ─── */}
+        {skillChallenge && Array.isArray(skillChallenge.challenges) && skillChallenge.challenges.length > 0 && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm border border-blue-100">
             <div className="mb-1 flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100">
-                <span className="text-sm">🏠</span>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Practice at Home</p>
-                {skillChallenge.week_label && (
-                  <p className="text-xs text-gray-400">{skillChallenge.week_label}</p>
-                )}
-              </div>
+              <span className="text-lg" aria-hidden="true">🏠</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-blue-700">
+                Practice at Home
+              </h3>
             </div>
+            {skillChallenge.week_label && (
+              <p className="mb-1 text-[11px] text-gray-400">{skillChallenge.week_label}</p>
+            )}
             {skillChallenge.parent_note && (
-              <p className="mb-3 mt-2 text-sm text-blue-700 italic">&ldquo;{skillChallenge.parent_note}&rdquo;</p>
+              <p className="mb-4 text-sm text-gray-600 leading-relaxed">
+                {skillChallenge.parent_note}
+              </p>
             )}
             <div className="space-y-4">
-              {skillChallenge.challenges.slice(0, 2).map((c: any, i: number) => (
+              {skillChallenge.challenges.slice(0, 2).map((challenge: any, i: number) => (
                 <div key={i} className="rounded-xl bg-blue-50 p-4">
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <p className="text-sm font-bold text-blue-900">{c.title}</p>
-                    <div className="flex items-center gap-1.5">
-                      {c.minutes_per_day && (
-                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                          {c.minutes_per_day} min/day
-                        </span>
-                      )}
-                      {c.difficulty && (
-                        <span className="rounded-full bg-white border border-blue-200 px-2 py-0.5 text-xs font-medium text-blue-600">
-                          {c.difficulty}
-                        </span>
-                      )}
-                    </div>
+                    <h4 className="text-sm font-bold text-blue-900">{challenge.title}</h4>
+                    <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                      {challenge.minutes_per_day} min/day
+                    </span>
                   </div>
-                  {c.description && (
-                    <p className="mb-2 text-sm text-blue-800">{c.description}</p>
+                  {challenge.description && (
+                    <p className="mb-3 text-xs text-blue-700 leading-relaxed">{challenge.description}</p>
                   )}
-                  {c.steps && c.steps.length > 0 && (
-                    <ol className="space-y-1 text-sm text-blue-700">
-                      {c.steps.map((step: string, si: number) => (
-                        <li key={si} className="flex gap-2">
-                          <span className="shrink-0 font-bold">{si + 1}.</span>
-                          <span>{step}</span>
+                  {Array.isArray(challenge.steps) && challenge.steps.length > 0 && (
+                    <ol className="mb-3 space-y-1">
+                      {challenge.steps.map((step: string, j: number) => (
+                        <li key={j} className="flex items-start gap-2 text-xs text-gray-700">
+                          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-blue-200 text-[9px] font-bold text-blue-800">
+                            {j + 1}
+                          </span>
+                          {step}
                         </li>
                       ))}
                     </ol>
                   )}
-                  {c.success_criteria && (
-                    <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-emerald-50 px-3 py-2">
-                      <span className="shrink-0 text-xs">🎯</span>
-                      <p className="text-xs font-medium text-emerald-700">{c.success_criteria}</p>
+                  {challenge.success_criteria && (
+                    <div className="flex items-start gap-1.5 rounded-lg bg-emerald-50 px-3 py-2">
+                      <span className="mt-0.5 shrink-0 text-xs text-emerald-600">✓</span>
+                      <p className="text-xs text-emerald-700 leading-relaxed">
+                        <span className="font-semibold">Goal:</span> {challenge.success_criteria}
+                      </p>
                     </div>
+                  )}
+                  {challenge.encouragement && (
+                    <p className="mt-2 text-xs italic text-gray-500">{challenge.encouragement}</p>
                   )}
                 </div>
               ))}
@@ -909,28 +960,33 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           </div>
         )}
 
-        {/* ─── Achievements ─── */}
-        {achievements && achievements.length > 0 && (
+        {/* ─── Achievement Badges ─── */}
+        {Array.isArray(achievements) && achievements.length > 0 && (
           <div className="mx-4 mt-4 rounded-2xl bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-xl">🏅</span>
-              <p className="text-sm font-semibold text-gray-900">Achievements Earned</p>
+              <span className="text-lg">🏅</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+                Achievements Earned
+              </h3>
             </div>
-            <p className="mb-3 text-xs text-gray-500">
+            <p className="mb-4 text-sm text-gray-600 leading-relaxed">
               {firstName} has earned {achievements.length === 1 ? 'this badge' : `${achievements.length} badges`} this season!
             </p>
             <div className="grid grid-cols-2 gap-2">
-              {achievements.map((ach: any) => {
-                const meta = BADGE_META[ach.badge_type];
+              {achievements.map((a: { badge_type: string; awarded_at: string; note?: string }) => {
+                const meta = BADGE_META[a.badge_type];
                 if (!meta) return null;
                 return (
                   <div
-                    key={ach.id}
-                    className={`rounded-xl ${meta.bg} border ${meta.border} p-3`}
+                    key={a.badge_type}
+                    className={`flex items-start gap-2.5 rounded-xl border p-3 ${meta.color}`}
                   >
+                    <span className="text-2xl leading-none shrink-0" aria-hidden="true">{meta.emoji}</span>
                     <div className="min-w-0">
-                      <p className="font-bold text-sm">{meta.emoji} {meta.name}</p>
-                      {ach.note && <p className="mt-0.5 text-xs text-gray-600 line-clamp-2">{ach.note}</p>}
+                      <p className="text-xs font-bold leading-tight">{meta.name}</p>
+                      <p className="mt-0.5 text-[11px] leading-tight opacity-75">
+                        {a.note || meta.description}
+                      </p>
                     </div>
                   </div>
                 );
@@ -939,50 +995,67 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           </div>
         )}
 
-        {/* ─── Player Development Goals ─── */}
-        {playerGoals && playerGoals.length > 0 && (
+        {/* ─── Season Goals ─── */}
+        {Array.isArray(playerGoals) && playerGoals.length > 0 && (
           <div className="mx-4 mt-4 rounded-2xl bg-gradient-to-br from-sky-50 to-indigo-50 border border-sky-200 p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-xl">🎯</span>
-              <p className="text-sm font-semibold text-gray-900">Season Goals</p>
+              <span className="text-lg">🎯</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-sky-700">
+                Season Goals
+              </h3>
             </div>
+            <p className="mb-4 text-sm text-gray-600 leading-relaxed">
+              Here&apos;s what Coach {coachName?.split(' ')[0] || 'your coach'} is working toward with {firstName} this season.
+            </p>
             <div className="space-y-3">
-              {playerGoals.map((goal: any) => {
+              {playerGoals.map((goal: { id: string; skill: string; goal_text: string; target_level: string | null; target_date: string | null; status: string }) => {
                 const isAchieved = goal.status === 'achieved';
+                const skillLabel = goal.skill
+                  ? goal.skill.charAt(0).toUpperCase() + goal.skill.slice(1).replace(/_/g, ' ')
+                  : 'Skill';
+                const targetDate = goal.target_date
+                  ? new Date(goal.target_date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                  : null;
                 return (
                   <div
                     key={goal.id}
-                    className={`rounded-xl p-3 ${
-                      isAchieved ? 'bg-emerald-50 border border-emerald-200' : 'bg-white/70 border border-sky-100'
+                    className={`rounded-xl border p-4 ${
+                      isAchieved
+                        ? 'bg-emerald-50 border-emerald-200'
+                        : 'bg-white border-sky-200'
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="shrink-0 mt-0.5">
-                        {isAchieved ? (
-                          <span className="text-base">✅</span>
-                        ) : (
-                          <span className="text-base">🌟</span>
-                        )}
-                      </div>
+                      <span className="text-xl shrink-0 leading-none mt-0.5" aria-hidden="true">
+                        {isAchieved ? '✅' : '🏃'}
+                      </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">
-                            {formatCategoryLabel(goal.skill_area || 'skill')}
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                            isAchieved
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-sky-100 text-sky-700'
+                          }`}>
+                            {skillLabel}
                           </span>
                           {isAchieved && (
-                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                            <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white">
                               Goal Achieved! 🎉
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-gray-800">{goal.goal_text}</p>
-                        {goal.target_date && !isAchieved && (
-                          <p className="mt-0.5 text-xs text-gray-400">
-                            Target: {new Date(goal.target_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        <p className={`text-sm font-medium leading-snug ${
+                          isAchieved ? 'text-emerald-800' : 'text-gray-800'
+                        }`}>
+                          {goal.goal_text}
+                        </p>
+                        {targetDate && !isAchieved && (
+                          <p className="mt-1 text-[11px] text-sky-600">
+                            Target: {targetDate}
                           </p>
                         )}
                         {isAchieved && (
-                          <p className="mt-0.5 text-xs text-emerald-600 font-medium">
+                          <p className="mt-1 text-[11px] text-emerald-600">
                             {firstName} nailed it! 💪
                           </p>
                         )}
@@ -992,248 +1065,167 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
                 );
               })}
             </div>
-            <p className="mt-3 text-xs text-gray-500 text-center">
-              Encourage {firstName} to keep working on these goals at home!
-            </p>
+            {playerGoals.some((g: { status: string }) => g.status === 'active') && (
+              <p className="mt-4 text-[11px] text-sky-600 leading-relaxed text-center">
+                Encourage {firstName} to keep working on {playerGoals.filter((g: { status: string }) => g.status === 'active').length === 1 ? 'this goal' : 'these goals'} at home!
+              </p>
+            )}
           </div>
         )}
 
-        {/* ─── Skill Progress bars ─── */}
+        {/* ─── Skill Progress ─── */}
         {sortedSkills.length > 0 && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-100">
-                <span className="text-sm">📊</span>
-              </div>
-              <p className="text-sm font-semibold text-gray-900">Skill Progress</p>
+              <span className="text-lg">{'\u{1F4CA}'}</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Skill Progress
+              </h3>
             </div>
             <div className="space-y-4">
-              {sortedSkills.map((skill, i) => (
-                <SkillBar key={i} skill={skill} />
+              {sortedSkills.map((skill: any) => (
+                <SkillBar key={skill.skill_id} skill={skill} />
               ))}
             </div>
+            {/* Legend */}
             <div className="mt-4 flex flex-wrap gap-3 border-t border-gray-100 pt-3">
-              {Object.values(PROFICIENCY_LEVELS).map((pl) => (
-                <span key={pl.label} className="text-xs text-gray-400">
-                  {pl.emoji} {pl.label}
+              {Object.values(PROFICIENCY_LEVELS).map((level) => (
+                <span
+                  key={level.label}
+                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${level.bgColor} ${level.textColor}`}
+                >
+                  {level.emoji} {level.label}
                 </span>
               ))}
             </div>
           </div>
         )}
 
-        {/* ─── Featured Observation ─── */}
-        {featuredHighlight && (
+        {/* ─── What to Celebrate ─── */}
+        {celebrations.length > 0 && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-100">
-                <span className="text-sm">{featuredHighlight.is_highlighted ? '⭐' : '✨'}</span>
-              </div>
-              <p className="text-sm font-semibold text-gray-900">
-                {featuredHighlight.is_highlighted ? "Coach's Pick" : 'Recent Highlight'}
-              </p>
+              <span className="text-lg">{'\u{1F389}'}</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                What to Celebrate
+              </h3>
             </div>
-            <blockquote className="rounded-xl bg-orange-50 px-4 py-3 text-sm font-medium italic text-orange-900">
-              &ldquo;{featuredHighlight.text}&rdquo;
-            </blockquote>
+            <ul className="space-y-2">
+              {celebrations.map((item, i) => (
+                <li key={i} className="flex items-start gap-2.5 text-sm text-gray-700">
+                  <span className="mt-0.5 shrink-0 text-emerald-500">✓</span>
+                  {item}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
-        {/* ─── Report Card ─── */}
-        {reportCard && (
+        {/* ─── Next Challenge ─── */}
+        {(nextChallenge || homePractice) && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100">
-                <span className="text-sm">📋</span>
-              </div>
-              <p className="text-sm font-semibold text-gray-900">AI Report Card</p>
+              <span className="text-lg">{'\u{1F3AF}'}</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Next Challenge
+              </h3>
             </div>
-            <div className="rounded-xl bg-blue-50 p-4">
-              <p className="text-sm leading-relaxed text-blue-900">{reportCard.summary}</p>
-            </div>
-            {reportCard.strengths && reportCard.strengths.length > 0 && (
-              <div className="mt-3">
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">Strengths</p>
-                <ul className="space-y-1">
-                  {reportCard.strengths.map((s: string, i: number) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                      <span className="mt-0.5 text-emerald-500">✓</span> {s}
-                    </li>
-                  ))}
-                </ul>
+            {homePractice && (
+              <div className="rounded-xl bg-blue-50 p-4">
+                <p className="text-sm font-medium text-blue-800">{homePractice.name}</p>
+                {homePractice.description && (
+                  <p className="mt-1 text-sm text-blue-600">{homePractice.description}</p>
+                )}
               </div>
             )}
-            {reportCard.areas_to_improve && reportCard.areas_to_improve.length > 0 && (
-              <div className="mt-3">
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">Areas to Improve</p>
-                <ul className="space-y-1">
-                  {reportCard.areas_to_improve.map((s: string, i: number) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                      <span className="mt-0.5 text-amber-500">→</span> {s}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {reportCard.next_challenge && (
-              <div className="mt-3 rounded-lg bg-orange-50 border border-orange-100 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-orange-400">Next Challenge</p>
-                <p className="mt-0.5 text-sm text-orange-800">{reportCard.next_challenge}</p>
-              </div>
+            {!homePractice && nextChallenge && (
+              <p className="text-sm text-gray-700">{nextChallenge}</p>
             )}
           </div>
         )}
 
-        {/* ─── Development Card section ─── */}
-        {developmentCard && (
+        {/* ─── Recent Highlights (additional) ─── */}
+        {highlights && highlights.length > 1 && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-purple-100">
-                <span className="text-sm">🗺️</span>
-              </div>
-              <p className="text-sm font-semibold text-gray-900">Development Roadmap</p>
+              <span className="text-lg">{'\u{1F4DD}'}</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Recent Observations
+              </h3>
             </div>
-            {developmentCard.strengths && developmentCard.strengths.length > 0 && (
-              <div className="mb-3">
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">Strengths</p>
-                <ul className="space-y-1">
-                  {developmentCard.strengths.map((s: string, i: number) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                      <span className="mt-0.5 text-emerald-500">✓</span> {s}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {developmentCard.growth_areas && developmentCard.growth_areas.length > 0 && (
-              <div className="mb-3">
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">Growth Areas</p>
-                <ul className="space-y-1">
-                  {developmentCard.growth_areas.map((s: string, i: number) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                      <span className="mt-0.5 text-orange-400">→</span> {s}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {developmentCard.goals && developmentCard.goals.length > 0 && (
-              <div>
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">Development Goals</p>
-                <div className="space-y-3">
-                  {developmentCard.goals.map((goal: any, i: number) => (
-                    <div key={i} className="rounded-lg bg-purple-50 p-3">
-                      <div className="mb-1 flex items-center gap-2">
-                        <p className="text-sm font-semibold text-purple-900">{goal.title}</p>
-                        {goal.current_level && goal.target_level && (
-                          <span className="text-xs text-purple-600">
-                            {goal.current_level} → {goal.target_level}
-                          </span>
-                        )}
-                      </div>
-                      {goal.action_steps && goal.action_steps.length > 0 && (
-                        <ol className="space-y-0.5 text-sm text-purple-700">
-                          {goal.action_steps.map((step: string, si: number) => (
-                            <li key={si} className="flex gap-2">
-                              <span className="shrink-0 font-bold">{si + 1}.</span>
-                              <span>{step}</span>
-                            </li>
-                          ))}
-                        </ol>
-                      )}
-                    </div>
-                  ))}
+            <div className="space-y-3">
+              {highlights.slice(1, 6).map((obs: any, i: number) => (
+                <div key={i} className="border-l-2 border-gray-200 pl-3">
+                  <p className="text-sm text-gray-700">{obs.text}</p>
+                  <p className="mt-0.5 text-xs text-gray-400">
+                    {obs.category && <>{obs.category} &middot; </>}
+                    {new Date(obs.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </p>
                 </div>
-              </div>
-            )}
-            {developmentCard.coach_note && (
-              <div className="mt-3 rounded-lg bg-purple-50 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-purple-400">Coach&apos;s Note</p>
-                <p className="mt-0.5 text-sm italic text-purple-800">&ldquo;{developmentCard.coach_note}&rdquo;</p>
-              </div>
-            )}
+              ))}
+            </div>
           </div>
         )}
-
-        {/* ─── Additional Observations ─── */}
-        {highlights && highlights.length > 0 && (() => {
-          const shown = highlights.slice(0, 3);
-          return (
-            <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
-              <div className="mb-3 flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-100">
-                  <span className="text-sm">📝</span>
-                </div>
-                <p className="text-sm font-semibold text-gray-900">More Coaching Highlights</p>
-              </div>
-              <div className="space-y-3">
-                {shown.map((obs: any, i: number) => (
-                  <div key={i} className={`border-l-2 pl-3 ${obs.is_highlighted ? 'border-amber-300' : 'border-gray-200'}`}>
-                    <div className="flex items-center gap-2">
-                      {obs.is_highlighted && <span className="text-xs text-amber-500">⭐</span>}
-                      <span className="text-xs font-medium text-orange-600">
-                        {formatCategoryLabel(obs.category)}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-700">&ldquo;{obs.text}&rdquo;</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
 
         {/* ─── Coach's Note ─── */}
-        {customMessage && (
+        {(customMessage || reportCard?.coach_message) && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100">
-                <span className="text-sm">✍️</span>
-              </div>
-              <p className="text-sm font-semibold text-gray-900">Coach&apos;s Note</p>
+              <span className="text-lg">{'\u{1F4AC}'}</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Coach&apos;s Note
+              </h3>
             </div>
-            <blockquote className="rounded-xl bg-gray-50 px-4 py-3 text-sm italic text-gray-700">
-              &ldquo;{customMessage}&rdquo;
-            </blockquote>
+            <p className="text-sm italic leading-relaxed text-gray-700">
+              &ldquo;{customMessage || reportCard?.coach_message}&rdquo;
+            </p>
+            {coachName && (
+              <p className="mt-3 text-sm font-medium text-gray-800">
+                &mdash; Coach {coachName}
+              </p>
+            )}
+            <p className="text-xs text-gray-400">
+              {teamName}{season ? ` · ${season}` : ''}
+            </p>
           </div>
         )}
 
-      {/* ─── Reactions ─── */}
-      <div className="mx-4 mt-6">
-        <ParentReactionForm
-          shareToken={token}
-          playerFirstName={firstName}
-          coachName={coachName}
-        />
-      </div>
-
-      {/* ─── Viral CTA ─── */}
-      <div className="mt-6 text-center">
-        <ParentViralCTA coachName={coachName} teamName={team?.name} />
-      </div>
-
-        <div className="mt-1 flex justify-center gap-3 text-xs text-gray-400">
-          <a href="/privacy" className="hover:text-gray-600">Privacy</a>
-          <span>·</span>
-          <a href="/terms" className="hover:text-gray-600">Terms</a>
+        {/* ─── Parent Reaction ─── */}
+        <div className="mx-4 mt-4">
+          <ParentReactionForm
+            shareToken={token}
+            playerFirstName={firstName}
+            coachName={coachName}
+          />
         </div>
+
+        {/* ─── Parent Contact Collection ─── */}
+        {/* Shown only when coach doesn't yet have this parent's phone number */}
+        {!hasParentContact && (
+          <ParentContactForm
+            shareToken={token}
+            playerFirstName={firstName}
+            coachName={coachName}
+            teamName={teamName}
+          />
+        )}
+
+        {/* ─── Viral CTA ─── */}
+        <div className="mx-4 mt-6">
+          <ParentViralCTA coachName={coachName} teamName={team?.name} referralCode={referralCode} />
+        </div>
+
+        {/* ─── Footer ─── */}
+        <div className="mt-6 text-center">
+          <p className="text-xs text-gray-400">
+            Powered by <span className="font-semibold">SportsIQ</span>
+          </p>
+          <div className="mt-1 flex justify-center gap-3 text-xs text-gray-400">
+            <a href="/privacy" className="hover:text-gray-600 underline">Privacy</a>
+            <a href="/terms" className="hover:text-gray-600 underline">Terms</a>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Badge metadata
-// ---------------------------------------------------------------------------
-
-const BADGE_META: Record<string, { name: string; emoji: string; bg: string; border: string }> = {
-  first_star: { name: 'First Star', emoji: '⭐', bg: 'bg-amber-50', border: 'border-amber-200' },
-  team_player: { name: 'Team Player', emoji: '🤝', bg: 'bg-blue-50', border: 'border-blue-200' },
-  grinder: { name: 'The Grinder', emoji: '💪', bg: 'bg-gray-50', border: 'border-gray-200' },
-  all_rounder: { name: 'All-Rounder', emoji: '🎯', bg: 'bg-purple-50', border: 'border-purple-200' },
-  breakthrough: { name: 'Breakthrough', emoji: '🚀', bg: 'bg-emerald-50', border: 'border-emerald-200' },
-  game_changer: { name: 'Game Changer', emoji: '⚡', bg: 'bg-yellow-50', border: 'border-yellow-200' },
-  session_regular: { name: 'Session Regular', emoji: '📅', bg: 'bg-indigo-50', border: 'border-indigo-200' },
-  coach_pick: { name: "Coach's Pick", emoji: '🏆', bg: 'bg-orange-50', border: 'border-orange-200' },
-  most_improved: { name: 'Most Improved', emoji: '📈', bg: 'bg-teal-50', border: 'border-teal-200' },
-  rising_star: { name: 'Rising Star', emoji: '🌟', bg: 'bg-sky-50', border: 'border-sky-200' },
-};

@@ -42,6 +42,19 @@ vi.mock('next/image', () => ({
     React.createElement('img', { src, alt }),
 }));
 
+// PlayerCard now uses react-query, zustand store, and mutate — stub them
+vi.mock('@tanstack/react-query', async (importOriginal) => {
+  const actual = await importOriginal() as Record<string, unknown>;
+  return { ...actual, useQueryClient: () => ({ invalidateQueries: vi.fn() }) };
+});
+
+vi.mock('@/lib/store', () => ({
+  useAppStore: (selector: (s: { practiceActive: boolean; practiceSessionId: null }) => unknown) =>
+    selector({ practiceActive: false, practiceSessionId: null }),
+}));
+
+vi.mock('@/lib/api', () => ({ mutate: vi.fn(), query: vi.fn() }));
+
 // ------------------------------------------------------------------
 // Helpers
 // ------------------------------------------------------------------
@@ -63,8 +76,7 @@ describe('PlayerCard', () => {
     });
 
     it('renders the player position badge', () => {
-      // Use a fixed name so avatar initials (MT) never collide with position text (PG)
-      const player = buildPlayer({ position: 'PG', name: 'Marcus Thompson' });
+      const player = buildPlayer({ position: 'PG' });
       render(<PlayerCard player={player} />);
       expect(screen.getByText('PG')).toBeInTheDocument();
     });

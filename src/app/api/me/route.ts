@@ -18,26 +18,15 @@ export async function GET() {
         .single(),
       admin
         .from('team_coaches')
-        .select('team_id, role, teams(*)')
+        .select('team_id, role, teams(*, sports(slug))')
         .eq('coach_id', user.id),
     ]);
 
     if (!coach) return null;
 
-    // Resolve sport slugs for client-side template lookups (templates use slug, not UUID FK)
-    const sportIds = [...new Set(
-      (teamCoaches || []).map((tc: any) => tc.teams?.sport_id).filter(Boolean)
-    )] as string[];
-    const { data: sportRows } = sportIds.length
-      ? await admin.from('sports').select('id, slug').in('id', sportIds)
-      : { data: [] };
-    const sportSlugMap: Record<string, string> = {};
-    for (const s of sportRows || []) sportSlugMap[s.id] = s.slug;
-
     const teams = (teamCoaches || []).map((tc: any) => ({
       ...tc.teams,
       coachRole: tc.role,
-      sport_slug: sportSlugMap[tc.teams?.sport_id] || null,
     }));
 
     return { coach, teams };

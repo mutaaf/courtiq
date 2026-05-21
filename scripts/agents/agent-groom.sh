@@ -1,0 +1,130 @@
+#!/bin/bash
+# Local autonomous "groom" agent. Fired by launchd (every 6h at :17 local —
+# 00:17 / 06:17 / 12:17 / 18:17).
+#
+# - Pulls main into a working checkout.
+# - Closes superseded chore/gtm- PRs (keeps only the newest live one).
+# - Asks the local `claude` CLI to invoke the product-groomer subagent: regroom
+#   existing tickets, add 2-4 fresh ones focused on acquisition / retention /
+#   moat, open a PR.
+# - Reads docs/LESSONS.md at start; may merge exact-duplicate lessons.
+# - Self-gates: if there are already ≥3 groomed P0/P1 tickets, it no-ops
+#   (after the PR cleanup above still runs).
+#
+# Logs land in ~/.cache/sportsiq-agent/logs/groom-<UTC timestamp>.log.
+
+set -euo pipefail
+
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export HOME="${HOME:-/Users/$(whoami)}"
+
+REPO_URL="https://github.com/mutaaf/courtiq"
+WORKDIR="$HOME/.cache/sportsiq-agent/checkout"
+LOG_DIR="$HOME/.cache/sportsiq-agent/logs"
+mkdir -p "$WORKDIR" "$LOG_DIR"
+
+TS=$(date -u +%Y%m%d-%H%M%S)
+LOG="$LOG_DIR/groom-$TS.log"
+exec >"$LOG" 2>&1
+
+echo "=== sportsiq-groom firing $(date -u) (local $(date)) ==="
+echo "PATH=$PATH"
+echo "claude=$(command -v claude || echo MISSING)"
+echo
+
+# Self-cancel after 2026-06-03 UTC.
+TODAY=$(date -u +%Y%m%d)
+if [ "$TODAY" -ge "20260603" ]; then
+  cat <<EOF
+expired — local launchd agent has reached its 14-day self-cancel date.
+
+To re-arm, edit scripts/agents/agent-groom.sh and bump the cutoff date, then:
+  bash scripts/agents/install-agents.sh
+EOF
+  exit 0
+fi
+
+if [ ! -d "$WORKDIR/.git" ]; then
+  git clone --depth=50 "$REPO_URL" "$WORKDIR"
+fi
+cd "$WORKDIR"
+git fetch origin --prune --quiet
+git checkout main --quiet
+git reset --hard origin/main --quiet
+git clean -fdq
+
+git config user.email "noreply@anthropic.com"
+git config user.name "SportsIQ Groomer Agent"
+
+claude --print --dangerously-skip-permissions <<'PROMPT'
+You are the autonomous Groomer runner for this SportsIQ repo (you are already
+at its working dir on main).
+
+Read AGENTS.md, docs/LESSONS.md, docs/backlog/README.md, and every file under
+docs/backlog/.
+
+Step 0 — housekeeping (always, even if you self-gate afterward):
+  Close superseded Groomer backlog PRs. List open ones:
+    gh pr list --state open --base main --json number,headRefName,createdAt \
+      --jq '[.[] | select(.headRefName | startswith("chore/gtm-"))] | sort_by(.createdAt)'
+  If there is MORE THAN ONE, the newest is the live one; close every OLDER
+  `chore/gtm-` PR with:
+    gh pr close <n> --delete-branch --comment "Superseded by a newer Groomer backlog refresh."
+  Also close any single `chore/gtm-` PR that is mergeStateStatus DIRTY (its diff
+  is against an old backlog state) with the same superseded comment, then carry
+  on — your run below will produce a fresh one.
+
+Self-gate: count tickets where frontmatter `status: groomed` AND `priority: P0`
+or `P1`. If that count is ≥ 3, print "backlog is full (N groomed P0/P1)" and
+exit cleanly with no further changes (the Step 0 cleanup above still stands).
+
+Prune LESSONS only here: while you have the repo open, you MAY merge EXACT
+duplicate lines in docs/LESSONS.md, but never delete a lesson that still
+describes live behavior. Carry any LESSONS edit on your chore/gtm- branch.
+
+Otherwise, do the work:
+  1. Use the Task tool with subagent_type="product-groomer" (.claude/agents/
+     product-groomer.md). Prompt it to:
+       (a) run a grooming pass across every existing ticket — re-rank
+           priorities, rewrite vague tickets to template standard, mark
+           dead ones rejected, move ready ones from proposed → groomed.
+       (b) add 2–4 fresh tickets focused on USER ACQUISITION, RETENTION,
+           or MOAT-DEEPENING. Use the next available NNNN ids. Each
+           ticket follows docs/backlog/_template.md exactly: frontmatter
+           + user story + four-lens "Why now" + acceptance criteria
+           (test-shaped) + out-of-scope + engineering notes.
+
+  2. Update docs/backlog/README.md's index table to reflect the new
+     ordering and statuses.
+
+  3. NEVER touch anything under src/, tests/, e2e/, or supabase/migrations/.
+     NEVER run npm or playwright. The Groomer has no business in code.
+
+  4. Create a feature branch:
+       git checkout -b chore/gtm-$(date -u +%Y%m%d-%H%M)
+
+  5. Commit with message starting `GTM: backlog update YYYY-MM-DD` and the
+     trailer exactly:
+       Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+
+  6. Push the branch:
+       git push -u origin HEAD
+
+  7. Open a PR:
+       gh pr create --base main \
+         --title "GTM: backlog update YYYY-MM-DD HH:MM UTC" \
+         --body "Autonomous backlog refresh.\n\n## Tickets added/changed\n<one bulleted line per ticket id + title + status>"
+
+  8. Enable auto-merge so the PR ships as soon as the reviewer approves:
+       gh pr merge --auto --squash
+
+NEVER push to main directly. NEVER edit src/, tests/, e2e/, or
+supabase/migrations/. NEVER force-push.
+
+End with a one-line summary: "<N> tickets touched, PR <url>".
+PROMPT
+
+EXIT=$?
+echo
+echo "=== sportsiq-groom complete $(date -u) — exit=$EXIT ==="
+exit $EXIT

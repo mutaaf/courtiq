@@ -6,7 +6,7 @@
  */
 
 import crypto from 'crypto';
-import { OBSERVATION_TEMPLATES, ObservationTemplate } from './observation-templates';
+import { ALL_OBSERVATION_TEMPLATES, OBSERVATION_TEMPLATES, ObservationTemplate } from './observation-templates';
 
 // ── Secret resolution ─────────────────────────────────────────────────────────
 // Prefer a strong server-side secret; fall back gracefully in dev/test.
@@ -88,11 +88,11 @@ export function buildObserverUrl(token: string, baseUrl?: string): string {
 // ── Template validation ───────────────────────────────────────────────────────
 
 export function isValidTemplateId(id: string): boolean {
-  return OBSERVATION_TEMPLATES.some((t) => t.id === id);
+  return ALL_OBSERVATION_TEMPLATES.some((t) => t.id === id);
 }
 
 export function getTemplateById(id: string): ObservationTemplate | undefined {
-  return OBSERVATION_TEMPLATES.find((t) => t.id === id);
+  return ALL_OBSERVATION_TEMPLATES.find((t) => t.id === id);
 }
 
 export function getPositiveTemplates(): ObservationTemplate[] {

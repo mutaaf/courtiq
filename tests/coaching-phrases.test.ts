@@ -114,6 +114,48 @@ describe('getPhrasesForCategory', () => {
     const phrases = getPhrasesForCategory('teamwork', null);
     expect(phrases.length).toBeGreaterThan(0);
   });
+
+  it('returns baseball-specific shooting phrases (batting/pitching)', () => {
+    const phrases = getPhrasesForCategory('shooting', 'baseball');
+    expect(phrases.length).toBeGreaterThan(0);
+    expect(phrases.some((p) => p.toLowerCase().includes('swing') || p.toLowerCase().includes('bat'))).toBe(true);
+  });
+
+  it('returns baseball-specific defense phrases (fielding)', () => {
+    const phrases = getPhrasesForCategory('defense', 'baseball');
+    expect(phrases.length).toBeGreaterThan(0);
+    expect(phrases.some((p) => p.toLowerCase().includes('glove') || p.toLowerCase().includes('grounder'))).toBe(true);
+  });
+
+  it('returns same phrases for softball as for baseball', () => {
+    const baseball = getPhrasesForCategory('shooting', 'baseball');
+    const softball = getPhrasesForCategory('shooting', 'softball');
+    expect(softball).toEqual(baseball);
+  });
+
+  it('resolves alias: batting → shooting (baseball phrases)', () => {
+    const aliased = getPhrasesForCategory('batting', 'baseball');
+    const direct = getPhrasesForCategory('shooting', 'baseball');
+    expect(aliased).toEqual(direct);
+  });
+
+  it('resolves alias: fielding → defense (baseball phrases)', () => {
+    const aliased = getPhrasesForCategory('fielding', 'baseball');
+    const direct = getPhrasesForCategory('defense', 'baseball');
+    expect(aliased).toEqual(direct);
+  });
+
+  it('resolves alias: baserunning → footwork (baseball phrases)', () => {
+    const aliased = getPhrasesForCategory('baserunning', 'baseball');
+    const direct = getPhrasesForCategory('footwork', 'baseball');
+    expect(aliased).toEqual(direct);
+  });
+
+  it('resolves alias: throwing → passing (baseball phrases)', () => {
+    const aliased = getPhrasesForCategory('throwing', 'baseball');
+    const direct = getPhrasesForCategory('passing', 'baseball');
+    expect(aliased).toEqual(direct);
+  });
 });
 
 describe('hasPhrases', () => {
@@ -280,5 +322,17 @@ describe('getPhraseLabelForCategory', () => {
     const label = getPhraseLabelForCategory('passing', 'soccer');
     expect(label).toContain('Soccer');
     expect(label).toContain('Passing');
+  });
+
+  it('returns baseball-specific label for baseball shooting', () => {
+    const label = getPhraseLabelForCategory('shooting', 'baseball');
+    expect(label).toContain('Baseball');
+    expect(label).toContain('Shooting');
+  });
+
+  it('returns softball-specific label for softball defense', () => {
+    const label = getPhraseLabelForCategory('defense', 'softball');
+    expect(label).toContain('Softball');
+    expect(label).toContain('Defense');
   });
 });

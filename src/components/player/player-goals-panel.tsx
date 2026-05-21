@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query/keys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +12,6 @@ import {
   Plus,
   Sparkles,
   CheckCircle2,
-  Clock,
   AlertCircle,
   Archive,
   Loader2,
@@ -22,6 +21,8 @@ import {
   ChevronUp,
   CalendarDays,
   TrendingUp,
+  Share2,
+  Check,
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import type { PlayerGoal, GoalStatus, ProficiencyLevel } from '@/types/database';
@@ -59,17 +60,23 @@ interface GoalsResponse {
 interface Props {
   playerId: string;
   teamId: string;
+  playerName?: string;
+  coachName?: string;
+  teamName?: string;
+  parentPhone?: string | null;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function PlayerGoalsPanel({ playerId, teamId }: Props) {
+export function PlayerGoalsPanel({ playerId, teamId, playerName, coachName, teamName, parentPhone }: Props) {
   const qc = useQueryClient();
 
   const [showAdd, setShowAdd] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [expandedGoal, setExpandedGoal] = useState<string | null>(null);
+  const [achievedGoal, setAchievedGoal] = useState<PlayerGoal | null>(null);
+  const [shareConfirm, setShareConfirm] = useState<'share' | 'copy' | null>(null);
 
   // Add-goal form state
   const [formSkill, setFormSkill] = useState('');
@@ -77,6 +84,12 @@ export function PlayerGoalsPanel({ playerId, teamId }: Props) {
   const [formTargetLevel, setFormTargetLevel] = useState<ProficiencyLevel | ''>('');
   const [formTargetDate, setFormTargetDate] = useState('');
   const [formNotes, setFormNotes] = useState('');
+
+  useEffect(() => {
+    if (!achievedGoal) return;
+    const t = setTimeout(() => setAchievedGoal(null), 20_000);
+    return () => clearTimeout(t);
+  }, [achievedGoal]);
 
   // ── Queries ─────────────────────────────────────────────────────────────────
 
@@ -131,17 +144,49 @@ export function PlayerGoalsPanel({ playerId, teamId }: Props) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; status?: GoalStatus; notes?: string }) => {
+    mutationFn: async ({ id, status, notes }: { id: string; status?: GoalStatus; notes?: string; _goalSnapshot?: PlayerGoal }) => {
       const res = await fetch(`/api/player-goals?id=${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
+        body: JSON.stringify({ status, notes }),
       });
       if (!res.ok) throw new Error('Failed to update goal');
       return res.json();
     },
-    onSuccess: invalidate,
+    onSuccess: (_data, vars) => {
+      invalidate();
+      if (vars.status === 'achieved' && (vars as any)._goalSnapshot) {
+        setAchievedGoal((vars as any)._goalSnapshot as PlayerGoal);
+        setShareConfirm(null);
+      }
+    },
   });
+
+  function buildAchievementMessage(goal: PlayerGoal) {
+    const name = playerName ?? 'Your player';
+    const coach = coachName ? coachName.split(' ')[0] : 'Coach';
+    const team = teamName ?? 'the team';
+    return `🎉 Great news! ${name} just achieved their ${goal.skill} goal: "${goal.goal_text}" Keep it up! — ${coach}, ${team}`;
+  }
+
+  async function handleShareAchievement(goal: PlayerGoal) {
+    const msg = buildAchievementMessage(goal);
+    const phone = parentPhone?.replace(/\D/g, '');
+    if (phone) {
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+      setShareConfirm('share');
+      return;
+    }
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ text: msg });
+        setShareConfirm('share');
+        return;
+      } catch {}
+    }
+    await navigator.clipboard.writeText(msg);
+    setShareConfirm('copy');
+  }
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -225,6 +270,49 @@ export function PlayerGoalsPanel({ playerId, teamId }: Props) {
         </CardHeader>
 
         <CardContent className="space-y-3">
+          {achievedGoal && (
+            <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2">
+                  <span className="text-xl" aria-hidden>🎉</span>
+                  <div>
+                    <p className="text-sm font-semibold text-emerald-300">
+                      {playerName ? `${playerName.split(' ')[0]} achieved their goal!` : 'Goal achieved!'}
+                    </p>
+                    <p className="text-xs text-emerald-400/80 mt-0.5 line-clamp-2">
+                      {achievedGoal.skill}: {achievedGoal.goal_text}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAchievedGoal(null)}
+                  className="shrink-0 text-emerald-500/60 hover:text-emerald-400 transition-colors"
+                  aria-label="Dismiss celebration"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleShareAchievement(achievedGoal)}
+                className={`w-full inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+                  shareConfirm
+                    ? 'bg-emerald-500/20 text-emerald-300'
+                    : 'bg-emerald-500 text-white hover:bg-emerald-400 active:scale-[0.97]'
+                }`}
+              >
+                {shareConfirm === 'copy' ? (
+                  <><Check className="h-4 w-4" />Copied to clipboard!</>
+                ) : shareConfirm === 'share' ? (
+                  <><Check className="h-4 w-4" />Sent!</>
+                ) : (
+                  <><Share2 className="h-4 w-4" />Share this win with parent</>
+                )}
+              </button>
+            </div>
+          )}
+
           {isLoading ? (
             Array.from({ length: 2 }).map((_, i) => (
               <Skeleton key={i} className="h-20 w-full rounded-lg" />
@@ -310,7 +398,7 @@ export function PlayerGoalsPanel({ playerId, teamId }: Props) {
                           <button
                             type="button"
                             className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 text-xs font-medium text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-                            onClick={() => updateMutation.mutate({ id: goal.id, status: 'achieved' })}
+                            onClick={() => updateMutation.mutate({ id: goal.id, status: 'achieved', _goalSnapshot: goal } as any)}
                             disabled={updateMutation.isPending}
                             aria-label="Mark goal as achieved"
                           >

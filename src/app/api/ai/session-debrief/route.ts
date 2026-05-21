@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { callAIWithJSON } from '@/lib/ai/client';
 import { handleAIError } from '@/lib/ai/error';
-import { checkRateLimit, rateLimitBody } from '@/lib/ai/rate-limit';
 
 export interface SessionDebriefResult {
   session_summary: string;
@@ -34,17 +33,9 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const rl = checkRateLimit(user.id, 'session-debrief');
-  if (!rl.allowed) {
-    return NextResponse.json(rateLimitBody(rl), {
-      status: 429,
-      headers: { 'Retry-After': String(rl.retryAfter) },
-    });
-  }
-
   const admin = await createServiceSupabase();
   const body = await request.json();
-  const { sessionId, teamId } = body;
+  const { sessionId, teamId, weeklyFocusLabel } = body;
 
   if (!sessionId || !teamId) {
     return NextResponse.json({ error: 'sessionId and teamId required' }, { status: 400 });
@@ -186,6 +177,7 @@ export async function POST(request: Request) {
       `Session: ${sessionType.charAt(0).toUpperCase() + sessionType.slice(1)} on ${sessionDate}`,
       `Team: ${team?.name || 'Team'} | Age Group: ${team?.age_group || 'Youth'} | Season Week: ${team?.current_week || 1}`,
       session.opponent ? `Opponent: ${session.opponent}` : null,
+      weeklyFocusLabel ? `\n=== COACH'S WEEKLY FOCUS THEME ===\n"${weeklyFocusLabel}" week. In your next_practice_focus, prioritize this skill if the observations support it, and explicitly note in areas_to_improve whether the team made progress on this theme.\n` : null,
       `Players on roster: ${players?.length || 0}`,
       `Total observations: ${observations.length} (${totalPositive} positive, ${totalNeedsWork} needs-work)`,
       '',
