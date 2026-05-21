@@ -82,12 +82,12 @@ PHASE 1 — Tend the in-flight PR (self-healing). This phase REPLACES any
   If non-empty, tend the LOWEST-numbered one (the oldest); call it PR #N on
   branch B. Diagnose it:
 
-  Gating checks are EXACTLY these two (until ticket 0006 hardens e2e-tests
-  for PR-gating, e2e-tests is INFORMATIONAL like Vercel — a red e2e is
-  expected and must not be "healed"):
-      "lint", "unit-tests"
-  (e2e-tests, Vercel, "Vercel Preview Comments", and the nightly jobs are
-  all informational. Ignore them when deciding mergeability or recovery.)
+  Gating checks are EXACTLY these three (ticket 0006 hardened e2e-tests into a
+  real gate — it runs the Playwright suite against a seeded local Supabase, so
+  a red e2e-tests blocks the merge and SHOULD be healed):
+      "lint", "unit-tests", "e2e-tests"
+  (Vercel, "Vercel Preview Comments", and the nightly jobs are all
+  informational. Ignore them when deciding mergeability or recovery.)
 
   Decide and act (do exactly ONE healing action, then exit — never heal AND ship
   in the same run):
@@ -103,8 +103,10 @@ PHASE 1 — Tend the in-flight PR (self-healing). This phase REPLACES any
             Run the command for the FAILING gating check:
               "lint"        → npm run lint && npx tsc --noEmit
               "unit-tests"  → npx vitest run
-            (e2e-tests is informational until 0006 ships — do NOT attempt to
-            reproduce or heal a red e2e-tests check.)
+              "e2e-tests"   → read the playwright-report artifact; reproducing
+                              locally needs Docker + `supabase start` + the seed
+                              (tests/e2e/fixtures/seed.sql), so prefer fixing
+                              from the report and let CI arbitrate.
           Read the real failure. Make the MINIMUM fix that addresses the root
           cause. Never weaken/skip a test to make it pass. Re-run the failing
           gate locally until green. Commit as:
@@ -133,9 +135,9 @@ PHASE 1 — Tend the in-flight PR (self-healing). This phase REPLACES any
         mid-flight and healthy. Print "PR #N in-flight (checks running) — waiting"
         and exit.
 
-  (e) Else (both gating checks green — lint + unit-tests — mergeStateStatus
-        CLEAN, not yet merged; a red e2e-tests is fine and expected until 0006
-        ships) → make sure auto-merge is actually enabled:
+  (e) Else (all three gating checks green — lint + unit-tests + e2e-tests —
+        mergeStateStatus CLEAN, not yet merged) → make sure auto-merge is
+        actually enabled:
           gh pr merge N --auto --squash
         Print "PR #N healthy, auto-merge armed — waiting" and exit.
 

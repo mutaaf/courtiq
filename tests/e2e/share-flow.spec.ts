@@ -13,6 +13,11 @@ import {
   TEST_OBSERVATIONS,
 } from './helpers/auth';
 
+// SHARE_TOKEN matches the parent_shares row in tests/e2e/fixtures/seed.sql
+// (applied to the real local Supabase in CI). The portal assertions below are
+// fed by the SHARE_API_DATA mock at the browser layer, but the seed mirrors
+// the same player ("Alice Walker") / team ("E2E Test Team") so the un-mocked
+// /api/share/<token> route renders identical data — see ticket 0006.
 const SHARE_TOKEN = 'test-share-token-e2e-001';
 const SHARE_URL = `/share/${SHARE_TOKEN}`;
 

@@ -78,7 +78,10 @@ test.describe('Login page', () => {
 // ---------------------------------------------------------------------------
 // 3. Onboarding — public pages
 // ---------------------------------------------------------------------------
-test.describe('Onboarding — sport selection', () => {
+// Obsolete UI surface: /onboarding/sport and /onboarding/team now redirect()
+// to the combined /onboarding/setup page, so these assertions no longer match.
+// Restore them against /onboarding/setup in ticket 0007. See docs/backlog/0006.
+test.describe.skip('Onboarding — sport selection', () => {
   test('shows sport selection with at least 3 sports', async ({ page }) => {
     await page.goto('/onboarding/sport');
     await expect(page.getByText(/choose your sport/i)).toBeVisible();
@@ -103,7 +106,9 @@ test.describe('Onboarding — sport selection', () => {
   });
 });
 
-test.describe('Onboarding — team creation', () => {
+// Obsolete UI surface: /onboarding/team redirects to /onboarding/setup.
+// Restore against /onboarding/setup in ticket 0007. See docs/backlog/0006.
+test.describe.skip('Onboarding — team creation', () => {
   test('shows team creation form', async ({ page }) => {
     await page.goto('/onboarding/team');
     await expect(page.getByText(/create your team/i)).toBeVisible();

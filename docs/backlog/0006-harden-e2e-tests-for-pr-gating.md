@@ -1,7 +1,7 @@
 ---
 id: 0006
 title: Harden e2e-tests for PR-gating (seed a local Supabase, restore as required check)
-status: groomed
+status: in-progress
 priority: P0
 area: infra
 created: 2026-05-20
@@ -72,3 +72,12 @@ Each box maps 1:1 to a CI / Playwright result or a config assertion.
 (Appended by the implementation-dev agent during execution.)
 
 - 2026-05-20 — Ticket created in response to PR #209's e2e-tests failure. Symptom: `share-flow.spec.ts` expected "Alice Walker" / "E2E Test Team" but CI had no Supabase running. See `docs/LESSONS.md` 2026-05-20 entry.
+- 2026-05-20 — branch `feat/0006-harden-e2e-pr-gating` opened. Implemented:
+  - `.github/workflows/ci.yml` `e2e-tests`: `supabase/setup-cli@v1` + `supabase start` (full local Supabase, migrations auto-apply), `supabase status -o env --override-name` to export the REAL `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_DB_URL` into `$GITHUB_ENV`; seed via `psql ON_ERROR_STOP=1`; removed `|| true`; scoped Playwright to `--project=chromium` (CI installs chromium only — mobile-chrome would fail to launch).
+  - Seed: `tests/e2e/fixtures/seed.sql` (raw SQL, idempotent `ON CONFLICT DO NOTHING`). The real share table is **`parent_shares`** (the ticket's "share_tokens" is approximate); token `test-share-token-e2e-001` matches `share-flow.spec.ts`. Beyond the ticket floor, the seed also adds `auth.users` (FK target for `coaches.id`), `org_branding`, `team_coaches`, a second player "Bob Carter", `players.age_group` (NOT NULL), and `is_highlighted` observations so the un-mocked `/api/share/<token>` renders cleanly.
+  - Reconciliation: the existing specs are network-mock-based (`page.route()`), so their string assertions (Alice Walker etc.) are mock-fed, not DB-fed. The real CI failure mode is that middleware calls `supabase.auth.getUser()` on every request and the share server component fetches `/api/share/<token>` (service-role) — both unreachable with the old dummy URL, so even public-page specs 500'd. A reachable seeded Supabase fixes that; the seed mirrors the mocks 1:1 as the AC's contract.
+  - `playwright.config.ts` already had `retries: process.env.CI ? 2 : 0` — no change needed.
+  - Skipped two obsolete onboarding describe blocks in `signup-onboarding-capture.spec.ts` (`/onboarding/sport` + `/onboarding/team` now `redirect()` to `/onboarding/setup`); spawned sibling ticket **0007** to restore them against the live setup page.
+  - Stripped the "informational until 0006" caveat from `AGENTS.md` (non-negotiable #1, handoff note, gating note, test-infra section), `docs/LESSONS.md` (policy header — historical dated entries left intact), and `scripts/agents/agent-ship.sh` + `agent-review.sh`.
+  - Local gate: `npm run lint` (0 errors) + `npx tsc --noEmit` (0 errors) green under Node 20.19.0. Full `npx vitest run` stalls the fork pool on this constrained machine (documented LESSON); the one file that ran showed only the known environmental date-TZ off-by-one — diff touches zero vitest-evaluated files (vitest excludes `**/e2e/**` + `**/*.spec.ts`), so CI's `unit-tests` arbitrates.
+  - Branch-protection flip (`required_status_checks.contexts += e2e-tests`) deferred until `e2e-tests` is confirmed GREEN on this PR — adding it earlier would deadlock the merge gate.
