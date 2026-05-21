@@ -90,6 +90,8 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 (Appended by the implementation-dev agent during execution.)
 
 - 2026-05-21 — branch `feat/0013-spotlight-og-card-for-share-preview` opened; ticket flipped to `in-progress` (frontmatter + README index row) in the first commit.
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
+- 2026-05-21 — failing test added in `tests/share/spotlight-og.test.ts` (`.test.ts`, per LESSONS) — `isMatchSpotlight`, `buildSpotlightPreview` (COPPA: first-name + headline only), `buildShareMetadata` title/description branching, and OG-image render-path (200 ImageResponse for spotlight / no-spotlight / missing-data / throwing / malformed, `next/og` mocked). Confirmed it failed first for the right reason (`@/lib/share-metadata` + spotlight helpers absent).
+- 2026-05-21 — implemented: extracted pure `buildShareMetadata` into `src/lib/share-metadata.ts` (page.tsx `generateMetadata` delegates; generic path byte-identical), added `isMatchSpotlight` + `buildSpotlightPreview` to `src/lib/player-spotlight-utils.ts`, and one spotlight-vs-generic branch in `opengraph-image.tsx` (reuses the dark #09090b + #F97316 chrome, SPORTSIQ wordmark, accent stripe; `runtime='nodejs'`, 1200×630). Extended `tests/e2e/share-flow.spec.ts` with `<meta property="og:title">` assertions for both seeded tokens.
+- 2026-05-21 — local gate: `npm run lint` 0 errors, `npx tsc --noEmit` 0 errors, full `npx vitest run --no-file-parallelism` = 4040 passed / 1 failed; the lone fail is the pre-existing known-environmental TZ off-by-one in `tests/player-of-match-utils.test.ts` (LESSONS: `Apr 27` vs `Apr 28`), untouched by this ticket. e2e arbitrated by CI's seeded `e2e-tests` (no local Supabase; the OG-meta assertions only resolve against the seed per LESSONS ship/0009).
 - YYYY-MM-DD — PR #N opened, CI [state]
 - YYYY-MM-DD — merged to main
