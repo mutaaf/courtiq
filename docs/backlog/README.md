@@ -78,7 +78,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 |----|-------|----------|--------|------|
 | 0001 | Stripe webhook signature verification on the live endpoint | P0 | shipped | billing |
 | 0002 | End-to-end checkout flow test — upgrade → pay → tier unlocks features | P0 | shipped | billing |
-| 0003 | Cancellation flow test — cancel → webhook → downgrade at period end | P0 | in-progress | billing |
+| 0003 | Cancellation flow test — cancel → webhook → downgrade at period end | P0 | shipped | billing |
 | 0004 | Payment-failure handling — failed payment → past_due → warning banner | P0 | groomed | billing |
 | 0005 | Resubscription flow — free user re-upgrades after cancellation | P0 | groomed | billing |
 | 0006 | Harden e2e-tests for PR-gating (seed Supabase, restore as required check) | P0 | groomed | infra |

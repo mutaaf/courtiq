@@ -1,7 +1,7 @@
 ---
 id: 0003
 title: Cancellation flow test — cancel → webhook → downgrade at period end
-status: in-progress
+status: shipped
 priority: P0
 area: billing
 created: 2026-05-20
@@ -95,3 +95,31 @@ reading `src/types/database.ts`, `src/lib/tier.ts`, `src/app/api/stripe/webhook/
   sub.id).single()` lookup no longer matches any row and the handler writes nothing further
   (and never errors). The test asserts the replay returns 200, performs no second mutation,
   and leaves all related-row counts unchanged.
+
+### 2026-05-20 — implementation-dev (shipped)
+
+Shipped as PR #216 (squash-merged to `main` as `b1b5eac`). Gating CI on Node 20 green:
+`lint` pass, `unit-tests` pass; `e2e-tests` informational (runs via `|| true` per ticket
+0006). This was a **pure test-coverage ticket — zero production code changed.** Confirmed
+both webhook cancellation branches already call `bustOrgMeCache` (lines 139 + 162 of
+`webhook/route.ts`) and the banner already reads `cancelAtPeriodEnd`/`currentPeriodEnd`
+from `useTier()`, so there was no real gap to fix.
+
+Tests added (all map 1:1 to the acceptance criteria):
+- `tests/stripe/cancellation-flow.test.ts` — AC1 (flag cancel-at-period-end without
+  changing tier/status), AC2 (`/api/me` surfaces it past the 2-min cache), AC3
+  (`report_cards` stays granted), AC4 (delete → free + zero child-row deletion), AC5
+  (`report_cards` denied after downgrade), AC7 (idempotent replay). 6 tests.
+- `tests/components/dashboard-shell-cancel-banner.test.tsx` — AC6 (banner renders the
+  period-end date + billing CTA), plus negatives for a healthy sub and the past-due
+  precedence guard. 3 tests.
+
+Local-gate note (environmental, not a regression): this machine's default Node is too old
+(v16) / the loop's other Node is too new (v25) for vite 8 (needs `^20.19 || >=22.12`), so
+the suite was run under nvm Node 20.19.0 to match CI. A naive `npx vitest run` of all 89
+files exhausted the local fork pool ("Failed to start forks worker" on ~80 files); the 11
+genuine failures that did run are the documented known-environmental set
+(`player-of-match` date TZ `Apr 27`/`Apr 28`; jsdom render timeouts in `command-palette` /
+`recording-button` / `screen-reader-accessibility`). Both new files pass cleanly in
+isolation, and CI's `unit-tests` job (Node 20, dedicated runner) is green — the
+authoritative arbiter.
