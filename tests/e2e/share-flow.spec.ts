@@ -21,13 +21,61 @@ import {
 const SHARE_TOKEN = 'test-share-token-e2e-001';
 const SHARE_URL = `/share/${SHARE_TOKEN}`;
 
-// Shared portal data mirroring GET /api/share/[token] response
+// Shared portal data mirroring GET /api/share/[token] response.
+//
+// NOTE: the parent portal is a SERVER component — its getShareData() fetch runs
+// server-side and is NOT intercepted by page.route() (which only sees the
+// browser network layer). In CI the rendered HTML therefore comes entirely from
+// the SEEDED Supabase via the real /api/share/<token> route. These mock objects
+// mirror the seed 1:1 (tests/e2e/fixtures/seed.sql) so every assertion below is
+// backed by a real seeded row, not just a mock. See ticket 0006 + 0009.
 const SHARE_API_DATA = {
   player: { ...TEST_PLAYERS[0], team_id: 'team-e2e-test-001' },
+  team: { name: 'E2E Test Team', age_group: '11-13', season: 'Spring 2026' },
+  coachName: 'E2E Test Coach',
   observations: TEST_OBSERVATIONS,
-  teamName: 'E2E Test Team',
+  // Existing portal sections (ticket 0009 regression floor): a starred
+  // observation (Coach's Best Moments), a skill challenge (Practice at Home),
+  // and a report card so the viral CTA + sections all render.
+  starredObservations: [
+    { category: 'Defense', sentiment: 'positive', text: 'Great lateral movement on defense', created_at: new Date().toISOString() },
+  ],
+  skillChallenge: {
+    player_name: 'Alice Walker',
+    week_label: 'Week of May 18',
+    parent_note: 'Two quick drills to try at home this week.',
+    challenges: [
+      { title: 'Defensive Slides', skill_area: 'Defense', difficulty: 'beginner', minutes_per_day: 10, description: 'Practice lateral slides.', steps: ['Set two cones', 'Slide between them'], success_criteria: '10 clean slides', encouragement: 'Stay low!' },
+    ],
+  },
+  reportCard: { strengths: ['On-ball defense'], coach_message: 'A real anchor on defense this season.' },
+  totalObservationCount: 3,
   reportDate: new Date().toISOString(),
   expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+};
+
+// ── Ticket 0009: Player of the Week / Player of the Match spotlight ──────────
+// A second player (Bob Carter) + share token WITH a recent player_of_match
+// spotlight. SPOTLIGHT_ARTIFACT fields below MUST match the player_of_match
+// plan seeded for Bob in tests/e2e/fixtures/seed.sql exactly — the assertions
+// read from the rendered (seed-backed) card, not the mock.
+const SPOTLIGHT_TOKEN = 'test-share-token-e2e-spotlight';
+const SPOTLIGHT_URL = `/share/${SPOTLIGHT_TOKEN}`;
+const SPOTLIGHT_ARTIFACT = {
+  player_name: 'Bob Carter',
+  session_label: 'Game vs. Lincoln',
+  headline: 'Owned the paint all game',
+  achievement: 'Crashed the boards relentlessly and protected the rim on every possession.',
+  key_moment: 'Blocked the buzzer-beater to seal the win.',
+  coach_message: 'You were the difference-maker out there today, Bob!',
+};
+const SPOTLIGHT_API_DATA = {
+  player: { ...TEST_PLAYERS[1], team_id: 'team-e2e-test-001' },
+  team: { name: 'E2E Test Team', age_group: '11-13', season: 'Spring 2026' },
+  coachName: 'E2E Test Coach',
+  playerSpotlight: SPOTLIGHT_ARTIFACT,
+  totalObservationCount: 4,
+  reportDate: new Date().toISOString(),
 };
 
 // ---------------------------------------------------------------------------
@@ -35,12 +83,22 @@ const SHARE_API_DATA = {
 // ---------------------------------------------------------------------------
 test.describe('Parent portal (/share/[token]) — public', () => {
   test.beforeEach(async ({ page }) => {
-    // Mock the share token API endpoint (public route)
+    // Mock the share token API endpoints (public routes). These are vestigial
+    // for the rendered HTML in CI (the server component fetch isn't intercepted
+    // — see note above), but kept for the existing spec contract and to fulfil
+    // any client-layer requests deterministically.
     await page.route(`**/api/share/${SHARE_TOKEN}`, (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(SHARE_API_DATA),
+      })
+    );
+    await page.route(`**/api/share/${SPOTLIGHT_TOKEN}`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(SPOTLIGHT_API_DATA),
       })
     );
   });
@@ -64,6 +122,47 @@ test.describe('Parent portal (/share/[token]) — public', () => {
     await expect(
       page.getByRole('heading', { name: 'E2E Test Team' })
     ).toBeVisible({ timeout: 10000 });
+  });
+
+  // ── Ticket 0009: spotlight card on the parent portal ──────────────────────
+
+  test('portal WITH a recent spotlight renders a Player of the Week/Match card', async ({ page }) => {
+    // Bob Carter's seeded share has a player_of_match plan (seed.sql) — the
+    // real /api/share path renders his Player of the Match card.
+    await page.goto(SPOTLIGHT_URL);
+
+    // The card is titled "Player of the Week" or "Player of the Match".
+    await expect(
+      page.getByText(/Player of the (Week|Match)/i)
+    ).toBeVisible({ timeout: 10000 });
+
+    // The artifact's headline and the coach's message both render.
+    await expect(page.getByText(SPOTLIGHT_ARTIFACT.headline)).toBeVisible();
+    await expect(page.getByText(SPOTLIGHT_ARTIFACT.coach_message)).toBeVisible();
+  });
+
+  test('portal WITHOUT a spotlight renders normally and shows no spotlight card', async ({ page }) => {
+    // SHARE_API_DATA has no playerSpotlight field at all.
+    await page.goto(SHARE_URL);
+
+    // The player still renders…
+    await expect(page.getByText('Alice Walker')).toBeVisible({ timeout: 10000 });
+    // …but there is no spotlight card.
+    await expect(page.getByText(/Player of the (Week|Match)/i)).toHaveCount(0);
+  });
+
+  test('existing portal sections still render alongside the spotlight feature', async ({ page }) => {
+    await page.goto(SHARE_URL);
+
+    // Report card / coach note, starred observations, skill challenge, viral CTA
+    // all still render for a player who has them — the 0009 regression floor.
+    await expect(page.getByText("Coach's Best Moments")).toBeVisible({ timeout: 10000 });
+    // The starred observation text can surface in both "Coach's Best Moments"
+    // and "Recent Observations"; .first() avoids a strict-mode duplicate match.
+    await expect(page.getByText('Great lateral movement on defense').first()).toBeVisible();
+    await expect(page.getByText('Practice at Home')).toBeVisible();
+    // The viral CTA component renders near the bottom of every portal.
+    await expect(page.getByText(/SportsIQ/).first()).toBeVisible();
   });
 
   test('expired share token shows error state', async ({ page }) => {

@@ -149,6 +149,10 @@ export async function POST(request: Request) {
         team_id: teamId,
         coach_id: user.id,
         session_id: sessionId,
+        // Stamp the standout player so the spotlight attaches to the right
+        // player's parent share portal (ticket 0009). (The ticket assumed this
+        // was already present, but the insert did not carry player_id.)
+        player_id: candidate.player_id,
         ai_interaction_id: result.interactionId,
         type: 'player_of_match',
         title: `Player of the Match — ${candidate.player_name} (${sessionLabel})`,
