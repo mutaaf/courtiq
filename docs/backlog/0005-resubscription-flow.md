@@ -1,7 +1,7 @@
 ---
 id: 0005
 title: Resubscription flow — free user re-upgrades after cancellation
-status: in-progress
+status: shipped
 priority: P0
 area: billing
 created: 2026-05-20
@@ -98,3 +98,28 @@ Playwright). The ticket names `tests/stripe/resubscription.spec.ts` and
 `tests/db/data-preservation.spec.ts`; created as `*.test.ts` so they actually
 gate. The 0002 checkout spec is `tests/stripe/checkout-flow.test.ts` (extended
 in place with the past-due 409 case). (See docs/LESSONS.md 2026-05-20.)
+
+### 2026-05-21 — shipped (implementation-dev)
+
+PR #220 merged to `main` via squash auto-merge with both gating checks green
+(`lint`, `unit-tests`); the informational `e2e-tests` and Vercel checks also
+passed. Full local gate before push: `npm run lint` (0 errors), `npx tsc
+--noEmit` (0 errors), `npx vitest run --no-file-parallelism` (3970/3971 — the
+single fail is the documented `Apr 27` vs `Apr 28` date-TZ artifact in the
+untouched `player-of-match-utils.test.ts`, environmental on a non-UTC machine,
+LESSONS 2026-05-20).
+
+Code changes shipped:
+- `src/app/api/stripe/create-checkout/route.ts` — branch `customer:<id>` (reuse)
+  vs `customer_email` (first-time, let Stripe mint the customer); added the
+  `past_due` → 409 Billing-Portal guard; stamp `org_id`/`tier` into
+  `subscription_data.metadata`.
+- `src/app/api/stripe/webhook/route.ts` — `customer.subscription.created` now
+  resolves the org by customer id OR (fallback) `sub.metadata.org_id`, and
+  persists `stripe_customer_id` back so the first-time `customer_email` loop
+  closes and the next checkout takes the reuse path. Signature verification
+  untouched.
+- `tests/stripe/resubscription.test.ts` (new), `tests/db/data-preservation.test.ts`
+  (new), `tests/stripe/checkout-flow.test.ts` (extended with the 409 case).
+
+All 7 acceptance criteria are covered by tests and pass.
