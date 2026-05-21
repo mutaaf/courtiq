@@ -87,19 +87,22 @@ test.describe('Login page', () => {
 
 test.describe('Onboarding — sport selection', () => {
   // The combined setup page exposes one <button> card per sport in the SPORTS
-  // array. We assert the page renders, that the canonical youth sports are
-  // present, and that all 10 cards exist.
+  // array. Each card holds two spans — the emoji icon and the name — so the
+  // button's accessible name is "<emoji> <name>" (e.g. "🏀 Basketball"). Match
+  // by a name *substring* regex (not exact) so the emoji prefix doesn't break
+  // the locator; the names below are unique enough that the regex stays
+  // strict-mode-safe.
   const EXPECTED_SPORTS = [
-    'Basketball',
-    'Soccer',
-    'Volleyball',
-    'Flag Football',
-    'Baseball',
-    'Softball',
-    'Lacrosse',
-    'Swimming',
-    'Tennis',
-    'Gymnastics',
+    /basketball/i,
+    /soccer/i,
+    /volleyball/i,
+    /flag football/i,
+    /baseball/i,
+    /softball/i,
+    /lacrosse/i,
+    /swimming/i,
+    /tennis/i,
+    /gymnastics/i,
   ];
 
   test('shows the combined setup page with all 10 sports', async ({ page }) => {
@@ -111,7 +114,7 @@ test.describe('Onboarding — sport selection', () => {
     // Each sport is its own button; Basketball/Soccer/Volleyball are called out
     // explicitly by the ticket acceptance criteria.
     for (const sport of EXPECTED_SPORTS) {
-      await expect(page.getByRole('button', { name: sport, exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: sport })).toBeVisible();
     }
   });
 
@@ -126,7 +129,7 @@ test.describe('Onboarding — sport selection', () => {
     await page.goto('/onboarding/setup');
 
     // Picking a sport reflects the active (orange) state on the card...
-    const basketball = page.getByRole('button', { name: 'Basketball', exact: true });
+    const basketball = page.getByRole('button', { name: /basketball/i });
     await basketball.click();
     await expect(basketball).toHaveClass(/border-orange-500/);
 
@@ -150,7 +153,7 @@ test.describe('Onboarding — team creation', () => {
 
   test('Continue is disabled with an empty team name even after picking a sport', async ({ page }) => {
     await page.goto('/onboarding/setup');
-    await page.getByRole('button', { name: 'Basketball', exact: true }).click();
+    await page.getByRole('button', { name: /basketball/i }).click();
     await expect(page.getByPlaceholder('Blue Tigers')).toHaveValue('');
     await expect(page.getByRole('button', { name: /continue/i })).toBeDisabled();
   });
@@ -158,7 +161,7 @@ test.describe('Onboarding — team creation', () => {
   test('picking a sport and naming the team enables Continue', async ({ page }) => {
     await page.goto('/onboarding/setup');
 
-    await page.getByRole('button', { name: 'Basketball', exact: true }).click();
+    await page.getByRole('button', { name: /basketball/i }).click();
     await page.getByPlaceholder('Blue Tigers').fill('Thunder Hawks');
 
     await expect(page.getByRole('button', { name: /continue/i })).toBeEnabled();
