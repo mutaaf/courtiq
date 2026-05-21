@@ -1,7 +1,7 @@
 ---
 id: 0004
 title: Payment-failure handling — failed payment → past_due → warning banner
-status: in-progress
+status: shipped
 priority: P0
 area: billing
 created: 2026-05-20
@@ -95,3 +95,32 @@ so those would silently never run. Created as `*.test.ts` / `*.test.tsx` instead
 
 Gate run under `nvm use 20.19.0` to match CI's Node 20 (machine default is Node 25, which
 breaks vitest/jsdom — LESSONS 2026-05-20).
+
+### 2026-05-20 — implementation-dev — shipped
+
+Merged via **PR #218** (squash, auto-merge). Gating CI green: `lint` pass (1m8s),
+`unit-tests` pass (1m10s). `e2e-tests` is informational (does not gate until 0006) and
+Vercel is non-gating — both ignored per AGENTS.md / LESSONS.
+
+Code:
+- `src/app/api/stripe/webhook/route.ts` — added `TERMINAL_SUBSCRIPTION_STATUSES`
+  (`unpaid`/`canceled`/`incomplete_expired`); `customer.subscription.updated` now
+  downgrades `tier→free` only for those, holding the priced tier for active/past_due/
+  trialing (the grace window). `invoice.payment_failed`/past_due paths were already
+  correct and are now covered by tests.
+- `src/components/layout/dashboard-shell.tsx` — past-due banner copy names the card
+  decline; CTA is now a `<button>` (`openBillingPortal`) that POSTs `/api/stripe/portal`
+  and `window.location.assign(data.url)`, falling back to `/settings/upgrade` if there's
+  no portal session.
+- `tests/components/dashboard-shell-cancel-banner.test.tsx` — the 0003 past-due assertion
+  moved link→button to match the new CTA (intent unchanged; documented inline). No passing
+  test was disabled.
+
+Tests added (all green under Node 20): `tests/stripe/payment-failure.test.ts`,
+`tests/stripe/portal.test.ts`, `tests/components/dashboard-shell-past-due-banner.test.tsx`.
+
+Full local suite: 3961 passed, 1 known-environmental fail (`player-of-match` date TZ
+off-by-one — LESSONS 2026-05-20; CI's UTC Node 20 passes it).
+
+No new deps, no migration, no env var, no AI prompt, no new tier feature key — as the
+ticket specified.
