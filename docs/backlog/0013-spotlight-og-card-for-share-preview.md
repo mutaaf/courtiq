@@ -1,11 +1,11 @@
 ---
 id: 0013
 title: Give the Player-of-the-Week spotlight its own rich link preview when a parent forwards the portal
-status: proposed
+status: in-progress
 priority: P2
 area: parent-portal
 created: 2026-05-21
-owner: product-groomer
+owner: implementation-dev
 ---
 
 ## User story
@@ -89,7 +89,7 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0013-...` opened
+- 2026-05-21 — branch `feat/0013-spotlight-og-card-for-share-preview` opened; ticket flipped to `in-progress` (frontmatter + README index row) in the first commit.
 - YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
 - YYYY-MM-DD — PR #N opened, CI [state]
 - YYYY-MM-DD — merged to main
