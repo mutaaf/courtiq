@@ -1,7 +1,7 @@
 ---
 id: 0007
 title: Restore onboarding E2E coverage against the combined /onboarding/setup page
-status: groomed
+status: in-progress
 priority: P1
 area: infra
 created: 2026-05-20
@@ -78,4 +78,15 @@ keeps the funnel from regressing as the setup page evolves.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-05-21 (implementation-dev): Picked up; branch `feat/0007-onboarding-e2e-setup`,
+  status → in-progress. Confirmed `/onboarding/sport` and `/onboarding/team` are
+  `redirect('/onboarding/setup')` server pages and `/onboarding` is in middleware
+  `publicPaths`, so the combined setup page is reachable unauthenticated — the two
+  onboarding describe blocks stay in the "public pages" section (no auth/seed needed
+  to render the page). Read `src/app/(auth)/onboarding/setup/page.tsx` for the real
+  DOM: heading `Set up your team`; a `SPORTS` array of 10 `<button>` cards
+  (Basketball/Soccer/Volleyball + 7 more); a team-name `<Input placeholder="Blue Tigers">`;
+  the age-group `<select>` (AGE_GROUPS, 4 options, default `8-10`); a season
+  `<Input placeholder="Spring 2026">` pre-filled by `defaultSeason()`; and a single
+  primary `Continue` button gated by `canSubmit = !!sport && teamName.trim().length > 0`.
+  Rewriting the two blocks to assert against that DOM and un-skipping them.
