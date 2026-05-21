@@ -1,7 +1,7 @@
 ---
 id: 0010
 title: Make the Team Personality card a public, coach-to-coach referral surface
-status: in-progress
+status: shipped
 priority: P2
 area: growth
 created: 2026-05-21
@@ -114,3 +114,16 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
     never appear in the response.
   - Ungated by ticket decision (growth surface) — no `feature_*` key, no
     `<UpgradeGate>`.
+- 2026-05-21 [implementation-dev] Shipped in PR #236 (squash-merged to main as
+  `c24471a`). All three gating checks green: lint ✓, unit-tests ✓, e2e-tests ✓
+  (the e2e job ran against the real seeded Supabase incl. the new
+  team_personality plan + team_card_shares rows). Vercel was red (deploy
+  rate-limit) — non-gating, ignored per AGENTS.md / LESSONS.md.
+  - Migration shipped: `supabase/migrations/035_team_card_shares.sql` (version
+    prefix `035`, unique).
+  - `plans_type_check` was NOT touched — `team_personality` is already allowed
+    (migration 034, ticket 0009).
+  - Backlog README index row for 0010 still reads `proposed`; the index sync is
+    handled by the separate chore/ship-runner (left a note for it).
+  - Novel lesson appended: `nvm use 20.19.0` swallows output in the agent shell;
+    prepend the version's bin to PATH instead.

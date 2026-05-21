@@ -76,7 +76,6 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0010 | Make the Team Personality card a public, coach-to-coach referral surface | P2 | proposed | growth |
 | 0001 | Stripe webhook signature verification on the live endpoint | P0 | shipped | billing |
 | 0002 | End-to-end checkout flow test — upgrade → pay → tier unlocks features | P0 | shipped | billing |
 | 0003 | Cancellation flow test — cancel → webhook → downgrade at period end | P0 | shipped | billing |
@@ -86,6 +85,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | 0007 | Restore onboarding E2E coverage against the combined /onboarding/setup page | P1 | shipped | infra |
 | 0008 | Show free coaches their AI usage so the monthly wall stops being a surprise | P1 | shipped | tier |
 | 0009 | Put the Player of the Week / Player of the Match spotlight on the parent portal | P2 | shipped | parent-portal |
+| 0010 | Make the Team Personality card a public, coach-to-coach referral surface | P2 | shipped | growth |
 
 ## Hand-off discipline
 
