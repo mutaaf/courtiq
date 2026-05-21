@@ -61,6 +61,7 @@ import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot
 import { ContinueArcCard } from '@/components/home/continue-arc-card';
 import { ArcCompleteCard } from '@/components/home/arc-complete-card';
 import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
+import { GameDayCard } from '@/components/home/game-day-card';
 import { GoalDeadlineCard } from '@/components/home/goal-deadline-card';
 import { QuickWinsCard } from '@/components/home/quick-wins-card';
 import { HomeQuickObserveSheet } from '@/components/home/home-quick-observe-sheet';
@@ -696,7 +697,13 @@ export default function HomePage() {
       const json = await res.json();
       return json.availability as Record<string, { status: string; reason: string | null }>;
     },
-    enabled: !!activeTeam && (todaySessions.length > 0 || practiceActive),
+    enabled:
+      !!activeTeam &&
+      (todaySessions.length > 0 ||
+        practiceActive ||
+        upcomingSessions.some(
+          (s) => s.type === 'game' || s.type === 'scrimmage' || s.type === 'tournament',
+        )),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -985,6 +992,19 @@ export default function HomePage() {
 
       <BirthdayCard teamId={activeTeam.id} teamName={activeTeam.name} />
 
+      {/* Game Day Card — surfaces 48 h before any game/scrimmage/tournament */}
+      {!practiceActive && (
+        <GameDayCard
+          sessions={[...todaySessions, ...upcomingSessions]}
+          todayStr={todayStr}
+          tomorrowStr={tomorrowStr}
+          teamName={activeTeam.name}
+          coachName={coach?.full_name ?? null}
+          playerAvailability={playerAvailability}
+        />
+      )}
+
+      {/* AI Keys Onboarding Banner */}
       {!hasAIKeys && (
         <Card className="border-orange-500/30 bg-gradient-to-r from-orange-500/10 to-orange-500/5 p-4">
           <div className="flex items-start gap-3">
