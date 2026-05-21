@@ -76,7 +76,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0011 | Carry the coach's referral code through the parent portal's "share with your other coach" CTA | P1 | groomed | growth |
+| 0011 | Carry the coach's referral code through the parent portal's "share with your other coach" CTA | P1 | shipped | growth |
 | 0012 | Make multi-provider AI failover real — when the primary provider errors, callAI() retries a fallback | P1 | groomed | ai |
 | 0013 | Give the Player-of-the-Week spotlight its own rich link preview when a parent forwards the portal | P2 | proposed | parent-portal |
 | 0001 | Stripe webhook signature verification on the live endpoint | P0 | shipped | billing |
