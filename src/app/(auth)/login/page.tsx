@@ -68,8 +68,11 @@ function LoginForm() {
               </div>
             )}
             <div className="space-y-2">
-              <label className="text-sm text-zinc-400">Email</label>
+              {/* htmlFor/id wiring so the label is an accessible name for the
+                  input (getByLabel + screen readers). See ticket 0006. */}
+              <label htmlFor="email" className="text-sm text-zinc-400">Email</label>
               <Input
+                id="email"
                 type="email"
                 placeholder="coach@example.com"
                 value={email}
@@ -78,8 +81,9 @@ function LoginForm() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm text-zinc-400">Password</label>
+              <label htmlFor="password" className="text-sm text-zinc-400">Password</label>
               <Input
+                id="password"
                 type="password"
                 placeholder="••••••••"
                 value={password}
