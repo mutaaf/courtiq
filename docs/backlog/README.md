@@ -76,7 +76,6 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0013 | Give the Player-of-the-Week spotlight its own rich link preview when a parent forwards the portal | P2 | in-progress | parent-portal |
 | 0011 | Carry the coach's referral code through the parent portal's "share with your other coach" CTA | P1 | shipped | growth |
 | 0012 | Make multi-provider AI failover real — when the primary provider errors, callAI() retries a fallback | P1 | shipped | ai |
 | 0001 | Stripe webhook signature verification on the live endpoint | P0 | shipped | billing |
@@ -89,6 +88,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | 0008 | Show free coaches their AI usage so the monthly wall stops being a surprise | P1 | shipped | tier |
 | 0009 | Put the Player of the Week / Player of the Match spotlight on the parent portal | P2 | shipped | parent-portal |
 | 0010 | Make the Team Personality card a public, coach-to-coach referral surface | P2 | shipped | growth |
+| 0013 | Give the Player-of-the-Week spotlight its own rich link preview when a parent forwards the portal | P2 | shipped | parent-portal |
 
 ## Hand-off discipline
 
