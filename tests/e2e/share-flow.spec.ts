@@ -158,6 +158,26 @@ test.describe('Parent portal (/share/[token]) — public', () => {
     await expect(page.getByText(/Player of the (Week|Match)/i)).toHaveCount(0);
   });
 
+  // ── Ticket 0013: the link PREVIEW (OG title) celebrates the spotlight ──────
+  // generateMetadata branches on playerSpotlight: Bob's seeded player_of_match
+  // plan yields a "Player of the Match" OG title; Alice (no spotlight) keeps the
+  // generic "Progress Report" OG title. We read the rendered <head> meta tags.
+
+  test('the OG title for a spotlight token reads "Player of the Match"', async ({ page }) => {
+    // Bob Carter's seeded share has a player_of_match plan (seed.sql).
+    await page.goto(SPOTLIGHT_URL);
+    const ogTitle = page.locator('meta[property="og:title"]');
+    await expect(ogTitle).toHaveAttribute('content', /Player of the Match/i, { timeout: 10000 });
+  });
+
+  test('the OG title for a non-spotlight token stays the generic "Progress Report"', async ({ page }) => {
+    // Alice Walker has no weekly_star/player_of_match plan — generic preview.
+    await page.goto(SHARE_URL);
+    const ogTitle = page.locator('meta[property="og:title"]');
+    await expect(ogTitle).toHaveAttribute('content', /Progress Report/i, { timeout: 10000 });
+    await expect(ogTitle).not.toHaveAttribute('content', /Player of the/i);
+  });
+
   test('existing portal sections still render alongside the spotlight feature', async ({ page }) => {
     await page.goto(SHARE_URL);
 
