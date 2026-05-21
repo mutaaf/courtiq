@@ -231,7 +231,11 @@ function makeServiceFrom() {
               error: null,
             });
           }
-          return Promise.resolve({ data: { id: orgRow.id }, error: null });
+          // create-checkout selects id, stripe_customer_id, name, subscription_status
+          // (the last is read by the resubscription past-due guard, ticket 0005).
+          // Return the live row so the guard sees the real status; extra fields are
+          // harmless to the route. The webhook only reads `id`.
+          return Promise.resolve({ data: { ...orgRow }, error: null });
         }),
       };
       return chain;
@@ -413,5 +417,24 @@ describe('checkout flow — upgrade → pay → tier unlocks features (ticket 00
   // AC8: the whole fixture flow runs in under 5 seconds (mocked Stripe + Supabase).
   it('runs the whole spec in under 5 seconds', () => {
     expect(Date.now() - started).toBeLessThan(5_000);
+  });
+
+  // ── Resubscription past-due guard (ticket 0005, AC6) ─────────────────────────
+  // Extending this spec rather than re-mocking the same create-checkout setup, as the
+  // ticket's engineering notes request. A coach who tries to re-upgrade while their
+  // PRIOR subscription is still past_due must be sent to the Billing Portal to settle
+  // the balance first — Stripe won't let us open a second sub on an unpaid customer
+  // anyway, so we fail fast with a clear 409 instead of bubbling a Stripe error.
+  it('returns 409 toward the Billing Portal when the org is past_due (resubscription guard)', async () => {
+    orgRow.subscription_status = 'past_due';
+    orgRow.tier = 'coach'; // grace window — still on the priced tier (ticket 0004)
+
+    const res = await createCheckout(checkoutRequest({ tier: 'coach', interval: 'monthly' }));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toMatch(/billing portal/i);
+    // Fail-fast: no Stripe session created, no customer minted.
+    expect(mockCheckoutCreate).not.toHaveBeenCalled();
+    expect(mockCustomerCreate).not.toHaveBeenCalled();
   });
 });
