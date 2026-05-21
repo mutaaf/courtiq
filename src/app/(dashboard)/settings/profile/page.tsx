@@ -165,7 +165,7 @@ export default function ProfileSettingsPage() {
     <div className="p-4 lg:p-8 space-y-6 pb-8 max-w-2xl mx-auto">
       <div className="flex items-center gap-3">
         <Link href="/settings">
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" aria-label="Back to settings">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
