@@ -1,7 +1,7 @@
 ---
 id: 0004
 title: Payment-failure handling — failed payment → past_due → warning banner
-status: groomed
+status: in-progress
 priority: P0
 area: billing
 created: 2026-05-20
@@ -63,4 +63,35 @@ Each box maps 1:1 to a vitest test scenario.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+### 2026-05-20 — implementation-dev — picked up
+
+Moved `groomed → in-progress` on branch `feat/0004-payment-failure-handling`.
+
+Reconciliations (groomer shorthand vs. real contract — same family as 0002/0003 lessons):
+- The canonical column is `organizations.tier`, NOT `plan`. `/api/me` selects + the
+  webhook writes `tier`; `/api/me` returns `{ coach: { organizations: { tier,
+  subscription_status, ... } } }`, not `{ org: { plan } }`. Tests assert on the REAL shape.
+- `canAccess(tier: Tier, feature)` takes a tier STRING, not an orgId, and is
+  status-agnostic. The grace-window AC ("report_cards stays unlocked while past_due +
+  coach; denied once unpaid/canceled") is therefore enforced by the *webhook*: it keeps
+  `tier` at the priced value for non-terminal statuses (`active`/`past_due`/`trialing`)
+  and flips `tier` to `free` for terminal non-paying statuses (`unpaid`/`canceled`/
+  `incomplete_expired`) on `customer.subscription.updated`. `canAccess(tier, …)` then
+  reads naturally: a coach in grace is still `coach`; a coach past the retry window is
+  `free`. This matches the existing `customer.subscription.deleted` branch (which already
+  sets `tier:'free'`) and the engineering-note intent in `src/lib/tier.ts`.
+- Banner copy: the ticket asks for "your card was declined" + a Billing-Portal CTA. The
+  pre-existing past-due banner said "Payment failed — update your payment method" and was
+  a plain `<Link href="/settings/upgrade">`. Updated copy to name the decline and wired
+  the CTA to POST `/api/stripe/portal` then `window.location.assign(data.url)` per the
+  engineering note (server-side `canAccess`/billing already enforced; this is the surface).
+
+Test-file naming deviation (LESSONS 2026-05-20): the ticket names `*.spec.ts` /
+`*.spec.tsx`, but `vitest.config.ts` excludes `**/*.spec.ts` (reserved for Playwright),
+so those would silently never run. Created as `*.test.ts` / `*.test.tsx` instead:
+- `tests/stripe/payment-failure.test.ts`
+- `tests/stripe/portal.test.ts`
+- `tests/components/dashboard-shell-past-due-banner.test.tsx`
+
+Gate run under `nvm use 20.19.0` to match CI's Node 20 (machine default is Node 25, which
+breaks vitest/jsdom — LESSONS 2026-05-20).

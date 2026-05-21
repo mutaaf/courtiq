@@ -8,6 +8,19 @@ import { memBust } from '@/lib/cache/memory';
 type ServiceClient = Awaited<ReturnType<typeof createServiceSupabase>>;
 
 /**
+ * Stripe subscription statuses that mean the subscription is dead, not merely struggling.
+ * Once a subscription reaches one of these, Stripe has stopped trying to collect, so the
+ * org loses its paid tier (downgrade to free). `past_due` / `trialing` / `active` are
+ * deliberately NOT here — they're the grace window where paid features stay unlocked
+ * while Stripe retries the card. (ticket 0004)
+ */
+const TERMINAL_SUBSCRIPTION_STATUSES = new Set([
+  'unpaid',
+  'canceled',
+  'incomplete_expired',
+]);
+
+/**
  * Invalidate the per-coach `me:` cache for every coach in an org.
  *
  * `/api/me` caches `{ coach, teams }` (including `organizations.tier`) under
@@ -124,7 +137,18 @@ export async function POST(request: Request) {
 
         if (org) {
           const firstItem = sub.items.data[0];
-          const tier = tierFromPriceId(firstItem.price.id) || 'free';
+          // Resolve the priced tier from the line item, then enforce the grace window.
+          // Stripe keeps the price item on the subscription through retries and even
+          // after it lapses, so the price alone can't tell active from dead. We gate on
+          // `sub.status`: while Stripe is still retrying (active/past_due/trialing) the
+          // coach stays on the paid tier so features don't drop mid-season; once Stripe
+          // gives up (unpaid/canceled/incomplete_expired) the subscription is dead, so we
+          // downgrade to free — `canAccess(tier, …)` is status-agnostic, so the tier
+          // value IS the grace decision. (ticket 0004)
+          const pricedTier = tierFromPriceId(firstItem.price.id) || 'free';
+          const tier = TERMINAL_SUBSCRIPTION_STATUSES.has(sub.status)
+            ? 'free'
+            : pricedTier;
           await admin
             .from('organizations')
             .update({
