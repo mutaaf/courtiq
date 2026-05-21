@@ -1,7 +1,7 @@
 ---
 id: 0012
 title: Make multi-provider AI failover real — when the primary provider errors, callAI() retries a fallback
-status: groomed
+status: in-progress
 priority: P1
 area: ai
 created: 2026-05-21
@@ -93,7 +93,7 @@ Each box maps 1:1 to a vitest scenario (this is a `src/lib/ai/client.ts` contrac
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0012-...` opened
+- 2026-05-21 — branch `feat/0012-ai-provider-failover` opened
 - YYYY-MM-DD — failing test added in `tests/ai/...`
 - YYYY-MM-DD — PR #N opened, CI [state]
 - YYYY-MM-DD — merged to main
