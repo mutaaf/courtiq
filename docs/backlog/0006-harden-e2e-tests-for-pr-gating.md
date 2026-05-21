@@ -1,7 +1,7 @@
 ---
 id: 0006
 title: Harden e2e-tests for PR-gating (seed a local Supabase, restore as required check)
-status: in-progress
+status: shipped
 priority: P0
 area: infra
 created: 2026-05-20
@@ -81,3 +81,12 @@ Each box maps 1:1 to a CI / Playwright result or a config assertion.
   - Stripped the "informational until 0006" caveat from `AGENTS.md` (non-negotiable #1, handoff note, gating note, test-infra section), `docs/LESSONS.md` (policy header — historical dated entries left intact), and `scripts/agents/agent-ship.sh` + `agent-review.sh`.
   - Local gate: `npm run lint` (0 errors) + `npx tsc --noEmit` (0 errors) green under Node 20.19.0. Full `npx vitest run` stalls the fork pool on this constrained machine (documented LESSON); the one file that ran showed only the known environmental date-TZ off-by-one — diff touches zero vitest-evaluated files (vitest excludes `**/e2e/**` + `**/*.spec.ts`), so CI's `unit-tests` arbitrates.
   - Branch-protection flip (`required_status_checks.contexts += e2e-tests`) deferred until `e2e-tests` is confirmed GREEN on this PR — adding it earlier would deadlock the merge gate.
+- 2026-05-20 — SHIPPED. The harness PR #222 squash-merged on lint+unit-tests (e2e-tests intentionally not yet required), which fired auto-merge BEFORE e2e-tests finished — so the actual e2e-greening happened across a chain of follow-up PRs (a deliberate consequence of the bootstrap ordering, not a mistake):
+  - #222 — the e2e harness (workflow, seed, docs, skips, spawned 0007).
+  - #223 — `031_volleyball_seed.sql` had 12 columns / 10 values (missing `plan_templates` + `default_curriculum_config`); `supabase start` aborted with SQLSTATE 42601. Latent bug, never hit before because no env applied migrations to a fresh tracked DB.
+  - #224 — two migrations shared version `031` (`031_long_session_audio_v2` + `031_volleyball_seed`); `schema_migrations_pkey` duplicate-key (SQLSTATE 23505). Renamed volleyball → `0315_volleyball_seed.sql`.
+  - #225 — first full e2e run: 12 passed / 4 failed. All 4 were `getByLabel('Full Name'/'Email'/'Password')` on /signup + /login — the pages had `<label>` text with no `htmlFor`/`id`, a real a11y gap. Wired labels to inputs (page fix, not test fix).
+  - #226 — 15 passed / 1 failed: share-flow "shows team name" `getByText('E2E Test Team')` matched both the `<h1>` and the greeting sentence (strict-mode violation). Targeted the heading by role. Result: **16 passed / 29 skipped / 0 failed**.
+  - Branch protection flipped AFTER #226's green e2e: `required_status_checks.contexts` is now `["lint","unit-tests","e2e-tests"]` (asserted via `gh api`).
+  - Deviations from the ticket floor: real share table is `parent_shares` (ticket said "share_tokens"); seed adds rows beyond the floor (auth.users, org_branding, team_coaches, second player, `is_highlighted` obs) so the un-mocked `/api/share` renders; volleyball migration renamed for version-uniqueness; CI scoped to `--project=chromium` (config also has mobile-chrome, which CI doesn't install).
+  - Note: the push-to-main run on the #226 merge commit flaked on `tests/player-card.test.tsx` ("multiple elements with text: PG", a jsdom render flake — same family as the LESSONS Node/jsdom note); it is unrelated to this ticket and passed on every PR run. e2e-tests was confirmed green on the PR head, which is the code now on main.
