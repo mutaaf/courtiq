@@ -1,7 +1,7 @@
 ---
 id: 0012
 title: Make multi-provider AI failover real — when the primary provider errors, callAI() retries a fallback
-status: in-progress
+status: shipped
 priority: P1
 area: ai
 created: 2026-05-21
@@ -96,5 +96,5 @@ Each box maps 1:1 to a vitest scenario (this is a `src/lib/ai/client.ts` contrac
 - 2026-05-21 — branch `feat/0012-ai-provider-failover` opened
 - 2026-05-21 — failing test added in `tests/ai/provider-failover.test.ts` (14 scenarios mapping all 8 ACs: pure `isRetryableProviderError` classifier, failover-success returns fallback text, two-row audit trail with success id, quota delta of 1, TierLimitError/RateLimitError propagate with zero provider calls, 401 rethrows without failover, single-key org unchanged, key-gated deterministic fallback selection skipping keyless providers, env-key fallback precedence, both-fail rethrows fallback error). Confirmed failing for the right reason (no failover + missing classifier export).
 - 2026-05-21 — implemented in `src/lib/ai/client.ts`: exported pure `isRetryableProviderError(err)` (>=500/529/429/network = retryable; 400/401/403 = not), added `getFallbackProvider(supabase, orgId, exclude)` (next anthropic→openai→gemini with a usable org/env key, excluding the failed primary, null if none), and rebuilt the `callAI` try/catch to extract reusable `recordSuccess`/`recordError` closures: on catch, rethrow TierLimitError/RateLimitError immediately, always log the failed-primary row, then if retryable AND a fallback exists, call the fallback and run the normal success path (cost log, success insert, cache, return success-row id); if the fallback also throws, log its error row and rethrow. `getConfiguredProvider()` primary selection unchanged; quota count query untouched. Local gate green under Node 20.19.0: lint 0 errors, tsc 0 errors, `tests/ai/` 45/45.
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-21 — PR #241 opened (https://github.com/mutaaf/courtiq/pull/241), auto-merge armed; gating checks `lint` / `unit-tests` / `e2e-tests` all green (Vercel rate-limit fail ignored per LESSONS.md — non-gating).
+- 2026-05-21 — merged to main (squash `333f018`). Ticket + README index row flipped to `shipped`.
