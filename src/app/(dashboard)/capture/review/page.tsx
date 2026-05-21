@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +26,8 @@ import {
   AlertTriangle,
   Sparkles,
   Calendar,
+  Share2,
+  MessageCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { findPlayerByName } from '@/lib/player-match';
@@ -37,6 +39,8 @@ import { AIUpgradePrompt } from '@/components/ui/ai-upgrade-prompt';
 interface ParsedObservation {
   id: string;
   player_name: string;
+  /** undefined = use AI fuzzy match, null = team/no player, string = specific player ID */
+  player_id_override?: string | null;
   category: string;
   sentiment: Sentiment;
   text: string;
@@ -44,6 +48,20 @@ interface ParsedObservation {
   status: 'pending' | 'confirmed' | 'editing' | 'discarded';
   editText?: string;
 }
+
+interface RosterPlayer {
+  id: string;
+  name: string;
+  jersey_number: number | null;
+  nickname: string | null;
+  name_variants: string[] | null;
+}
+
+const REVIEW_CATEGORIES = [
+  'shooting', 'defense', 'dribbling', 'passing', 'hustle',
+  'awareness', 'teamwork', 'footwork', 'attitude', 'leadership',
+  'conditioning', 'offense', 'rebounding', 'iq', 'effort', 'general',
+];
 
 const sentimentVariant: Record<Sentiment, 'success' | 'destructive' | 'secondary'> = {
   positive: 'success',
@@ -75,6 +93,34 @@ export default function ReviewPage() {
   const [aiUpgrade, setAiUpgrade] = useState<{ message: string } | null>(null);
   const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [parentUpdateShared, setParentUpdateShared] = useState(false);
+
+  // Lightweight session fetch — shows which session observations will be saved to
+  const { data: sessionMeta } = useQuery<{ date: string; type: string } | null>({
+    queryKey: ['review-session-meta', sessionId],
+    queryFn: () =>
+      query<{ date: string; type: string }[]>({
+        table: 'sessions',
+        select: 'date, type',
+        filters: { id: sessionId! },
+        limit: 1,
+      }).then((r) => r?.[0] ?? null),
+    enabled: !!sessionId && !!activeTeam,
+    staleTime: 10 * 60_000,
+  });
+
+  // Roster for player reassignment picker
+  const { data: rosterPlayers = [] } = useQuery<RosterPlayer[]>({
+    queryKey: ['roster-for-review', activeTeam?.id],
+    queryFn: () =>
+      query<RosterPlayer[]>({
+        table: 'players',
+        select: 'id, name, jersey_number, nickname, name_variants',
+        filters: { team_id: activeTeam!.id, is_active: true },
+      }).then((r) => r ?? []),
+    enabled: !!activeTeam,
+    staleTime: 5 * 60_000,
+  });
 
   const isApiKeyError = (msg: string): boolean => {
     const lower = msg.toLowerCase();
@@ -178,6 +224,29 @@ export default function ReviewPage() {
     );
   };
 
+  const updateCategory = (id: string, category: string) => {
+    setObservations((prev) =>
+      prev.map((obs) => (obs.id === id ? { ...obs, category } : obs))
+    );
+  };
+
+  // Manually reassign an observation to a different player
+  const updatePlayer = (id: string, playerId: string | null, playerName: string) => {
+    setObservations((prev) =>
+      prev.map((obs) =>
+        obs.id === id ? { ...obs, player_name: playerName, player_id_override: playerId } : obs
+      )
+    );
+  };
+
+  // Derive the best roster match for the AI-detected player name
+  const getPlayerSelectValue = (obs: ParsedObservation): string => {
+    if (obs.player_id_override !== undefined) {
+      return obs.player_id_override ?? '';
+    }
+    return findPlayerByName(obs.player_name, rosterPlayers) ?? '';
+  };
+
   const confirmAll = () => {
     setObservations((prev) =>
       prev.map((obs) =>
@@ -217,7 +286,9 @@ export default function ReviewPage() {
       const rows = toSave.map((obs) => ({
         team_id: activeTeam.id,
         coach_id: coach.id,
-        player_id: findPlayerId(obs.player_name),
+        player_id: obs.player_id_override !== undefined
+          ? obs.player_id_override
+          : findPlayerId(obs.player_name),
         session_id: sessionId,
         recording_id: recordingId,
         category: obs.category,
@@ -280,7 +351,9 @@ export default function ReviewPage() {
           for (const obs of toSave) {
             await localDB.observations.add({
               localId: crypto.randomUUID(),
-              playerId: findPlayerByName(obs.player_name, cachedPlayers ?? []),
+              playerId: obs.player_id_override !== undefined
+                ? obs.player_id_override
+                : findPlayerByName(obs.player_name, cachedPlayers ?? []),
               teamId: activeTeam.id,
               coachId: coach.id,
               sessionId,
@@ -381,6 +454,48 @@ export default function ReviewPage() {
     const uniquePlayers = new Set(savedObs.map((o) => o.player_name)).size;
     const topHighlights = positiveObs.slice(0, 2);
 
+    // Build top positive skill categories for the quick parent update message
+    const topPositiveCats = positiveObs
+      .map((o) => o.category)
+      .filter((c, i, arr) => arr.indexOf(c) === i && c !== 'general')
+      .slice(0, 2)
+      .map((c) => c.charAt(0).toUpperCase() + c.slice(1).replace(/_/g, ' '));
+
+    function buildQuickParentUpdate(): string {
+      const coachFirst = coach?.full_name?.split(' ')[0] ?? 'Coach';
+      const teamName = activeTeam?.name ?? 'the team';
+      const lines: string[] = [];
+      lines.push(`📋 Practice update from Coach ${coachFirst}!`);
+      lines.push('');
+      if (uniquePlayers > 0) {
+        lines.push(
+          `Great session! ${savedCount} coaching moment${savedCount !== 1 ? 's' : ''} captured across ${uniquePlayers} player${uniquePlayers !== 1 ? 's' : ''}.`
+        );
+      } else {
+        lines.push('Great practice today! The team put in some solid work.');
+      }
+      if (topPositiveCats.length > 0) {
+        lines.push(`Highlights today: ${topPositiveCats.join(' & ')}.`);
+      }
+      if (needsWorkObs.length > 0) {
+        lines.push('Keep practising at home to stay sharp!');
+      }
+      lines.push('');
+      lines.push(`— Coach ${coachFirst}, ${teamName}`);
+      return lines.join('\n');
+    }
+
+    async function handleShareParentUpdate() {
+      const msg = buildQuickParentUpdate();
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        try { await navigator.share({ text: msg }); } catch { /* dismissed */ }
+      } else {
+        await navigator.clipboard.writeText(msg);
+      }
+      setParentUpdateShared(true);
+      setTimeout(() => setParentUpdateShared(false), 2500);
+    }
+
     return (
       <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center p-4">
         <Card className="w-full max-w-md border-emerald-500/20">
@@ -437,13 +552,47 @@ export default function ReviewPage() {
               </div>
             )}
 
+            {/* Quick parent update — instant, no-AI WhatsApp/SMS message */}
+            {positiveObs.length > 0 && (
+              <div className="rounded-xl border border-teal-500/30 bg-teal-500/10 p-3.5 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 text-teal-400 shrink-0" />
+                  <p className="text-sm font-semibold text-teal-300">Quick parent update ready</p>
+                </div>
+                <p className="text-xs text-zinc-400 leading-relaxed whitespace-pre-line">
+                  {buildQuickParentUpdate()}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleShareParentUpdate}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-500/20 border border-teal-500/30 px-3 py-2 text-sm font-medium text-teal-300 hover:bg-teal-500/30 active:scale-[0.98] transition-all touch-manipulation"
+                >
+                  {parentUpdateShared ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      {typeof navigator !== 'undefined' && 'share' in navigator ? 'Sent!' : 'Copied!'}
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="h-4 w-4" />
+                      Send to Parent Group Chat
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
             {/* CTAs */}
             <div className="flex flex-col gap-2.5 pt-1">
               {sessionId ? (
                 <>
                   <Button
                     className="w-full"
-                    onClick={() => router.push(`/sessions/${sessionId}`)}
+                    onClick={() =>
+                      router.push(
+                        `/sessions/${sessionId}?fromPractice=1&obsCount=${savedCount}&playerCount=${uniquePlayers}`
+                      )
+                    }
                   >
                     <Sparkles className="h-4 w-4" />
                     AI Debrief &amp; Parent Updates
@@ -501,6 +650,20 @@ export default function ReviewPage() {
         <ArrowLeft className="h-4 w-4" />
         Capture
       </Link>
+
+      {/* Session context banner — confirms which session observations will be saved to */}
+      {sessionId && sessionMeta && (
+        <div className="flex items-center gap-2.5 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2.5">
+          <Calendar className="h-4 w-4 shrink-0 text-blue-400" />
+          <p className="text-sm text-blue-300">
+            Saving to:{' '}
+            <span className="font-semibold text-blue-200">
+              {(sessionMeta.type.charAt(0).toUpperCase() + sessionMeta.type.slice(1))} ·{' '}
+              {new Date(sessionMeta.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </span>
+          </p>
+        </div>
+      )}
 
       {/* AI Error Banner */}
       {aiError && (
@@ -617,9 +780,37 @@ export default function ReviewPage() {
               >
                 <CardContent className="p-4">
                   {/* Player & Category */}
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-zinc-100">{obs.player_name}</span>
-                    <Badge variant="outline">{obs.category}</Badge>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {rosterPlayers.length > 0 ? (
+                      <select
+                        value={getPlayerSelectValue(obs)}
+                        onChange={(e) => {
+                          const p = rosterPlayers.find((r) => r.id === e.target.value);
+                          updatePlayer(obs.id, e.target.value || null, p?.name ?? 'Team');
+                        }}
+                        className="font-semibold text-zinc-100 bg-zinc-900 border border-orange-500/30 rounded-md px-2 py-0.5 text-sm cursor-pointer focus:outline-none focus:ring-1 focus:ring-orange-500 max-w-[180px]"
+                        aria-label="Assign observation to player"
+                      >
+                        <option value="">Team (no player)</option>
+                        {rosterPlayers.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.jersey_number != null ? `#${p.jersey_number} ` : ''}{p.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="font-semibold text-zinc-100">{obs.player_name}</span>
+                    )}
+                    <select
+                      value={obs.category}
+                      onChange={(e) => updateCategory(obs.id, e.target.value)}
+                      className="bg-zinc-800 border border-zinc-700 rounded-md px-1.5 py-0.5 text-xs text-zinc-300 capitalize cursor-pointer focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                      aria-label="Skill category"
+                    >
+                      {REVIEW_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat} className="capitalize">{cat}</option>
+                      ))}
+                    </select>
                     <button
                       type="button"
                       onClick={() => {

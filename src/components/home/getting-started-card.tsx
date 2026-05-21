@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCircle2, Circle, Users, Mic, ClipboardList, X, ChevronRight } from 'lucide-react';
+import { CheckCircle2, Circle, Users, Mic, ClipboardList, X, ChevronRight, History, Trophy, BarChart2, Share2, ClipboardCheck } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
 
@@ -67,10 +67,64 @@ export function GettingStartedCard({ players, sessions, observations, teamId }: 
     },
   ];
 
+  const completionDismissKey = `getting-started-complete-dismissed-${teamId}`;
+  const [completionDismissed, setCompletionDismissed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const val = localStorage.getItem(completionDismissKey);
+    if (!val) return false;
+    return Date.now() - parseInt(val, 10) < 7 * 24 * 60 * 60 * 1000;
+  });
+
   const doneCount = steps.filter((s) => s.done).length;
   const allDone = doneCount === steps.length;
 
-  if (dismissed || allDone) return null;
+  if (dismissed) return null;
+
+  if (allDone && !completionDismissed) {
+    return (
+      <Card className="overflow-hidden border-emerald-500/20">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20">
+                <Trophy className="h-5 w-5 text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-zinc-100">You&apos;re all set up! Here&apos;s what&apos;s next</p>
+                <p className="text-xs text-zinc-500 mt-0.5">Keep the momentum going</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                localStorage.setItem(completionDismissKey, String(Date.now()));
+                setCompletionDismissed(true);
+              }}
+              aria-label="Dismiss"
+              className="rounded p-1 text-zinc-600 hover:text-zinc-400 transition-colors touch-manipulation shrink-0"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {[
+              { href: '/plans', icon: ClipboardCheck, label: 'Practice Plan', color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/20 hover:border-orange-500/40' },
+              { href: '/roster', icon: Share2, label: 'Share Report', color: 'text-teal-400', bg: 'bg-teal-500/10 border-teal-500/20 hover:border-teal-500/40' },
+              { href: '/analytics', icon: BarChart2, label: 'Analytics', color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20 hover:border-blue-500/40' },
+            ].map(({ href, icon: Icon, label, color, bg }) => (
+              <Link key={href} href={href}>
+                <div className={`flex flex-col items-center gap-1.5 rounded-xl border ${bg} p-3 text-center transition-all active:scale-95 touch-manipulation`}>
+                  <Icon className={`h-5 w-5 ${color}`} />
+                  <span className="text-[11px] font-medium text-zinc-300 leading-tight">{label}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (allDone) return null;
 
   function dismiss() {
     localStorage.setItem(dismissKey, String(Date.now()));
@@ -145,6 +199,17 @@ export function GettingStartedCard({ players, sessions, observations, teamId }: 
             );
           })}
         </div>
+
+        {/* Mid-season catch-up hint — only shown when no sessions have been created */}
+        {sessions === 0 && (
+          <div className="mx-3 mb-3 pt-3 border-t border-zinc-800 flex items-center justify-center gap-1.5">
+            <History className="h-3 w-3 text-zinc-600" />
+            <span className="text-xs text-zinc-600">Coaching before joining? </span>
+            <Link href="/sessions/backfill" className="text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-colors touch-manipulation">
+              Import past sessions
+            </Link>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

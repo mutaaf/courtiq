@@ -18,6 +18,7 @@ export interface PlayerForMatch {
   name: string;
   nickname: string | null;
   name_variants: string[] | null;
+  jersey_number?: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -87,6 +88,24 @@ export function editDistance(a: string, b: string): number {
 }
 
 // ---------------------------------------------------------------------------
+// Jersey number helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * If `name` looks like a jersey-number reference ("7", "#7", "number 7",
+ * "No. 7", "player 7", "jersey 7") return the numeric jersey as an integer;
+ * otherwise return null.
+ */
+export function parseJerseyNumber(name: string): number | null {
+  const m = name.trim().match(
+    /^(?:#|no\.?\s*|number\s+|player\s+|jersey\s+)?(\d{1,2})$/i
+  );
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  return n >= 0 && n <= 99 ? n : null;
+}
+
+// ---------------------------------------------------------------------------
 // Name normalisation helpers
 // ---------------------------------------------------------------------------
 
@@ -119,6 +138,14 @@ export function findPlayerByName(
   const lower = name.toLowerCase();
   const norm = normalize(name);
   const fName = firstName(name);
+
+  // 0. Jersey number match — "#7", "number 7", "7", etc.
+  const jerseyNum = parseJerseyNumber(name);
+  if (jerseyNum !== null) {
+    for (const p of players) {
+      if (p.jersey_number === jerseyNum) return p.id;
+    }
+  }
 
   // Pre-compute candidate strings for each player once.
   const candidates = players.map((p) => {

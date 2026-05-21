@@ -46,6 +46,9 @@ import {
   Target,
   Volume2,
   VolumeX,
+  Users,
+  BookOpen,
+  Award,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Drill, Player, Session, Plan } from '@/types/database';
@@ -58,6 +61,7 @@ import {
   type PracticeTemplate,
   type TemplateDrill,
 } from '@/lib/practice-templates';
+import { getPhraseByIndex, hasPhrases } from '@/lib/coaching-phrases';
 import { OBSERVATION_TEMPLATES } from '@/lib/observation-templates';
 import {
   getPlayerFocusForCategory,
@@ -72,6 +76,7 @@ import {
 } from '@/lib/timer-focus-utils';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 import { useAnnouncer } from '@/hooks/use-announcer';
+import { useHaptic } from '@/hooks/use-haptic';
 import {
   buildDrillAnnouncement,
   buildBreakAnnouncement,
@@ -79,6 +84,47 @@ import {
 } from '@/lib/announcer-utils';
 import type { PlayerAvailability } from '@/types/database';
 import { getRatingLabel, getRatingColor } from '@/lib/session-quality-utils';
+import {
+  buildGroupsForDrill,
+  hasSkillDataForGrouping,
+  buildGroupingBasisLabel,
+  formatGroupPlayerLabel,
+  type DrillGroup,
+} from '@/lib/player-grouping-utils';
+import { isFavorited, sortWithFavoritesFirst } from '@/lib/drill-favorites-utils';
+import {
+  getDrillRating,
+  toggleDrillRating,
+  sortDrillsByRating,
+  getRatingIcon,
+  formatRatingPrompt,
+  getRatingAriaLabel,
+  type DrillRating,
+} from '@/lib/drill-rating-utils';
+import {
+  listSavedQueues,
+  saveQueue,
+  deleteQueue,
+  hasSavedQueues,
+  isValidQueueName,
+  formatQueueDuration,
+  getQueuePreview,
+  formatSavedAt,
+  type SavedQueueItem,
+  type SavedQueue as SavedQueueEntry,
+} from '@/lib/saved-queue-utils';
+import {
+  recordDrillRun,
+  getDrillRunRecord,
+  sortDrillsByFreshness,
+  formatLastRun,
+  buildRunCountLabel,
+} from '@/lib/drill-run-history-utils';
+import {
+  getWeeklyFocus,
+  getFocusCategoryConfig,
+  type WeeklyFocus,
+} from '@/lib/weekly-focus-utils';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -158,6 +204,8 @@ function buildQuickParentUpdate(notes: CapturedNote[], coachFirstName: string, t
 
 function BreakScreen({
   drillJustFinished,
+  drillId,
+  teamId,
   drillCategory,
   nextDrillName,
   players,
@@ -165,8 +213,12 @@ function BreakScreen({
   onSkip,
   capturedPlayerIds,
   lastObsByPlayer = {},
+  playerGroups,
+  groupsLabel,
 }: {
   drillJustFinished: string;
+  drillId?: string;
+  teamId?: string;
   drillCategory?: string;
   nextDrillName?: string;
   players: Player[];
@@ -174,13 +226,50 @@ function BreakScreen({
   onSkip: () => void;
   capturedPlayerIds?: Set<string>;
   lastObsByPlayer?: Record<string, LastObsInfo>;
+  playerGroups?: DrillGroup[];
+  groupsLabel?: string;
 }) {
   const [note, setNote] = useState('');
   const [selectedPlayer, setSelectedPlayer] = useState<string>('');
   const [sentiment, setSentiment] = useState<Sentiment>('positive');
   const [templateCategory, setTemplateCategory] = useState<string | undefined>(undefined);
+  const [showGroups, setShowGroups] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const voice = useVoiceInput();
+
+  // Drill rating state — persisted in localStorage per teamId:drillId
+  const [drillRating, setDrillRatingState] = useState<DrillRating | null>(() => {
+    if (!teamId || !drillId) return null;
+    return getDrillRating(teamId, drillId);
+  });
+
+  const handleRateDrill = (rating: DrillRating) => {
+    if (!teamId || !drillId) return;
+    const next = toggleDrillRating(teamId, drillId, rating);
+    setDrillRatingState(next);
+  };
+
+  // ── Auto-advance countdown ────────────────────────────────────────────────
+  const AUTO_ADVANCE_SECS = 60;
+  const [countdown, setCountdown] = useState(AUTO_ADVANCE_SECS);
+  // Pause when coach is actively composing an observation
+  const countdownPaused = note.trim() !== '' || voice.isRecording;
+  const onSkipRef = useRef(onSkip);
+  useEffect(() => { onSkipRef.current = onSkip; }, [onSkip]);
+
+  // Tick down every second while not paused
+  useEffect(() => {
+    if (countdownPaused || countdown <= 0) return;
+    const id = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [countdown, countdownPaused]);
+
+  // Fire skip when countdown reaches zero
+  useEffect(() => {
+    if (countdown <= 0 && !countdownPaused) {
+      onSkipRef.current();
+    }
+  }, [countdown, countdownPaused]);
 
   useEffect(() => {
     textRef.current?.focus();
@@ -220,10 +309,24 @@ function BreakScreen({
   })();
 
   return (
-    <div className="flex flex-col min-h-screen bg-zinc-950 p-6">
+    <div className="relative flex flex-col min-h-screen bg-zinc-950 p-6">
+      {/* Auto-advance progress bar — drains from full to empty over 60 s */}
+      <div className="absolute top-0 left-0 right-0 h-1 bg-zinc-800 overflow-hidden">
+        <div
+          className="h-full bg-amber-500/60 transition-all duration-1000 ease-linear"
+          style={{ width: `${(countdown / AUTO_ADVANCE_SECS) * 100}%` }}
+        />
+      </div>
+
       <div className="flex items-center justify-between mb-8">
         <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-sm px-3 py-1">
           Break
+          {countdown > 0 && !countdownPaused && (
+            <span className="ml-1.5 text-amber-400/70 font-normal">{countdown}s</span>
+          )}
+          {countdownPaused && countdown > 0 && (
+            <span className="ml-1.5 text-zinc-500 font-normal">paused</span>
+          )}
         </Badge>
         {nextDrillName && (
           <span className="text-xs text-zinc-500">
@@ -237,9 +340,42 @@ function BreakScreen({
           <h2 className="text-2xl font-bold text-zinc-100 mb-1">
             What did you observe?
           </h2>
-          <p className="text-sm text-zinc-500">
-            Drill just finished: <span className="text-zinc-300">{drillJustFinished}</span>
-          </p>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-sm text-zinc-500 shrink-0">
+              Drill: <span className="text-zinc-300">{drillJustFinished}</span>
+            </p>
+            {drillId && teamId && (
+              <div className="flex items-center gap-1.5 ml-auto">
+                <span className="text-[10px] text-zinc-600">{formatRatingPrompt('')}</span>
+                <button
+                  type="button"
+                  aria-label={getRatingAriaLabel('up', drillRating)}
+                  aria-pressed={drillRating === 'up'}
+                  onClick={() => handleRateDrill('up')}
+                  className={`flex h-7 w-7 items-center justify-center rounded-lg text-base transition-all touch-manipulation ${
+                    drillRating === 'up'
+                      ? 'bg-emerald-500/25 ring-1 ring-emerald-500/50 scale-110'
+                      : 'bg-zinc-800 hover:bg-zinc-700'
+                  }`}
+                >
+                  👍
+                </button>
+                <button
+                  type="button"
+                  aria-label={getRatingAriaLabel('down', drillRating)}
+                  aria-pressed={drillRating === 'down'}
+                  onClick={() => handleRateDrill('down')}
+                  className={`flex h-7 w-7 items-center justify-center rounded-lg text-base transition-all touch-manipulation ${
+                    drillRating === 'down'
+                      ? 'bg-red-500/25 ring-1 ring-red-500/50 scale-110'
+                      : 'bg-zinc-800 hover:bg-zinc-700'
+                  }`}
+                >
+                  👎
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Sentiment toggle */}
@@ -475,12 +611,86 @@ function BreakScreen({
         <p className="text-xs text-zinc-600 text-center">
           ⌘+Enter to save quickly
         </p>
+
+        {/* Smart player groups — for the next drill */}
+        {playerGroups && playerGroups.length > 1 && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowGroups((v) => !v)}
+              className="w-full flex items-center justify-between gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors touch-manipulation"
+            >
+              <span className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-blue-400" />
+                <span className="font-medium text-zinc-300">
+                  Groups for {nextDrillName ?? 'next drill'}
+                </span>
+                {groupsLabel && (
+                  <span className="text-xs text-zinc-600 hidden sm:inline">
+                    · {groupsLabel}
+                  </span>
+                )}
+              </span>
+              {showGroups ? (
+                <ChevronUp className="h-4 w-4 shrink-0" />
+              ) : (
+                <ChevronDown className="h-4 w-4 shrink-0" />
+              )}
+            </button>
+
+            {showGroups && (
+              <div className="mt-2 grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(playerGroups.length, 2)}, 1fr)` }}>
+                {playerGroups.map((group) => (
+                  <div
+                    key={group.label}
+                    className={`rounded-xl border p-3 ${group.colorClass}`}
+                  >
+                    <p className="text-xs font-bold uppercase tracking-wider mb-2 opacity-80">
+                      {group.label}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {group.players.map((p) => (
+                        <span
+                          key={p.id}
+                          className="inline-block rounded-full bg-zinc-900/60 px-2.5 py-1 text-xs font-medium text-zinc-200"
+                        >
+                          {formatGroupPlayerLabel(p)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {showGroups && groupsLabel && (
+              <p className="mt-1.5 text-center text-xs text-zinc-600 sm:hidden">
+                {groupsLabel}
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 // ─── Done Screen ─────────────────────────────────────────────────────────────
+
+const BADGE_NAMES: Record<string, string> = {
+  first_star: '⭐ First Star',
+  team_player: '🤝 Team Player',
+  grinder: '💪 Grinder',
+  all_rounder: '🎯 All-Rounder',
+  breakthrough: '🚀 Breakthrough',
+  game_changer: '⚡ Game Changer',
+  session_regular: '📅 Session Regular',
+};
+
+interface EarnedBadge {
+  playerName: string;
+  badgeName: string;
+}
 
 function DoneScreen({
   drillsRun,
@@ -496,6 +706,7 @@ function DoneScreen({
   saveSuccess,
   coachName,
   teamName,
+  newlyAwardedBadges,
 }: {
   drillsRun: QueueItem[];
   notes: CapturedNote[];
@@ -510,6 +721,7 @@ function DoneScreen({
   saveSuccess?: boolean;
   coachName?: string;
   teamName?: string;
+  newlyAwardedBadges?: EarnedBadge[];
 }) {
   const [rating, setRating] = useState<number>(0);
   const [ratingSaved, setRatingSaved] = useState(false);
@@ -827,6 +1039,35 @@ function DoneScreen({
               </p>
             </div>
 
+            {/* Badge celebration — shown when players earned new badges this practice */}
+            {newlyAwardedBadges && newlyAwardedBadges.length > 0 && (
+              <div className="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <Award className="h-4 w-4 text-amber-400 shrink-0" />
+                  <p className="text-sm font-semibold text-amber-300">
+                    {newlyAwardedBadges.length === 1
+                      ? '1 player earned a badge!'
+                      : `${newlyAwardedBadges.length} badges earned this practice!`}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {newlyAwardedBadges.map((b) => (
+                    <span
+                      key={`${b.playerName}-${b.badgeName}`}
+                      className="inline-flex items-center gap-1 rounded-lg bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 text-xs"
+                    >
+                      <span className="font-semibold text-amber-200">{b.playerName}</span>
+                      <span className="text-amber-500">·</span>
+                      <span className="text-amber-300">{b.badgeName}</span>
+                    </span>
+                  ))}
+                </div>
+                <p className="text-xs text-amber-500/70">
+                  Badges appear on their parent report card 🎉
+                </p>
+              </div>
+            )}
+
             {/* Quick parent update card — pre-built message, zero AI, instant display */}
             <div className="w-full rounded-xl border border-teal-500/30 bg-teal-500/10 p-4 space-y-3">
               <div className="flex items-center gap-2">
@@ -911,8 +1152,10 @@ export default function PracticeTimerPage({
   const { sessionId } = use(params);
   const searchParams = useSearchParams();
   const planId = searchParams.get('planId');
+  const arcSessionParam = searchParams.get('arcSession');
+  const arcSessionIndex = arcSessionParam !== null ? parseInt(arcSessionParam, 10) : null;
   const templateIdParam = searchParams.get('templateId');
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
 
   // ── Persistence keys ─────────────────────────────────────────────────────
   const NOTES_KEY = `practice-timer-notes-v1-${sessionId}`;
@@ -962,6 +1205,7 @@ export default function PracticeTimerPage({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [newlyAwardedBadges, setNewlyAwardedBadges] = useState<EarnedBadge[]>([]);
   const [loadedPlanTitle, setLoadedPlanTitle] = useState<string | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [showSwapSheet, setShowSwapSheet] = useState(false);
@@ -971,9 +1215,17 @@ export default function PracticeTimerPage({
   const [customName, setCustomName] = useState('');
   const [customDuration, setCustomDuration] = useState('10');
   const [showDrillPicker, setShowDrillPicker] = useState(false);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [loadedTemplateName, setLoadedTemplateName] = useState<string | null>(null);
   const [lastPracticeQueue, setLastPracticeQueue] = useState<QueueItem[] | null>(null);
+  const [showSavedQueues, setShowSavedQueues] = useState(false);
+  const [showSaveForm, setShowSaveForm] = useState(false);
+  const [saveFormName, setSaveFormName] = useState('');
+  const [savedQueues, setSavedQueues] = useState<SavedQueueEntry[]>(() => {
+    if (!activeTeam?.id || typeof window === 'undefined') return [];
+    return listSavedQueues(activeTeam.id);
+  });
 
   const [audioEnabled, setAudioEnabled] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
@@ -983,8 +1235,15 @@ export default function PracticeTimerPage({
     } catch { return true; }
   });
 
+  const [bgAdjustMsg, setBgAdjustMsg] = useState<string | null>(null);
+  const [weeklyFocus, setWeeklyFocus] = useState<WeeklyFocus | null>(null);
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cueIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Track wall-clock time when page goes hidden so we can compensate on return.
+  const hiddenAtRef = useRef<number | null>(null);
+  // Mirror timeLeft in a ref so visibility handler can read it synchronously.
+  const timeLeftRef = useRef(0);
   // Stable refs so the announcement effect can read latest values without
   // being re-triggered by note/queue mutations during a drill.
   const queueRef = useRef(queue);
@@ -1106,6 +1365,49 @@ export default function PracticeTimerPage({
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: favoritesData } = useQuery({
+    queryKey: ['drill-favorites'],
+    queryFn: async () => {
+      const res = await fetch('/api/drill-favorites');
+      if (!res.ok) return { favorites: [] as string[] };
+      return res.json() as Promise<{ favorites: string[] }>;
+    },
+    staleTime: 60 * 1000,
+  });
+  const favoriteIds: string[] = favoritesData?.favorites ?? [];
+
+  // Fetch the most recent session that has a completed AI debrief — used in setup
+  // to show coaches exactly what to focus on in THIS practice based on last time.
+  const { data: lastDebriefSession } = useQuery({
+    queryKey: ['timer-last-debrief', activeTeam?.id],
+    queryFn: async () => {
+      if (!activeTeam) return null;
+      const data = await query<Session[]>({
+        table: 'sessions',
+        select: 'id, date, coach_debrief_extracts',
+        filters: {
+          team_id: activeTeam.id,
+          coach_debrief_extracts: { op: 'neq', value: null },
+        },
+        order: { column: 'date', ascending: false },
+        limit: 2,
+      });
+      return (data || []).find((s) => s.id !== sessionId) ?? null;
+    },
+    enabled: !!activeTeam,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const lastDebriefInsights = useMemo(() => {
+    if (!lastDebriefSession?.coach_debrief_extracts) return null;
+    const debrief = lastDebriefSession.coach_debrief_extracts as any;
+    const focuses: Array<{ focus: string; suggested_drill?: string }> =
+      (debrief.next_practice_focus || []).slice(0, 2);
+    const recurring: string[] = (debrief.recurring_focus_areas || []).slice(0, 3);
+    if (focuses.length === 0 && recurring.length === 0) return null;
+    return { date: lastDebriefSession.date as string, focuses, recurring };
+  }, [lastDebriefSession]);
+
   // Build a lookup of the most recent observation per player for break-screen context.
   // Current-session notes take priority over DB observations so coaches see the most
   // relevant context ("You just said Marcus was doing great — is he still on a roll?").
@@ -1145,17 +1447,25 @@ export default function PracticeTimerPage({
         const s = plan.content_structured as any;
         const items: QueueItem[] = [];
 
-        if (s.warmup?.name) {
+        // Determine the source of drills — either a regular practice plan or one
+        // session within a practice_arc plan (selected via ?arcSession=N).
+        const isArc = plan.type === 'practice_arc' && arcSessionIndex !== null;
+        const sessionData = isArc
+          ? (Array.isArray(s.sessions) ? s.sessions[arcSessionIndex!] : null)
+          : null;
+        const src = sessionData ?? s;
+
+        if (src.warmup?.name) {
           items.push({
             id: `warmup-${Date.now()}`,
-            name: s.warmup.name,
-            durationSecs: Math.max(60, (s.warmup.duration_minutes ?? 5) * 60),
+            name: src.warmup.name,
+            durationSecs: Math.max(60, (src.warmup.duration_minutes ?? 5) * 60),
             cues: [],
-            description: s.warmup.description || '',
+            description: src.warmup.description || '',
           });
         }
 
-        (s.drills || []).forEach((d: any, i: number) => {
+        (src.drills || []).forEach((d: any, i: number) => {
           items.push({
             id: `plan-drill-${i}-${Date.now()}`,
             name: d.name,
@@ -1165,29 +1475,64 @@ export default function PracticeTimerPage({
           });
         });
 
-        if (s.scrimmage?.duration_minutes) {
+        if (src.scrimmage?.duration_minutes) {
           items.push({
             id: `scrimmage-${Date.now()}`,
-            name: s.scrimmage.focus ? `Scrimmage: ${s.scrimmage.focus}` : 'Scrimmage',
-            durationSecs: Math.max(60, s.scrimmage.duration_minutes * 60),
+            name: src.scrimmage.focus ? `Scrimmage: ${src.scrimmage.focus}` : 'Scrimmage',
+            durationSecs: Math.max(60, src.scrimmage.duration_minutes * 60),
             cues: [],
             description: '',
           });
         }
 
-        if (s.cooldown?.duration_minutes) {
+        if (src.cooldown?.duration_minutes) {
           items.push({
             id: `cooldown-${Date.now()}`,
             name: 'Cool Down',
-            durationSecs: Math.max(60, s.cooldown.duration_minutes * 60),
+            durationSecs: Math.max(60, src.cooldown.duration_minutes * 60),
             cues: [],
-            description: s.cooldown.notes || '',
+            description: src.cooldown.notes || '',
           });
         }
 
         if (items.length > 0) {
+          const sessionNum = isArc ? arcSessionIndex! + 1 : null;
+          const arcTitle = plan.title || 'Practice Series';
+          const totalSessions = isArc && Array.isArray(s.sessions) ? s.sessions.length : 0;
+          const titleSuffix = isArc ? ` — Session ${sessionNum} of ${totalSessions}` : '';
           setQueue(items);
-          setLoadedPlanTitle(plan.title || 'Practice Plan');
+          setLoadedPlanTitle((arcTitle) + titleSuffix);
+
+          // Advance arc-progress so the ContinueArcCard on the home dashboard
+          // points to the NEXT session in the series.
+          if (isArc && activeTeam && Array.isArray(s.sessions)) {
+            const nextIdx = arcSessionIndex! + 1;
+            if (nextIdx < s.sessions.length) {
+              const nextSession = s.sessions[nextIdx];
+              try {
+                localStorage.setItem(`arc-progress-${activeTeam.id}`, JSON.stringify({
+                  planId,
+                  arcTitle,
+                  nextSession: nextIdx + 1,
+                  totalSessions,
+                  nextSessionTitle: nextSession?.session_label || nextSession?.session_goal || `Session ${nextIdx + 1}`,
+                  savedAt: new Date().toISOString(),
+                }));
+              } catch { /* ignore */ }
+            } else {
+              // All sessions completed — clear the progress card and write a
+              // completion record so ArcCompleteCard can show a celebration.
+              try {
+                localStorage.removeItem(`arc-progress-${activeTeam.id}`);
+                localStorage.setItem(`arc-complete-${activeTeam.id}`, JSON.stringify({
+                  planId,
+                  arcTitle,
+                  totalSessions,
+                  completedAt: new Date().toISOString(),
+                }));
+              } catch { /* ignore */ }
+            }
+          }
         }
       })
       .catch(() => {/* silently ignore */})
@@ -1262,10 +1607,13 @@ export default function PracticeTimerPage({
     };
   }, [clearIntervals]);
 
-  // ── Audio announcements ──────────────────────────────────────────────────
+  // ── Audio + haptic announcements ─────────────────────────────────────────
   const { speak } = useAnnouncer(audioEnabled);
   const speakRef = useRef(speak);
   useEffect(() => { speakRef.current = speak; }, [speak]);
+  const haptic = useHaptic();
+  const hapticRef = useRef(haptic);
+  useEffect(() => { hapticRef.current = haptic; }, [haptic]);
   // Keep refs in sync so the mode-change effect reads latest data without
   // triggering on every note/queue mutation.
   useEffect(() => { queueRef.current = queue; }, [queue]);
@@ -1277,6 +1625,12 @@ export default function PracticeTimerPage({
     try { localStorage.setItem('coach-audio-enabled', String(audioEnabled)); } catch { /* ignore */ }
   }, [audioEnabled]);
 
+  // Load weekly focus from localStorage after hydration (SSR-safe).
+  useEffect(() => {
+    if (!activeTeam?.id) return;
+    setWeeklyFocus(getWeeklyFocus(activeTeam.id));
+  }, [activeTeam?.id]);
+
   // Announce each drill start, break prompt, and practice-complete moment.
   // Uses refs so this effect only fires on mode/drill transitions, not on
   // every note saved or queue reorder.
@@ -1284,13 +1638,70 @@ export default function PracticeTimerPage({
     const drill = queueRef.current[currentIdx];
     if (mode === 'running' && drill) {
       speakRef.current(buildDrillAnnouncement(drill.name, drill.durationSecs, drill.cues[0]));
+      hapticRef.current.tap(); // single pulse — new drill starting
     } else if (mode === 'break') {
       speakRef.current(buildBreakAnnouncement());
+      hapticRef.current.success(); // double pulse — drill ended, observe now
     } else if (mode === 'done') {
       speakRef.current(buildPracticeCompleteAnnouncement(notesRef.current.length));
+      hapticRef.current.success(); // double pulse — practice complete
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, currentIdx]);
+
+  // Keep timeLeftRef in sync so the visibility handler can read it synchronously.
+  useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
+
+  // Page Visibility: compensate for time elapsed while the app was backgrounded.
+  // Mobile browsers throttle or freeze setInterval when the screen locks, so the
+  // countdown would fall behind real time. On return we subtract wall-clock elapsed.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (mode !== 'running' || isPaused) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        hiddenAtRef.current = Date.now();
+      } else if (hiddenAtRef.current !== null) {
+        const elapsedSecs = Math.floor((Date.now() - hiddenAtRef.current) / 1000);
+        hiddenAtRef.current = null;
+        if (elapsedSecs < 1) return;
+
+        const adjusted = timeLeftRef.current - elapsedSecs;
+        if (adjusted <= 0) {
+          clearIntervals();
+          setTimeLeft(0);
+          setMode('break');
+        } else {
+          setTimeLeft(adjusted);
+          if (elapsedSecs >= 10) {
+            const mins = Math.floor(elapsedSecs / 60);
+            const secs = elapsedSecs % 60;
+            const label = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+            setBgAdjustMsg(`Timer adjusted ${label} for background`);
+            setTimeout(() => setBgAdjustMsg(null), 3000);
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [mode, isPaused, clearIntervals]);
+
+  // Screen Wake Lock: keep the display on while the timer is counting down so
+  // coaches don't have to unlock their phone between drills.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('wakeLock' in navigator)) return;
+    if (mode !== 'running' || isPaused) return;
+
+    let lock: WakeLockSentinel | null = null;
+    (navigator as any).wakeLock.request('screen').then((l: WakeLockSentinel) => {
+      lock = l;
+    }).catch(() => { /* permission denied or unsupported — silent */ });
+
+    return () => { lock?.release().catch(() => {}); };
+  }, [mode, isPaused]);
 
   // Auto-persist captured notes so they survive accidental app closes
   useEffect(() => {
@@ -1338,6 +1749,20 @@ export default function PracticeTimerPage({
     setMode('break');
   };
 
+  const handleAdjustTime = (deltaSecs: number) => {
+    setTimeLeft((prev) => {
+      const next = Math.max(10, prev + deltaSecs);
+      // Keep durationSecs in sync so the progress bar stays 0–100%
+      setQueue((q) =>
+        q.map((d, i) =>
+          i === currentIdx ? { ...d, durationSecs: Math.max(10, d.durationSecs + deltaSecs) } : d
+        )
+      );
+      return next;
+    });
+    if (navigator.vibrate) navigator.vibrate(30);
+  };
+
   const handleBreakSave = (note: string, playerId?: string, playerName?: string, sentiment: Sentiment = 'positive', category?: string) => {
     const drill = queue[currentIdx];
     setNotes((prev) => [
@@ -1368,6 +1793,9 @@ export default function PracticeTimerPage({
       setCurrentIdx(next);
       setMode('running');
       startTimerForDrill(next, queue);
+      if (activeTeam?.id && queue[next]?.drillId) {
+        recordDrillRun(activeTeam.id, queue[next].drillId);
+      }
     }
   };
 
@@ -1376,6 +1804,9 @@ export default function PracticeTimerPage({
     setCurrentIdx(0);
     setMode('running');
     startTimerForDrill(0, queue);
+    if (activeTeam?.id && queue[0]?.drillId) {
+      recordDrillRun(activeTeam.id, queue[0].drillId);
+    }
   };
 
   // ── Save observations ────────────────────────────────────────────────────
@@ -1419,7 +1850,37 @@ export default function PracticeTimerPage({
       } catch { /* ignore */ }
       setSaveSuccess(true);
       setIsSaving(false);
-      // Coach sees success state with parent update card; navigates via "View Session & AI Debrief" button.
+
+      // Fire-and-forget: check badges for all observed players and surface any wins
+      const observedPlayerIds = [...new Set(notes.filter((n) => n.playerId).map((n) => n.playerId!))];
+      if (observedPlayerIds.length > 0) {
+        Promise.all(
+          observedPlayerIds.map(async (playerId) => {
+            try {
+              const res = await fetch('/api/player-achievements', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'check', player_id: playerId }),
+              });
+              if (!res.ok) return [];
+              const data = await res.json();
+              const awarded: any[] = data.newly_awarded ?? [];
+              if (awarded.length === 0) return [];
+              const playerName =
+                notes.find((n) => n.playerId === playerId)?.playerName ?? 'Player';
+              return awarded.map((b) => ({
+                playerName: playerName.split(' ')[0],
+                badgeName: BADGE_NAMES[b.badge_type] ?? b.badge_type,
+              }));
+            } catch {
+              return [];
+            }
+          })
+        ).then((results) => {
+          const all = (results as EarnedBadge[][]).flat();
+          if (all.length > 0) setNewlyAwardedBadges(all);
+        });
+      }
     } catch (err: any) {
       setSaveError(err.message || 'Failed to save observations');
       setIsSaving(false);
@@ -1472,6 +1933,40 @@ export default function PracticeTimerPage({
 
   const removeFromQueue = (id: string) => {
     setQueue((prev) => prev.filter((d) => d.id !== id));
+  };
+
+  // ── Saved queue templates ─────────────────────────────────────────────────
+  const handleSaveQueue = () => {
+    if (!activeTeam?.id || !isValidQueueName(saveFormName) || queue.length === 0) return;
+    const items: SavedQueueItem[] = queue.map((q) => ({
+      id: q.id,
+      drillId: q.drillId,
+      name: q.name,
+      durationSecs: q.durationSecs,
+      cues: q.cues,
+      description: q.description,
+      category: q.category,
+    }));
+    saveQueue(activeTeam.id, saveFormName, items);
+    setSavedQueues(listSavedQueues(activeTeam.id));
+    setSaveFormName('');
+    setShowSaveForm(false);
+  };
+
+  const handleLoadSavedQueue = (entry: SavedQueueEntry) => {
+    const items: QueueItem[] = entry.items.map((i) => ({
+      ...i,
+      id: `${i.id}-${Date.now()}`,
+    }));
+    setQueue(items);
+    setShowSavedQueues(false);
+    setLoadedTemplateName(entry.name);
+  };
+
+  const handleDeleteSavedQueue = (queueId: string) => {
+    if (!activeTeam?.id) return;
+    deleteQueue(activeTeam.id, queueId);
+    setSavedQueues(listSavedQueues(activeTeam.id));
   };
 
   const moveQueueItem = (id: string, direction: 'up' | 'down') => {
@@ -1528,17 +2023,37 @@ export default function PracticeTimerPage({
   };
 
   // ── Filtered drills ──────────────────────────────────────────────────────
-  const filteredDrills = drills.filter(
-    (d) =>
-      !drillSearch ||
-      d.name.toLowerCase().includes(drillSearch.toLowerCase()) ||
-      d.category.toLowerCase().includes(drillSearch.toLowerCase())
-  );
+  // Favorites sort to the top when no search is active; favorites-only toggle filters further.
+  const filteredDrills = useMemo(() => {
+    let list = drills.filter(
+      (d) =>
+        !drillSearch ||
+        d.name.toLowerCase().includes(drillSearch.toLowerCase()) ||
+        d.category.toLowerCase().includes(drillSearch.toLowerCase())
+    );
+    if (showFavoritesOnly) {
+      list = list.filter((d) => isFavorited(d.id, favoriteIds));
+    } else if (!drillSearch) {
+      // Favorites first, then well-rated, then fresh (never/rarely run), poorly-rated last
+      list = sortWithFavoritesFirst(list, favoriteIds);
+      if (activeTeam?.id) {
+        list = sortDrillsByFreshness(list, activeTeam.id);
+        list = sortDrillsByRating(list, activeTeam.id);
+      }
+    }
+    return list;
+  }, [drills, drillSearch, showFavoritesOnly, favoriteIds, activeTeam?.id]);
 
   // ── Skill-gap drill suggestions for the empty queue screen ───────────────
-  // Uses already-fetched needsWorkObs + drills — no extra API call.
+  // When a weekly focus is active it earns the top slot; data-driven gap drills
+  // fill the remaining spots. No extra API call — reuses already-fetched data.
   const suggestedDrills = useMemo(() => {
-    if (!drills.length || !needsWorkObs.length) return [] as Drill[];
+    if (!drills.length) return [] as Drill[];
+    if (!needsWorkObs.length && !weeklyFocus) return [] as Drill[];
+    const queuedIds = new Set(queue.map((q) => q.drillId).filter(Boolean));
+    const available = drills.filter((d) => !queuedIds.has(d.id));
+
+    // Build the top-gap categories from observation history.
     const counts: Record<string, number> = {};
     for (const obs of needsWorkObs) {
       if (obs.category) counts[obs.category] = (counts[obs.category] ?? 0) + 1;
@@ -1547,17 +2062,51 @@ export default function PracticeTimerPage({
       .sort(([, a], [, b]) => b - a)
       .slice(0, 2)
       .map(([cat]) => cat.toLowerCase());
-    if (!topGaps.length) return [] as Drill[];
-    const queuedIds = new Set(queue.map((q) => q.drillId).filter(Boolean));
-    return drills
-      .filter((d) => topGaps.includes(d.category.toLowerCase()) && !queuedIds.has(d.id))
-      .sort((a, b) => {
-        const ai = topGaps.indexOf(a.category.toLowerCase());
-        const bi = topGaps.indexOf(b.category.toLowerCase());
-        return ai - bi;
-      })
-      .slice(0, 3);
-  }, [drills, needsWorkObs, queue]);
+
+    const focusCat = weeklyFocus?.category?.toLowerCase();
+
+    // Drills matching the weekly focus get the top slot (up to 1).
+    const focusDrills = focusCat
+      ? available.filter((d) => d.category.toLowerCase() === focusCat).slice(0, 1)
+      : [];
+
+    // Drills matching top skill gaps fill remaining slots (skip focus category
+    // if already represented so we don't duplicate).
+    const gapDrills = topGaps.length
+      ? available
+          .filter((d) => {
+            const cat = d.category.toLowerCase();
+            return topGaps.includes(cat) && cat !== focusCat;
+          })
+          .sort((a, b) => {
+            const ai = topGaps.indexOf(a.category.toLowerCase());
+            const bi = topGaps.indexOf(b.category.toLowerCase());
+            return ai - bi;
+          })
+          .slice(0, 3 - focusDrills.length)
+      : [];
+
+    return [...focusDrills, ...gapDrills].slice(0, 3);
+  }, [drills, needsWorkObs, queue, weeklyFocus]);
+
+  // ── Coaching phrase fallback ─────────────────────────────────────────────
+  // When the current drill has no teaching cues, surface a sport- and
+  // category-specific phrase from the static coaching-phrases library so
+  // coaches always have something concrete to SAY to players.
+
+  const fallbackCue = useMemo(() => {
+    const drill = queue[currentIdx];
+    if (!drill || drill.cues.length > 0) return null; // real cues available — no fallback needed
+    const nameLower = drill.name.toLowerCase();
+    // Infer a structural category from the drill name when no category is stored
+    let cat: string | undefined = drill.category;
+    if (!cat) {
+      if (nameLower.includes('warm')) cat = 'warmup';
+      else if (nameLower.includes('scrimmage') || nameLower.includes('game')) cat = 'scrimmage';
+    }
+    if (!hasPhrases(cat, sportSlug)) return null;
+    return getPhraseByIndex(cat, sportSlug, cueIdx);
+  }, [queue, currentIdx, cueIdx, sportSlug]);
 
   // ── Practice templates ───────────────────────────────────────────────────
   const availableTemplates = rankTemplates(
@@ -1612,6 +2161,7 @@ export default function PracticeTimerPage({
         saveSuccess={saveSuccess}
         coachName={coach?.full_name ?? undefined}
         teamName={activeTeam?.name ?? undefined}
+        newlyAwardedBadges={newlyAwardedBadges}
       />
     );
   }
@@ -1621,9 +2171,27 @@ export default function PracticeTimerPage({
     const drill = queue[currentIdx];
     const nextDrill = queue[currentIdx + 1];
     const capturedPlayerIds = new Set(notes.filter(n => n.playerId).map(n => n.playerId!));
+    // Build balanced groups for the next drill using obs history (already fetched).
+    const nextCategory = nextDrill?.category;
+    const obsForGrouping = recentObs.map((o) => ({
+      player_id: o.player_id,
+      category: o.category,
+      sentiment: o.sentiment,
+    }));
+    const playerGroups = nextDrill
+      ? buildGroupsForDrill(presentPlayers, nextCategory, obsForGrouping)
+      : undefined;
+    const hasData = nextDrill
+      ? hasSkillDataForGrouping(presentPlayers, nextCategory, obsForGrouping)
+      : false;
+    const groupsLabel = nextDrill
+      ? buildGroupingBasisLabel(nextCategory, hasData)
+      : undefined;
     return (
       <BreakScreen
         drillJustFinished={drill?.name ?? ''}
+        drillId={drill?.drillId}
+        teamId={activeTeam?.id}
         drillCategory={drill?.category}
         nextDrillName={nextDrill?.name}
         players={presentPlayers}
@@ -1631,6 +2199,8 @@ export default function PracticeTimerPage({
         onSkip={handleBreakSkip}
         capturedPlayerIds={capturedPlayerIds}
         lastObsByPlayer={lastObsByPlayer}
+        playerGroups={playerGroups}
+        groupsLabel={groupsLabel}
       />
     );
   }
@@ -1642,7 +2212,7 @@ export default function PracticeTimerPage({
     const progress = drill
       ? ((drill.durationSecs - timeLeft) / drill.durationSecs) * 100
       : 0;
-    const currentCue = drill?.cues[cueIdx];
+    const currentCue = drill?.cues[cueIdx] || fallbackCue;
     const isLowTime = timeLeft <= 30 && timeLeft > 0;
 
     return (
@@ -1691,6 +2261,13 @@ export default function PracticeTimerPage({
           />
         </div>
 
+        {/* Background compensation notice */}
+        {bgAdjustMsg && (
+          <div className="mx-5 mt-2 rounded-lg bg-amber-500/15 border border-amber-500/30 px-3 py-1.5 text-xs text-amber-400 text-center">
+            {bgAdjustMsg}
+          </div>
+        )}
+
         {/* Main content */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 gap-8">
           {/* Drill name */}
@@ -1712,6 +2289,24 @@ export default function PracticeTimerPage({
             >
               {fmt(timeLeft)}
             </span>
+          </div>
+
+          {/* Time adjustment buttons */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => handleAdjustTime(-60)}
+              className="flex items-center gap-1 rounded-full bg-zinc-800 hover:bg-zinc-700 active:scale-95 transition-all touch-manipulation px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200"
+              aria-label="Subtract 1 minute"
+            >
+              −1 min
+            </button>
+            <button
+              onClick={() => handleAdjustTime(120)}
+              className="flex items-center gap-1 rounded-full bg-zinc-800 hover:bg-zinc-700 active:scale-95 transition-all touch-manipulation px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200"
+              aria-label="Add 2 minutes"
+            >
+              +2 min
+            </button>
           </div>
 
           {/* Coaching cue */}
@@ -1889,6 +2484,20 @@ export default function PracticeTimerPage({
         </div>
       )}
 
+      {/* Weekly Focus banner */}
+      {weeklyFocus && (() => {
+        const cfg = getFocusCategoryConfig(weeklyFocus.category);
+        return cfg ? (
+          <div className="flex items-center gap-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-4 py-3 text-sm text-indigo-300">
+            <span className="text-base leading-none">{cfg.emoji}</span>
+            <span className="flex-1">
+              <span className="font-semibold">{cfg.label} Week</span>
+              <span className="text-indigo-400/70"> · drill suggestions prioritised for your focus</span>
+            </span>
+          </div>
+        ) : null;
+      })()}
+
       {/* Absent/unavailable players banner */}
       {absentPlayers.length > 0 && (
         <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-sm text-amber-300">
@@ -1901,6 +2510,50 @@ export default function PracticeTimerPage({
             </span>{' '}
             {absentPlayers.length === 1 ? 'is' : 'are'} marked unavailable and won&apos;t appear in your observation picker.
           </span>
+        </div>
+      )}
+
+      {/* From Last Session insights */}
+      {lastDebriefInsights && (
+        <div className="rounded-xl border border-indigo-700/30 bg-indigo-500/5 px-4 py-3 space-y-2">
+          <div className="flex items-center gap-1.5">
+            <BookOpen className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+            <span className="text-xs font-semibold text-indigo-300 uppercase tracking-wide">
+              From last session ·{' '}
+              {new Date(lastDebriefInsights.date + 'T00:00:00').toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+              })}
+            </span>
+          </div>
+          {lastDebriefInsights.focuses.length > 0 && (
+            <div className="space-y-1">
+              {lastDebriefInsights.focuses.map((f, i) => (
+                <div key={i} className="flex items-start gap-1.5 text-xs text-zinc-300">
+                  <ChevronRight className="h-3.5 w-3.5 text-indigo-400 shrink-0 mt-0.5" />
+                  <span>
+                    <span className="font-medium">{f.focus}</span>
+                    {f.suggested_drill && (
+                      <span className="text-zinc-500"> · try {f.suggested_drill}</span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {lastDebriefInsights.recurring.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+              <span className="text-xs text-zinc-600">Recurring:</span>
+              {lastDebriefInsights.recurring.map((skill) => (
+                <span
+                  key={skill}
+                  className="text-xs px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                >
+                  {skill}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -1918,6 +2571,69 @@ export default function PracticeTimerPage({
             {lastPracticeQueue.length} drill{lastPracticeQueue.length !== 1 ? 's' : ''} · {fmt(totalDuration(lastPracticeQueue))}
           </span>
         </button>
+      )}
+
+      {/* My Saved Templates */}
+      {queue.length === 0 && !planLoading && savedQueues.length > 0 && (
+        <div className="space-y-3">
+          <button
+            onClick={() => setShowSavedQueues((v) => !v)}
+            className="flex items-center gap-2 w-full rounded-xl border border-dashed border-orange-700/50 bg-orange-500/5 px-4 py-3 text-sm font-medium text-orange-400 hover:bg-orange-500/10 transition-colors"
+            aria-expanded={showSavedQueues}
+          >
+            <Save className="h-4 w-4 shrink-0" />
+            <span className="flex-1 text-left">My Saved Templates</span>
+            <span className="text-xs text-orange-600 font-normal">
+              {showSavedQueues ? 'Close' : `${savedQueues.length} saved`}
+            </span>
+          </button>
+
+          {showSavedQueues && (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 overflow-hidden">
+              <div className="divide-y divide-zinc-800">
+                {savedQueues.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="flex items-start gap-3 px-4 py-4 group"
+                  >
+                    <button
+                      onClick={() => handleLoadSavedQueue(entry)}
+                      className="flex-1 flex items-start gap-3 text-left hover:opacity-80 transition-opacity"
+                    >
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-500/15 group-hover:bg-orange-500/25 transition-colors mt-0.5">
+                        <Save className="h-4 w-4 text-orange-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-zinc-100">
+                            {entry.name}
+                          </span>
+                          <span className="text-xs text-zinc-500">
+                            {entry.items.length} drill{entry.items.length !== 1 ? 's' : ''} · {formatQueueDuration(entry.items)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-400 mt-0.5">
+                          {getQueuePreview(entry).join(' → ')}
+                          {entry.items.length > 3 ? ` +${entry.items.length - 3} more` : ''}
+                        </p>
+                        <p className="text-[10px] text-zinc-600 mt-1">
+                          Saved {formatSavedAt(entry.savedAt)}
+                        </p>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteSavedQueue(entry.id)}
+                      aria-label={`Delete ${entry.name} template`}
+                      className="shrink-0 text-zinc-700 hover:text-red-400 transition-colors mt-1"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Template Picker */}
@@ -1993,40 +2709,90 @@ export default function PracticeTimerPage({
             Drill Queue
           </h2>
           {queue.length > 0 && (
-            <span className="text-xs text-zinc-500">
-              Total: {fmt(totalDuration(queue))}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-zinc-500">
+                Total: {fmt(totalDuration(queue))}
+              </span>
+              <button
+                onClick={() => { setShowSaveForm((v) => !v); setSaveFormName(''); }}
+                aria-label="Save queue as template"
+                className="flex items-center gap-1 text-xs text-zinc-500 hover:text-orange-400 transition-colors"
+              >
+                <Save className="h-3.5 w-3.5" />
+                Save
+              </button>
+            </div>
           )}
         </div>
+
+        {showSaveForm && queue.length > 0 && (
+          <div className="flex items-center gap-2 rounded-xl border border-orange-500/30 bg-orange-500/5 px-3 py-2">
+            <input
+              type="text"
+              placeholder="Template name…"
+              value={saveFormName}
+              onChange={(e) => setSaveFormName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSaveQueue(); if (e.key === 'Escape') setShowSaveForm(false); }}
+              maxLength={60}
+              autoFocus
+              className="flex-1 bg-transparent text-sm text-zinc-200 placeholder-zinc-600 outline-none"
+            />
+            <button
+              onClick={handleSaveQueue}
+              disabled={!isValidQueueName(saveFormName)}
+              className="text-xs font-medium text-orange-400 hover:text-orange-300 disabled:opacity-40 disabled:cursor-default transition-colors"
+            >
+              Save
+            </button>
+            <button
+              onClick={() => setShowSaveForm(false)}
+              className="text-zinc-600 hover:text-zinc-400 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
         {queue.length === 0 ? (
           <div className="space-y-3">
             {suggestedDrills.length > 0 && (
               <>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                  Suggested for today · based on your team&apos;s skill gaps
+                  {weeklyFocus
+                    ? `Suggested for today · ${getFocusCategoryConfig(weeklyFocus.category)?.label ?? weeklyFocus.category} focus + skill gaps`
+                    : 'Suggested for today · based on your team’s skill gaps'}
                 </p>
                 <div className="flex flex-col gap-2">
-                  {suggestedDrills.map((drill) => (
+                  {suggestedDrills.map((drill) => {
+                    const isFocusDrill = weeklyFocus && drill.category.toLowerCase() === weeklyFocus.category.toLowerCase();
+                    return (
                     <button
                       key={drill.id}
                       onClick={() => addFromLibrary(drill)}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3 text-left hover:border-orange-500/30 hover:bg-zinc-800/60 transition-colors group touch-manipulation active:scale-[0.98]"
+                      className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left hover:bg-zinc-800/60 transition-colors group touch-manipulation active:scale-[0.98] ${isFocusDrill ? 'border-indigo-700/40 bg-indigo-500/5 hover:border-indigo-600/50' : 'border-zinc-800 bg-zinc-900/40 hover:border-orange-500/30'}`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 group-hover:bg-orange-500/20 transition-colors">
-                          <Target className="h-4 w-4 text-orange-400" />
+                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${isFocusDrill ? 'bg-indigo-500/15 group-hover:bg-indigo-500/25' : 'bg-orange-500/10 group-hover:bg-orange-500/20'}`}>
+                          <Target className={`h-4 w-4 ${isFocusDrill ? 'text-indigo-400' : 'text-orange-400'}`} />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-zinc-200 truncate">{drill.name}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-sm font-medium text-zinc-200 truncate">{drill.name}</p>
+                            {isFocusDrill && (
+                              <span className="shrink-0 rounded-full bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-indigo-400 border border-indigo-500/30">
+                                Focus
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-zinc-500">
                             {drill.category} · {drill.duration_minutes ?? 10} min
                           </p>
                         </div>
                       </div>
-                      <Plus className="h-4 w-4 text-zinc-600 group-hover:text-orange-400 shrink-0 transition-colors" />
+                      <Plus className={`h-4 w-4 shrink-0 transition-colors ${isFocusDrill ? 'text-indigo-500 group-hover:text-indigo-300' : 'text-zinc-600 group-hover:text-orange-400'}`} />
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}
@@ -2106,38 +2872,73 @@ export default function PracticeTimerPage({
 
         {showDrillPicker && (
           <div className="border border-zinc-800 rounded-xl bg-zinc-900/50 overflow-hidden">
-            <div className="p-3 border-b border-zinc-800">
+            <div className="p-3 border-b border-zinc-800 space-y-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
                 <Input
                   placeholder="Search drills…"
                   value={drillSearch}
-                  onChange={(e) => setDrillSearch(e.target.value)}
+                  onChange={(e) => { setDrillSearch(e.target.value); setShowFavoritesOnly(false); }}
                   className="pl-9 h-9 text-sm bg-zinc-800 border-zinc-700"
                   autoFocus
                 />
               </div>
+              {favoriteIds.length > 0 && (
+                <button
+                  onClick={() => { setShowFavoritesOnly((v) => !v); setDrillSearch(''); }}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors touch-manipulation ${
+                    showFavoritesOnly
+                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                      : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-amber-500/40 hover:text-amber-400'
+                  }`}
+                >
+                  <Star className={`h-3 w-3 ${showFavoritesOnly ? 'fill-amber-400 text-amber-400' : 'text-zinc-500'}`} />
+                  Favorites ({favoriteIds.length})
+                </button>
+              )}
             </div>
             <div className="max-h-60 overflow-y-auto divide-y divide-zinc-800">
               {filteredDrills.length === 0 ? (
-                <p className="text-sm text-zinc-500 p-4 text-center">No drills found</p>
+                <p className="text-sm text-zinc-500 p-4 text-center">
+                  {showFavoritesOnly ? 'No favorites yet — star drills in the Drill Library' : 'No drills found'}
+                </p>
               ) : (
-                filteredDrills.slice(0, 30).map((drill) => (
-                  <button
-                    key={drill.id}
-                    onClick={() => addFromLibrary(drill)}
-                    className="flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-zinc-800 transition-colors group"
-                  >
-                    <Dumbbell className="h-4 w-4 text-zinc-600 group-hover:text-orange-500 transition-colors shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-zinc-200 truncate">{drill.name}</p>
-                      <p className="text-xs text-zinc-500">{drill.category}</p>
-                    </div>
-                    <span className="text-xs text-zinc-600 shrink-0">
-                      {drill.duration_minutes ?? 10} min
-                    </span>
-                  </button>
-                ))
+                filteredDrills.slice(0, 30).map((drill) => {
+                  const starred = isFavorited(drill.id, favoriteIds);
+                  const rating = activeTeam?.id ? getDrillRating(activeTeam.id, drill.id) : null;
+                  const runRecord = activeTeam?.id ? getDrillRunRecord(activeTeam.id, drill.id) : null;
+                  return (
+                    <button
+                      key={drill.id}
+                      onClick={() => addFromLibrary(drill)}
+                      className="flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-zinc-800 transition-colors group"
+                    >
+                      {starred ? (
+                        <Star className="h-4 w-4 fill-amber-400 text-amber-400 shrink-0" />
+                      ) : rating === 'up' ? (
+                        <span className="shrink-0 text-base leading-none" aria-label="Works for your team">👍</span>
+                      ) : rating === 'down' ? (
+                        <span className="shrink-0 text-base leading-none opacity-40" aria-label="Needs adjustment">👎</span>
+                      ) : (
+                        <Dumbbell className="h-4 w-4 text-zinc-600 group-hover:text-orange-500 transition-colors shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm truncate ${rating === 'down' ? 'text-zinc-500' : 'text-zinc-200'}`}>{drill.name}</p>
+                        <p className="text-xs text-zinc-500">
+                          {drill.category}
+                          {runRecord && (
+                            <span className="ml-1.5 text-zinc-600">
+                              · {formatLastRun(runRecord.lastUsedAt)} · {buildRunCountLabel(runRecord.count)}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <span className="text-xs text-zinc-600 shrink-0">
+                        {drill.duration_minutes ?? 10} min
+                      </span>
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>
