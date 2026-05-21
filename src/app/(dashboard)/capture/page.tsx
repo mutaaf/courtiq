@@ -54,8 +54,8 @@ export default function CapturePage() {
     setUrlPlayerId(params.get('playerId') || params.get('player'));
     // `player` param carries the display name when coming from coverage grid
     const playerParam = params.get('player');
-    if (playerParam && !playerParam.includes('-')) {
-      // heuristic: UUIDs contain hyphens; a plain name doesn't
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (playerParam && !UUID_RE.test(playerParam)) {
       setUrlPlayerName(playerParam);
       // On mobile (<640px), auto-open the quick note so the coach can type immediately
       if (typeof window !== 'undefined' && window.innerWidth < 640) {
