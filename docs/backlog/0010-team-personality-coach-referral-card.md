@@ -1,7 +1,7 @@
 ---
 id: 0010
 title: Make the Team Personality card a public, coach-to-coach referral surface
-status: proposed
+status: in-progress
 priority: P2
 area: growth
 created: 2026-05-21
@@ -95,4 +95,22 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-05-21 [implementation-dev] Started on `feat/0010-team-card-referral-surface`.
+  Interpretation / reconciliations against the live code (verified by reading the
+  named files before writing):
+  - `plans_type_check` ALREADY allows `'team_personality'` (added in
+    `034_plans_type_check_align.sql`, ticket 0009). No constraint change needed.
+  - `makeReferralCode` lives privately inside `src/app/api/referrals/route.ts`.
+    Per the engineering notes, extracting it to a shared module
+    (`src/lib/referral-code.ts`) and having both `/api/referrals` and the new
+    public team-card GET import it, rather than duplicating the algorithm.
+  - The new public read goes through the dedicated `/api/team-card/[token]` route,
+    so `team_card_shares` is NOT added to the `/api/data` allow-lists (no client
+    read path needed — matches the engineering note's "may be unnecessary").
+  - COPPA: the public GET returns ONLY team-level `content_structured` fields
+    (team_type, type_emoji, tagline, description, traits, strengths, growth_areas,
+    coaching_tips, team_motto) + team name + referrer code. `sampleObservations`
+    and every per-player field are stripped server-side; a vitest asserts they
+    never appear in the response.
+  - Ungated by ticket decision (growth surface) — no `feature_*` key, no
+    `<UpgradeGate>`.
