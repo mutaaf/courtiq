@@ -20,7 +20,15 @@ insert into sports (
   '{"Serving","Platform Passing","Setting","Attacking","Blocking","Defense","Conditioning","Team Play","Fun Games"}',
   '[{"key":"kills","label":"Kills","type":"number"},{"key":"aces","label":"Aces","type":"number"},{"key":"assists","label":"Assists","type":"number"},{"key":"digs","label":"Digs","type":"number"},{"key":"blocks","label":"Blocks","type":"number"},{"key":"errors","label":"Errors","type":"number"}]',
   false,
-  '{"bump":"Forearm Pass","dig":"Emergency Dig","set":"Overhead Set","kill":"Kill","ace":"Ace","stuff":"Stuff Block","seam":"Seam","pipe":"Pipe","overset":"Overset","libero":"Libero"}'
+  '{"bump":"Forearm Pass","dig":"Emergency Dig","set":"Overhead Set","kill":"Kill","ace":"Ace","stuff":"Stuff Block","seam":"Seam","pipe":"Pipe","overset":"Overset","libero":"Libero"}',
+  -- plan_templates + default_curriculum_config: the column list above names 12
+  -- columns but only 11 values were provided, so `supabase start` failed with
+  -- "INSERT has more target columns than expressions" (SQLSTATE 42601). It
+  -- never surfaced before because no environment applied the migrations against
+  -- a fresh DB until ticket 0006 wired up `supabase start` in CI. Default both
+  -- to '{}' to match the basketball seed in 003_sport_seeds.sql.
+  '{}',
+  '{}'
 ) on conflict (slug) do nothing;
 
 -- ── Drill seeds — 26 drills across all categories ────────────────────────────

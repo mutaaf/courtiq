@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
@@ -55,6 +55,8 @@ import {
   Fingerprint,
   Mic,
   Award,
+  Mail,
+  Heart,
 } from 'lucide-react';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { PrintButton } from '@/components/ui/print-button';
@@ -63,6 +65,7 @@ import type { Plan, Player, PlanType, Session } from '@/types/database';
 import type { ObservationInsights } from '@/app/api/ai/plan/route';
 import { getCategoryLabel, getCategoryColor } from '@/lib/coach-reflection-utils';
 import { trackEvent } from '@/lib/analytics';
+import { getSportEmoji } from '@/lib/sport-utils';
 
 const PLAN_TYPE_CONFIG: Record<
   string,
@@ -91,13 +94,27 @@ const PLAN_TYPE_CONFIG: Record<
   practice_arc: { label: 'Practice Series', icon: Zap, color: 'text-sky-400' },
   player_of_match: { label: 'Player of the Match', icon: Award, color: 'text-yellow-400' },
   team_talk: { label: 'Team Talk', icon: Mic, color: 'text-orange-400' },
+  season_letter: { label: 'Season Letter', icon: Mail, color: 'text-pink-400' },
 };
 
-const SUGGESTION_CHIPS = [
-  '60-min practice',
-  'Game day sheet',
-  'Ball handling drills',
-];
+function getSuggestionChips(sportSlug: string): string[] {
+  switch (sportSlug) {
+    case 'soccer':
+      return ['60-min practice', 'Game day sheet', 'Passing & movement drills'];
+    case 'volleyball':
+      return ['60-min practice', 'Game day sheet', 'Serving & passing drills'];
+    case 'flag_football':
+      return ['60-min practice', 'Game day sheet', 'Route running drills'];
+    case 'baseball':
+      return ['60-min practice', 'Game day sheet', 'Hitting & fielding drills'];
+    case 'lacrosse':
+      return ['60-min practice', 'Game day sheet', 'Stick skills drills'];
+    case 'tennis':
+      return ['60-min practice', 'Match prep sheet', 'Groundstroke drills'];
+    default:
+      return ['60-min practice', 'Game day sheet', 'Ball handling drills'];
+  }
+}
 
 function PlayerMsgItem({ msg }: { msg: { player_name: string; message: string; highlight: string; next_focus: string } }) {
   const [copied, setCopied] = useState(false);
@@ -175,12 +192,12 @@ interface TeamGroupMessageData {
   next_session_note?: string;
 }
 
-function TeamGroupMessageRenderer({ data }: { data: TeamGroupMessageData }) {
+function TeamGroupMessageRenderer({ data, sportSlug }: { data: TeamGroupMessageData; sportSlug?: string }) {
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState(false);
 
   const fullText = [
-    data.session_label ? `🏀 ${data.session_label}` : '',
+    data.session_label ? `${getSportEmoji(sportSlug)} ${data.session_label}` : '',
     '',
     data.message,
     data.coaching_focus?.length ? `\nToday we focused on: ${data.coaching_focus.join(', ')}` : '',
@@ -381,8 +398,124 @@ function HuddleScriptRenderer({ data }: { data: HuddleScriptData }) {
   );
 }
 
+interface SeasonLetterData {
+  player_name: string;
+  season_label: string;
+  letter: string;
+  highlight_moment: string;
+  growth_note: string;
+  off_season_challenge: string;
+  coach_name: string;
+}
+
+function SeasonLetterRenderer({ data }: { data: SeasonLetterData }) {
+  const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState(false);
+
+  const fullText = [
+    `Dear ${data.player_name}'s Family,`,
+    '',
+    data.letter,
+    '',
+    `Warmly,`,
+    data.coach_name,
+  ].join('\n');
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(fullText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  }
+
+  async function handleShare() {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: `Season Letter for ${data.player_name}`, text: fullText });
+      } else {
+        await navigator.clipboard.writeText(fullText);
+      }
+      setShared(true);
+      setTimeout(() => setShared(false), 2000);
+    } catch { /* ignore */ }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="text-center space-y-1 pb-4 border-b border-zinc-800">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <Mail className="h-5 w-5 text-pink-400" />
+          <span className="text-xs font-semibold uppercase tracking-widest text-pink-400">Season Letter</span>
+        </div>
+        <p className="text-sm font-semibold text-zinc-200">{data.player_name}</p>
+        <p className="text-xs text-zinc-500">{data.season_label}</p>
+      </div>
+
+      {/* The Letter */}
+      <div className="rounded-xl border border-pink-500/20 bg-pink-500/5 p-5">
+        <p className="text-xs font-semibold uppercase tracking-wider text-pink-300 mb-3">Personal Letter</p>
+        <p className="text-sm text-zinc-300 font-medium mb-3">Dear {data.player_name}&apos;s Family,</p>
+        <div className="text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap">{data.letter}</div>
+        <p className="text-sm text-zinc-400 mt-4 italic">Warmly, {data.coach_name}</p>
+      </div>
+
+      {/* Highlight Moment */}
+      <div className="flex items-start gap-2 rounded-xl bg-amber-500/8 border border-amber-500/20 p-4">
+        <Heart className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+        <div>
+          <p className="text-xs font-medium text-amber-300 mb-1">Season Highlight</p>
+          <p className="text-sm text-zinc-300">{data.highlight_moment}</p>
+        </div>
+      </div>
+
+      {/* Growth Note */}
+      <div className="flex items-start gap-2 rounded-xl bg-emerald-500/8 border border-emerald-500/20 p-4">
+        <TrendingUp className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
+        <div>
+          <p className="text-xs font-medium text-emerald-300 mb-1">Growth This Season</p>
+          <p className="text-sm text-zinc-300">{data.growth_note}</p>
+        </div>
+      </div>
+
+      {/* Off-Season Challenge */}
+      <div className="flex items-start gap-2 rounded-xl bg-blue-500/8 border border-blue-500/20 p-4">
+        <Target className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
+        <div>
+          <p className="text-xs font-medium text-blue-300 mb-1">Off-Season Challenge</p>
+          <p className="text-sm text-zinc-300">{data.off_season_challenge}</p>
+        </div>
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 gap-2 border-pink-500/30 text-pink-300 hover:bg-pink-500/10"
+          onClick={handleCopy}
+          aria-label="Copy letter to clipboard"
+        >
+          {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+          {copied ? 'Copied!' : 'Copy Letter'}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 gap-2 border-pink-500/30 text-pink-300 hover:bg-pink-500/10"
+          onClick={handleShare}
+          aria-label="Share letter"
+        >
+          {shared ? <Check className="h-4 w-4 text-emerald-400" /> : <Share2 className="h-4 w-4" />}
+          {shared ? 'Sent!' : 'Send to Parent'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function PlansPage() {
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
   const router = useRouter();
   const { canAccess } = useTier();
   const canUseGameDayPrep = canAccess('tendencies');
@@ -434,6 +567,13 @@ export default function PlansPage() {
   const [generatingWeeklyStar, setGeneratingWeeklyStar] = useState(false);
   const [weeklyStarCopied, setWeeklyStarCopied] = useState(false);
 
+  // Season Letter state
+  const [generatingSeasonLetter, setGeneratingSeasonLetter] = useState(false);
+  const [seasonLetterPlayerId, setSeasonLetterPlayerId] = useState<string>('');
+  const [seasonLetterStats, setSeasonLetterStats] = useState<{ playerName: string; totalObservations: number; summaryLabel: string } | null>(null);
+  const [letterCopied, setLetterCopied] = useState(false);
+  const [letterShared, setLetterShared] = useState(false);
+
   // Practice Arc state
   const [showArcForm, setShowArcForm] = useState(false);
   const [generatingArc, setGeneratingArc] = useState(false);
@@ -451,6 +591,9 @@ export default function PlansPage() {
   // When running a specific arc session, this holds its 0-based index.
   const [arcSessionForRun, setArcSessionForRun] = useState<number | null>(null);
 
+  const searchParams = useSearchParams();
+  const autoRunTriggeredRef = useRef(false);
+
   const { data: plans, isLoading, refetch: refetchPlans } = useQuery({
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
     queryFn: async () => {
@@ -466,6 +609,21 @@ export default function PlansPage() {
     enabled: !!activeTeam,
     ...CACHE_PROFILES.plans,
   });
+
+  // Deep-link handler: /plans?arcPlanId=...&arcSession=... auto-opens session picker
+  useEffect(() => {
+    if (autoRunTriggeredRef.current || !plans?.length) return;
+    const arcPlanId = searchParams.get('arcPlanId');
+    const arcSessionParam = searchParams.get('arcSession');
+    if (!arcPlanId || arcSessionParam === null) return;
+    const plan = plans.find((p) => p.id === arcPlanId);
+    if (!plan) return;
+    autoRunTriggeredRef.current = true;
+    const sessionIdx = parseInt(arcSessionParam, 10);
+    setSelectedPlan(plan);
+    setArcSessionForRun(isNaN(sessionIdx) ? null : sessionIdx);
+    setShowRunModal(true);
+  }, [plans, searchParams]);
 
   const { data: players } = useQuery({
     queryKey: queryKeys.players.all(activeTeam?.id || ''),
@@ -638,6 +796,32 @@ export default function PlansPage() {
       setError(err instanceof Error ? err.message : 'Season storyline generation failed');
     } finally {
       setGeneratingStoryline(false);
+    }
+  };
+
+  const generateSeasonLetter = async () => {
+    if (!activeTeam || !seasonLetterPlayerId) return;
+    setGeneratingSeasonLetter(true);
+    setError(null);
+    setSeasonLetterStats(null);
+    try {
+      const res = await fetch('/api/ai/season-letter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id, playerId: seasonLetterPlayerId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate season letter');
+      }
+      const data = await res.json();
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      setSelectedPlan(data.plan);
+      if (data.stats) setSeasonLetterStats(data.stats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Season letter generation failed');
+    } finally {
+      setGeneratingSeasonLetter(false);
     }
   };
 
@@ -2438,6 +2622,16 @@ export default function PlansPage() {
       );
     }
 
+    // Season Letter renderer
+    if (
+      typeof structured.letter === 'string' &&
+      typeof structured.highlight_moment === 'string' &&
+      typeof structured.growth_note === 'string' &&
+      typeof structured.off_season_challenge === 'string'
+    ) {
+      return <SeasonLetterRenderer data={structured as any} />;
+    }
+
     // Huddle Script renderer
     if (
       typeof structured.huddle_script === 'string' &&
@@ -2563,7 +2757,7 @@ export default function PlansPage() {
                 `Strengths: ${Array.isArray(personality.strengths) ? personality.strengths.join(', ') : ''}`,
                 `Working on: ${Array.isArray(personality.growth_areas) ? personality.growth_areas.join(', ') : ''}`,
                 '',
-                'Powered by SportsIQ 🏀',
+                `Powered by SportsIQ ${getSportEmoji(sportSlug)}`,
               ].join('\n');
               try {
                 if (navigator.share) {
@@ -2595,7 +2789,7 @@ export default function PlansPage() {
       !Array.isArray(structured.messages)
     ) {
       return (
-        <TeamGroupMessageRenderer data={structured as any} />
+        <TeamGroupMessageRenderer data={structured as any} sportSlug={sportSlug} />
       );
     }
 
@@ -2829,7 +3023,7 @@ export default function PlansPage() {
       <div className="p-4 lg:p-8 space-y-6 max-w-3xl mx-auto">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => setSelectedPlan(null)}>
+            <Button variant="ghost" size="icon" onClick={() => setSelectedPlan(null)} aria-label="Close plan">
               <X className="h-5 w-5" />
             </Button>
             <div>
@@ -2864,6 +3058,7 @@ export default function PlansPage() {
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Delete plan"
               className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
               onClick={() => {
                 if (confirm('Delete this plan? This cannot be undone.')) {
@@ -3036,6 +3231,7 @@ export default function PlansPage() {
               onClick={() => generateFromPrompt(prompt)}
               disabled={!prompt.trim() || generating || !activeTeam}
               size="icon"
+              aria-label="Generate plan"
               className="h-11 w-11 shrink-0 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-30"
             >
               {generating ? (
@@ -3292,6 +3488,51 @@ export default function PlansPage() {
               </div>
             </div>
 
+            {/* Season Letter — personal letter to each player's family */}
+            <div className="rounded-xl border border-pink-500/40 bg-gradient-to-r from-pink-500/15 to-pink-500/5 p-3 space-y-2.5">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-pink-500/25">
+                  <Mail className="h-4 w-4 text-pink-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-pink-300">Season Letter</p>
+                  <p className="text-xs text-zinc-500">Personal end-of-season letter to a player&apos;s family — heartfelt, shareable</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <select
+                    value={seasonLetterPlayerId}
+                    onChange={(e) => setSeasonLetterPlayerId(e.target.value)}
+                    disabled={generatingSeasonLetter || !activeTeam}
+                    className="w-full appearance-none rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 pr-8 focus:outline-none focus:border-pink-500/50 disabled:opacity-50"
+                  >
+                    <option value="">Select a player...</option>
+                    {players?.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                </div>
+                <Button
+                  onClick={generateSeasonLetter}
+                  disabled={!seasonLetterPlayerId || generatingSeasonLetter || !activeTeam}
+                  className="h-9 rounded-lg bg-pink-600 hover:bg-pink-500 text-white text-sm font-medium disabled:opacity-30 shrink-0"
+                >
+                  {generatingSeasonLetter ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    'Generate'
+                  )}
+                </Button>
+              </div>
+              {seasonLetterStats && (
+                <p className="text-xs text-pink-400/80">
+                  ✓ Letter for {seasonLetterStats.playerName} — {seasonLetterStats.summaryLabel}
+                </p>
+              )}
+            </div>
+
             {/* Game Day Prep — scouting-based */}
             <div className={`rounded-xl border overflow-hidden ${canUseGameDayPrep ? 'border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 to-emerald-500/5' : 'border-zinc-700 bg-zinc-900/40'}`}>
               <button
@@ -3506,7 +3747,7 @@ export default function PlansPage() {
 
             {/* Generic suggestion chips */}
             <div className="flex flex-wrap gap-2">
-              {SUGGESTION_CHIPS.map((chip) => (
+              {getSuggestionChips(sportSlug).map((chip) => (
                 <button
                   key={chip}
                   onClick={() => handleChipClick(chip)}

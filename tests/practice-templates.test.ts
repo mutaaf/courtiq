@@ -16,8 +16,6 @@ import {
   scaleTemplateDuration,
 } from '../src/lib/practice-templates';
 
-// ─── Registry ────────────────────────────────────────────────────────────────
-
 describe('PRACTICE_TEMPLATES registry', () => {
   it('exports at least 5 templates', () => {
     expect(PRACTICE_TEMPLATES.length).toBeGreaterThanOrEqual(5);
@@ -72,8 +70,6 @@ describe('PRACTICE_TEMPLATES registry', () => {
   });
 });
 
-// ─── getTemplatesForSport ────────────────────────────────────────────────────
-
 describe('getTemplatesForSport', () => {
   it('returns basketball templates for basketball', () => {
     const result = getTemplatesForSport('basketball');
@@ -91,8 +87,19 @@ describe('getTemplatesForSport', () => {
   });
 
   it('returns generic templates for an unknown sport', () => {
-    const result = getTemplatesForSport('lacrosse');
+    const result = getTemplatesForSport('underwater-hockey');
     expect(result.every((t) => t.sport === '')).toBe(true);
+  });
+
+  it('returns lacrosse templates for lacrosse', () => {
+    const result = getTemplatesForSport('lacrosse');
+    expect(result.some((t) => t.sport === 'lacrosse')).toBe(true);
+  });
+
+  it('returns multiple lacrosse templates', () => {
+    const result = getTemplatesForSport('lacrosse');
+    const sportSpecific = result.filter((t) => t.sport === 'lacrosse');
+    expect(sportSpecific.length).toBeGreaterThanOrEqual(2);
   });
 
   it('is case-insensitive', () => {
@@ -105,9 +112,50 @@ describe('getTemplatesForSport', () => {
     const result = getTemplatesForSport('basketball');
     expect(result.some((t) => t.sport === 'soccer')).toBe(false);
   });
-});
 
-// ─── getTemplateById ─────────────────────────────────────────────────────────
+  it('returns volleyball templates for volleyball', () => {
+    const result = getTemplatesForSport('volleyball');
+    expect(result.some((t) => t.sport === 'volleyball')).toBe(true);
+  });
+
+  it('returns flagfootball templates for flagfootball', () => {
+    const result = getTemplatesForSport('flagfootball');
+    expect(result.some((t) => t.sport === 'flag_football')).toBe(true);
+  });
+
+  it('returns multiple flagfootball templates', () => {
+    const result = getTemplatesForSport('flagfootball');
+    const sportSpecific = result.filter((t) => t.sport === 'flag_football');
+    expect(sportSpecific.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('returns multiple volleyball templates', () => {
+    const result = getTemplatesForSport('volleyball');
+    const sportSpecific = result.filter((t) => t.sport === 'volleyball');
+    expect(sportSpecific.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('returns baseball templates for baseball', () => {
+    const result = getTemplatesForSport('baseball');
+    expect(result.some((t) => t.sport === 'baseball')).toBe(true);
+  });
+
+  it('returns multiple baseball templates', () => {
+    const result = getTemplatesForSport('baseball');
+    const sportSpecific = result.filter((t) => t.sport === 'baseball');
+    expect(sportSpecific.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('returns baseball templates for softball (shared drills)', () => {
+    const result = getTemplatesForSport('softball');
+    expect(result.some((t) => t.sport === 'baseball')).toBe(true);
+  });
+
+  it('softball templates include the generic first-practice template', () => {
+    const result = getTemplatesForSport('softball');
+    expect(result.some((t) => t.sport === '')).toBe(true);
+  });
+});
 
 describe('getTemplateById', () => {
   it('finds a template by id', () => {
@@ -130,9 +178,49 @@ describe('getTemplateById', () => {
     expect(result).toBeDefined();
     expect(result?.sport).toBe('');
   });
-});
 
-// ─── getTotalMinutes ─────────────────────────────────────────────────────────
+  it('finds volleyball-u12 template', () => {
+    const result = getTemplateById('vball-u12-45');
+    expect(result).toBeDefined();
+    expect(result?.sport).toBe('volleyball');
+  });
+
+  it('finds volleyball-u16 template', () => {
+    const result = getTemplateById('vball-u16-60');
+    expect(result).toBeDefined();
+    expect(result?.sport).toBe('volleyball');
+  });
+
+  it('finds flag-football-u8 template', () => {
+    const result = getTemplateById('ffb-u8-30');
+    expect(result).toBeDefined();
+    expect(result?.sport).toBe('flag_football');
+  });
+
+  it('finds flag-football-u12 template', () => {
+    const result = getTemplateById('ffb-u12-45');
+    expect(result).toBeDefined();
+    expect(result?.sport).toBe('flag_football');
+  });
+
+  it('finds flag-football-u16 template', () => {
+    const result = getTemplateById('ffb-u16-60');
+    expect(result).toBeDefined();
+    expect(result?.sport).toBe('flag_football');
+  });
+
+  it('finds baseball-fundamentals template', () => {
+    const result = getTemplateById('baseball-fundamentals-30');
+    expect(result).toBeDefined();
+    expect(result?.sport).toBe('baseball');
+  });
+
+  it('finds baseball-skills template', () => {
+    const result = getTemplateById('baseball-skills-45');
+    expect(result).toBeDefined();
+    expect(result?.sport).toBe('baseball');
+  });
+});
 
 describe('getTotalMinutes', () => {
   it('sums up all drill durations', () => {
@@ -153,8 +241,6 @@ describe('getTotalMinutes', () => {
   });
 });
 
-// ─── getDrillCount ───────────────────────────────────────────────────────────
-
 describe('getDrillCount', () => {
   it('returns the number of drills', () => {
     PRACTICE_TEMPLATES.forEach((t) => {
@@ -162,8 +248,6 @@ describe('getDrillCount', () => {
     });
   });
 });
-
-// ─── matchesAgeGroup ─────────────────────────────────────────────────────────
 
 describe('matchesAgeGroup', () => {
   it('returns true when ageGroup is empty', () => {
@@ -207,9 +291,42 @@ describe('matchesAgeGroup', () => {
       expect(matchesAgeGroup(template, ag)).toBe(true);
     });
   });
-});
 
-// ─── rankTemplates ────────────────────────────────────────────────────────────
+  it('volleyball U12 template matches age U10', () => {
+    const template = getTemplateById('vball-u12-45')!;
+    expect(matchesAgeGroup(template, 'U10')).toBe(true);
+  });
+
+  it('volleyball U16 template matches age U15', () => {
+    const template = getTemplateById('vball-u16-60')!;
+    expect(matchesAgeGroup(template, 'U15')).toBe(true);
+  });
+
+  it('volleyball U16 template does not match age U8', () => {
+    const template = getTemplateById('vball-u16-60')!;
+    expect(matchesAgeGroup(template, 'U8')).toBe(false);
+  });
+
+  it('flag football U8 template matches age U7', () => {
+    const template = getTemplateById('ffb-u8-30')!;
+    expect(matchesAgeGroup(template, 'U7')).toBe(true);
+  });
+
+  it('flag football U8 template does not match age U10', () => {
+    const template = getTemplateById('ffb-u8-30')!;
+    expect(matchesAgeGroup(template, 'U10')).toBe(false);
+  });
+
+  it('flag football U12 template matches age U11', () => {
+    const template = getTemplateById('ffb-u12-45')!;
+    expect(matchesAgeGroup(template, 'U11')).toBe(true);
+  });
+
+  it('flag football U16 template matches age U14', () => {
+    const template = getTemplateById('ffb-u16-60')!;
+    expect(matchesAgeGroup(template, 'U14')).toBe(true);
+  });
+});
 
 describe('rankTemplates', () => {
   it('returns all provided templates', () => {
@@ -235,8 +352,6 @@ describe('rankTemplates', () => {
   });
 });
 
-// ─── hasSufficientCues ───────────────────────────────────────────────────────
-
 describe('hasSufficientCues', () => {
   it('returns true for templates that have cues on every drill', () => {
     PRACTICE_TEMPLATES.forEach((t) => {
@@ -252,8 +367,6 @@ describe('hasSufficientCues', () => {
     expect(hasSufficientCues(template)).toBe(false);
   });
 });
-
-// ─── buildTemplateLabel ───────────────────────────────────────────────────────
 
 describe('buildTemplateLabel', () => {
   it('includes template name', () => {
@@ -271,8 +384,6 @@ describe('buildTemplateLabel', () => {
     expect(buildTemplateLabel(t)).toContain('·');
   });
 });
-
-// ─── buildTemplateSummary ────────────────────────────────────────────────────
 
 describe('buildTemplateSummary', () => {
   it('includes drill count', () => {
@@ -297,8 +408,6 @@ describe('buildTemplateSummary', () => {
   });
 });
 
-// ─── filterByTag ─────────────────────────────────────────────────────────────
-
 describe('filterByTag', () => {
   it('returns templates matching the tag', () => {
     const result = filterByTag(PRACTICE_TEMPLATES, 'beginner');
@@ -318,8 +427,6 @@ describe('filterByTag', () => {
     expect(lower.length).toBe(upper.length);
   });
 });
-
-// ─── getAllTags ───────────────────────────────────────────────────────────────
 
 describe('getAllTags', () => {
   it('returns a sorted array of unique tags', () => {
@@ -342,8 +449,6 @@ describe('getAllTags', () => {
   });
 });
 
-// ─── templateFitsSession ─────────────────────────────────────────────────────
-
 describe('templateFitsSession', () => {
   it('returns true when available time equals template duration', () => {
     const t = getTemplateById('bball-u8-30')!;
@@ -361,14 +466,11 @@ describe('templateFitsSession', () => {
   });
 });
 
-// ─── scaleTemplateDuration ───────────────────────────────────────────────────
-
 describe('scaleTemplateDuration', () => {
   it('scales total duration to the target', () => {
     const t = getTemplateById('bball-u12-45')!;
     const scaled = scaleTemplateDuration(t, 30);
     const total = scaled.drills.reduce((s, d) => s + d.durationMins, 0);
-    // Allow ±1 min rounding error from integer rounding
     expect(Math.abs(total - 30)).toBeLessThanOrEqual(2);
   });
 

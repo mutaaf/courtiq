@@ -17,10 +17,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Drill, Observation } from '@/types/database';
 import { isFavorited, filterToFavorites, parseFavoritedDrills } from '@/lib/drill-favorites-utils';
-
-const DRILL_CATEGORIES = [
-  'Offense', 'Defense', 'Conditioning', 'Fundamentals', 'Passing', 'Shooting', 'Dribbling', 'Teamwork',
-];
+import { getDrillBuilderCategories, getDrillBuilderExamples } from '@/lib/sport-utils';
 
 const DURATION_OPTIONS = [
   { label: 'Any', value: null },
@@ -31,7 +28,7 @@ const DURATION_OPTIONS = [
 ];
 
 export default function DrillsPage() {
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, sportSlug } = useActiveTeam();
   const router = useRouter();
   const qc = useQueryClient();
   const searchParams = useSearchParams();
@@ -635,7 +632,7 @@ export default function DrillsPage() {
                     Category <span className="text-zinc-500 font-normal">(optional)</span>
                   </label>
                   <div className="flex flex-wrap gap-1.5">
-                    {DRILL_CATEGORIES.map((cat) => (
+                    {getDrillBuilderCategories(sportSlug).map((cat) => (
                       <button
                         key={cat}
                         onClick={() => setBuilderCategory(builderCategory === cat ? '' : cat)}
@@ -686,11 +683,7 @@ export default function DrillsPage() {
                   <div className="space-y-1.5">
                     <p className="text-xs text-zinc-500">Example prompts:</p>
                     <div className="flex flex-col gap-1.5">
-                      {[
-                        'A passing drill for 3-5 players that builds accuracy and communication',
-                        'Defensive footwork exercise using cones, 10 minutes, intermediate level',
-                        'Fun shooting competition game for 8 players, ages 10-12',
-                      ].map((example) => (
+                      {getDrillBuilderExamples(sportSlug).map((example) => (
                         <button
                           key={example}
                           onClick={() => setBuilderDesc(example)}

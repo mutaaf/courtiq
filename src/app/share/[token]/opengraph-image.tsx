@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+import { buildSpotlightPreview } from '@/lib/player-spotlight-utils';
 
 export const runtime = 'nodejs';
 export const alt = "Player Progress Report — SportsIQ";
@@ -34,6 +35,14 @@ export default async function ShareOGImage({
     (s: any) => s.proficiency_level === 'got_it' || s.proficiency_level === 'game_ready'
   ).length;
   const accentColor: string = data?.branding?.primary_color || '#F97316';
+
+  // Ticket 0013: when this player has a well-formed spotlight, the preview leads
+  // with the celebratory artifact instead of the generic Progress Report card.
+  // buildSpotlightPreview() returns null for a null/malformed spotlight, so the
+  // generic layout below renders unchanged — the preview never breaks the link.
+  // COPPA: the preview carries ONLY the first name + coach headline (+ the
+  // derived label); no last name, jersey, or roster on the public card.
+  const spotlight = buildSpotlightPreview(data?.playerSpotlight, playerName);
 
   // Waveform bars — deterministic visual accent
   const bars = [
@@ -144,58 +153,109 @@ export default async function ShareOGImage({
                 marginLeft: 8,
                 padding: '5px 14px',
                 borderRadius: 9999,
-                border: '1px solid rgba(255,255,255,0.12)',
+                border: spotlight ? `1px solid ${accentColor}55` : '1px solid rgba(255,255,255,0.12)',
+                background: spotlight ? `${accentColor}1f` : 'transparent',
                 fontSize: 13,
-                color: '#71717a',
+                color: spotlight ? accentColor : '#71717a',
                 letterSpacing: '0.05em',
+                fontWeight: spotlight ? 700 : 400,
                 display: 'flex',
               }}
             >
-              Progress Report
+              {spotlight ? spotlight.title : 'Progress Report'}
             </div>
           </div>
 
-          {/* Center: player name + team */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                letterSpacing: '0.25em',
-                color: '#71717a',
-                textTransform: 'uppercase',
-                display: 'flex',
-              }}
-            >
-              {teamName}
-            </div>
-            <div
-              style={{
-                fontSize: obsCount > 0 ? 96 : 108,
-                fontWeight: 800,
-                lineHeight: 0.95,
-                letterSpacing: '-0.03em',
-                color: '#fafafa',
-                display: 'flex',
-              }}
-            >
-              {firstName}
-            </div>
-            {playerName !== firstName && (
+          {spotlight ? (
+            /* ── Spotlight variant (ticket 0013): celebratory artifact ── */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              {/* "PLAYER OF THE WEEK / MATCH" eyebrow */}
               <div
                 style={{
-                  fontSize: 36,
-                  fontWeight: 500,
-                  letterSpacing: '-0.01em',
-                  color: '#71717a',
-                  marginTop: -8,
+                  fontSize: 18,
+                  fontWeight: 700,
+                  letterSpacing: '0.28em',
+                  color: accentColor,
+                  textTransform: 'uppercase',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 14,
+                }}
+              >
+                <div style={{ width: 36, height: 4, borderRadius: 2, background: accentColor, display: 'flex' }} />
+                {spotlight.title}
+              </div>
+              {/* Player FIRST name only (COPPA) */}
+              <div
+                style={{
+                  fontSize: 92,
+                  fontWeight: 800,
+                  lineHeight: 0.95,
+                  letterSpacing: '-0.03em',
+                  color: '#fafafa',
                   display: 'flex',
                 }}
               >
-                {playerName.split(' ').slice(1).join(' ')}
+                {spotlight.firstName}
               </div>
-            )}
-          </div>
+              {/* Coach-authored headline (the only free text on the card) */}
+              <div
+                style={{
+                  fontSize: 38,
+                  fontWeight: 600,
+                  lineHeight: 1.15,
+                  letterSpacing: '-0.01em',
+                  color: '#d4d4d8',
+                  maxWidth: 920,
+                  display: 'flex',
+                }}
+              >
+                {spotlight.headline}
+              </div>
+            </div>
+          ) : (
+            /* Center: player name + team (generic Progress Report — unchanged) */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  letterSpacing: '0.25em',
+                  color: '#71717a',
+                  textTransform: 'uppercase',
+                  display: 'flex',
+                }}
+              >
+                {teamName}
+              </div>
+              <div
+                style={{
+                  fontSize: obsCount > 0 ? 96 : 108,
+                  fontWeight: 800,
+                  lineHeight: 0.95,
+                  letterSpacing: '-0.03em',
+                  color: '#fafafa',
+                  display: 'flex',
+                }}
+              >
+                {firstName}
+              </div>
+              {playerName !== firstName && (
+                <div
+                  style={{
+                    fontSize: 36,
+                    fontWeight: 500,
+                    letterSpacing: '-0.01em',
+                    color: '#71717a',
+                    marginTop: -8,
+                    display: 'flex',
+                  }}
+                >
+                  {playerName.split(' ').slice(1).join(' ')}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Bottom row: stats + waveform */}
           <div
@@ -261,9 +321,10 @@ export default async function ShareOGImage({
                   </div>
                 )}
               </div>
-              {/* Coach attribution */}
+              {/* Coach attribution (spotlight card folds in the team name the
+                  eyebrow row displaced from the center) */}
               <div style={{ display: 'flex', fontSize: 14, color: '#52525b' }}>
-                Tracked by {coachName}
+                {spotlight ? `${teamName} · Tracked by ${coachName}` : `Tracked by ${coachName}`}
               </div>
             </div>
 

@@ -7,7 +7,8 @@ export type NotificationType =
   | 'goal_deadline'       // active goal due within 7 days (or overdue)
   | 'session_today'       // session scheduled today with no observations
   | 'achievement_earned'  // badge awarded in last 48 hours
-  | 'birthday_today';     // player birthday is today
+  | 'birthday_today'      // player birthday is today
+  | 'parent_viewed_report'; // parent opened a share link in last 24 hours
 
 export type NotificationPriority = 'high' | 'medium' | 'low';
 
@@ -76,9 +77,10 @@ export async function GET(request: Request) {
   const fourteenDaysAgo = new Date(now - 14 * day).toISOString();
   const sevenDaysFromNow = new Date(now + 7 * day).toISOString().split('T')[0];
   const fortyEightHoursAgo = new Date(now - 48 * 60 * 60 * 1000).toISOString();
+  const twentyFourHoursAgo = new Date(now - day).toISOString();
 
   // Fetch all data in parallel for minimal latency
-  const [playersRes, obsRes, goalsRes, sessionsRes, achievementsRes] = await Promise.all([
+  const [playersRes, obsRes, goalsRes, sessionsRes, achievementsRes, sharesRes] = await Promise.all([
     admin
       .from('players')
       .select('id, name, date_of_birth')
@@ -108,6 +110,16 @@ export async function GET(request: Request) {
       .gte('earned_at', fortyEightHoursAgo)
       .order('earned_at', { ascending: false })
       .limit(10),
+    admin
+      .from('parent_shares')
+      .select('id, player_id, last_viewed_at, view_count')
+      .eq('team_id', teamId)
+      .eq('is_active', true)
+      .not('last_viewed_at', 'is', null)
+      .gte('last_viewed_at', twentyFourHoursAgo)
+      .gt('view_count', 0)
+      .order('last_viewed_at', { ascending: false })
+      .limit(10),
   ]);
 
   const players = playersRes.data ?? [];
@@ -115,6 +127,7 @@ export async function GET(request: Request) {
   const goals = goalsRes.data ?? [];
   const sessions = sessionsRes.data ?? [];
   const achievements = achievementsRes.data ?? [];
+  const shares = sharesRes.data ?? [];
 
   // Build a player name lookup
   const playerMap: Record<string, string> = {};
@@ -133,7 +146,7 @@ export async function GET(request: Request) {
         type: 'unobserved_player',
         title: `${(player as any).name} needs attention`,
         body: 'No observations recorded in the last 14 days.',
-        href: `/roster/${(player as any).id}`,
+        href: `/roster/${(player as any).id}?tab=observations`,
         priority: 'medium',
         timestamp: new Date(now - 14 * day).toISOString(),
       });
@@ -154,7 +167,7 @@ export async function GET(request: Request) {
         ? `${playerName}'s goal is overdue`
         : `${playerName}'s goal due in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`,
       body: (goal as any).goal_text as string,
-      href: `/roster/${(goal as any).player_id}`,
+      href: `/roster/${(goal as any).player_id}?tab=goals`,
       priority: daysLeft <= 1 ? 'high' : 'medium',
       timestamp: ((goal as any).target_date as string) + 'T00:00:00.000Z',
     });
@@ -187,7 +200,7 @@ export async function GET(request: Request) {
       type: 'achievement_earned',
       title: `${playerName} earned a badge!`,
       body: `Awarded the "${badgeName}" badge.`,
-      href: `/roster/${(ach as any).player_id}`,
+      href: `/roster/${(ach as any).player_id}?tab=overview`,
       priority: 'low',
       timestamp: (ach as any).earned_at as string,
     });
@@ -207,9 +220,27 @@ export async function GET(request: Request) {
       type: 'birthday_today',
       title: `🎂 ${playerName}'s birthday!`,
       body: `${playerName}${ageText} — send a birthday message to the family.`,
-      href: `/roster/${(player as any).id}`,
+      href: `/roster/${(player as any).id}?tab=share`,
       priority: 'high',
       timestamp: new Date().toISOString(),
+    });
+  }
+
+  // ── 6. Parent viewed a report card in last 24 hours ──────────────────────────
+  for (const share of shares) {
+    const playerName = playerMap[(share as any).player_id] ?? 'A parent';
+    const viewCount = (share as any).view_count as number;
+    const viewedAt = (share as any).last_viewed_at as string;
+    notifications.push({
+      id: buildNotificationId('parent_viewed_report', (share as any).id),
+      type: 'parent_viewed_report',
+      title: `${playerName}'s parent viewed the report card`,
+      body: viewCount > 1
+        ? `Opened ${viewCount} times — they're engaged! Consider sending a personal message.`
+        : 'Great moment to send a follow-up via WhatsApp.',
+      href: `/roster/${(share as any).player_id}?tab=share`,
+      priority: 'low',
+      timestamp: viewedAt,
     });
   }
 

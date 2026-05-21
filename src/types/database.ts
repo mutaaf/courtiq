@@ -8,7 +8,7 @@ export type Sentiment = 'positive' | 'needs-work' | 'neutral';
 export type ObservationSource = 'voice' | 'typed' | 'photo' | 'video' | 'cv' | 'import' | 'debrief' | 'template' | 'observer';
 export type RecordingStatus = 'recorded' | 'uploading' | 'uploaded' | 'transcribing' | 'transcribed' | 'parsing' | 'parsed' | 'reviewed' | 'failed';
 export type MediaType = 'photo' | 'screenshot' | 'video' | 'game_film' | 'document';
-export type PlanType = 'practice' | 'gameday' | 'weekly' | 'development_card' | 'parent_report' | 'report_card' | 'custom' | 'newsletter' | 'skill_challenge' | 'season_storyline' | 'self_assessment' | 'opponent_profile' | 'game_recap' | 'weekly_star' | 'season_summary' | 'coach_reflection' | 'player_messages' | 'team_group_message' | 'season_awards' | 'huddle_script' | 'team_personality' | 'practice_arc' | 'player_of_match' | 'team_talk';
+export type PlanType = 'practice' | 'gameday' | 'weekly' | 'development_card' | 'parent_report' | 'report_card' | 'custom' | 'newsletter' | 'skill_challenge' | 'season_storyline' | 'self_assessment' | 'opponent_profile' | 'game_recap' | 'weekly_star' | 'season_summary' | 'coach_reflection' | 'player_messages' | 'team_group_message' | 'season_awards' | 'huddle_script' | 'team_personality' | 'practice_arc' | 'player_of_match' | 'team_talk' | 'season_letter';
 export type ProficiencyLevel = 'insufficient_data' | 'exploring' | 'practicing' | 'got_it' | 'game_ready';
 export type Trend = 'improving' | 'plateau' | 'regressing' | 'new';
 export type SyncOperation = 'create' | 'update' | 'delete';
@@ -371,6 +371,7 @@ export interface Plan {
   team_id: string;
   coach_id: string;
   player_id: string | null;
+  session_id: string | null;
   ai_interaction_id: string | null;
   type: PlanType;
   title: string | null;
@@ -443,6 +444,18 @@ export interface ParentShare {
   last_viewed_at: string | null;
   is_active: boolean;
   expires_at: string | null;
+  created_at: string;
+}
+
+// Public coach-to-coach referral card mapping (ticket 0010). Maps a public token
+// to ONE team_personality plan + the creating coach. No minor data — the public
+// read renders team-level content only.
+export interface TeamCardShare {
+  id: string;
+  token: string;
+  plan_id: string;
+  coach_id: string;
+  is_active: boolean;
   created_at: string;
 }
 

@@ -274,7 +274,7 @@ function buildDynamicSuggestions(
   }
 
   // 2. Top skill gap (last 14 days needs-work observations)
-  const recentNeedsWork = obs.filter(o => o.sentiment === 'needs_work' && o.created_at >= twoWeeksAgo);
+  const recentNeedsWork = obs.filter(o => o.sentiment === 'needs-work' && o.created_at >= twoWeeksAgo);
   if (recentNeedsWork.length >= 2) {
     const catCounts: Record<string, number> = {};
     recentNeedsWork.forEach(o => {
@@ -951,6 +951,7 @@ export default function AssistantPage() {
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || !activeTeam || isLoading || voice.isRecording}
             size="icon"
+            aria-label="Send message"
             className="h-11 w-11 shrink-0 rounded-xl bg-orange-500 hover:bg-orange-600 text-white disabled:bg-zinc-700 disabled:text-zinc-500 disabled:opacity-100"
           >
             {isLoading ? (
