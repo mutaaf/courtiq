@@ -447,6 +447,18 @@ export interface ParentShare {
   created_at: string;
 }
 
+// Public coach-to-coach referral card mapping (ticket 0010). Maps a public token
+// to ONE team_personality plan + the creating coach. No minor data — the public
+// read renders team-level content only.
+export interface TeamCardShare {
+  id: string;
+  token: string;
+  plan_id: string;
+  coach_id: string;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface ConfigOverride {
   id: string;
   org_id: string | null;
