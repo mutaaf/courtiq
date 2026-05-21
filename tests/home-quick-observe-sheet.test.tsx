@@ -46,7 +46,7 @@ const onClose = vi.fn();
 const onSaved = vi.fn();
 
 const DEFAULT_PROPS = {
-  player: { id: 'player-1', name: 'Marcus Johnson', jersey_number: 12 },
+  player: { id: 'player-1', name: 'Marcus Johnson', jersey_number: 12 as number | null },
   focusCategory: null as string | null,
   sportSlug: null as string | null,
   teamId: 'team-1',
