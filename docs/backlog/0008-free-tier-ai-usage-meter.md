@@ -1,7 +1,7 @@
 ---
 id: 0008
 title: Show free coaches their AI usage so the monthly wall stops being a surprise
-status: proposed
+status: in-progress
 priority: P1
 area: tier
 created: 2026-05-21
@@ -89,4 +89,11 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-05-21 [implementation-dev] Picked up on branch `feat/0008-ai-usage-meter`; status → in-progress.
+- 2026-05-21 [implementation-dev] Contract reconciliation against the real code:
+  - Tier source is `organizations.tier` (string), paid tiers `coach`/`pro_coach`/`organization`, free `free`. `getAIQuotaStatus(admin, coachId)` already exists in `src/lib/ai/quota.ts` and returns `{ used, limit, tier } | null` (null = unlimited). The route reuses it verbatim and computes `remaining` itself, exactly as the engineering notes specify.
+  - Route `src/app/api/ai/usage/route.ts` (new): `GET` only. Auth via `createServerSupabase().auth.getUser()` → 401 (no DB read on no-auth). Then `createServiceSupabase()` + `getAIQuotaStatus`. `null` → `{ unlimited: true, tier }`; else `{ used, limit, tier, remaining: Math.max(0, limit - used) }`. No enforcement-path change, no schema/migration, no env var, no analytics event, no new tier feature key — all per Out of scope.
+  - Vitest file is `tests/ai/usage.test.ts` (`.test.ts`, NOT `.spec.ts`) — `vitest.config.ts` excludes `**/*.spec.ts` (LESSONS 2026-05-20). It mocks `@/lib/supabase/server` with a chainable in-memory Supabase (the same pattern as `tests/api-routes.test.ts`) seeding `ai_interactions` counts + org tier, and asserts: free-tier 200 `{used,limit,tier,remaining}`; paid-tier 200 `{unlimited:true,tier}`; no-auth 401 (and no interactions read); calendar-month scoping (prior-month row excluded via `.gte(monthStart)`); `status='success'`-only counting (error row excluded via `.eq('status','success')`).
+  - UI: extracted a small presentational `AIUsageMeter` (`src/components/capture/ai-usage-meter.tsx`) carrying `data-testid="ai-usage-meter"`, zinc/orange styling, amber state when `remaining <= 1`. It renders nothing for unlimited/paid tiers and nothing while loading or on fetch failure (best-effort) — so the meter NEVER gates the record button. Wired into `src/app/(dashboard)/capture/page.tsx` via a TanStack `useQuery` (already imported) hitting `/api/ai/usage`; the query is fire-and-forget and the `RecordingButton` stays `disabled={false}` regardless of its state (AGENTS.md rule 3: client never touches Supabase directly).
+  - Tests for the four UI states live in `tests/components/ai-usage-meter.test.tsx` (render the component directly — same approach as `tests/components/dashboard-shell-*.test.tsx`): free shows `/\d+ of 5/`; paid/unlimited absent (`data-testid` not in the DOM); amber class present when `remaining <= 1` and absent otherwise; the meter contributes nothing that disables capture.
+  - Playwright `tests/e2e/capture-usage-meter.spec.ts` exercises the real `/capture` wiring (free coach sees `/\d+ of 5/` near the record control; paid coach sees no meter; meter absent when `/api/ai/usage` fails while the record button stays operable). It follows the repo's existing authenticated-capture e2e convention (`signInViaUI` → `test.skip` when `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD` are unset), because `/capture` is a middleware-protected route that redirects to `/login` without real auth cookies — the same reason `signup-onboarding-capture.spec.ts`'s capture block skips in CI. The CI-gating proof for the four UI states is therefore the component vitest suite; the Playwright spec guards the live page when creds are supplied.
