@@ -1,7 +1,7 @@
 ---
 id: 0011
 title: Carry the coach's referral code through the parent portal's "share with your other coach" CTA
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-05-21
@@ -95,7 +95,4 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0011-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-21 — branch `feat/0011-referral-code-on-parent-portal-cta` opened; status → in-progress.
