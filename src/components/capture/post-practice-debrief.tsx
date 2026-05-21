@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { query, mutate } from '@/lib/api';
+import { getTemplatesBySentiment } from '@/lib/observation-templates';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -38,28 +39,6 @@ interface SessionObs {
   player_id: string | null;
 }
 
-const POSITIVE_TEMPLATES: Template[] = [
-  { text: 'Great energy',      category: 'hustle'      },
-  { text: 'Strong passing',    category: 'passing'     },
-  { text: 'Good defense',      category: 'defense'     },
-  { text: 'Excellent hustle',  category: 'hustle'      },
-  { text: 'Smart plays',       category: 'awareness'   },
-  { text: 'Team leadership',   category: 'leadership'  },
-  { text: 'Great shooting',    category: 'shooting'    },
-  { text: 'Strong rebounding', category: 'rebounding'  },
-];
-
-const NEEDS_WORK_TEMPLATES: Template[] = [
-  { text: 'Ball handling',         category: 'dribbling' },
-  { text: 'Spacing',               category: 'awareness' },
-  { text: 'Transitions',           category: 'hustle'    },
-  { text: 'Communication',         category: 'teamwork'  },
-  { text: 'Shot selection',        category: 'shooting'  },
-  { text: 'Defensive positioning', category: 'defense'   },
-  { text: 'Footwork',              category: 'footwork'  },
-  { text: 'Free throws',           category: 'shooting'  },
-];
-
 type Step = 'standouts' | 'positives' | 'work' | 'notes' | 'done';
 
 interface SavedSummary {
@@ -69,9 +48,18 @@ interface SavedSummary {
 }
 
 export function PostPracticeDebrief({ sessionId, onClose }: Props) {
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
   const qc = useQueryClient();
   const setPracticeActive = useAppStore((s) => s.setPracticeActive);
+
+  const positiveOptions = useMemo<Template[]>(
+    () => getTemplatesBySentiment('positive', sportSlug).slice(0, 8).map((t) => ({ text: t.text, category: t.category })),
+    [sportSlug],
+  );
+  const needsWorkOptions = useMemo<Template[]>(
+    () => getTemplatesBySentiment('needs-work', sportSlug).slice(0, 8).map((t) => ({ text: t.text, category: t.category })),
+    [sportSlug],
+  );
 
   const [step, setStep] = useState<Step>('standouts');
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
@@ -436,7 +424,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                   <p className="text-xs text-zinc-500 mt-1">Tap all that apply</p>
                 </div>
                 <div className="flex flex-wrap gap-2 justify-center">
-                  {POSITIVE_TEMPLATES.map((t) => (
+                  {positiveOptions.map((t) => (
                     <button
                       key={t.text}
                       onClick={() => togglePositive(t)}
@@ -464,7 +452,7 @@ export function PostPracticeDebrief({ sessionId, onClose }: Props) {
                   <p className="text-xs text-zinc-500 mt-1">Tap all that apply</p>
                 </div>
                 <div className="flex flex-wrap gap-2 justify-center">
-                  {NEEDS_WORK_TEMPLATES.map((t) => (
+                  {needsWorkOptions.map((t) => (
                     <button
                       key={t.text}
                       onClick={() => toggleWork(t)}

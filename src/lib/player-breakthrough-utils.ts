@@ -1,3 +1,5 @@
+import { getSportEmoji } from './sport-utils';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 /** Minimal observation shape needed for breakthrough detection. */
@@ -75,7 +77,7 @@ export function groupByPlayerCategory(obs: BTObs[]): Map<string, BTObs[]> {
 /** Counts observations matching a specific sentiment. */
 export function countBySentiment(
   obs: BTObs[],
-  sentiment: 'positive' | 'needs_work' | 'neutral'
+  sentiment: 'positive' | 'needs-work' | 'neutral'
 ): number {
   return obs.filter((o) => o.sentiment === sentiment).length;
 }
@@ -103,7 +105,7 @@ export function buildBreakthroughs(obs: BTObs[], now = Date.now()): PlayerBreakt
     const priorObs = priorByKey.get(key) ?? [];
 
     const recentPositive = countBySentiment(recentObs, 'positive');
-    const priorNeedsWork = countBySentiment(priorObs, 'needs_work');
+    const priorNeedsWork = countBySentiment(priorObs, 'needs-work');
 
     if (
       recentPositive >= BREAKTHROUGH_THRESHOLD &&
@@ -191,14 +193,16 @@ export function hasEnoughDataForBreakthroughs(obs: BTObs[]): boolean {
 export function buildBreakthroughShareText(
   playerName: string,
   category: string,
-  coachName?: string
+  coachName?: string,
+  sportSlug?: string | null,
 ): string {
   const cat = formatCategory(category);
   const coach = coachName ?? 'Your coach';
+  const emoji = getSportEmoji(sportSlug);
   return (
     `Hi! 🎉 Just wanted to share some great news — ${playerName} has been making ` +
     `real progress on ${cat} in our recent practices! ${coach} has noticed the hard ` +
-    `work paying off. Keep it up! 🏀`
+    `work paying off. Keep it up! ${emoji}`
   );
 }
 

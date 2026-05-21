@@ -5,7 +5,7 @@
  * (e.g. warmup, scrimmage, AI-generated drills, custom drills).
  */
 
-export type SportSlug = 'basketball' | 'soccer' | 'flagfootball' | 'volleyball';
+export type SportSlug = 'basketball' | 'soccer' | 'flag_football' | 'volleyball' | 'lacrosse' | 'swimming' | 'tennis' | 'gymnastics' | 'baseball' | 'softball';
 
 // Canonical category names (normalised to lowercase for matching)
 const CATEGORY_ALIASES: Record<string, string> = {
@@ -36,6 +36,125 @@ const CATEGORY_ALIASES: Record<string, string> = {
   'route running': 'awareness',
   'flag pulling': 'defense',
   'catching': 'passing',
+  'cradle': 'dribbling',
+  'cradling': 'dribbling',
+  'ground ball': 'hustle',
+  'groundball': 'hustle',
+  'dodging': 'footwork',
+  // swimming
+  'stroke': 'shooting',
+  'flip turn': 'footwork',
+  'flip turns': 'footwork',
+  'kick': 'footwork',
+  'pulls': 'shooting',
+  'arm pull': 'shooting',
+  'streamline': 'awareness',
+  'breathing': 'conditioning',
+  'starts': 'hustle',
+  'turns': 'footwork',
+  // tennis
+  'serve': 'shooting',
+  'serves': 'shooting',
+  'forehand': 'shooting',
+  'backhand': 'shooting',
+  'volley': 'passing',
+  'volleys': 'passing',
+  'composure': 'attitude',
+  'rally': 'passing',
+  // baseball / softball
+  'batting': 'shooting',
+  'hitting': 'shooting',
+  'at-bat': 'shooting',
+  'at bat': 'shooting',
+  'pitching': 'shooting',
+  'throwing': 'passing',
+  'fielding': 'defense',
+  'glove work': 'defense',
+  'baserunning': 'footwork',
+  'base running': 'footwork',
+  'base path': 'footwork',
+  // gymnastics
+  'tumbling': 'shooting',
+  'handstand': 'shooting',
+  'handstands': 'shooting',
+  'cartwheel': 'shooting',
+  'cartwheels': 'shooting',
+  'back walkover': 'shooting',
+  'back walkovers': 'shooting',
+  'roundoff': 'shooting',
+  'back handspring': 'shooting',
+  'beam': 'awareness',
+  'balance beam': 'awareness',
+  'bars': 'shooting',
+  'uneven bars': 'shooting',
+  'vault': 'shooting',
+  'landing': 'footwork',
+  'pointed toes': 'footwork',
+  'body shape': 'footwork',
+  'split': 'conditioning',
+  'splits': 'conditioning',
+  'flexibility': 'conditioning',
+  'stretching': 'conditioning',
+};
+
+// Baseball and softball share the same phrases (nearly identical skill sets)
+const BASEBALL_PHRASES: Record<string, string[]> = {
+  shooting: [
+    "Level swing — keep your bat path flat through the hitting zone",
+    "See the ball all the way in — eyes locked from the pitcher's hand to the bat",
+    "Hips lead the swing — rotate your hips first, your arms follow",
+    "Strong base — weight on your back foot until you stride forward",
+    "Pitchers: push off the rubber and drive through your front hip for power",
+  ],
+  passing: [
+    "Four-seam grip — find the seams before every throw",
+    "Step toward your target — your feet aim the throw as much as your arm",
+    "Crow hop before you throw — build momentum, don't just arm it",
+    "Follow through all the way down — finish with your throwing arm near your hip",
+  ],
+  defense: [
+    "Glove down on grounders — easier to come up than go down",
+    "Two hands on every catch — secure it before you think about the throw",
+    "Ready position on every pitch: weight forward, on your toes",
+    "Charge slow rollers — go get it, don't let the ball play you",
+    "Track the fly ball with a curved approach — don't run straight back",
+  ],
+  footwork: [
+    "Hit through first base — don't slow down, run through the bag",
+    "Touch the inside corner of the bag when rounding — every step counts",
+    "Read your third-base coach on contact — eyes up while running",
+    "Two steps off the bag, lean forward — be ready to go on a wild pitch",
+  ],
+  hustle: [
+    "Run out every ball — anything can happen with two outs",
+    "Sprint to your position between every half-inning",
+    "Chase every grounder — a little more effort saves a hit",
+  ],
+  awareness: [
+    "Know the situation before every pitch — outs, runners, count, score",
+    "Back up every play — if you're not making the catch, be the backup",
+    "Read the ball off the bat — move on contact, not after the catch",
+  ],
+  teamwork: [
+    "Call it loud and early on fly balls — communication prevents collisions",
+    "Encourage your pitcher after a tough inning — team energy matters",
+    "Hit for your team — advancing a runner is just as valuable as a hit",
+  ],
+  leadership: [
+    "Pick up your teammate after an error — that's what great players do",
+    "Communicate the defence before every pitch — know everyone's assignment",
+    "Set the tone: your energy in the dugout sets the team's energy on the field",
+  ],
+  conditioning: [
+    "Warm up your arm gradually — never throw hard with a cold arm",
+    "Baseball is a long game — stay focused even when you're not in the action",
+    "Quick hands and quick feet beat pure strength — work on your quickness",
+  ],
+  attitude: [
+    "Every at-bat is a new start — forget the last out, focus on this pitch",
+    "Errors are part of the game — shake it off and make the next play great",
+    "Stay loose and trust your training — tense players make more mistakes",
+  ],
 };
 
 // Phrases keyed by [sportSlug][normalisedCategory]
@@ -163,7 +282,7 @@ const SPORT_PHRASES: Record<string, Record<string, string[]>> = {
     ],
   },
 
-  flagfootball: {
+  flag_football: {
     passing: [
       "Step with your front foot as you release — your whole body drives the throw",
       "Follow through toward your target — wrist over at the end",
@@ -246,6 +365,175 @@ const SPORT_PHRASES: Record<string, Record<string, string[]>> = {
       "Pick someone up after a mistake — that's team culture",
     ],
   },
+
+  swimming: {
+    shooting: [
+      "Reach long, pull deep — every stroke is full extension",
+      "High elbow on the catch — it's your biggest power move",
+      "Rotate your hips — swimming is a full-body motion",
+      "Smooth is fast — relax into the water, don't fight it",
+    ],
+    footwork: [
+      "Tight flip turn — the wall is your accelerator",
+      "Flutter kick from the hip, not the knee — small and fast",
+      "Point your toes on every kick — maximise your propulsion",
+      "Push off long and stay streamlined — that's free speed",
+    ],
+    conditioning: [
+      "Control your breath count — find your rhythm and stick to it",
+      "Trust your training — when it hurts, that's where you get stronger",
+      "Arms follow your breath — find your cycle and own it",
+    ],
+    awareness: [
+      "Head down — every time you lift to look, you slow down",
+      "Feel the water, don't fight it — work with the resistance",
+      "Count your strokes to the wall — know your own body",
+    ],
+    hustle: [
+      "Fast tempo in practice means fast tempo in races",
+      "Every lap is a chance to improve — make it count",
+      "Tired in practice means ready for the race",
+    ],
+    teamwork: [
+      "Relay splits win meets — cheer your teammates into the wall",
+      "Read your relay anchor — get your timing right on the exchange",
+      "Your lane is yours — own it and bring it home for the team",
+    ],
+  },
+  tennis: {
+    shooting: [
+      "Toss the ball in front — trophy position, then explode up",
+      "Racket head low before contact — load that energy",
+      "Follow through across your body — that's power AND accuracy",
+      "Watch the ball onto the strings — don't look where you want it to go",
+    ],
+    footwork: [
+      "Split step every time your opponent contacts the ball",
+      "Small recovery steps to ready position after every shot",
+      "Load your outside foot before you hit — transfer that power",
+      "Shuffle sideways and stay balanced — big crossover steps only when you must",
+    ],
+    awareness: [
+      "See the whole court — where is your opponent, where are the gaps?",
+      "Big picture after the serve — watch where they go, not where the ball goes",
+      "Anticipate the return — start moving before they hit",
+    ],
+    hustle: [
+      "Chase every ball — you'll be surprised how many you get back",
+      "Effort pays off — every ball retrieved changes momentum",
+      "Play every point like it's match point",
+    ],
+    passing: [
+      "Stay low at the net — volley with a firm wrist, not a swing",
+      "Move your feet to the ball at net — don't just reach",
+      "Poach when you see the opportunity — surprise movement wins doubles",
+    ],
+    teamwork: [
+      "Communicate every serve in doubles — who takes the middle?",
+      "Call the poach early — surprise movement is your weapon",
+      "Celebrate every point together — momentum is contagious",
+    ],
+    attitude: [
+      "One point at a time — forget the last one, focus on this one",
+      "Big moments are opportunities, not threats — embrace the pressure",
+      "Breathe between points — reset your body, reset your mind",
+    ],
+  },
+  lacrosse: {
+    dribbling: [
+      "Top hand does the work, bottom hand guides — feel the rhythm",
+      "Eyes up while cradling — look for teammates, not at your stick",
+      "Tight cradle when guarded, loose cradle when you have space",
+      "Protect the ball — keep your body between the stick and the defender",
+    ],
+    passing: [
+      "Step toward your target — power comes from your feet and hips",
+      "Lead your teammate — throw where they're going, not where they are",
+      "Quick release: catch and throw in one motion — don't hold it",
+      "Both hands on the stick until release — control first",
+    ],
+    shooting: [
+      "Pick a corner, aim low — low shots are hardest to save",
+      "Hips into the shot — full body rotation, not just your arms",
+      "Off-stick side is the goalie's weakness — aim there",
+      "Fake first if a defender is close — get them moving, then shoot",
+    ],
+    defense: [
+      "Keep your stick up between your player and the goal",
+      "Check the stick, not the body — body checks are a foul",
+      "Force them to their off hand — make them uncomfortable",
+      "Don't lunge — stay on your feet, move your feet to stay in front",
+    ],
+    hustle: [
+      "Ground balls win games — sprint to every loose ball",
+      "Scoop low — get under it before you pick it up",
+      "Transition: when you get the ball, look upfield immediately",
+      "First to the ball wins it — want it more than they do",
+    ],
+    footwork: [
+      "Plant your outside foot hard before each dodge — explode in the new direction",
+      "Roll dodge: get your body between the defender and the ball",
+      "Quick choppy steps beat big lunges in tight spaces",
+      "Stay on the balls of your feet — never flat-footed",
+    ],
+    awareness: [
+      "Head up while cradling — know where your teammates are before you catch",
+      "Weak-side cutter: when someone drives, cut to the open space",
+      "Two outlets — the ball carrier always needs two passing options",
+      "Read the defense first: is your player in front or behind?",
+    ],
+    teamwork: [
+      "Move without the ball — don't watch, get open",
+      "Call for it — 'I'm open!' helps your teammate make a quick decision",
+      "Triangle offense: always two outlets when you have the ball",
+      "When we move together, the defense can't stop all of us",
+    ],
+  },
+  baseball: BASEBALL_PHRASES,
+  softball: BASEBALL_PHRASES,
+
+  gymnastics: {
+    shooting: [
+      "Tight body, engaged core — every skill starts with a strong shape",
+      "Arms drive the skill — reach hard and pull tight on the way around",
+      "Spot your landing: find your point on the mat before your feet hit",
+      "Round-off should be your most powerful skill — punch the ground hard",
+      "Hollow body from start to finish — no banana back",
+    ],
+    awareness: [
+      "Spot a point on the wall — find it every time and your balance will hold",
+      "Feel the beam under your feet, don't look down — trust your body",
+      "Slow your breathing: calm body, calm balance",
+      "Your arms are your rudder — use them to stay centred",
+    ],
+    footwork: [
+      "Stick the landing — squeeze your feet and hips together on impact",
+      "Pointed toes tell the judges you mean it — lead with those feet",
+      "Step-kick-step into every tumbling pass — your approach matters",
+      "Land with soft knees — absorb the impact, don't crash it",
+    ],
+    conditioning: [
+      "Flexibility is strength — a little further every day adds up over a season",
+      "Hollow holds build every skill — commit to those 30 seconds",
+      "Your core is your foundation — if it's weak, everything wobbles",
+      "Stretch after, not through, the pain — consistent work beats forcing",
+    ],
+    hustle: [
+      "Give your best every pass — effort is the one thing always in your control",
+      "Perfect practice makes perfect — don't sleepwalk through a rep",
+      "One more rep when you think you're done — that's where champions are made",
+    ],
+    teamwork: [
+      "Cheer loud for your teammates — their nerves are just like yours",
+      "Help each other warm up — spotting is an act of trust",
+      "A great team environment means every athlete performs better",
+    ],
+    attitude: [
+      "Fear means you care — feel it, then do the skill anyway",
+      "Shake off the fall: reset, refocus, and try again — that's gymnastics",
+      "Focus on what you can control: your shape, your effort, your attitude",
+    ],
+  },
 };
 
 // Generic phrases available for any sport
@@ -313,6 +601,16 @@ export function normaliseCategory(raw: string | undefined | null): string {
 }
 
 /**
+ * Normalise a sport slug so both 'flag_football' and 'flag football'
+ * resolve to the same key used in SPORT_PHRASES ('flag_football').
+ */
+function normaliseSportSlug(sportSlug: string | undefined | null): string {
+  const key = (sportSlug ?? '').toLowerCase();
+  if (key === 'flagfootball' || key === 'flag football') return 'flag_football';
+  return key;
+}
+
+/**
  * Return all phrases for a given category and sport.
  * Falls back: sport-specific → generic → empty array.
  */
@@ -323,7 +621,7 @@ export function getPhrasesForCategory(
   const cat = normaliseCategory(category);
   if (!cat) return [];
 
-  const sportKey = (sportSlug ?? '').toLowerCase() as SportSlug;
+  const sportKey = normaliseSportSlug(sportSlug);
   const sportPhrases = SPORT_PHRASES[sportKey]?.[cat];
   if (sportPhrases && sportPhrases.length > 0) return sportPhrases;
 
@@ -387,7 +685,7 @@ export function countPhrases(
  * Return all supported categories for a given sport (including generic).
  */
 export function getCategoriesWithPhrases(sportSlug: string | undefined | null): string[] {
-  const sportKey = (sportSlug ?? '').toLowerCase();
+  const sportKey = normaliseSportSlug(sportSlug);
   const sportCats = Object.keys(SPORT_PHRASES[sportKey] ?? {});
   const genericCats = Object.keys(GENERIC_PHRASES);
   return [...new Set([...sportCats, ...genericCats])];
@@ -414,13 +712,18 @@ export function getPhraseLabelForCategory(
   if (cat === 'warmup') return 'Warmup coaching';
   if (cat === 'scrimmage') return 'Scrimmage coaching';
 
-  const sportKey = (sportSlug ?? '').toLowerCase();
+  const sportKey = normaliseSportSlug(sportSlug);
   const inSport = !!(SPORT_PHRASES[sportKey]?.[cat]);
   const sportName =
     sportKey === 'basketball' ? 'Basketball' :
     sportKey === 'soccer' ? 'Soccer' :
-    sportKey === 'flagfootball' ? 'Flag football' :
-    sportKey === 'volleyball' ? 'Volleyball' : null;
+    sportKey === 'flag_football' ? 'Flag football' :
+    sportKey === 'volleyball' ? 'Volleyball' :
+    sportKey === 'swimming' ? 'Swimming' :
+    sportKey === 'tennis' ? 'Tennis' :
+    sportKey === 'gymnastics' ? 'Gymnastics' :
+    sportKey === 'baseball' ? 'Baseball' :
+    sportKey === 'softball' ? 'Softball' : null;
 
   if (inSport && sportName) {
     const label = cat.charAt(0).toUpperCase() + cat.slice(1);

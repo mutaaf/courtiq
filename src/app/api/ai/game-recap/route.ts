@@ -132,6 +132,7 @@ export async function POST(request: Request) {
     const { data: plan } = await admin.from('plans').insert({
       team_id: teamId,
       coach_id: user.id,
+      session_id: sessionId,
       ai_interaction_id: result.interactionId,
       type: 'game_recap',
       title: `${typeLabel} Recap${opponentPart} — ${datePart}`,

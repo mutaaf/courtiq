@@ -36,11 +36,12 @@ export function selectDrillOfDay(
   drills: Drill[],
   category: string,
   teamId: string,
-  date: Date
+  date: Date,
+  offset = 0
 ): Drill | null {
   const candidates = sortDrillsForSelection(filterDrillsByCategory(drills, category));
   if (candidates.length === 0) return null;
-  const idx = buildDayHash(teamId + getDayKey(date)) % candidates.length;
+  const idx = (buildDayHash(teamId + getDayKey(date)) + offset) % candidates.length;
   return candidates[idx];
 }
 

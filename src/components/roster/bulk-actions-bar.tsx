@@ -19,7 +19,7 @@ type ActionState = 'idle' | 'loading' | 'success' | 'error';
 export function BulkActionsBar({ selectedPlayers, teamId, coachId, onClear }: BulkActionsBarProps) {
   const [obsModal, setObsModal] = useState(false);
   const [obsText, setObsText] = useState('');
-  const [obsSentiment, setObsSentiment] = useState<'positive' | 'neutral' | 'needs_work'>('neutral');
+  const [obsSentiment, setObsSentiment] = useState<'positive' | 'neutral' | 'needs-work'>('neutral');
   const [obsCategory, setObsCategory] = useState('general');
   const [obsState, setObsState] = useState<ActionState>('idle');
   const [obsMessage, setObsMessage] = useState('');
@@ -205,12 +205,12 @@ export function BulkActionsBar({ selectedPlayers, teamId, coachId, onClear }: Bu
               <select
                 aria-label="Observation sentiment"
                 value={obsSentiment}
-                onChange={(e) => setObsSentiment(e.target.value as any)}
+                onChange={(e) => setObsSentiment(e.target.value as 'positive' | 'neutral' | 'needs-work')}
                 className="flex-1 h-10 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
               >
                 <option value="positive">Positive</option>
                 <option value="neutral">Neutral</option>
-                <option value="needs_work">Needs Work</option>
+                <option value="needs-work">Needs Work</option>
               </select>
             </div>
 
