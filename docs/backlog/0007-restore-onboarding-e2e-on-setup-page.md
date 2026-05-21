@@ -1,7 +1,7 @@
 ---
 id: 0007
 title: Restore onboarding E2E coverage against the combined /onboarding/setup page
-status: in-progress
+status: shipped
 priority: P1
 area: infra
 created: 2026-05-20
@@ -90,3 +90,17 @@ keeps the funnel from regressing as the setup page evolves.
   `<Input placeholder="Spring 2026">` pre-filled by `defaultSeason()`; and a single
   primary `Continue` button gated by `canSubmit = !!sport && teamName.trim().length > 0`.
   Rewriting the two blocks to assert against that DOM and un-skipping them.
+- 2026-05-21 (implementation-dev): Shipped in PR #229 (squash-merged to `main`).
+  Both onboarding describe blocks now run unconditionally against `/onboarding/setup`
+  (7 tests: 10-sport render incl. Basketball/Soccer/Volleyball, Continue
+  disabled-until-sport+name, the team-name/season Inputs, the 4-option age-group
+  `<select>` defaulting to `8-10`, and the canSubmit enable logic). No spec is left
+  `test.skip()` for an obsolete route. First seeded e2e run was red on 4 sport-button
+  assertions: the cards are emoji+label `<button>`s, so the accessible name is
+  `"🏀 Basketball"`, not `"Basketball"` — `{ name, exact: true }` never matched.
+  Fixed by matching the accessible name with a substring regex (`{ name: /basketball/i }`,
+  no `exact`); no assertion weakened (the combobox/placeholder assertions already
+  passed against the real seeded page). Logged the icon+label accessible-name lesson
+  in `docs/LESSONS.md`. Final CI: `lint` ✓, `unit-tests` ✓, `e2e-tests` ✓. Local
+  `tsc`/`lint` clean; local vitest reds were only the documented Node 25 environmental
+  set (localStorage / date-TZ) — CI Node 20 `unit-tests` passed, confirming no regression.
