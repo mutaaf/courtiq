@@ -6,7 +6,13 @@ import { ParentReactionForm } from '@/components/share/parent-reaction-form';
 import { ParentContactForm } from '@/components/share/parent-contact-form';
 import { ShareReportButton } from '@/components/share/share-report-button';
 import { ProgressTrendChart } from '@/components/share/progress-trend-chart';
-import { Megaphone, MessageCircle } from 'lucide-react';
+import { CalendarDays, Megaphone, MessageCircle } from 'lucide-react';
+import {
+  SESSION_EMOJI,
+  SESSION_LABEL,
+  formatSessionDate,
+  isCompetitiveSession,
+} from '@/lib/upcoming-session-utils';
 import {
   buildSeasonStats,
   getImprovingSkills,
@@ -354,6 +360,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     skillProgress,
     recommendedDrills,
     announcements,
+    upcomingSessions,
     totalObservationCount,
     recentObservationActivity,
     achievements,
@@ -424,6 +431,11 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     const area = reportCard.areas_for_improvement[0];
     nextChallenge = typeof area === 'string' ? area : area.skill || area.description || area.name || String(area);
   }
+
+  const safeUpcomingSessions: Array<{
+    id: string; type: string; date: string; start_time: string | null;
+    location: string | null; opponent: string | null;
+  }> = Array.isArray(upcomingSessions) ? upcomingSessions : [];
 
   // Player of the Week / Player of the Match spotlight (ticket 0009).
   // content_structured carries either a weekly_star shape (week_label +
@@ -683,6 +695,43 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
                         day: 'numeric',
                       })}
                     </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ─── Upcoming Sessions ─── */}
+        {safeUpcomingSessions.length > 0 && (
+          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm border border-sky-100">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-sky-100">
+                <CalendarDays className="h-3.5 w-3.5 text-sky-600" aria-hidden="true" />
+              </div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-sky-700">
+                Coming Up
+              </h3>
+            </div>
+            <div className="space-y-2.5">
+              {safeUpcomingSessions.map((s) => (
+                <div key={s.id} className="flex items-start gap-3 rounded-xl bg-sky-50 px-3 py-2.5">
+                  <span className="mt-0.5 shrink-0 text-base" aria-hidden="true">
+                    {SESSION_EMOJI[s.type] ?? '📅'}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800">
+                      {SESSION_LABEL[s.type] ?? s.type}
+                      {isCompetitiveSession(s.type) && s.opponent
+                        ? <span className="font-normal text-gray-600"> vs. {s.opponent}</span>
+                        : null}
+                    </p>
+                    <p className="mt-0.5 text-xs text-sky-700">
+                      {formatSessionDate(s.date, s.start_time)}
+                    </p>
+                    {s.location && (
+                      <p className="mt-0.5 text-xs text-gray-500 truncate">📍 {s.location}</p>
+                    )}
                   </div>
                 </div>
               ))}

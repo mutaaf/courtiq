@@ -45,6 +45,7 @@ function buildChain(data: unknown = null, error: unknown = null) {
     is: vi.fn(() => chain),
     or: vi.fn(() => chain),
     gte: vi.fn(() => chain),
+    lte: vi.fn(() => chain),
     order: vi.fn(() => chain),
     limit: vi.fn(() => chain),
     single: vi.fn().mockResolvedValue(resolved),
