@@ -76,58 +76,104 @@ test.describe('Login page', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. Onboarding — public pages
+// 3. Onboarding — public page (combined sport + team setup)
 // ---------------------------------------------------------------------------
-// Obsolete UI surface: /onboarding/sport and /onboarding/team now redirect()
-// to the combined /onboarding/setup page, so these assertions no longer match.
-// Restore them against /onboarding/setup in ticket 0007. See docs/backlog/0006.
-test.describe.skip('Onboarding — sport selection', () => {
-  test('shows sport selection with at least 3 sports', async ({ page }) => {
-    await page.goto('/onboarding/sport');
-    await expect(page.getByText(/choose your sport/i)).toBeVisible();
+// Sport selection and team creation were merged into a single
+// /onboarding/setup page; the legacy /onboarding/sport and /onboarding/team
+// routes now redirect() here (ticket 0007, spawned from 0006). /onboarding is
+// in middleware publicPaths, so the page renders without auth — these blocks
+// assert against its real DOM (the SPORTS array, the age-group <select>, the
+// team-name + season Inputs, and the single Continue button's enable logic).
 
-    const sportCards = page.locator('[class*="cursor-pointer"]').filter({ hasText: /basketball|football|soccer/i });
-    await expect(sportCards).toHaveCount(3, { timeout: 5000 });
+test.describe('Onboarding — sport selection', () => {
+  // The combined setup page exposes one <button> card per sport in the SPORTS
+  // array. Each card holds two spans — the emoji icon and the name — so the
+  // button's accessible name is "<emoji> <name>" (e.g. "🏀 Basketball"). Match
+  // by a name *substring* regex (not exact) so the emoji prefix doesn't break
+  // the locator; the names below are unique enough that the regex stays
+  // strict-mode-safe.
+  const EXPECTED_SPORTS = [
+    /basketball/i,
+    /soccer/i,
+    /volleyball/i,
+    /flag football/i,
+    /baseball/i,
+    /softball/i,
+    /lacrosse/i,
+    /swimming/i,
+    /tennis/i,
+    /gymnastics/i,
+  ];
+
+  test('shows the combined setup page with all 10 sports', async ({ page }) => {
+    await page.goto('/onboarding/setup');
+    // CardTitle renders a <div> (not an <hN>) app-wide, so match by text —
+    // same pattern the Signup/Login blocks above use for their card titles.
+    await expect(page.getByText(/set up your team/i)).toBeVisible();
+
+    // Each sport is its own button; Basketball/Soccer/Volleyball are called out
+    // explicitly by the ticket acceptance criteria.
+    for (const sport of EXPECTED_SPORTS) {
+      await expect(page.getByRole('button', { name: sport })).toBeVisible();
+    }
   });
 
   test('continue button is disabled until a sport is selected', async ({ page }) => {
-    await page.goto('/onboarding/sport');
+    await page.goto('/onboarding/setup');
+    // No sport picked and team name empty → primary button stays disabled.
     const continueBtn = page.getByRole('button', { name: /continue/i });
     await expect(continueBtn).toBeDisabled();
   });
 
-  test('selecting a sport enables the continue button', async ({ page }) => {
-    await page.goto('/onboarding/sport');
+  test('selecting a sport alone is not enough to enable Continue', async ({ page }) => {
+    await page.goto('/onboarding/setup');
 
-    // Click on Basketball card
-    await page.getByText('Basketball').click();
-    const continueBtn = page.getByRole('button', { name: /continue/i });
-    await expect(continueBtn).toBeEnabled();
+    // Picking a sport reflects the active (orange) state on the card...
+    const basketball = page.getByRole('button', { name: /basketball/i });
+    await basketball.click();
+    await expect(basketball).toHaveClass(/border-orange-500/);
+
+    // ...but canSubmit = !!sport && teamName.trim() > 0, so an empty team name
+    // keeps Continue disabled.
+    await expect(page.getByRole('button', { name: /continue/i })).toBeDisabled();
   });
 });
 
-// Obsolete UI surface: /onboarding/team redirects to /onboarding/setup.
-// Restore against /onboarding/setup in ticket 0007. See docs/backlog/0006.
-test.describe.skip('Onboarding — team creation', () => {
-  test('shows team creation form', async ({ page }) => {
-    await page.goto('/onboarding/team');
-    await expect(page.getByText(/create your team/i)).toBeVisible();
+test.describe('Onboarding — team creation', () => {
+  test('shows team-name, age-group, and season controls', async ({ page }) => {
+    await page.goto('/onboarding/setup');
+
     await expect(page.getByPlaceholder('Blue Tigers')).toBeVisible();
-    await expect(page.locator('select')).toBeVisible();
+    // Age-group control is a native <select> (no htmlFor on its label), so we
+    // target it by role rather than getByLabel.
+    await expect(page.getByRole('combobox')).toBeVisible();
+    // Season Input is pre-filled by defaultSeason(); its placeholder still resolves it.
     await expect(page.getByPlaceholder('Spring 2026')).toBeVisible();
   });
 
-  test('create team button is disabled with empty team name', async ({ page }) => {
-    await page.goto('/onboarding/team');
-    const createBtn = page.getByRole('button', { name: /create team/i });
-    await expect(createBtn).toBeDisabled();
+  test('Continue is disabled with an empty team name even after picking a sport', async ({ page }) => {
+    await page.goto('/onboarding/setup');
+    await page.getByRole('button', { name: /basketball/i }).click();
+    await expect(page.getByPlaceholder('Blue Tigers')).toHaveValue('');
+    await expect(page.getByRole('button', { name: /continue/i })).toBeDisabled();
   });
 
-  test('filling team name enables create button', async ({ page }) => {
-    await page.goto('/onboarding/team');
+  test('picking a sport and naming the team enables Continue', async ({ page }) => {
+    await page.goto('/onboarding/setup');
+
+    await page.getByRole('button', { name: /basketball/i }).click();
     await page.getByPlaceholder('Blue Tigers').fill('Thunder Hawks');
-    const createBtn = page.getByRole('button', { name: /create team/i });
-    await expect(createBtn).toBeEnabled();
+
+    await expect(page.getByRole('button', { name: /continue/i })).toBeEnabled();
+  });
+
+  test('the age-group control offers the four AGE_GROUPS options', async ({ page }) => {
+    await page.goto('/onboarding/setup');
+
+    const select = page.getByRole('combobox');
+    // Defaults to the 8-10 ("Juniors") band.
+    await expect(select).toHaveValue('8-10');
+    await expect(select.getByRole('option')).toHaveCount(4);
   });
 });
 
