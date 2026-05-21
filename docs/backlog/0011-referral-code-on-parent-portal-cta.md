@@ -1,7 +1,7 @@
 ---
 id: 0011
 title: Carry the coach's referral code through the parent portal's "share with your other coach" CTA
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-05-21
@@ -95,7 +95,8 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0011-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-21 — branch `feat/0011-referral-code-on-parent-portal-cta` opened; status → in-progress.
+- 2026-05-21 — failing tests added: `tests/share/referral-code.test.ts` (share-GET resolution, lazy-generate + persist, no-overwrite, no-500 → 200 + `referralCode: null`, COPPA shape), `tests/components/parent-viral-cta.test.tsx` (URL construction code-present + code-null), and extended `tests/e2e/share-flow.spec.ts` (CTA carries `/signup?ref=AAAAAA`; `/signup?ref=CODE` capture regression). Confirmed they failed for the right reason (missing `referralCode` / `data-share-url`).
+- 2026-05-21 — implemented: `/api/share/[token]` resolves the code from `coaches.preferences.referral_code`, lazily generating + persisting via `makeReferralCode(share.coach_id)` (wrapped in try/catch → degrade to `null`, never 500); `ParentViralCTA` takes a server-passed `referralCode?` prop, builds `${base}/signup?ref=<code>` (falls back to bare base), exposes it via `data-share-url`; share page threads it through. No schema/env/tier/tracker change. The seeded e2e coach (no `referral_code`) lazily resolves to the deterministic `AAAAAA` (same coach + code `team-card-flow.spec.ts` already asserts), so no seed change was needed.
+- 2026-05-21 — local gate green under Node 20.19.0: `npm run lint` (0 errors), `npx tsc --noEmit` (exit 0), `npx vitest run --no-file-parallelism` (4007 passed; the lone `player-of-match-utils` `Apr 28`/`Apr 27` fail is the documented local-TZ environmental issue, not a regression — files untouched vs origin/main).
+- 2026-05-21 — PR #239 opened, auto-merge (squash) armed.
