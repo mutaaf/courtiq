@@ -1645,7 +1645,7 @@ export default function PracticeTimerPage({
   useEffect(() => {
     const drill = queueRef.current[currentIdx];
     if (mode === 'running' && drill) {
-      speakRef.current(buildDrillAnnouncement(drill.name, drill.durationSecs, drill.cues[0]));
+      speakRef.current(buildDrillAnnouncement(drill.name, drill.durationSecs, drill.cues[0] || getPhraseByIndex(drill.category, sportSlug, 0) || undefined));
       hapticRef.current.tap(); // single pulse — new drill starting
     } else if (mode === 'break') {
       speakRef.current(buildBreakAnnouncement());
