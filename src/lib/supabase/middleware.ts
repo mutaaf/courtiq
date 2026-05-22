@@ -38,6 +38,9 @@ export async function updateSession(request: NextRequest) {
     // Public coach-to-coach referral card (ticket 0010) — page + its API + OG image.
     '/team-card/',
     '/api/team-card/',
+    // Public season-recap card (ticket 0017) — page + its API.
+    '/season-recap/',
+    '/api/season-recap/',
     '/observe/',
     '/api/observe/',
     '/parents/',
