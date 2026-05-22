@@ -241,4 +241,49 @@ test.describe('Practice Arc Continuity Banner', () => {
 
     await expect(page.getByText(/session \d+ of \d+/i)).not.toBeVisible({ timeout: 5000 });
   });
+
+  // AC5: when active-arc read fails, plan generation still proceeds
+  test('plan generation proceeds even when active-arc endpoint returns 500', async ({ page }) => {
+    if (!authenticated) {
+      test.skip(true, 'Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD to run authenticated tests');
+    }
+
+    // Arc endpoint errors out — should not block the generate flow
+    await page.route('**/api/ai/practice-arc/active**', (route) =>
+      route.fulfill({ status: 500, body: 'Internal Server Error' })
+    );
+
+    // Plan generation returns a valid plan
+    await page.unroute('**/api/ai/plan');
+    await page.route('**/api/ai/plan', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          title: 'Defensive Focus Practice',
+          type: 'practice',
+          content: {
+            objective: 'Improve defensive positioning and communication',
+            drills: [
+              { name: 'Box Out Drill', duration: 10, notes: 'Focus on footwork' },
+            ],
+          },
+        }),
+      })
+    );
+
+    await page.goto('/plans');
+
+    // No banner — arc failed to load
+    await expect(page.getByText(/session \d+ of \d+/i)).not.toBeVisible({ timeout: 5000 });
+
+    // Generate still works
+    const promptInput = page.getByPlaceholder(/describe what you need/i);
+    await expect(promptInput).toBeVisible();
+    await promptInput.fill('Defensive positioning');
+    await page.getByRole('button', { name: /generate with ai/i }).click();
+
+    // Plan preview appears — generation was not blocked by arc failure
+    await expect(page.getByText('Defensive Focus Practice')).toBeVisible({ timeout: 10000 });
+  });
 });
