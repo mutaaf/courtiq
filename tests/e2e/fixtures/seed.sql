@@ -116,6 +116,20 @@ values (
 )
 on conflict (id) do nothing;
 
+-- ── debriefed session (ticket 0014 — carryover strip) ─────────────────────
+-- An older practice session with coach_debrief_extracts populated so the
+-- carryover route returns a deterministic phrase for the capture-carryover
+-- spec. The focus phrase 'closeouts' is the one asserted in the spec.
+insert into sessions (id, team_id, coach_id, type, date, location, notes, coach_debrief_extracts)
+values (
+  '00000000-0000-4000-a000-000000000041',
+  '00000000-0000-4000-a000-000000000020',
+  '00000000-0000-4000-a000-000000000001',
+  'practice', current_date - 10, 'Main Gym', 'E2E seed debriefed session',
+  '{"session_summary":"Good practice","player_highlights":[],"areas_to_improve":[],"next_practice_focus":[{"focus":"closeouts","rationale":"Gave up too many open threes","suggested_drill":"Close-out drill"},{"focus":"weak-hand finishing","rationale":"Drove left repeatedly","suggested_drill":"Mikan drill"}],"coaching_tip":"Keep it simple","overall_tone":"good"}'::jsonb
+)
+on conflict (id) do nothing;
+
 -- ── observations ──────────────────────────────────────────────────────────
 -- A few observations on Alice (positive ones surface on the parent portal as
 -- highlights / season stats). Text mirrors the spec fixtures so the un-mocked
@@ -285,6 +299,65 @@ values (
   '00000000-0000-4000-a000-000000000081',
   'test-team-card-token-e2e-001',
   '00000000-0000-4000-a000-000000000080',
+  '00000000-0000-4000-a000-000000000001',
+  true
+)
+on conflict (token) do nothing;
+
+-- ── plans: a season_summary artifact for the team (ticket 0017) ─────────────
+-- The public season-recap surface renders ONLY the team-level recap fields named
+-- in PUBLIC_RECAP_FIELDS (headline / season_period / overall_assessment /
+-- team_highlights / skill_progress / team_challenges / coaching_insights /
+-- next_season_priorities / closing_message). player_id is NULL — this is a
+-- team-level artifact. content_structured deliberately INCLUDES player_breakthroughs
+-- (with per-player names) so the COPPA strip is exercised end-to-end: the public
+-- /api/season-recap/<token> route must NOT expose those. type='season_summary' is
+-- allowed by plans_type_check (migration 034). The headline / closing_message
+-- below are asserted by season-recap-flow.spec.ts.
+insert into plans (id, team_id, coach_id, player_id, type, title, content, content_structured)
+values (
+  '00000000-0000-4000-a000-000000000090',
+  '00000000-0000-4000-a000-000000000020',
+  '00000000-0000-4000-a000-000000000001',
+  null,
+  'season_summary',
+  'Season Recap — E2E Test Team',
+  '{}',
+  '{
+    "headline": "A Season of Breakthroughs",
+    "season_period": "Spring 2026 · Mar 1 – May 20",
+    "overall_assessment": "The team grew from a group that struggled to hold a lead into one that closes games with poise.",
+    "team_highlights": [
+      {"title": "Defense first", "description": "Held opponents under 30 in the back half of the season."},
+      {"title": "Comeback wins", "description": "Three double-digit comebacks down the stretch."}
+    ],
+    "skill_progress": [
+      {"skill": "Transition defense", "status": "most_improved", "description": "Sprinting back as a unit."},
+      {"skill": "Free throws", "status": "strength", "description": "Reliable from the line under pressure."}
+    ],
+    "player_breakthroughs": [
+      {"player_name": "Alice Walker", "achievement": "Became the team defensive anchor."},
+      {"player_name": "Bob Carter", "achievement": "Went from bench to starting point guard."}
+    ],
+    "team_challenges": ["Half-court spacing", "Turnovers vs. the press"],
+    "coaching_insights": "The data shows the team responds to tight, competitive practice reps far more than to lecture.",
+    "next_season_priorities": ["Install a base half-court offense", "Add a press-break package"],
+    "closing_message": "You showed up every week and got better every week. That is what a real season looks like."
+  }'::jsonb
+)
+on conflict (id) do nothing;
+
+-- ── season_recap_shares: the public referral token resolving to that plan (0017) ─
+-- token 'test-season-recap-token-e2e-001' matches SEASON_RECAP_TOKEN in
+-- season-recap-flow.spec.ts. is_active=true so the public /api/season-recap/<token>
+-- route returns 200. The seeded coach has NO preferences.referral_code, so the
+-- route lazily generates makeReferralCode(coach uuid) = 'AAAAAA' (all-zero hex
+-- bytes) and the page CTA deep-links to /signup?ref=AAAAAA.
+insert into season_recap_shares (id, token, plan_id, coach_id, is_active)
+values (
+  '00000000-0000-4000-a000-000000000091',
+  'test-season-recap-token-e2e-001',
+  '00000000-0000-4000-a000-000000000090',
   '00000000-0000-4000-a000-000000000001',
   true
 )

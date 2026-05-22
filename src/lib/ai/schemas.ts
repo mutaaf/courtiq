@@ -143,6 +143,7 @@ export const parentReportSchema = z.object({
     duration_minutes: z.number(),
   }).optional(),
   coach_note: z.string(),
+  since_last_report: z.string().nullable().optional(),
 });
 
 export const rosterImportSchema = z.object({

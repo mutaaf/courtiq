@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { InviteCoachButton } from '@/components/growth/invite-coach-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -172,6 +173,9 @@ export default function ReferralsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* One-tap invite button (ticket 0015) */}
+      <InviteCoachButton />
 
       {/* Referral link */}
       <Card>

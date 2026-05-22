@@ -1,7 +1,7 @@
 ---
 id: 0014
 title: Show last practice's focus areas at the top of Capture so the coach picks up where they left off
-status: groomed
+status: shipped
 priority: P1
 area: capture
 created: 2026-05-21
@@ -130,9 +130,10 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
-
-- YYYY-MM-DD — branch `feat/0014-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
+- 2026-05-22 — branch `feat/0014-capture-carryover` opened
+- 2026-05-22 — failing tests added: `tests/capture/carryover.test.ts` (8 route tests) + `tests/components/carryover-strip.test.tsx` (7 component tests)
+- 2026-05-22 — implemented `src/app/api/capture/carryover/route.ts`, `src/components/capture/carryover-strip.tsx`, wired into `src/app/(dashboard)/capture/page.tsx`; 15 unit tests pass; full suite 4326/4326; tsc 0 errors; lint 0 errors; e2e unit coverage only
+- 2026-05-22 — blocking review: AC6+AC7 (Playwright specs) missing, capture/page.tsx wiring untested end-to-end
+- 2026-05-22 — added `tests/e2e/capture-carryover.spec.ts` (AC6: strip visible with focus phrase, AC7: strip absent + record button operable, AC8: degrade on 500) + debriefed session seed row in `tests/e2e/fixtures/seed.sql` for deterministic phrase assertion
+- 2026-05-22 — PR #250 opened, CI [state]
 - YYYY-MM-DD — merged to main

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RecordingButton } from '@/components/capture/recording-button';
 import { AIUsageMeter, type AIUsageStatus } from '@/components/capture/ai-usage-meter';
+import { CarryoverStrip } from '@/components/capture/carryover-strip';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Send, Keyboard, Mic, AlertCircle, Sparkles, Upload, FileAudio, Camera, Lock } from 'lucide-react';
 import { generateId } from '@/lib/utils';
@@ -138,6 +139,26 @@ export default function CapturePage() {
     },
     retry: false,
     staleTime: 60_000,
+  });
+
+  // Best-effort carryover strip (ticket 0014): surfaces last session's focus phrases
+  // above the record button so the coach picks up where they left off. Never gates
+  // capture — resolves undefined on any fetch failure and renders nothing.
+  const { data: carryover } = useQuery<{ focus: string[] } | undefined>({
+    queryKey: ['capture-carryover', activeTeam?.id],
+    queryFn: async () => {
+      if (!activeTeam?.id) return undefined;
+      try {
+        const res = await fetch(`/api/capture/carryover?teamId=${activeTeam.id}`);
+        if (!res.ok) return undefined;
+        return (await res.json()) as { focus: string[] };
+      } catch {
+        return undefined;
+      }
+    },
+    enabled: !!activeTeam?.id,
+    retry: false,
+    staleTime: 5 * 60_000,
   });
 
   // Fetch player's recent observations for coaching brief when player is pre-selected
@@ -949,6 +970,12 @@ export default function CapturePage() {
         {/* Recording Area */}
         {captureState !== 'processing' && (
           <div className="flex flex-col items-center gap-3">
+            {/* Carryover strip — last session's focus areas (ticket 0014).
+                Best-effort: absent when no prior debrief or fetch fails; never gates. */}
+            {captureState !== 'recording' && (
+              <CarryoverStrip focus={carryover?.focus} />
+            )}
+
             <RecordingButton
               isRecording={captureState === 'recording'}
               onToggle={toggleRecording}

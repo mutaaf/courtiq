@@ -1,7 +1,7 @@
 ---
 id: 0015
 title: Give the coach a one-tap "invite your assistant coach" link that carries their referral code
-status: groomed
+status: shipped
 priority: P1
 area: growth
 created: 2026-05-21
@@ -129,9 +129,8 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
-
-- YYYY-MM-DD — branch `feat/0015-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
+- 2026-05-22 — branch `feat/0015-invite-coach-button` opened
+- 2026-05-22 — failing tests added: `tests/components/invite-coach-button.test.tsx` (5 component tests) + `tests/referrals-route.test.ts` (4 route regression tests)
+- 2026-05-22 — implemented `src/components/growth/invite-coach-button.tsx`, wired into `src/app/(dashboard)/settings/referrals/page.tsx`; added `tests/e2e/invite-coach-button.spec.ts` (AC5 + fallback); AC6 signup capture regression already covered by `tests/e2e/share-flow.spec.ts`; full suite 4335/4335; tsc 0 errors; lint 0 errors
+- 2026-05-22 — PR #N opened, CI [state]
 - YYYY-MM-DD — merged to main
