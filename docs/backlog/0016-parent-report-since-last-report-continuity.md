@@ -1,7 +1,7 @@
 ---
 id: 0016
 title: Make the parent report a continuity artifact that tells the growth story since the last report
-status: in-progress
+status: shipped
 priority: P1
 area: ai
 created: 2026-05-21
