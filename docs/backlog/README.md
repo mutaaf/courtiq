@@ -76,6 +76,9 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
+| 0017 | Turn the end-of-season recap into a public card the coach is proud to send | P1 | groomed | growth |
+| 0018 | Make the Practice Arc remember itself — surface "what carried forward" at the next practice | P1 | groomed | plans |
+| 0019 | Let the parent who is also a coach start their own free team from the report they're reading | P2 | groomed | growth |
 | 0015 | Give the coach a one-tap "invite your assistant coach" link that carries their referral code | P1 | shipped | growth |
 | 0016 | Make the parent report a continuity artifact that tells the growth story since the last report | P1 | shipped | ai |
 | 0014 | Show last practice's focus areas at the top of Capture so the coach picks up where they left off | P1 | shipped | capture |
