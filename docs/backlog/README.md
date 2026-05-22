@@ -77,7 +77,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
 | 0015 | Give the coach a one-tap "invite your assistant coach" link that carries their referral code | P1 | shipped | growth |
-| 0016 | Make the parent report a continuity artifact that tells the growth story since the last report | P1 | groomed | ai |
+| 0016 | Make the parent report a continuity artifact that tells the growth story since the last report | P1 | shipped | ai |
 | 0014 | Show last practice's focus areas at the top of Capture so the coach picks up where they left off | P1 | shipped | capture |
 | 0011 | Carry the coach's referral code through the parent portal's "share with your other coach" CTA | P1 | shipped | growth |
 | 0012 | Make multi-provider AI failover real — when the primary provider errors, callAI() retries a fallback | P1 | shipped | ai |
