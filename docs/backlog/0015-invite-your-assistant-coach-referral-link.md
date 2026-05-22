@@ -1,7 +1,7 @@
 ---
 id: 0015
 title: Give the coach a one-tap "invite your assistant coach" link that carries their referral code
-status: in-progress
+status: shipped
 priority: P1
 area: growth
 created: 2026-05-21
