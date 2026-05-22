@@ -12,6 +12,7 @@
  *  - Checkbox visible only in selectMode
  *  - Position color mapping for known positions
  *  - Fallback color for unknown positions
+ *  - Practice focus mode: onPracticeFocus click branch + Zap render
  */
 
 import React from 'react';
@@ -204,6 +205,49 @@ describe('PlayerCard', () => {
       const { container } = render(<PlayerCard player={player} selectMode selected={false} />);
       const filledCheckbox = container.querySelector('.bg-orange-500.border-orange-500');
       expect(filledCheckbox).toBeNull();
+    });
+  });
+
+  describe('practice focus mode (onPracticeFocus)', () => {
+    it('calls onPracticeFocus with the full player on click and does not navigate', () => {
+      const onPracticeFocus = vi.fn();
+      const player = buildPlayer({ id: 'p-focus-1' });
+      render(<PlayerCard player={player} onPracticeFocus={onPracticeFocus} />);
+      fireEvent.click(screen.getByText(player.name));
+      expect(onPracticeFocus).toHaveBeenCalledOnce();
+      expect(onPracticeFocus).toHaveBeenCalledWith(player);
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it('does not call onPracticeFocus when selectMode is active — selectMode takes priority', () => {
+      const onPracticeFocus = vi.fn();
+      const onSelect = vi.fn();
+      const player = buildPlayer({ id: 'p-focus-2' });
+      render(<PlayerCard player={player} selectMode onSelect={onSelect} onPracticeFocus={onPracticeFocus} />);
+      fireEvent.click(screen.getByText(player.name));
+      expect(onSelect).toHaveBeenCalledOnce();
+      expect(onPracticeFocus).not.toHaveBeenCalled();
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it('shows the Zap icon wrapper and hides obs count when onPracticeFocus is provided', () => {
+      const player = buildPlayer({ name: 'Zap Test Player' });
+      const { container } = render(
+        <PlayerCard player={player} observationCount={7} onPracticeFocus={vi.fn()} />
+      );
+      // obs label must be absent — the Zap circle replaces the count
+      expect(screen.queryByText('obs')).not.toBeInTheDocument();
+      // The orange Zap wrapper circle should be present
+      const zapCircle = container.querySelector('.bg-orange-500\\/15');
+      expect(zapCircle).not.toBeNull();
+    });
+
+    it('shows obs count and no Zap circle in normal mode', () => {
+      const player = buildPlayer({ name: 'Normal Player' });
+      const { container } = render(<PlayerCard player={player} observationCount={7} />);
+      expect(screen.getByText('obs')).toBeInTheDocument();
+      const zapCircle = container.querySelector('.bg-orange-500\\/15');
+      expect(zapCircle).toBeNull();
     });
   });
 
