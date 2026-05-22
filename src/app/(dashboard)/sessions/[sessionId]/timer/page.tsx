@@ -121,6 +121,13 @@ import {
   buildRunCountLabel,
 } from '@/lib/drill-run-history-utils';
 import {
+  buildCategoryChips,
+  matchesCategoryFilter,
+  getCategoryIcon,
+  hasMultipleCategories,
+  computeTopGapCategories,
+} from '@/lib/drill-category-utils';
+import {
   getWeeklyFocus,
   getFocusCategoryConfig,
   type WeeklyFocus,
@@ -1216,6 +1223,7 @@ export default function PracticeTimerPage({
   const [customDuration, setCustomDuration] = useState('10');
   const [showDrillPicker, setShowDrillPicker] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [loadedTemplateName, setLoadedTemplateName] = useState<string | null>(null);
   const [lastPracticeQueue, setLastPracticeQueue] = useState<QueueItem[] | null>(null);
@@ -2027,13 +2035,14 @@ export default function PracticeTimerPage({
   const filteredDrills = useMemo(() => {
     let list = drills.filter(
       (d) =>
-        !drillSearch ||
-        d.name.toLowerCase().includes(drillSearch.toLowerCase()) ||
-        d.category.toLowerCase().includes(drillSearch.toLowerCase())
+        matchesCategoryFilter(d, selectedCategory) &&
+        (!drillSearch ||
+          d.name.toLowerCase().includes(drillSearch.toLowerCase()) ||
+          d.category.toLowerCase().includes(drillSearch.toLowerCase()))
     );
     if (showFavoritesOnly) {
       list = list.filter((d) => isFavorited(d.id, favoriteIds));
-    } else if (!drillSearch) {
+    } else if (!drillSearch && !selectedCategory) {
       // Favorites first, then well-rated, then fresh (never/rarely run), poorly-rated last
       list = sortWithFavoritesFirst(list, favoriteIds);
       if (activeTeam?.id) {
@@ -2042,7 +2051,13 @@ export default function PracticeTimerPage({
       }
     }
     return list;
-  }, [drills, drillSearch, showFavoritesOnly, favoriteIds, activeTeam?.id]);
+  }, [drills, drillSearch, showFavoritesOnly, selectedCategory, favoriteIds, activeTeam?.id]);
+
+  // ── Skill-gap categories (top 3 needs-work) ─────────────────────────────
+  const gapCategories = useMemo(
+    () => computeTopGapCategories(needsWorkObs, 3),
+    [needsWorkObs],
+  );
 
   // ── Skill-gap drill suggestions for the empty queue screen ───────────────
   // When a weekly focus is active it earns the top slot; data-driven gap drills
@@ -2863,7 +2878,7 @@ export default function PracticeTimerPage({
       {/* Add drill buttons */}
       <div className="space-y-3">
         <button
-          onClick={() => setShowDrillPicker((v) => !v)}
+          onClick={() => { setShowDrillPicker((v) => !v); setSelectedCategory(null); }}
           className="flex items-center gap-2 text-sm text-orange-400 hover:text-orange-300 transition-colors font-medium"
         >
           <Plus className="h-4 w-4" />
@@ -2878,23 +2893,49 @@ export default function PracticeTimerPage({
                 <Input
                   placeholder="Search drills…"
                   value={drillSearch}
-                  onChange={(e) => { setDrillSearch(e.target.value); setShowFavoritesOnly(false); }}
+                  onChange={(e) => { setDrillSearch(e.target.value); setShowFavoritesOnly(false); setSelectedCategory(null); }}
                   className="pl-9 h-9 text-sm bg-zinc-800 border-zinc-700"
                   autoFocus
                 />
               </div>
-              {favoriteIds.length > 0 && (
-                <button
-                  onClick={() => { setShowFavoritesOnly((v) => !v); setDrillSearch(''); }}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors touch-manipulation ${
-                    showFavoritesOnly
-                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-                      : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-amber-500/40 hover:text-amber-400'
-                  }`}
-                >
-                  <Star className={`h-3 w-3 ${showFavoritesOnly ? 'fill-amber-400 text-amber-400' : 'text-zinc-500'}`} />
-                  Favorites ({favoriteIds.length})
-                </button>
+              {/* Filter chips: Favorites + category chips */}
+              {(favoriteIds.length > 0 || hasMultipleCategories(drills)) && (
+                <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+                  {favoriteIds.length > 0 && (
+                    <button
+                      onClick={() => { setShowFavoritesOnly((v) => !v); setDrillSearch(''); setSelectedCategory(null); }}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors touch-manipulation shrink-0 ${
+                        showFavoritesOnly
+                          ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                          : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-amber-500/40 hover:text-amber-400'
+                      }`}
+                    >
+                      <Star className={`h-3 w-3 ${showFavoritesOnly ? 'fill-amber-400 text-amber-400' : 'text-zinc-500'}`} />
+                      ★ ({favoriteIds.length})
+                    </button>
+                  )}
+                  {buildCategoryChips(drills, gapCategories).map((chip) => (
+                    <button
+                      key={chip.label}
+                      onClick={() => {
+                        setSelectedCategory((prev) => prev === chip.label ? null : chip.label);
+                        setShowFavoritesOnly(false);
+                        setDrillSearch('');
+                      }}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors touch-manipulation shrink-0 ${
+                        selectedCategory === chip.label
+                          ? chip.isGap
+                            ? 'bg-orange-500/25 text-orange-300 border border-orange-500/50'
+                            : 'bg-zinc-600/40 text-zinc-200 border border-zinc-500'
+                          : chip.isGap
+                            ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30 hover:bg-orange-500/20'
+                            : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600'
+                      }`}
+                    >
+                      {getCategoryIcon(chip.label)} {chip.label}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
             <div className="max-h-60 overflow-y-auto divide-y divide-zinc-800">
