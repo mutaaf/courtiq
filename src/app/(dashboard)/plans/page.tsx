@@ -675,6 +675,25 @@ export default function PlansPage() {
     enabled: !!activeTeam && showRunModal,
   });
 
+  // Best-effort: fetch the team's active practice arc for continuity hints.
+  // Failure here never blocks plan generation.
+  const { data: activeArcData } = useQuery({
+    queryKey: ['practice-arc-active', activeTeam?.id],
+    queryFn: async () => {
+      if (!activeTeam) return null;
+      try {
+        const res = await fetch(`/api/ai/practice-arc/active?teamId=${activeTeam.id}`);
+        if (!res.ok) return null;
+        const json = await res.json();
+        return json.active ?? null;
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!activeTeam,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (planId: string) => {
       await mutate({
@@ -713,6 +732,18 @@ export default function PlansPage() {
       focus_skill_count: focusSkills.length,
     });
 
+    // Build arc continuity context for practice plans (best-effort — never blocks generation)
+    const arcContext =
+      type === 'practice' && activeArcData
+        ? {
+            arcTitle: activeArcData.arc_title,
+            sessionNumber: activeArcData.currentSessionNumber,
+            totalSessions: activeArcData.total_sessions,
+            carriesForward: activeArcData.priorSession?.carries_forward ?? undefined,
+            keyCoachingPoint: activeArcData.currentSession?.key_coaching_point ?? undefined,
+          }
+        : undefined;
+
     try {
       const res = await fetch('/api/ai/plan', {
         method: 'POST',
@@ -721,6 +752,7 @@ export default function PlansPage() {
           teamId: activeTeam.id,
           type,
           focusSkills: focusSkills.length > 0 ? focusSkills : undefined,
+          arcContext,
         }),
       });
       if (!res.ok) {
@@ -3198,6 +3230,26 @@ export default function PlansPage() {
           >
             <X className="h-4 w-4" />
           </button>
+        </div>
+      )}
+
+      {/* Arc continuity line — shown when a practice arc is active */}
+      {activeArcData && (
+        <div
+          className="flex items-start gap-2 rounded-lg border border-orange-500/20 bg-orange-500/8 px-3 py-2.5"
+          data-testid="arc-continuity-banner"
+        >
+          <Timer className="h-4 w-4 text-orange-400 mt-0.5 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-orange-300 truncate">
+              {activeArcData.arc_title} · session {activeArcData.currentSessionNumber} of {activeArcData.total_sessions}
+            </p>
+            {activeArcData.priorSession?.carries_forward && (
+              <p className="text-[11px] text-zinc-400 mt-0.5 line-clamp-1">
+                Last time: {activeArcData.priorSession.carries_forward}
+              </p>
+            )}
+          </div>
         </div>
       )}
 

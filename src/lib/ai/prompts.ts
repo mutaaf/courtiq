@@ -99,6 +99,13 @@ export const PROMPT_REGISTRY = {
     proficiencyData?: unknown;
     focusSkills?: string[];
     observationInsights?: ObservationInsightsParam;
+    arcContext?: {
+      arcTitle?: string;
+      sessionNumber?: number;
+      totalSessions?: number;
+      carriesForward?: string;
+      keyCoachingPoint?: string;
+    };
   }) => {
     const insights = params.observationInsights;
     const hasInsights = insights && insights.totalObs > 0;
@@ -163,6 +170,23 @@ export const PROMPT_REGISTRY = {
         .join('\n')
       : '';
 
+    const arc = params.arcContext;
+    const arcBlock = arc?.arcTitle
+      ? [
+          '',
+          `ARC CONTINUITY — this is session ${arc.sessionNumber ?? '?'} of ${arc.totalSessions ?? '?'} in the "${arc.arcTitle}" arc.`,
+          arc.carriesForward
+            ? `Last session carried forward: ${arc.carriesForward}`
+            : '',
+          arc.keyCoachingPoint
+            ? `Continue that progression today; lead with the key coaching point: ${arc.keyCoachingPoint}`
+            : '',
+          'Thread these carried-forward ideas into your warmup and primary drills so the practice feels like a continuation, not a fresh start.',
+        ]
+        .filter(Boolean)
+        .join('\n')
+      : '';
+
     return {
       system: [
         buildSystemPreamble(params),
@@ -176,6 +200,7 @@ export const PROMPT_REGISTRY = {
         `Generate a practice plan for ${params.teamName || 'the team'}.`,
         params.focusSkills?.length ? `Requested focus skills: ${params.focusSkills.join(', ')}` : '',
         insightsBlock,
+        arcBlock,
         params.proficiencyData ? `Additional proficiency data: ${JSON.stringify(params.proficiencyData)}` : '',
         'Respond with JSON: { "title", "duration_minutes", "warmup": { "name", "duration_minutes", "description" }, "drills": [{ "name", "skill_id", "duration_minutes", "description", "coaching_cues" }], "scrimmage": { "duration_minutes", "focus" }, "cooldown": { "duration_minutes", "notes" } }',
       ].filter(Boolean).join('\n'),
