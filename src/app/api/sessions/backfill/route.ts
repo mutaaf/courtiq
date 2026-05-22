@@ -152,7 +152,7 @@ export async function POST(request: Request) {
     admin.from('coaches').select('org_id').eq('id', user.id).single(),
     admin
       .from('players')
-      .select('id, name, nickname, name_variants')
+      .select('id, name, jersey_number, nickname, name_variants')
       .eq('team_id', teamId)
       .eq('is_active', true),
     buildAIContext(teamId, admin, { lightweight: true }),

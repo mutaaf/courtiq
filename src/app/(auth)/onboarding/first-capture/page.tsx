@@ -7,6 +7,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Mic, Loader2, CheckCircle2, Sparkles, AlertCircle, ChevronRight } from 'lucide-react';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 import { trackEvent } from '@/lib/analytics';
+import { mutate, query } from '@/lib/api';
+import { findPlayerByName } from '@/lib/player-match';
+import { getSportExamplePhrase } from '@/lib/sport-utils';
 
 type Phase = 'idle' | 'recording' | 'processing' | 'success' | 'error' | 'unsupported';
 
@@ -17,15 +20,31 @@ interface Observation {
   text: string;
 }
 
+interface RosterPlayer {
+  id: string;
+  name: string;
+  nickname: string | null;
+  name_variants: string[] | null;
+}
+
 export default function FirstCapturePage() {
   const router = useRouter();
   const voice = useVoiceInput();
   const [phase, setPhase] = useState<Phase>('idle');
   const [observations, setObservations] = useState<Observation[]>([]);
-  const [teamId, setTeamId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
+  const [sportSlug, setSportSlug] = useState<string | null>(null);
   const startedAtRef = useRef<number | null>(null);
+  const teamIdRef = useRef<string | null>(null);
+
+  // Pre-fetch sport slug so the example phrase is sport-specific from the start.
+  useEffect(() => {
+    fetch('/api/auth/me-team')
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.sportSlug) setSportSlug(d.sportSlug); })
+      .catch(() => {});
+  }, []);
 
   // Detect support after first render
   useEffect(() => {
@@ -42,27 +61,49 @@ export default function FirstCapturePage() {
     trackEvent('onboarding_first_capture_viewed');
   }, []);
 
-  async function complete(obsToSave?: Observation[]) {
-    setFinishing(true);
-    // Save observations captured during onboarding so the dashboard has real data
-    const obs = obsToSave ?? observations;
-    if (obs.length > 0 && teamId) {
-      try {
-        await fetch('/api/auth/save-onboarding-observations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ teamId, observations: obs }),
-        });
-      } catch {
-        // Best-effort — don't block navigation on save failure
-      }
+  async function saveObservations(teamId: string, obs: Observation[]) {
+    try {
+      const players = await query<RosterPlayer[]>({
+        table: 'players',
+        select: 'id,name,nickname,name_variants',
+        filters: { team_id: teamId, is_active: true },
+      });
+
+      const rows = obs.map((o) => ({
+        team_id: teamId,
+        player_id: findPlayerByName(o.player_name, players) ?? null,
+        text: o.text,
+        sentiment: o.sentiment,
+        category: o.category,
+        source: 'voice',
+      }));
+
+      await mutate({
+        table: 'observations',
+        operation: 'insert',
+        data: rows,
+      });
+    } catch {
+      // Silent failure — don't block onboarding completion
     }
+  }
+
+  async function complete() {
+    setFinishing(true);
+
+    // Save observations to DB so the coach sees real data on the home dashboard.
+    // Runs before the redirect — silent failure won't block onboarding.
+    if (observations.length > 0 && teamIdRef.current) {
+      await saveObservations(teamIdRef.current, observations);
+    }
+
     try {
       await fetch('/api/auth/complete-onboarding', { method: 'POST' });
     } catch {}
     trackEvent('onboarding_completed', {
       via: 'first_capture',
-      had_observation: obs.length > 0,
+      had_observation: observations.length > 0,
+      saved_count: observations.length,
     });
     router.push('/home');
     router.refresh();
@@ -93,9 +134,9 @@ export default function FirstCapturePage() {
       // Find the coach's first team for the segmentation context.
       const teamRes = await fetch('/api/auth/me-team').catch(() => null);
       const teamData = teamRes && teamRes.ok ? await teamRes.json() : null;
-      const resolvedTeamId: string | null = teamData?.teamId ?? null;
+      const teamId: string | null = teamData?.teamId ?? null;
 
-      if (!resolvedTeamId) {
+      if (!teamId) {
         // No team yet — this shouldn't happen if /onboarding/setup ran. Skip
         // gracefully into the dashboard so the coach isn't blocked.
         setError(null);
@@ -103,13 +144,13 @@ export default function FirstCapturePage() {
         return;
       }
 
-      // Store teamId so complete() can save the observations
-      setTeamId(resolvedTeamId);
+      // Store teamId so complete() can use it when saving observations.
+      teamIdRef.current = teamId;
 
       const res = await fetch('/api/ai/segment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript, teamId: resolvedTeamId }),
+        body: JSON.stringify({ transcript, teamId }),
       });
 
       if (!res.ok) {
@@ -161,7 +202,7 @@ export default function FirstCapturePage() {
           {phase === 'success' ? (
             <SuccessView
               observations={observations}
-              onContinue={() => complete(observations)}
+              onContinue={complete}
               loading={finishing}
             />
           ) : (
@@ -173,6 +214,7 @@ export default function FirstCapturePage() {
               onStop={handleStop}
               onSkip={handleSkip}
               skipDisabled={finishing}
+              sportSlug={sportSlug}
             />
           )}
         </CardContent>
@@ -191,6 +233,7 @@ function RecordingView({
   onStop,
   onSkip,
   skipDisabled,
+  sportSlug,
 }: {
   phase: Phase;
   error: string | null;
@@ -199,16 +242,18 @@ function RecordingView({
   onStop: () => void;
   onSkip: () => void;
   skipDisabled: boolean;
+  sportSlug: string | null;
 }) {
   const isRecording = phase === 'recording';
   const isProcessing = phase === 'processing';
   const isUnsupported = phase === 'unsupported';
+  const examplePhrase = getSportExamplePhrase(sportSlug);
 
   return (
     <>
       <h1 className="mt-2 text-2xl font-bold text-zinc-100">Say something about a player.</h1>
       <p className="mt-2 text-sm text-zinc-400 max-w-sm leading-relaxed">
-        Try: <em className="text-zinc-300">&ldquo;Sarah&apos;s footwork looked sharp on closeouts today.&rdquo;</em>{' '}
+        Try: <em className="text-zinc-300">&ldquo;{examplePhrase}&rdquo;</em>{' '}
         We&apos;ll segment it into a real observation in a few seconds.
       </p>
 
@@ -285,8 +330,8 @@ function SuccessView({
       </div>
       <h1 className="mt-4 text-2xl font-bold text-zinc-100">You just made an observation.</h1>
       <p className="mt-2 text-sm text-zinc-400 max-w-sm">
-        These are saved to your team&apos;s record. Do this at every practice and SportsIQ
-        builds plans, reports, and parent updates from your notes automatically.
+        That&apos;s the entire workflow. Do this during practice and the rest of SportsIQ
+        builds on top of it — plans, reports, parent updates.
       </p>
 
       <div className="mt-6 w-full space-y-2 text-left">
@@ -316,7 +361,7 @@ function SuccessView({
         ))}
         {observations.length > 3 && (
           <p className="text-[11px] text-zinc-500 text-center">
-            +{observations.length - 3} more — review them on the Capture tab.
+            +{observations.length - 3} more observation{observations.length - 3 > 1 ? 's' : ''} — all saved to your dashboard.
           </p>
         )}
       </div>
@@ -330,11 +375,11 @@ function SuccessView({
         {loading ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            Saving observations…
+            Saving to your dashboard…
           </>
         ) : (
           <>
-            Save &amp; go to dashboard
+            You&apos;re all set
             <ChevronRight className="h-4 w-4" />
           </>
         )}

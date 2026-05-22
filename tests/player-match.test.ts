@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findPlayerByName, soundex, editDistance } from '@/lib/player-match';
+import { findPlayerByName, soundex, editDistance, parseJerseyNumber } from '@/lib/player-match';
 import type { PlayerForMatch } from '@/lib/player-match';
 
 // -----------------------------------------------------------------------
@@ -80,36 +80,42 @@ const roster: PlayerForMatch[] = [
     name: 'Marcus Johnson',
     nickname: 'MJ',
     name_variants: ['marcuss johnson'],
+    jersey_number: 7,
   },
   {
     id: 'p2',
     name: 'DeAndre Williams',
     nickname: null,
     name_variants: ['the Andre', 'de andre'],
+    jersey_number: 12,
   },
   {
     id: 'p3',
     name: 'Jaylen Smith',
     nickname: 'Jay',
     name_variants: null,
+    jersey_number: 23,
   },
   {
     id: 'p4',
     name: 'Amin Hassan',
     nickname: null,
     name_variants: ['a mean', 'I mean', 'ah mean'],
+    jersey_number: 5,
   },
   {
     id: 'p5',
     name: 'Jamal Torres',
     nickname: null,
     name_variants: ['jam all'],
+    jersey_number: 34,
   },
   {
     id: 'p6',
     name: 'Zoe Chen',
     nickname: null,
     name_variants: null,
+    jersey_number: null,
   },
 ];
 
@@ -190,5 +196,96 @@ describe('findPlayerByName', () => {
   // --- no match ---
   it('returns null for a completely unknown name', () => {
     expect(findPlayerByName('Bartholomew Xavier', roster)).toBeNull();
+  });
+
+  // --- jersey number match ---
+  it('matches bare jersey number to the right player', () => {
+    expect(findPlayerByName('7', roster)).toBe('p1');
+    expect(findPlayerByName('12', roster)).toBe('p2');
+    expect(findPlayerByName('23', roster)).toBe('p3');
+    expect(findPlayerByName('34', roster)).toBe('p5');
+  });
+
+  it('matches #N jersey number format', () => {
+    expect(findPlayerByName('#7', roster)).toBe('p1');
+    expect(findPlayerByName('#12', roster)).toBe('p2');
+    expect(findPlayerByName('#5', roster)).toBe('p4');
+  });
+
+  it('matches "number N" spoken jersey format', () => {
+    expect(findPlayerByName('number 7', roster)).toBe('p1');
+    expect(findPlayerByName('number 23', roster)).toBe('p3');
+  });
+
+  it('matches "No. N" and "no N" jersey formats', () => {
+    expect(findPlayerByName('No. 12', roster)).toBe('p2');
+    expect(findPlayerByName('no 34', roster)).toBe('p5');
+  });
+
+  it('matches "player N" jersey format', () => {
+    expect(findPlayerByName('player 7', roster)).toBe('p1');
+    expect(findPlayerByName('jersey 23', roster)).toBe('p3');
+  });
+
+  it('jersey match takes precedence over name-based matching', () => {
+    // A player with jersey #7 should win even before phonetic matching kicks in
+    expect(findPlayerByName('#7', roster)).toBe('p1');
+  });
+
+  it('returns null for jersey number not on the roster', () => {
+    expect(findPlayerByName('#99', roster)).toBeNull();
+    expect(findPlayerByName('99', roster)).toBeNull();
+  });
+
+  it('does not match jersey when player has no jersey_number (null)', () => {
+    // Zoe Chen has jersey_number: null — no player has jersey 0
+    expect(findPlayerByName('0', roster)).toBeNull();
+  });
+});
+
+// -----------------------------------------------------------------------
+// parseJerseyNumber unit tests
+// -----------------------------------------------------------------------
+describe('parseJerseyNumber', () => {
+  it('parses bare numbers', () => {
+    expect(parseJerseyNumber('7')).toBe(7);
+    expect(parseJerseyNumber('12')).toBe(12);
+    expect(parseJerseyNumber('0')).toBe(0);
+    expect(parseJerseyNumber('99')).toBe(99);
+  });
+
+  it('parses # prefix', () => {
+    expect(parseJerseyNumber('#7')).toBe(7);
+    expect(parseJerseyNumber('#23')).toBe(23);
+  });
+
+  it('parses "number N" spoken form', () => {
+    expect(parseJerseyNumber('number 7')).toBe(7);
+    expect(parseJerseyNumber('number 12')).toBe(12);
+  });
+
+  it('parses "No. N" and "no N"', () => {
+    expect(parseJerseyNumber('No. 7')).toBe(7);
+    expect(parseJerseyNumber('no 12')).toBe(12);
+  });
+
+  it('parses "player N" and "jersey N"', () => {
+    expect(parseJerseyNumber('player 7')).toBe(7);
+    expect(parseJerseyNumber('jersey 23')).toBe(23);
+  });
+
+  it('returns null for plain names', () => {
+    expect(parseJerseyNumber('Marcus')).toBeNull();
+    expect(parseJerseyNumber('MJ')).toBeNull();
+  });
+
+  it('returns null for mixed name+number strings', () => {
+    expect(parseJerseyNumber('Marcus 7')).toBeNull();
+    expect(parseJerseyNumber('player7x')).toBeNull();
+  });
+
+  it('returns null for 3-digit numbers (out of jersey range)', () => {
+    expect(parseJerseyNumber('100')).toBeNull();
+    expect(parseJerseyNumber('#123')).toBeNull();
   });
 });

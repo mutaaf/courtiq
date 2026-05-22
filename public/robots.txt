@@ -1,0 +1,25 @@
+User-agent: *
+Allow: /
+Allow: /demo
+Allow: /share/
+Allow: /privacy
+Allow: /terms
+Allow: /login
+Allow: /signup
+
+# Keep internal/auth/API routes private
+Disallow: /api/
+Disallow: /onboarding/
+Disallow: /admin/
+Disallow: /_next/
+
+# Public pages that should be indexed
+# / (landing)     → indexed
+# /demo           → indexed (no-signup demo)
+# /share/*        → indexed (parent report cards — viral)
+# /privacy        → indexed
+# /terms          → indexed
+# /login          → indexed (for direct links)
+# /signup         → indexed
+
+Sitemap: https://sportsiq.app/sitemap.xml

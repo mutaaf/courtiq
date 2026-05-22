@@ -59,7 +59,7 @@ export function ContinueArcCard({ teamId }: { teamId: string }) {
             <p className="mt-0.5 text-xs text-zinc-500 italic truncate">{arc.nextSessionTitle}</p>
           )}
           <Link
-            href="/plans"
+            href={`/plans?arcPlanId=${encodeURIComponent(arc.planId)}&arcSession=${arc.nextSession - 1}`}
             className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-sky-500/25 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-300 hover:bg-sky-500/25 transition-colors touch-manipulation active:scale-[0.97]"
           >
             Load Session {arc.nextSession} in Timer

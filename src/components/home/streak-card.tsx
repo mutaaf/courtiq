@@ -1,7 +1,8 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { Flame } from 'lucide-react';
+import { Flame, Mic } from 'lucide-react';
+import Link from 'next/link';
 import {
   getNextMilestone,
   streakPercentToNextMilestone,
@@ -102,6 +103,16 @@ export function StreakCard({ teamId, observationCount }: StreakCardProps) {
             />
           </div>
         </div>
+      )}
+
+      {/* At-risk CTA — one-tap path to capture when streak is about to break */}
+      {data.atRisk && !data.todayHasActivity && (
+        <Link href="/capture">
+          <div className="flex items-center justify-center gap-2 rounded-xl bg-amber-500/15 border border-amber-500/30 px-4 py-2.5 text-sm font-medium text-amber-300 hover:bg-amber-500/25 transition-colors">
+            <Mic className="h-4 w-4 shrink-0" />
+            Capture an observation now
+          </div>
+        </Link>
       )}
 
       {/* Earned milestone badges */}

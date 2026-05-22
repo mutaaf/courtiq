@@ -1,9 +1,18 @@
 import type { Metadata } from 'next';
+import { buildShareMetadata } from '@/lib/share-metadata';
 import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { ParentViralCTA } from '@/components/share/parent-viral-cta';
 import { ParentReactionForm } from '@/components/share/parent-reaction-form';
-import { PortalFamilyShare } from '@/components/share/portal-family-share';
-import { Megaphone, MessageCircle } from 'lucide-react';
+import { ParentContactForm } from '@/components/share/parent-contact-form';
+import { ShareReportButton } from '@/components/share/share-report-button';
+import { ProgressTrendChart } from '@/components/share/progress-trend-chart';
+import { CalendarDays, Megaphone, MessageCircle } from 'lucide-react';
+import {
+  SESSION_EMOJI,
+  SESSION_LABEL,
+  formatSessionDate,
+  isCompetitiveSession,
+} from '@/lib/upcoming-session-utils';
 import {
   buildSeasonStats,
   getImprovingSkills,
@@ -11,12 +20,8 @@ import {
   buildProgressMessage,
   hasEnoughDataForJourney,
   sortSkillsByImprovingFirst,
-  buildWeeklyProgress,
-  hasEnoughDataForWeeklyProgress,
-  isProgressTrending,
-  getWeeklyProgressMax,
 } from '@/lib/skill-journey-utils';
-import type { SkillProgress, ShareObservation, WeeklyProgressPoint } from '@/lib/skill-journey-utils';
+import type { SkillProgress, ShareObservation } from '@/lib/skill-journey-utils';
 import {
   buildGrowthStreakData,
   hasEnoughDataForGrowthStreak,
@@ -26,7 +31,6 @@ import {
   formatStreakCount,
 } from '@/lib/player-growth-streak-utils';
 
-// ---------------------------------------------------------------------------
 // Skill Radar Chart — pure SVG, server-component safe, light-mode
 // ---------------------------------------------------------------------------
 
@@ -182,89 +186,6 @@ function SkillRadarChart({ skills }: { skills: any[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// Weekly Progress Chart — pure SVG sparkline, server-component safe, light-mode
-// ---------------------------------------------------------------------------
-
-function WeeklyProgressChart({ points, isTrending }: { points: WeeklyProgressPoint[]; isTrending: boolean }) {
-  const BAR_W = 22;
-  const GAP = 5;
-  const CHART_H = 52;
-  const maxVal = getWeeklyProgressMax(points);
-  const totalW = points.length * (BAR_W + GAP) - GAP;
-
-  return (
-    <div>
-      <svg
-        viewBox={`0 0 ${totalW} ${CHART_H}`}
-        width={totalW}
-        height={CHART_H}
-        aria-hidden="true"
-        className="overflow-visible"
-      >
-        {points.map((p, i) => {
-          const x = i * (BAR_W + GAP);
-          const isLatest = i === points.length - 1;
-
-          if (p.positiveCount === 0) {
-            // Tiny grey nub to show the axis exists
-            return (
-              <rect
-                key={i}
-                x={x}
-                y={CHART_H - 3}
-                width={BAR_W}
-                height={3}
-                rx={1.5}
-                fill={isLatest ? '#fdba74' : '#e5e7eb'}
-              />
-            );
-          }
-
-          const barH = Math.max(6, Math.round((p.positiveCount / maxVal) * CHART_H));
-          const y = CHART_H - barH;
-
-          return (
-            <rect
-              key={i}
-              x={x}
-              y={y}
-              width={BAR_W}
-              height={barH}
-              rx={3}
-              fill={isLatest ? '#f97316' : '#fed7aa'}
-            />
-          );
-        })}
-      </svg>
-
-      {/* Week labels */}
-      <div
-        className="flex mt-1"
-        style={{ width: totalW, gap: GAP }}
-      >
-        {points.map((p, i) => (
-          <span
-            key={i}
-            className={`text-center text-[9px] leading-none ${
-              i === points.length - 1 ? 'text-orange-500 font-semibold' : 'text-gray-400'
-            }`}
-            style={{ width: BAR_W, flexShrink: 0 }}
-          >
-            {p.weekLabel}
-          </span>
-        ))}
-      </div>
-
-      {isTrending && (
-        <p className="mt-2 text-xs text-emerald-600 font-medium flex items-center gap-1">
-          <span>↑</span> Positive moments trending up lately!
-        </p>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Data fetching
 // ---------------------------------------------------------------------------
 
@@ -314,7 +235,7 @@ const PROFICIENCY_LEVELS: Record<string, ProficiencyLevel> = {
   },
   got_it: {
     label: 'Got It!',
-    emoji: '\u2B50',
+    emoji: '⭐',
     percent: 75,
     barColor: 'bg-emerald-400',
     bgColor: 'bg-emerald-50',
@@ -392,53 +313,29 @@ function ErrorPage({ isExpired, needsPin }: { isExpired: boolean; needsPin: bool
 }
 
 // ---------------------------------------------------------------------------
-// Main Page
+// Social metadata — rich previews when parents share the link
 // ---------------------------------------------------------------------------
 
-export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ token: string }>;
+}): Promise<Metadata> {
   const { token } = await params;
   const data = await getShareData(token);
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://youthsportsiq.com';
-  const pageUrl = `${baseUrl}/share/${token}`;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://youthsportsiq.com';
 
-  if (!data || data.error) {
-    return {
-      title: 'Player Progress Report — SportsIQ',
-      description: 'View your player\'s coaching highlights and skill progress.',
-    };
-  }
-
-  const { player, team, coachName, totalObservationCount } = data;
-  const playerName = player?.nickname || player?.name || 'Your Player';
-  const firstName = playerName.split(' ')[0];
-  const teamName = team?.name || 'the team';
-  const coachFirst = coachName ? coachName.split(' ')[0] : 'Coach';
-  const obsNote = totalObservationCount > 0
-    ? ` · ${totalObservationCount} coaching observation${totalObservationCount !== 1 ? 's' : ''}`
-    : '';
-
-  const title = `${playerName}'s Progress Report — ${teamName}`;
-  const description = `Coach ${coachFirst} has shared ${firstName}'s coaching highlights, skill progress, and season achievements${obsNote}. See how ${firstName} is developing this season!`;
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      type: 'website',
-      url: pageUrl,
-      siteName: 'SportsIQ',
-      images: [{ url: `${baseUrl}/opengraph-image`, width: 1200, height: 630, alt: `${playerName}'s Progress Report` }],
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-    },
-  };
+  // Ticket 0013: the title/description branch (spotlight vs generic Progress
+  // Report) lives in the pure, unit-tested builder. Presentation only — when a
+  // well-formed playerSpotlight is present, the preview leads with the
+  // celebratory artifact; otherwise it keeps today's generic card unchanged.
+  return buildShareMetadata(data, { token, appUrl });
 }
+
+// ---------------------------------------------------------------------------
+// Main Page
+// ---------------------------------------------------------------------------
 
 export default async function SharePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -452,23 +349,30 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     player,
     team,
     coachName,
+    isCoachCertified,
     branding,
     customMessage,
     reportCard,
     developmentCard,
     highlights,
     featuredHighlight,
+    starredObservations,
     skillProgress,
     recommendedDrills,
     announcements,
+    upcomingSessions,
     totalObservationCount,
     recentObservationActivity,
     achievements,
     latestSessionMessage,
     skillChallenge,
     playerGoals,
-    attendanceStats,
+    hasParentContact,
+    playerSpotlight,
+    referralCode,
   } = data;
+
+  const safeStarred: any[] = starredObservations ?? [];
 
   const playerName = player?.nickname || player?.name || 'your player';
   const firstName = playerName.split(' ')[0];
@@ -502,11 +406,6 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
   const showJourney = hasEnoughDataForJourney(safeObs, safeSkills) || (totalObservationCount ?? 0) >= 3;
   const progressMessage = buildProgressMessage(firstName, improvingSkills, totalObservationCount ?? 0);
 
-  // Weekly progress chart — 8-week positive observation sparkline
-  const weeklyPoints = buildWeeklyProgress(safeObs);
-  const showWeeklyProgress = hasEnoughDataForWeeklyProgress(weeklyPoints);
-  const weeklyIsTrending = showWeeklyProgress && isProgressTrending(weeklyPoints);
-
   // Growth streak — computed from session-bucketed observation activity
   const growthObs = safeObs.map((o) => ({
     session_id: o.session_id ?? null,
@@ -533,23 +432,23 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     nextChallenge = typeof area === 'string' ? area : area.skill || area.description || area.name || String(area);
   }
 
-  // Attendance helpers — only rendered when the coach has been tracking attendance
-  function getAttendanceLabel(pct: number): string {
-    if (pct >= 90) return '🌟 Excellent attendance!';
-    if (pct >= 75) return '👍 Great attendance!';
-    if (pct >= 60) return '📈 Good attendance';
-    return '💪 Keep showing up!';
-  }
-  function getAttendanceBarColor(pct: number): string {
-    if (pct >= 75) return 'bg-emerald-400';
-    if (pct >= 60) return 'bg-amber-400';
-    return 'bg-red-400';
-  }
-  function getAttendanceDotColor(status: string): string {
-    if (status === 'present') return 'bg-emerald-500';
-    if (status === 'excused') return 'bg-amber-400';
-    return 'bg-gray-300';
-  }
+  const safeUpcomingSessions: Array<{
+    id: string; type: string; date: string; start_time: string | null;
+    location: string | null; opponent: string | null;
+  }> = Array.isArray(upcomingSessions) ? upcomingSessions : [];
+
+  // Player of the Week / Player of the Match spotlight (ticket 0009).
+  // content_structured carries either a weekly_star shape (week_label +
+  // coach_shoutout + growth_moment + challenge_ahead) or a player_of_match
+  // shape (session_label + coach_message + key_moment). We render defensively
+  // from whichever fields are present. The presence of session_label (vs
+  // week_label) tells us which celebratory title to show.
+  const spotlight: any = playerSpotlight || null;
+  const isMatchSpotlight = !!spotlight?.session_label;
+  const spotlightTitle = isMatchSpotlight ? 'Player of the Match' : 'Player of the Week';
+  const spotlightLabel: string | null = spotlight?.session_label || spotlight?.week_label || null;
+  const spotlightCoachNote: string | null = spotlight?.coach_shoutout || spotlight?.coach_message || null;
+  const spotlightDetail: string | null = spotlight?.growth_moment || spotlight?.key_moment || null;
 
   // Get the first recommended drill for home practice
   let homePractice: { name: string; description?: string } | null = null;
@@ -597,8 +496,23 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
               <p className="text-sm text-gray-500">
                 {[player?.position, player?.jersey_number != null ? `#${player.jersey_number}` : null, season]
                   .filter(Boolean)
-                  .join(' \u00B7 ')}
+                  .join(' · ')}
               </p>
+              {coachName && (
+                <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs text-gray-400">
+                    Coach {coachName.split(' ')[0]}
+                  </span>
+                  {isCoachCertified && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200">
+                      <svg className="h-3 w-3 shrink-0" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                        <path d="M6 1L7.5 4.5L11 5L8.5 7.5L9 11L6 9.5L3 11L3.5 7.5L1 5L4.5 4.5L6 1Z" fill="currentColor" />
+                      </svg>
+                      SportsIQ Certified
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -618,17 +532,62 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
               )}
             </p>
           </div>
+
+          {/* Share this report — lets parents forward to family */}
+          <div className="mt-4">
+            <ShareReportButton
+              firstName={firstName}
+              teamName={teamName}
+              coachName={coachName}
+            />
+          </div>
         </div>
 
-        {/* ─── Share with Family ─── */}
-        <div className="mx-4 mt-3">
-          <PortalFamilyShare
-            playerName={firstName}
-            teamName={teamName}
-            coachName={coachName}
-            shareToken={token}
-          />
-        </div>
+        {/* ─── Player of the Week / Player of the Match spotlight (0009) ─── */}
+        {spotlight && spotlight.headline && (
+          <div className="mx-4 mt-4 rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg" aria-hidden="true">⭐</span>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-orange-600">
+                  {spotlightTitle}
+                </h3>
+              </div>
+              {spotlightLabel && (
+                <span className="text-[11px] text-gray-400">{spotlightLabel}</span>
+              )}
+            </div>
+
+            <p className="text-base font-bold leading-snug text-gray-900">
+              {spotlight.headline}
+            </p>
+
+            {spotlight.achievement && (
+              <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                {spotlight.achievement}
+              </p>
+            )}
+
+            {spotlightDetail && (
+              <div className="mt-3 rounded-xl bg-white/70 px-3 py-2.5">
+                <p className="text-sm leading-relaxed text-gray-700">{spotlightDetail}</p>
+              </div>
+            )}
+
+            {spotlightCoachNote && (
+              <div className="mt-3 border-l-2 border-orange-300 pl-3">
+                <p className="text-sm italic leading-relaxed text-gray-800">
+                  &ldquo;{spotlightCoachNote}&rdquo;
+                </p>
+                {coachName && (
+                  <p className="mt-1 text-xs font-medium text-gray-500">
+                    &mdash; Coach {coachName.split(' ')[0]}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ─── Coach's Latest Session Update ─── */}
         {latestSessionMessage && (
@@ -709,15 +668,84 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           </div>
         )}
 
-        {/* ─── Featured Highlight ─── */}
-        {featuredHighlight && (
+        {/* ─── Coach's Best Moments (starred observations) ─── */}
+        {safeStarred.length > 0 && (
+          <div className="mx-4 mt-4 rounded-2xl bg-amber-50 border border-amber-100 p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-lg">⭐</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-600">
+                Coach&apos;s Best Moments
+              </h3>
+            </div>
+            <div className="space-y-4">
+              {safeStarred.map((obs: any, i: number) => (
+                <div key={i} className="border-l-2 border-amber-300 pl-4">
+                  <p className="text-sm leading-relaxed text-gray-800 italic">
+                    &ldquo;{obs.text}&rdquo;
+                  </p>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    {obs.category && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                        {obs.category.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-400">
+                      {new Date(obs.created_at).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ─── Upcoming Sessions ─── */}
+        {safeUpcomingSessions.length > 0 && (
+          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm border border-sky-100">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-sky-100">
+                <CalendarDays className="h-3.5 w-3.5 text-sky-600" aria-hidden="true" />
+              </div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-sky-700">
+                Coming Up
+              </h3>
+            </div>
+            <div className="space-y-2.5">
+              {safeUpcomingSessions.map((s) => (
+                <div key={s.id} className="flex items-start gap-3 rounded-xl bg-sky-50 px-3 py-2.5">
+                  <span className="mt-0.5 shrink-0 text-base" aria-hidden="true">
+                    {SESSION_EMOJI[s.type] ?? '📅'}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800">
+                      {SESSION_LABEL[s.type] ?? s.type}
+                      {isCompetitiveSession(s.type) && s.opponent
+                        ? <span className="font-normal text-gray-600"> vs. {s.opponent}</span>
+                        : null}
+                    </p>
+                    <p className="mt-0.5 text-xs text-sky-700">
+                      {formatSessionDate(s.date, s.start_time)}
+                    </p>
+                    {s.location && (
+                      <p className="mt-0.5 text-xs text-gray-500 truncate">📍 {s.location}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ─── Featured Highlight (fallback when no starred observations) ─── */}
+        {safeStarred.length === 0 && featuredHighlight && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-lg" aria-hidden="true">
-                {featuredHighlight.is_highlighted ? '\u2b50' : '\u2728'}
-              </span>
+              <span className="text-lg">✨</span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                {featuredHighlight.is_highlighted ? "Coach's Pick" : 'Recent Highlight'}
+                This Week&apos;s Highlight
               </h3>
             </div>
             <p className="text-base leading-relaxed text-gray-800 italic">
@@ -761,83 +789,6 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
                 Most practised: <span className="font-semibold text-gray-700">{formatCategoryLabel(seasonStats.mostActiveCategory)}</span>
               </p>
             )}
-          </div>
-        )}
-
-        {/* ─── Practice Attendance ─── */}
-        {attendanceStats && attendanceStats.totalSessions >= 2 && (
-          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-lg" aria-hidden="true">📅</span>
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                  Practice Attendance
-                </h3>
-              </div>
-              <span className="text-xs font-semibold text-gray-500">
-                {attendanceStats.pct}%
-              </span>
-            </div>
-
-            <div className="flex items-baseline gap-2 mb-3">
-              <span className="text-2xl font-bold text-gray-800">
-                {attendanceStats.present}
-              </span>
-              <span className="text-sm text-gray-500">
-                of {attendanceStats.totalSessions} practices
-              </span>
-            </div>
-
-            {/* Progress bar */}
-            <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden mb-2">
-              <div
-                className={`h-full rounded-full transition-all ${getAttendanceBarColor(attendanceStats.pct)}`}
-                style={{ width: `${attendanceStats.pct}%` }}
-              />
-            </div>
-
-            <p className="text-xs text-gray-600 font-medium mb-3">
-              {getAttendanceLabel(attendanceStats.pct)}
-            </p>
-
-            {/* Recent session dots */}
-            {attendanceStats.recentSessions && attendanceStats.recentSessions.length > 0 && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-gray-400 mr-0.5">Recent:</span>
-                {(attendanceStats.recentSessions as { status: string; date: string; type: string }[]).map((s, i) => (
-                  <span
-                    key={i}
-                    className={`h-2.5 w-2.5 rounded-full ${getAttendanceDotColor(s.status)}`}
-                    title={`${s.date}: ${s.status}`}
-                  />
-                ))}
-                <span className="ml-1 text-[10px] text-gray-400">← newest</span>
-              </div>
-            )}
-
-            {attendanceStats.excused > 0 && (
-              <p className="mt-2 text-[11px] text-gray-400">
-                {attendanceStats.excused} excused absence{attendanceStats.excused !== 1 ? 's' : ''}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* ─── Weekly Progress Chart ─── */}
-        {showWeeklyProgress && (
-          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
-            <div className="mb-3 flex items-center gap-2">
-              <span className="text-lg" aria-hidden="true">📊</span>
-              <div>
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                  Positive Moments — Last 8 Weeks
-                </h3>
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-              Each bar shows how many positive coaching observations {firstName} received that week.
-            </p>
-            <WeeklyProgressChart points={weeklyPoints} isTrending={weeklyIsTrending} />
           </div>
         )}
 
@@ -892,11 +843,14 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           </div>
         )}
 
+        {/* ─── Weekly Progress Trend ─── */}
+        {safeObs.length >= 6 && <ProgressTrendChart obs={safeObs} firstName={firstName} />}
+
         {/* ─── Skill Radar Chart ─── */}
         {sortedSkills.length >= 3 && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-1 flex items-center gap-2">
-              <span className="text-lg" aria-hidden="true">🕸️</span>
+              <span className="text-lg" aria-hidden="true">🗘️</span>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Skills at a Glance
               </h3>
@@ -1159,7 +1113,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             <ul className="space-y-2">
               {celebrations.map((item, i) => (
                 <li key={i} className="flex items-start gap-2.5 text-sm text-gray-700">
-                  <span className="mt-0.5 shrink-0 text-emerald-500">{'\u2713'}</span>
+                  <span className="mt-0.5 shrink-0 text-emerald-500">✓</span>
                   {item}
                 </li>
               ))}
@@ -1191,31 +1145,27 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         )}
 
         {/* ─── Recent Highlights (additional) ─── */}
-        {highlights && highlights.length > 1 && (() => {
-          const additionalObs = highlights.slice(1, 6);
-          const hasStarred = additionalObs.some((o: any) => o.is_highlighted);
-          return (
-            <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
-              <div className="mb-3 flex items-center gap-2">
-                <span className="text-lg" aria-hidden="true">{hasStarred ? '⭐' : '📝'}</span>
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                  {hasStarred ? "More Coaching Highlights" : "Recent Observations"}
-                </h3>
-              </div>
-              <div className="space-y-3">
-                {additionalObs.map((obs: any, i: number) => (
-                  <div key={i} className={`border-l-2 pl-3 ${obs.is_highlighted ? 'border-amber-300' : 'border-gray-200'}`}>
-                    <p className="text-sm text-gray-700">{obs.text}</p>
-                    <p className="mt-0.5 text-xs text-gray-400">
-                      {obs.category && <>{obs.category} &middot; </>}
-                      {new Date(obs.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </p>
-                  </div>
-                ))}
-              </div>
+        {highlights && highlights.length > 1 && (
+          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-lg">{'\u{1F4DD}'}</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Recent Observations
+              </h3>
             </div>
-          );
-        })()}
+            <div className="space-y-3">
+              {highlights.slice(1, 6).map((obs: any, i: number) => (
+                <div key={i} className="border-l-2 border-gray-200 pl-3">
+                  <p className="text-sm text-gray-700">{obs.text}</p>
+                  <p className="mt-0.5 text-xs text-gray-400">
+                    {obs.category && <>{obs.category} &middot; </>}
+                    {new Date(obs.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ─── Coach's Note ─── */}
         {(customMessage || reportCard?.coach_message) && (
@@ -1235,7 +1185,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
               </p>
             )}
             <p className="text-xs text-gray-400">
-              {teamName}{season ? ` \u00B7 ${season}` : ''}
+              {teamName}{season ? ` · ${season}` : ''}
             </p>
           </div>
         )}
@@ -1249,9 +1199,20 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           />
         </div>
 
+        {/* ─── Parent Contact Collection ─── */}
+        {/* Shown only when coach doesn't yet have this parent's phone number */}
+        {!hasParentContact && (
+          <ParentContactForm
+            shareToken={token}
+            playerFirstName={firstName}
+            coachName={coachName}
+            teamName={teamName}
+          />
+        )}
+
         {/* ─── Viral CTA ─── */}
         <div className="mx-4 mt-6">
-          <ParentViralCTA coachName={coachName} teamName={team?.name} />
+          <ParentViralCTA coachName={coachName} teamName={team?.name} referralCode={referralCode} />
         </div>
 
         {/* ─── Footer ─── */}

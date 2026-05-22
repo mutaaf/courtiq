@@ -10,16 +10,22 @@ import { trackEvent } from '@/lib/analytics';
 
 const SPORTS = [
   { slug: 'basketball', name: 'Basketball', icon: '🏀' },
-  { slug: 'flag_football', name: 'Flag Football', icon: '🏈' },
   { slug: 'soccer', name: 'Soccer', icon: '⚽' },
   { slug: 'volleyball', name: 'Volleyball', icon: '🏐' },
+  { slug: 'flag_football', name: 'Flag Football', icon: '🏈' },
+  { slug: 'baseball', name: 'Baseball', icon: '⚾' },
+  { slug: 'softball', name: 'Softball', icon: '🥎' },
+  { slug: 'lacrosse', name: 'Lacrosse', icon: '🥍' },
+  { slug: 'swimming', name: 'Swimming', icon: '🏊' },
+  { slug: 'tennis', name: 'Tennis', icon: '🎾' },
+  { slug: 'gymnastics', name: 'Gymnastics', icon: '🤸' },
 ];
 
 const AGE_GROUPS = [
-  { value: '5-7', label: 'Mini Ballers (5-7)' },
-  { value: '8-10', label: 'Fundamentals (8-10)' },
-  { value: '11-13', label: 'Competitive Prep (11-13)' },
-  { value: '14-18', label: 'Advanced (14-18)' },
+  { value: '5-7', label: 'Beginners (Ages 5–7)' },
+  { value: '8-10', label: 'Juniors (Ages 8–10)' },
+  { value: '11-13', label: 'Intermediate (Ages 11–13)' },
+  { value: '14-18', label: 'Advanced (Ages 14–18)' },
 ];
 
 function defaultSeason(): string {
@@ -99,7 +105,7 @@ export default function CombinedSetupPage() {
           {/* Sport */}
           <div className="space-y-2">
             <label className="text-sm text-zinc-400">Sport</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {SPORTS.map((s) => (
                 <button
                   key={s.slug}

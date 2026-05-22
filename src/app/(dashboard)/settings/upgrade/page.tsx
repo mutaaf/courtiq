@@ -172,7 +172,7 @@ export default function UpgradePage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link href="/settings">
-          <Button variant="ghost" size="icon" className="shrink-0">
+          <Button variant="ghost" size="icon" className="shrink-0" aria-label="Back to settings">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>

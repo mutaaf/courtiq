@@ -19,7 +19,6 @@ import {
   statRow,
   divider,
   fineprint,
-  escapeHtml as escapeHtmlInline,
 } from './layout';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://youthsportsiq.com';
@@ -319,8 +318,36 @@ export function reEngagementEmail(args: { coachName: string; daysQuiet: number }
   return { subject, html };
 }
 
-// ── 10. Weekly Star — parent congratulations email ────────────────────────
-// Sent automatically when a coach generates the Player of the Week spotlight.
+// ── 10. Announcement alert (sent to parents when coach posts an announcement) ──
+
+export function announcementAlertEmail(args: {
+  parentName: string | null;
+  playerName: string;
+  coachName: string;
+  teamName: string;
+  title: string;
+  body: string;
+  shareUrl: string;
+}): BuiltEmail {
+  const coachFirst = args.coachName.split(' ')[0];
+  const parentFirst = args.parentName ? args.parentName.split(' ')[0] : null;
+  const subject = `📢 ${args.title} — ${args.teamName}`;
+  const html = renderEmail({
+    transactional: true,
+    preview: `${args.title} — ${args.teamName}`,
+    body: [
+      paragraph(`Hi ${parentFirst ?? 'there'},`),
+      heroSection(`Coach ${coachFirst}: ${args.title}`, args.body),
+      paragraph(`View ${args.playerName}'s progress report for the latest updates.`),
+      ctaButton('View progress report', args.shareUrl),
+      divider(),
+      fineprint(`Sent by ${args.coachName} · ${args.teamName}`),
+    ].join(''),
+  });
+  return { subject, html };
+}
+
+// ── 11. Weekly Star parent email (sent when a player is named Player of the Week) ──
 
 export function weeklyStarParentEmail(args: {
   playerName: string;
@@ -332,31 +359,20 @@ export function weeklyStarParentEmail(args: {
   shareUrl: string | null;
 }): BuiltEmail {
   const coachFirst = args.coachName.split(' ')[0];
-  const subject = `${args.playerName} is ${args.teamName}'s Player of the Week! 🌟`;
+  const subject = `⭐ ${args.playerName} is Player of the Week — ${args.teamName}`;
   const html = renderEmail({
     transactional: true,
-    preview: `Coach ${coachFirst} picked ${args.playerName} as the standout player this week.`,
+    preview: `${args.playerName} is Player of the Week · ${args.weekLabel}`,
     body: [
       heroSection(
-        `🌟 Player of the Week — ${args.weekLabel}`,
-        `Coach ${coachFirst} from ${args.teamName} selected ${args.playerName} as this week's standout player.`,
+        `⭐ Player of the Week: ${args.playerName}`,
+        `${args.weekLabel} · ${args.teamName}`,
       ),
-      // Orange-accented headline block
-      `<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:0 0 20px;">
-        <tr>
-          <td style="background:#fff7ed;border-left:4px solid #f97316;border-radius:0 8px 8px 0;padding:14px 16px;">
-            <p style="margin:0;font-size:16px;font-weight:600;color:#0f172a;line-height:1.4;">${escapeHtmlInline(args.headline)}</p>
-          </td>
-        </tr>
-      </table>`,
+      paragraph(args.headline),
       paragraph(args.achievement),
-      args.shareUrl
-        ? ctaButton(`See ${args.playerName}'s full progress report →`, args.shareUrl)
-        : '',
+      args.shareUrl ? ctaButton(`See ${args.playerName}'s full profile`, args.shareUrl) : '',
       divider(),
-      fineprint(
-        `Sent by Coach ${args.coachName} via SportsIQ · ${args.teamName}`,
-      ),
+      fineprint(`Coach ${coachFirst} · ${args.coachName} · ${args.teamName}`),
     ].join(''),
   });
   return { subject, html };

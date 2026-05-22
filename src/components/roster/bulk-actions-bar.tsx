@@ -195,15 +195,12 @@ export function BulkActionsBar({ selectedPlayers, teamId, coachId, onClear }: Bu
                 className="flex-1 h-10 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
               >
                 <option value="general">General</option>
-                <option value="shooting">Shooting</option>
                 <option value="defense">Defense</option>
-                <option value="dribbling">Ball Handling</option>
-                <option value="passing">Passing</option>
-                <option value="hustle">Hustle</option>
-                <option value="awareness">Court Vision</option>
+                <option value="offense">Offense</option>
+                <option value="physical">Physical</option>
+                <option value="mental">Mental</option>
                 <option value="teamwork">Teamwork</option>
-                <option value="footwork">Footwork</option>
-                <option value="leadership">Leadership</option>
+                <option value="skill">Skill</option>
               </select>
               <select
                 aria-label="Observation sentiment"

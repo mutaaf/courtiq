@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery } from '@tanstack/react-query';
 import { query } from '@/lib/api';
@@ -25,12 +25,9 @@ import {
   CalendarClock,
   ThumbsUp,
   ThumbsDown,
-  Zap,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Drill, Observation, Player } from '@/types/database';
-import { useAppStore } from '@/lib/store';
-import { addDrillToQueue } from '@/lib/practice-queue';
 import {
   buildDrillUsageSummary,
   buildUsageSummaryLabel,
@@ -93,22 +90,6 @@ export default function DrillDetailPage({
     enabled: !!activeTeam,
     staleTime: 5 * 60 * 1000,
   });
-
-  const practiceActive = useAppStore((s) => s.practiceActive);
-  const practiceSessionId = useAppStore((s) => s.practiceSessionId);
-
-  const [addedToTimer, setAddedToTimer] = useState(false);
-
-  function handleAddToTimer() {
-    if (!practiceSessionId || !drill) return;
-    try {
-      addDrillToQueue(practiceSessionId, drill);
-      setAddedToTimer(true);
-      setTimeout(() => setAddedToTimer(false), 2500);
-    } catch {
-      // Silently ignore — coach can still add via the timer picker
-    }
-  }
 
   if (isLoading) {
     return (
@@ -305,7 +286,7 @@ export default function DrillDetailPage({
         </Card>
       )}
 
-      {/* ── Drill History ───────────────────────────────────────────────── */}
+      {/* ── Drill History ─────────────────────────────────────────────────────── */}
       {(() => {
         const usage = buildDrillUsageSummary(drillObs);
         const recent = getRecentObservations(drillObs, 5);
@@ -397,46 +378,14 @@ export default function DrillDetailPage({
         );
       })()}
 
-      {/* CTA — add to live timer or generate a practice plan */}
+      {/* CTA — generate a practice plan using this drill */}
       <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-0 right-0 lg:static lg:bottom-auto lg:pt-2 p-4 lg:p-0 bg-zinc-950/95 lg:bg-transparent backdrop-blur-sm lg:backdrop-blur-none border-t border-zinc-800 lg:border-0">
-        {practiceActive && practiceSessionId ? (
-          <div className="flex flex-col gap-2">
-            {addedToTimer ? (
-              <div className="w-full h-12 lg:h-10 flex items-center justify-center gap-3 rounded-lg bg-emerald-700 border border-emerald-500/40 px-4">
-                <CheckCircle2 className="h-5 w-5 lg:h-4 lg:w-4 text-emerald-300 shrink-0" />
-                <span className="text-emerald-200 font-semibold text-sm">Added to practice!</span>
-                <Link
-                  href={`/sessions/${practiceSessionId}/timer`}
-                  className="ml-auto text-xs font-medium text-emerald-100 underline hover:text-white transition-colors"
-                >
-                  Open Timer →
-                </Link>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={handleAddToTimer}
-                className="w-full h-12 lg:h-10 flex items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-semibold text-base lg:text-sm transition-colors touch-manipulation"
-              >
-                <Zap className="h-5 w-5 lg:h-4 lg:w-4" />
-                Add to Current Practice
-              </button>
-            )}
-            <Link href={`/plans?drill=${encodeURIComponent(drill.name)}`} className="block">
-              <Button variant="outline" className="w-full h-10 text-sm gap-2">
-                <Dumbbell className="h-4 w-4" />
-                Use in a Practice Plan
-              </Button>
-            </Link>
-          </div>
-        ) : (
-          <Link href={`/plans?drill=${encodeURIComponent(drill.name)}`} className="block">
-            <Button className="w-full h-12 lg:h-10 text-base lg:text-sm gap-2">
-              <Dumbbell className="h-5 w-5 lg:h-4 lg:w-4" />
-              Use in a Practice Plan
-            </Button>
-          </Link>
-        )}
+        <Link href={`/plans?drill=${encodeURIComponent(drill.name)}`} className="block">
+          <Button className="w-full h-12 lg:h-10 text-base lg:text-sm gap-2">
+            <Dumbbell className="h-5 w-5 lg:h-4 lg:w-4" />
+            Use in a Practice Plan
+          </Button>
+        </Link>
       </div>
     </div>
   );

@@ -1,32 +1,38 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { useQueryClient } from '@tanstack/react-query';
-import { mutate } from '@/lib/api';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { mutate, query } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Save, Loader2, Shield, Camera, X } from 'lucide-react';
+import {
+  ArrowLeft, Save, Loader2, Shield, Users, UserPlus, CheckCircle2, AlertTriangle,
+} from 'lucide-react';
 import Link from 'next/link';
 import { SYSTEM_DEFAULTS } from '@/lib/config/defaults';
 import { trackEvent } from '@/lib/analytics';
+import {
+  parseRosterPaste,
+  buildSkippedWarning,
+  findDuplicatesAgainstRoster,
+} from '@/lib/roster-paste-utils';
+
+type Mode = 'single' | 'paste';
 
 export default function AddPlayerPage() {
   const router = useRouter();
   const { activeTeam } = useActiveTeam();
   const queryClient = useQueryClient();
 
+  const [mode, setMode] = useState<Mode>('single');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Optional photo — uploaded after the player is created
-  const [pendingPhoto, setPendingPhoto] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const photoInputRef = useRef<HTMLInputElement>(null);
-
+  // ── Single player form ───────────────────────────────────────────────────
   const [form, setForm] = useState({
     name: '',
     nickname: '',
@@ -40,26 +46,47 @@ export default function AddPlayerPage() {
     parent_phone: '',
   });
 
+  // ── Paste roster state ───────────────────────────────────────────────────
+  const [pasteText, setPasteText] = useState('');
+  const [savedCount, setSavedCount] = useState<number | null>(null);
+  const [partialFailCount, setPartialFailCount] = useState(0);
+
+  // Fetch existing roster for dedup check (enabled only in paste mode)
+  const { data: existingPlayers = [] } = useQuery({
+    queryKey: queryKeys.players.all(activeTeam?.id ?? ''),
+    queryFn: () => query<{ name: string }[]>({
+      table: 'players',
+      select: 'name',
+      filters: { team_id: activeTeam!.id, is_active: true },
+    }),
+    enabled: !!activeTeam && mode === 'paste',
+    staleTime: 60_000,
+  });
+
+  const existingNames = useMemo(
+    () => (existingPlayers ?? []).map((p) => p.name),
+    [existingPlayers],
+  );
+
+  const { names: parsedNames, skipped: skippedLines } = useMemo(
+    () => parseRosterPaste(pasteText),
+    [pasteText],
+  );
+
+  const skippedWarning = buildSkippedWarning(skippedLines);
+
+  const alreadyOnRoster = useMemo(
+    () => findDuplicatesAgainstRoster(parsedNames, existingNames),
+    [parsedNames, existingNames],
+  );
+
   const updateField = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setError(null);
   };
 
-  function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPendingPhoto(file);
-    setPhotoPreview(URL.createObjectURL(file));
-    if (photoInputRef.current) photoInputRef.current.value = '';
-  }
-
-  function handleRemovePendingPhoto() {
-    setPendingPhoto(null);
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
-    setPhotoPreview(null);
-  }
-
-  const handleSave = async () => {
+  // ── Single save ──────────────────────────────────────────────────────────
+  const handleSaveSingle = async () => {
     if (!activeTeam) return;
     if (!form.name.trim()) {
       setError('Player name is required.');
@@ -75,7 +102,7 @@ export default function AddPlayerPage() {
         .map((v) => v.trim())
         .filter(Boolean);
 
-      const inserted = await mutate<{ id: string }[]>({
+      await mutate({
         table: 'players',
         operation: 'insert',
         data: {
@@ -94,19 +121,6 @@ export default function AddPlayerPage() {
         },
       });
 
-      // Upload photo if one was selected — best-effort, never blocks navigation
-      const newPlayerId = Array.isArray(inserted) ? inserted[0]?.id : (inserted as any)?.id;
-      if (pendingPhoto && newPlayerId) {
-        try {
-          const fd = new FormData();
-          fd.append('file', pendingPhoto);
-          fd.append('player_id', newPlayerId);
-          await fetch('/api/player-photo', { method: 'POST', body: fd });
-        } catch {
-          // Photo upload failure is non-fatal; coach can add it from the edit page
-        }
-      }
-
       await queryClient.invalidateQueries({
         queryKey: queryKeys.players.all(activeTeam.id),
       });
@@ -114,7 +128,7 @@ export default function AddPlayerPage() {
       trackEvent('player_added', {
         has_jersey: !!form.jersey_number,
         has_parent_contact: !!(form.parent_email || form.parent_name),
-        has_photo: !!pendingPhoto,
+        method: 'single',
       });
 
       router.push('/roster');
@@ -123,6 +137,59 @@ export default function AddPlayerPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // ── Paste save ───────────────────────────────────────────────────────────
+  const handleSavePaste = async () => {
+    if (!activeTeam) return;
+    if (parsedNames.length === 0) {
+      setError('Enter at least one player name (one per line).');
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    setPartialFailCount(0);
+
+    // Use allSettled so a single failed insert doesn't prevent others
+    // from saving, and coaches aren't left with a partial roster on retry.
+    const results = await Promise.allSettled(
+      parsedNames.map((name) =>
+        mutate({
+          table: 'players',
+          operation: 'insert',
+          data: {
+            team_id: activeTeam.id,
+            name,
+            age_group: SYSTEM_DEFAULTS.sport.age_groups[0],
+            is_active: true,
+          },
+        })
+      )
+    );
+
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.length - succeeded;
+
+    setSaving(false);
+
+    if (succeeded === 0) {
+      setError('Failed to save players. Please try again.');
+      return;
+    }
+
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.players.all(activeTeam.id),
+    });
+
+    trackEvent('players_bulk_added', {
+      count: succeeded,
+      failed,
+      method: 'paste',
+    });
+
+    setPartialFailCount(failed);
+    setSavedCount(succeeded);
   };
 
   if (!activeTeam) {
@@ -134,15 +201,62 @@ export default function AddPlayerPage() {
     );
   }
 
-  const initials = form.name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2) || '?';
+  // ── Success screen after paste save ─────────────────────────────────────
+  if (savedCount !== null) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6 p-4 lg:p-8 pb-36">
+        <Link
+          href="/roster"
+          className="inline-flex items-center gap-1 text-sm text-zinc-400 transition-colors hover:text-zinc-200"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Roster
+        </Link>
+        <div className="flex flex-col items-center gap-6 py-10 text-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-emerald-500/15">
+            <CheckCircle2 className="h-10 w-10 text-emerald-400" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-zinc-100">
+              {savedCount} player{savedCount !== 1 ? 's' : ''} added!
+            </h2>
+            {partialFailCount > 0 && (
+              <p className="mt-1 text-sm text-amber-400">
+                {partialFailCount} name{partialFailCount !== 1 ? 's' : ''} couldn&apos;t be saved — they may already exist or contain invalid characters.
+              </p>
+            )}
+            <p className="mt-2 text-sm text-zinc-400">
+              You can now add jersey numbers, age groups, and parent contacts from each player&apos;s profile.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <Link href="/roster">
+              <Button className="w-full sm:w-auto h-12 sm:h-10">
+                <Users className="h-4 w-4" />
+                View Roster
+              </Button>
+            </Link>
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto h-12 sm:h-10"
+              onClick={() => {
+                setSavedCount(null);
+                setPartialFailCount(0);
+                setPasteText('');
+                setError(null);
+              }}
+            >
+              <UserPlus className="h-4 w-4" />
+              Add More
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 p-4 lg:p-8 pb-8">
+    <div className="mx-auto max-w-2xl space-y-6 p-4 lg:p-8 pb-36">
       {/* Back link */}
       <Link
         href="/roster"
@@ -152,228 +266,330 @@ export default function AddPlayerPage() {
         Roster
       </Link>
 
-      <h1 className="text-2xl font-bold text-zinc-100">Add Player</h1>
+      <h1 className="text-2xl font-bold text-zinc-100">Add Player{mode === 'paste' ? 's' : ''}</h1>
 
-      <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
-        <Shield className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-        <p className="text-xs text-zinc-400">
-          Player data is stored securely and only visible to authorized coaches. No accounts are created for minors.
-        </p>
+      {/* Mode toggle — tab semantics */}
+      <div role="tablist" aria-label="Add player mode" className="flex rounded-xl border border-zinc-800 bg-zinc-900 p-1 gap-1">
+        <button
+          role="tab"
+          aria-selected={mode === 'single'}
+          onClick={() => { setMode('single'); setError(null); }}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors touch-manipulation ${
+            mode === 'single'
+              ? 'bg-orange-500 text-white shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          <UserPlus className="h-4 w-4" />
+          Add One
+        </button>
+        <button
+          role="tab"
+          aria-selected={mode === 'paste'}
+          onClick={() => { setMode('paste'); setError(null); }}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors touch-manipulation ${
+            mode === 'paste'
+              ? 'bg-orange-500 text-white shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          <Users className="h-4 w-4" />
+          Paste Roster
+        </button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Player Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Player Photo */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-zinc-300">
-              Photo <span className="text-zinc-500 font-normal">(optional — appears on parent report)</span>
-            </label>
-            <div className="flex items-center gap-4">
-              <div className="relative shrink-0">
-                {photoPreview ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={photoPreview}
-                    alt="Preview"
-                    className="h-16 w-16 rounded-full object-cover ring-2 ring-zinc-700"
-                  />
-                ) : (
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-orange-500/20 text-lg font-bold text-orange-400 ring-2 ring-zinc-700">
-                    {initials}
-                  </div>
-                )}
-              </div>
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={() => photoInputRef.current?.click()}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs font-medium text-zinc-200 hover:bg-zinc-700 transition-colors touch-manipulation"
-                >
-                  <Camera className="h-3.5 w-3.5" />
-                  {photoPreview ? 'Change Photo' : 'Add Photo'}
-                </button>
-                {photoPreview && (
-                  <button
-                    type="button"
-                    onClick={handleRemovePendingPhoto}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-500 hover:text-red-400 hover:border-red-500/40 transition-colors touch-manipulation"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    Remove
-                  </button>
-                )}
-              </div>
-            </div>
-            <p className="text-[11px] text-zinc-500">JPEG, PNG, WebP · max 5 MB</p>
-            <input
-              ref={photoInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              className="hidden"
-              onChange={handlePhotoSelect}
-            />
-          </div>
-
-          {/* Name */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-zinc-300">
-              Name <span className="text-red-400">*</span>
-            </label>
-            <Input
-              placeholder="Full name"
-              value={form.name}
-              onChange={(e) => updateField('name', e.target.value)}
-            />
-          </div>
-
-          {/* Nickname */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-zinc-300">Nickname</label>
-            <Input
-              placeholder="e.g. AJ, Mikey"
-              value={form.nickname}
-              onChange={(e) => updateField('nickname', e.target.value)}
-            />
-          </div>
-
-          {/* Voice recognition variants */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-zinc-300">
-              Voice Recognition Variants <span className="text-zinc-500 font-normal">(optional)</span>
-            </label>
-            <Input
-              placeholder="Comma separated: duh-shawn, da-shon"
-              value={form.name_variants}
-              onChange={(e) => updateField('name_variants', e.target.value)}
-            />
-            <p className="text-[11px] text-zinc-500">Add phonetic spellings so voice capture recognizes this player by name.</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            {/* Position */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-zinc-300">Position</label>
-              <select
-                value={form.position}
-                onChange={(e) => updateField('position', e.target.value)}
-                className="flex h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
-              >
-                {SYSTEM_DEFAULTS.sport.positions.map((pos) => (
-                  <option key={pos} value={pos}>
-                    {pos}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Jersey Number */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-zinc-300">Jersey Number</label>
-              <Input
-                type="number"
-                placeholder="#"
-                min={0}
-                max={99}
-                value={form.jersey_number}
-                onChange={(e) => updateField('jersey_number', e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Age Group */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-zinc-300">Age Group</label>
-            <select
-              value={form.age_group}
-              onChange={(e) => updateField('age_group', e.target.value)}
-              className="flex h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
-            >
-              {SYSTEM_DEFAULTS.sport.age_groups.map((ag) => (
-                <option key={ag} value={ag}>
-                  {ag}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Birthday */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-zinc-300">Birthday <span className="text-zinc-500 font-normal">(optional)</span></label>
-            <input
-              type="date"
-              value={form.date_of_birth}
-              onChange={(e) => updateField('date_of_birth', e.target.value)}
-              className="flex h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
-            />
-            <p className="text-[11px] text-zinc-500">Used for birthday recognition cards and age-appropriate coaching tips.</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Parent / Guardian</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-zinc-300">Parent Name</label>
-            <Input
-              placeholder="Parent or guardian name"
-              value={form.parent_name}
-              onChange={(e) => updateField('parent_name', e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-zinc-300">Parent Email</label>
-            <Input
-              type="email"
-              placeholder="parent@example.com"
-              value={form.parent_email}
-              onChange={(e) => updateField('parent_email', e.target.value)}
-            />
-            <p className="text-[11px] text-zinc-500">
-              Used for sharing progress reports. By providing this, you confirm parental consent to share this child&apos;s progress data.
+      {/* ── Paste mode ── */}
+      {mode === 'paste' ? (
+        <>
+          <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+            <Shield className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+            <p className="text-xs text-zinc-400">
+              Player data is stored securely and only visible to authorized coaches. No accounts are created for minors.
             </p>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-zinc-300">Parent Phone <span className="text-zinc-500 font-normal">(optional)</span></label>
-            <Input
-              type="tel"
-              placeholder="+1 (555) 000-0000"
-              value={form.parent_phone}
-              onChange={(e) => updateField('parent_phone', e.target.value)}
-            />
-            <p className="text-[11px] text-zinc-500">Used to send player updates directly via WhatsApp after practice.</p>
-          </div>
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Paste Your Roster</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Paste your full player list — one name per line. Copy from an email, league website, or Google Doc.
+              </p>
+              <div className="space-y-1.5">
+                <label htmlFor="roster-paste" className="text-sm font-medium text-zinc-300">
+                  Player names <span className="text-zinc-500 font-normal">(one per line)</span>
+                </label>
+                <textarea
+                  id="roster-paste"
+                  value={pasteText}
+                  onChange={(e) => { setPasteText(e.target.value); setError(null); }}
+                  placeholder={'Marcus Johnson\nSarah Williams\nJordan Lee\n...'}
+                  rows={10}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 resize-none"
+                />
+              </div>
 
-      {/* Error */}
-      {error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
-          {error}
-        </div>
-      )}
+              {/* Counts row */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-zinc-500">
+                  {parsedNames.length > 0
+                    ? <span className="text-orange-400 font-medium">{parsedNames.length} player{parsedNames.length !== 1 ? 's' : ''} detected</span>
+                    : 'Enter one name per line'}
+                </span>
+                {pasteText.length > 0 && (
+                  <button
+                    onClick={() => setPasteText('')}
+                    className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
 
-      {/* Actions */}
-      <div className="flex justify-end gap-3">
-        <Link href="/roster">
-          <Button variant="outline">Cancel</Button>
-        </Link>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4" />
+              {/* Skipped-line warning */}
+              {skippedWarning && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                  <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-300">{skippedWarning}</p>
+                </div>
+              )}
+
+              {/* Already-on-roster soft warning */}
+              {alreadyOnRoster.length > 0 && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                  <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-300">
+                    {alreadyOnRoster.length} name{alreadyOnRoster.length !== 1 ? 's match' : ' matches'} an existing player ({alreadyOnRoster.slice(0, 3).join(', ')}{alreadyOnRoster.length > 3 ? '…' : ''}).
+                    They will be added again — edit or remove them from the list to avoid duplicates.
+                  </p>
+                </div>
+              )}
+
+              {/* Preview of detected names */}
+              {parsedNames.length > 0 && parsedNames.length <= 20 && (
+                <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500 mb-2">Preview</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {parsedNames.map((name, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center rounded-full bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300"
+                      >
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-[11px] text-zinc-500">
+                Jersey numbers, age groups, and parent contacts can be added from each player&apos;s profile after import.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Error */}
+          {error && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+              {error}
+            </div>
           )}
-          {saving ? 'Saving...' : 'Save Player'}
-        </Button>
-      </div>
+
+          {/* Actions */}
+          <div className="flex justify-end gap-3">
+            <Link href="/roster">
+              <Button variant="outline">Cancel</Button>
+            </Link>
+            <Button
+              onClick={handleSavePaste}
+              disabled={saving || parsedNames.length === 0}
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Users className="h-4 w-4" />
+              )}
+              {saving
+                ? `Adding ${parsedNames.length} player${parsedNames.length !== 1 ? 's' : ''}…`
+                : `Add ${parsedNames.length > 0 ? parsedNames.length + ' ' : ''}Player${parsedNames.length !== 1 ? 's' : ''}`}
+            </Button>
+          </div>
+        </>
+      ) : (
+        /* ── Single player mode ── */
+        <>
+          <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+            <Shield className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+            <p className="text-xs text-zinc-400">
+              Player data is stored securely and only visible to authorized coaches. No accounts are created for minors.
+            </p>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Player Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Name */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-zinc-300">
+                  Name <span className="text-red-400">*</span>
+                </label>
+                <Input
+                  placeholder="Full name"
+                  value={form.name}
+                  onChange={(e) => updateField('name', e.target.value)}
+                />
+              </div>
+
+              {/* Nickname */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-zinc-300">Nickname</label>
+                <Input
+                  placeholder="e.g. AJ, Mikey"
+                  value={form.nickname}
+                  onChange={(e) => updateField('nickname', e.target.value)}
+                />
+              </div>
+
+              {/* Voice recognition variants */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-zinc-300">
+                  Voice Recognition Variants <span className="text-zinc-500 font-normal">(optional)</span>
+                </label>
+                <Input
+                  placeholder="Comma separated: duh-shawn, da-shon"
+                  value={form.name_variants}
+                  onChange={(e) => updateField('name_variants', e.target.value)}
+                />
+                <p className="text-[11px] text-zinc-500">Add phonetic spellings so voice capture recognizes this player by name.</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Position */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-zinc-300">Position</label>
+                  <select
+                    value={form.position}
+                    onChange={(e) => updateField('position', e.target.value)}
+                    className="flex h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                  >
+                    {SYSTEM_DEFAULTS.sport.positions.map((pos) => (
+                      <option key={pos} value={pos}>
+                        {pos}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Jersey Number */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-zinc-300">Jersey Number</label>
+                  <Input
+                    type="number"
+                    placeholder="#"
+                    min={0}
+                    max={99}
+                    value={form.jersey_number}
+                    onChange={(e) => updateField('jersey_number', e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Age Group */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-zinc-300">Age Group</label>
+                <select
+                  value={form.age_group}
+                  onChange={(e) => updateField('age_group', e.target.value)}
+                  className="flex h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                >
+                  {SYSTEM_DEFAULTS.sport.age_groups.map((ag) => (
+                    <option key={ag} value={ag}>
+                      {ag}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Birthday */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-zinc-300">Birthday <span className="text-zinc-500 font-normal">(optional)</span></label>
+                <input
+                  type="date"
+                  value={form.date_of_birth}
+                  onChange={(e) => updateField('date_of_birth', e.target.value)}
+                  className="flex h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                />
+                <p className="text-[11px] text-zinc-500">Used for birthday recognition cards and age-appropriate coaching tips.</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Parent / Guardian</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-zinc-300">Parent Name</label>
+                <Input
+                  placeholder="Parent or guardian name"
+                  value={form.parent_name}
+                  onChange={(e) => updateField('parent_name', e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-zinc-300">Parent Email</label>
+                <Input
+                  type="email"
+                  placeholder="parent@example.com"
+                  value={form.parent_email}
+                  onChange={(e) => updateField('parent_email', e.target.value)}
+                />
+                <p className="text-[11px] text-zinc-500">
+                  Used for sharing progress reports. By providing this, you confirm parental consent to share this child&apos;s progress data.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-zinc-300">Parent Phone <span className="text-zinc-500 font-normal">(optional)</span></label>
+                <Input
+                  type="tel"
+                  placeholder="+1 (555) 000-0000"
+                  value={form.parent_phone}
+                  onChange={(e) => updateField('parent_phone', e.target.value)}
+                />
+                <p className="text-[11px] text-zinc-500">Used to send player updates directly via WhatsApp after practice.</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Error */}
+          {error && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+              {error}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex justify-end gap-3">
+            <Link href="/roster">
+              <Button variant="outline">Cancel</Button>
+            </Link>
+            <Button onClick={handleSaveSingle} disabled={saving}>
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {saving ? 'Saving...' : 'Save Player'}
+            </Button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

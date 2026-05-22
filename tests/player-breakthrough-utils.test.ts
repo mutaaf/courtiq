@@ -130,7 +130,7 @@ describe('countBySentiment', () => {
     expect(countBySentiment(data, 'positive')).toBe(2);
   });
 
-  it('counts needs_work observations', () => {
+  it('counts needs-work observations', () => {
     const data = [
       obs('p1', 'needs-work', 'dribbling', 10),
       obs('p1', 'needs-work', 'dribbling', 11),
@@ -177,7 +177,7 @@ describe('buildBreakthroughs', () => {
     expect(buildBreakthroughs(data, NOW)).toHaveLength(0);
   });
 
-  it('does not trigger when prior needs_work count is below threshold', () => {
+  it('does not trigger when prior needs-work count is below threshold', () => {
     const data = [
       obs('p1', 'needs-work', 'dribbling', 10), // only 1 needs-work
       obs('p1', 'positive', 'dribbling', 2),

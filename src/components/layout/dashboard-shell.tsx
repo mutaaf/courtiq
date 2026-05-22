@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Home, Mic, Users, ClipboardList, Settings, Calendar, Sparkles, Sun, Moon, LineChart, LogOut, Search, X, Square, ChevronLeft, CheckCircle2, AlertCircle, MoreHorizontal, Dumbbell, BookOpen, ShieldCheck } from 'lucide-react';
+import { Home, Mic, Users, ClipboardList, Settings, Calendar, Sparkles, Sun, Moon, LineChart, LogOut, Search, X, Square, ChevronLeft, CheckCircle2, AlertCircle, MoreHorizontal, Dumbbell, BookOpen, ShieldCheck, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NotificationBell } from '@/components/layout/notification-bell';
 import { TeamSwitcher } from '@/components/layout/team-switcher';
@@ -53,6 +53,7 @@ const dockItems = [
   { href: '/plans', label: 'Plans', icon: ClipboardList },
   { href: '/roster', label: 'Roster', icon: Users },
   { href: '/sessions', label: 'Sessions', icon: Calendar },
+  { href: '/observations', label: 'Observations', icon: Eye },
   { href: '/analytics', label: 'Analytics', icon: LineChart },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
@@ -74,14 +75,40 @@ export function DashboardShell({ coach, children }: Props) {
   const prefetchOnIntent = usePrefetchOnIntent();
   const { navRef: mobileNavRef, onKeyDown: mobileNavKeyDown } = useArrowKeyNav();
 
-  const { activeTeam } = useActiveTeam();
+  const { activeTeam, sportSlug } = useActiveTeam();
   const { subscriptionStatus, cancelAtPeriodEnd, currentPeriodEnd } = useTier();
   const queryClient = useQueryClient();
+
+  // Past-due banner CTA: open the Stripe Billing Portal so a coach with a declined card
+  // can update their payment method in one tap. POST to our route (it resolves the org's
+  // Stripe customer and mints a portal session), then send the browser to the returned
+  // billing.stripe.com url. (ticket 0004)
+  const [openingPortal, setOpeningPortal] = useState(false);
+  const openBillingPortal = useCallback(async () => {
+    setOpeningPortal(true);
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' });
+      const data = await res.json();
+      if (data?.url) {
+        window.location.assign(data.url);
+        return;
+      }
+      // No portal session (e.g. no Stripe customer) — fall back to the upgrade page.
+      window.location.assign('/settings/upgrade');
+    } catch {
+      window.location.assign('/settings/upgrade');
+    } finally {
+      setOpeningPortal(false);
+    }
+  }, []);
 
   const isRecording = useAppStore((s) => s.isRecording);
   const practiceActive = useAppStore((s) => s.practiceActive);
   const practiceStartedAt = useAppStore((s) => s.practiceStartedAt);
   const practiceSessionId = useAppStore((s) => s.practiceSessionId);
+  const setPracticeActive = useAppStore((s) => s.setPracticeActive);
+  const setPracticeSessionId = useAppStore((s) => s.setPracticeSessionId);
+  const setPracticeStartedAt = useAppStore((s) => s.setPracticeStartedAt);
   const [practiceElapsed, setPracticeElapsed] = useState('');
   const [showPracticeMini, setShowPracticeMini] = useState(false);
   const [showNudge, setShowNudge] = useState(false);
@@ -93,8 +120,12 @@ export function DashboardShell({ coach, children }: Props) {
   const [selectedTemplate, setSelectedTemplate] = useState<ObservationTemplate | null>(null);
   const [practiceRoster, setPracticeRoster] = useState<{ id: string; name: string; jersey_number: number | null }[]>([]);
   const [savingQuick, setSavingQuick] = useState(false);
-  // Track which players have already been observed in the current session
-  const [sessionObservedIds, setSessionObservedIds] = useState<Set<string>>(new Set());
+  // Tracks players already observed in the current session so the picker can
+  // sort uncovered players to the front and dim covered ones.
+  const [coveredInSession, setCoveredInSession] = useState<Set<string>>(new Set());
+
+  // Clear coverage when a new session starts
+  useEffect(() => { setCoveredInSession(new Set()); }, [practiceSessionId]);
 
   // Identify the signed-in coach to PostHog so events tie to a person
   useEffect(() => {
@@ -110,6 +141,18 @@ export function DashboardShell({ coach, children }: Props) {
     });
     return () => { cancelled = true; };
   }, [coach?.id, coach?.organizations]);
+
+  // Auto-expire stale practice sessions (>4 hours old) so coaches aren't
+  // stuck on "End Practice" mode the next morning if they forgot to end it.
+  useEffect(() => {
+    if (!practiceActive || !practiceStartedAt) return;
+    const elapsedMs = Date.now() - new Date(practiceStartedAt).getTime();
+    if (elapsedMs > 4 * 60 * 60 * 1000) {
+      setPracticeActive(false);
+      setPracticeSessionId(null);
+      setPracticeStartedAt(null);
+    }
+  }, [practiceActive, practiceStartedAt, setPracticeActive, setPracticeSessionId, setPracticeStartedAt]);
 
   // Practice timer
   useEffect(() => {
@@ -136,32 +179,29 @@ export function DashboardShell({ coach, children }: Props) {
     return () => clearInterval(nudgeInterval);
   }, [practiceActive]);
 
-  // Clear observed-IDs when the session changes (new practice started)
-  useEffect(() => {
-    setSessionObservedIds(new Set());
-  }, [practiceSessionId]);
-
-  // Load roster + session observation coverage when mini-dropdown opens
+  // Load roster + current-session coverage when mini-dropdown opens.
+  // Uncovered players sort to the front of the picker so coaches notice gaps.
   useEffect(() => {
     if (!showPracticeMini || !activeTeam?.id) return;
-    query<{ id: string; name: string; jersey_number: number | null }[]>({
-      table: 'players',
-      select: 'id, name, jersey_number',
-      filters: { team_id: activeTeam.id, is_active: true },
-    }).then((data) => setPracticeRoster(data || []));
-
-    if (!practiceSessionId) return;
-    query<{ player_id: string | null }[]>({
-      table: 'observations',
-      select: 'player_id',
-      filters: { session_id: practiceSessionId },
-      limit: 200,
-    }).then((rows) => {
-      const ids = new Set(
-        (rows ?? []).map((r) => r.player_id).filter(Boolean) as string[]
-      );
-      setSessionObservedIds(ids);
-    });
+    Promise.all([
+      query<{ id: string; name: string; jersey_number: number | null }[]>({
+        table: 'players',
+        select: 'id, name, jersey_number',
+        filters: { team_id: activeTeam.id, is_active: true },
+      }),
+      practiceSessionId
+        ? query<{ player_id: string }[]>({
+            table: 'observations',
+            select: 'player_id',
+            filters: { session_id: practiceSessionId },
+          })
+        : Promise.resolve([] as { player_id: string }[]),
+    ]).then(([roster, obs]) => {
+      setPracticeRoster(roster || []);
+      if (obs) {
+        setCoveredInSession(new Set((obs as { player_id: string }[]).map((o) => o.player_id)));
+      }
+    }).catch(() => {});
   }, [showPracticeMini, activeTeam?.id, practiceSessionId]);
 
   // Reset mini-dropdown state when it closes
@@ -190,7 +230,7 @@ export function DashboardShell({ coach, children }: Props) {
           source: 'template',
         },
       });
-      setSessionObservedIds((prev) => new Set([...prev, playerId]));
+      setCoveredInSession((prev) => new Set([...prev, playerId]));
       setMiniStep('saved');
       // Auto-reset so coach can log another observation immediately
       setTimeout(() => {
@@ -321,11 +361,26 @@ export function DashboardShell({ coach, children }: Props) {
             </span>
           </div>
         )}
-        {/* Past-due subscription warning */}
+        {/* Past-due subscription warning.
+            A declined renewal charge is recoverable churn: the coach keeps paid features
+            during Stripe's retry window (the webhook holds the tier — see ticket 0004) but
+            needs a one-tap path to update the card. The CTA opens the Stripe Billing Portal
+            via /api/stripe/portal rather than the in-app upgrade page so the coach lands
+            directly on the payment-method form. */}
         {subscriptionStatus === 'past_due' && (
           <div className="bg-red-500/10 border-b border-red-500/30 px-4 py-2 flex items-center gap-2 text-sm text-red-400">
-            <AlertCircle className="h-4 w-4" />
-            <span>Payment failed — <Link href="/settings/upgrade" className="underline font-medium">update your payment method</Link></span>
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>
+              Your card was declined — your Coach features stay on while we retry.{' '}
+              <button
+                type="button"
+                onClick={openBillingPortal}
+                disabled={openingPortal}
+                className="underline font-medium hover:text-red-300 disabled:opacity-60"
+              >
+                {openingPortal ? 'Opening…' : 'Update your payment method'}
+              </button>
+            </span>
           </div>
         )}
         {/* Cancel-at-period-end warning */}
@@ -454,7 +509,7 @@ export function DashboardShell({ coach, children }: Props) {
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-1.5 mb-3">
-                  {getTemplatesBySentiment(miniSentiment, (activeTeam as any)?.sport_slug ?? undefined)
+                  {getTemplatesBySentiment(miniSentiment, sportSlug)
                     .slice(0, 6)
                     .map((template) => (
                       <button
@@ -472,7 +527,7 @@ export function DashboardShell({ coach, children }: Props) {
                 </div>
                 <div className="flex gap-2">
                   <Link
-                    href="/capture"
+                    href={practiceSessionId ? `/capture?sessionId=${practiceSessionId}` : '/capture'}
                     className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-orange-500/20 px-3 py-2 text-xs font-medium text-orange-400 hover:bg-orange-500/30 active:scale-95 touch-manipulation"
                   >
                     <Mic className="h-3.5 w-3.5" />
@@ -490,49 +545,40 @@ export function DashboardShell({ coach, children }: Props) {
               </>
             )}
 
-            {/* Step 2: Player picker — unobserved players first */}
+            {/* Step 2: Player picker */}
             {miniStep === 'player' && (
-              <div className="space-y-2">
-              {sessionObservedIds.size > 0 && (
-                <p className="text-[10px] text-emerald-500">{sessionObservedIds.size} observed this session ✓</p>
-              )}
               <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
                 {practiceRoster.length === 0 ? (
                   <p className="w-full py-3 text-center text-xs text-zinc-500">Loading players…</p>
                 ) : (
                   [...practiceRoster]
                     .sort((a, b) => {
-                      const aObs = sessionObservedIds.has(a.id);
-                      const bObs = sessionObservedIds.has(b.id);
-                      if (aObs !== bObs) return aObs ? 1 : -1;
-                      return 0;
+                      const aCov = coveredInSession.has(a.id);
+                      const bCov = coveredInSession.has(b.id);
+                      if (aCov === bCov) return 0;
+                      return aCov ? 1 : -1; // uncovered first
                     })
                     .map((p) => {
-                      const alreadyObserved = sessionObservedIds.has(p.id);
-                      return (
-                        <button
-                          key={p.id}
-                          onClick={() => saveQuickObservation(p.id)}
-                          disabled={savingQuick}
-                          className={cn(
-                            'rounded-full border px-3 py-1.5 text-xs active:scale-95 touch-manipulation disabled:opacity-50 transition-colors',
-                            alreadyObserved
-                              ? 'bg-emerald-950/40 border-emerald-700/40 text-emerald-400/70 hover:border-emerald-600/60 hover:text-emerald-300'
-                              : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-orange-500/50 hover:text-orange-300'
-                          )}
-                        >
-                          {alreadyObserved && (
-                            <span className="mr-1 text-emerald-500">✓</span>
-                          )}
-                          {p.jersey_number != null && (
-                            <span className="mr-1 font-bold text-zinc-500">#{p.jersey_number}</span>
-                          )}
-                          {p.name.split(' ')[0]}
-                        </button>
-                      );
-                    })
+                    const covered = coveredInSession.has(p.id);
+                    return (
+                    <button
+                      key={p.id}
+                      onClick={() => saveQuickObservation(p.id)}
+                      disabled={savingQuick}
+                      className={cn(
+                        'rounded-full bg-zinc-800 border px-3 py-1.5 text-xs text-zinc-300 hover:border-orange-500/50 hover:text-orange-300 active:scale-95 touch-manipulation disabled:opacity-50',
+                        covered ? 'border-zinc-700/40 opacity-50' : 'border-zinc-700'
+                      )}
+                    >
+                      {covered && <span className="mr-1 text-emerald-400">✓</span>}
+                      {p.jersey_number != null && (
+                        <span className="mr-1 font-bold text-zinc-500">#{p.jersey_number}</span>
+                      )}
+                      {p.name.split(' ')[0]}
+                    </button>
+                    );
+                  })
                 )}
-              </div>
               </div>
             )}
 
@@ -600,6 +646,7 @@ export function DashboardShell({ coach, children }: Props) {
               <div className="grid grid-cols-4 gap-4">
                 {[
                   { href: '/roster', label: 'Roster', icon: Users },
+                  { href: '/observations', label: 'Observations', icon: Eye },
                   { href: '/assistant', label: 'Assistant', icon: Sparkles },
                   { href: '/analytics', label: 'Analytics', icon: LineChart },
                   { href: '/drills', label: 'Drills', icon: Dumbbell },

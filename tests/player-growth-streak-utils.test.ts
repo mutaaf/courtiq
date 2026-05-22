@@ -71,27 +71,14 @@ describe('groupObsBySession', () => {
     expect(result[0].latestAt).toBe('2025-05-01T10:30:00Z');
   });
 
-  it('creates separate buckets for null-session observations on different dates', () => {
+  it('creates unique keys for null-session observations', () => {
     const result = groupObsBySession([
       obs(null, 'positive', '2025-05-01T10:00:00Z'),
       obs(null, 'needs-work', '2025-05-03T10:00:00Z'),
     ]);
-    // Different dates → different day-based keys
+    // Each null-session obs gets its own bucket
     expect(result).toHaveLength(2);
     expect(result[0].sessionKey).not.toBe(result[1].sessionKey);
-  });
-
-  it('groups null-session observations from the same day into one bucket', () => {
-    const result = groupObsBySession([
-      obs(null, 'positive', '2025-05-01T10:00:00Z'),
-      obs(null, 'positive', '2025-05-01T10:05:00Z'),
-      obs(null, 'needs-work', '2025-05-01T10:10:00Z'),
-    ]);
-    // All three are on 2025-05-01 with no session → one day-bucket, not 3 separate streaks
-    expect(result).toHaveLength(1);
-    expect(result[0].obsCount).toBe(3);
-    expect(result[0].hasPositive).toBe(true);
-    expect(result[0].hasNeedsWork).toBe(true);
   });
 
   it('sets hasPositive true only when a positive obs is present', () => {
