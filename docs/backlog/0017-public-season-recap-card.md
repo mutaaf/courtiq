@@ -1,7 +1,7 @@
 ---
 id: 0017
 title: Turn the end-of-season recap into a public card the coach is proud to send
-status: in-progress
+status: shipped
 priority: P1
 area: growth
 created: 2026-05-22
