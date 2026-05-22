@@ -7,6 +7,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Mic, Loader2, CheckCircle2, Sparkles, AlertCircle, ChevronRight } from 'lucide-react';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 import { trackEvent } from '@/lib/analytics';
+import { mutate, query } from '@/lib/api';
+import { findPlayerByName } from '@/lib/player-match';
+import { getSportExamplePhrase } from '@/lib/sport-utils';
 
 type Phase = 'idle' | 'recording' | 'processing' | 'success' | 'error' | 'unsupported';
 
@@ -17,6 +20,13 @@ interface Observation {
   text: string;
 }
 
+interface RosterPlayer {
+  id: string;
+  name: string;
+  nickname: string | null;
+  name_variants: string[] | null;
+}
+
 export default function FirstCapturePage() {
   const router = useRouter();
   const voice = useVoiceInput();
@@ -24,7 +34,17 @@ export default function FirstCapturePage() {
   const [observations, setObservations] = useState<Observation[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
+  const [sportSlug, setSportSlug] = useState<string | null>(null);
   const startedAtRef = useRef<number | null>(null);
+  const teamIdRef = useRef<string | null>(null);
+
+  // Pre-fetch sport slug so the example phrase is sport-specific from the start.
+  useEffect(() => {
+    fetch('/api/auth/me-team')
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.sportSlug) setSportSlug(d.sportSlug); })
+      .catch(() => {});
+  }, []);
 
   // Detect support after first render
   useEffect(() => {
@@ -41,14 +61,49 @@ export default function FirstCapturePage() {
     trackEvent('onboarding_first_capture_viewed');
   }, []);
 
+  async function saveObservations(teamId: string, obs: Observation[]) {
+    try {
+      const players = await query<RosterPlayer[]>({
+        table: 'players',
+        select: 'id,name,nickname,name_variants',
+        filters: { team_id: teamId, is_active: true },
+      });
+
+      const rows = obs.map((o) => ({
+        team_id: teamId,
+        player_id: findPlayerByName(o.player_name, players) ?? null,
+        text: o.text,
+        sentiment: o.sentiment,
+        category: o.category,
+        source: 'voice',
+      }));
+
+      await mutate({
+        table: 'observations',
+        operation: 'insert',
+        data: rows,
+      });
+    } catch {
+      // Silent failure — don't block onboarding completion
+    }
+  }
+
   async function complete() {
     setFinishing(true);
+
+    // Save observations to DB so the coach sees real data on the home dashboard.
+    // Runs before the redirect — silent failure won't block onboarding.
+    if (observations.length > 0 && teamIdRef.current) {
+      await saveObservations(teamIdRef.current, observations);
+    }
+
     try {
       await fetch('/api/auth/complete-onboarding', { method: 'POST' });
     } catch {}
     trackEvent('onboarding_completed', {
       via: 'first_capture',
       had_observation: observations.length > 0,
+      saved_count: observations.length,
     });
     router.push('/home');
     router.refresh();
@@ -88,6 +143,9 @@ export default function FirstCapturePage() {
         await complete();
         return;
       }
+
+      // Store teamId so complete() can use it when saving observations.
+      teamIdRef.current = teamId;
 
       const res = await fetch('/api/ai/segment', {
         method: 'POST',
@@ -156,6 +214,7 @@ export default function FirstCapturePage() {
               onStop={handleStop}
               onSkip={handleSkip}
               skipDisabled={finishing}
+              sportSlug={sportSlug}
             />
           )}
         </CardContent>
@@ -174,6 +233,7 @@ function RecordingView({
   onStop,
   onSkip,
   skipDisabled,
+  sportSlug,
 }: {
   phase: Phase;
   error: string | null;
@@ -182,16 +242,18 @@ function RecordingView({
   onStop: () => void;
   onSkip: () => void;
   skipDisabled: boolean;
+  sportSlug: string | null;
 }) {
   const isRecording = phase === 'recording';
   const isProcessing = phase === 'processing';
   const isUnsupported = phase === 'unsupported';
+  const examplePhrase = getSportExamplePhrase(sportSlug);
 
   return (
     <>
       <h1 className="mt-2 text-2xl font-bold text-zinc-100">Say something about a player.</h1>
       <p className="mt-2 text-sm text-zinc-400 max-w-sm leading-relaxed">
-        Try: <em className="text-zinc-300">&ldquo;Sarah&apos;s footwork looked sharp on closeouts today.&rdquo;</em>{' '}
+        Try: <em className="text-zinc-300">&ldquo;{examplePhrase}&rdquo;</em>{' '}
         We&apos;ll segment it into a real observation in a few seconds.
       </p>
 
@@ -299,7 +361,7 @@ function SuccessView({
         ))}
         {observations.length > 3 && (
           <p className="text-[11px] text-zinc-500 text-center">
-            +{observations.length - 3} more — review them on the Capture tab.
+            +{observations.length - 3} more observation{observations.length - 3 > 1 ? 's' : ''} — all saved to your dashboard.
           </p>
         )}
       </div>
@@ -310,9 +372,17 @@ function SuccessView({
         disabled={loading}
         className="mt-6 w-full"
       >
-        {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-        You&apos;re all set
-        <ChevronRight className="h-4 w-4" />
+        {loading ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Saving to your dashboard…
+          </>
+        ) : (
+          <>
+            You&apos;re all set
+            <ChevronRight className="h-4 w-4" />
+          </>
+        )}
       </Button>
     </>
   );

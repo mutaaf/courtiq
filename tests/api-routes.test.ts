@@ -53,7 +53,11 @@ import { POST as shareCreatePost } from '@/app/api/share/create/route';
 /**
  * Returns a chainable Supabase query mock.
  * All builder methods (select/insert/update/delete/eq/is/gte/order/limit) return
- * `this` so they can be chained. `.single()` resolves with `{ data, error }`.
+ * `this` so they can be chained.
+ * `.single()` resolves with `{ data, error }`.
+ * The chain is also thenable (has a `.then` method) so that array queries
+ * resolved via `const { data } = await supabase.from(...).select(...)...`
+ * (without `.single()`) also receive `{ data, error }`.
  */
 function buildChain(data: unknown = null, error: unknown = null) {
   const resolved = { data, error };
@@ -68,10 +72,14 @@ function buildChain(data: unknown = null, error: unknown = null) {
     is: vi.fn().mockReturnThis(),
     gte: vi.fn().mockReturnThis(),
     lt: vi.fn().mockReturnThis(),
+    lte: vi.fn().mockReturnThis(),
     or: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue(resolved),
+    // Make the chain thenable so `await chain` (array queries) resolves to { data, error }
+    then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
+      Promise.resolve(resolved).then(resolve, reject),
   };
   return chain;
 }
@@ -557,6 +565,67 @@ describe('Share [token] GET route', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.customMessage).toBe('Great season so far!');
+  });
+
+  it('includes upcomingSessions with correct shape when sessions exist', async () => {
+    const share = makeShare();
+    const player = { id: 'player-1', name: 'Jordan Park', nickname: null, position: 'SF', jersey_number: 3, photo_url: null };
+    const team = { name: 'Falcons', age_group: '11-13', season: 'Spring 2026', org_id: null };
+    const fakeSessions = [
+      { id: 's1', type: 'practice', date: '2026-05-22', start_time: '16:00:00', location: 'North Gym', opponent: null },
+      { id: 's2', type: 'game',     date: '2026-05-24', start_time: '10:30:00', location: null,       opponent: 'City Eagles' },
+    ];
+
+    mockFromFn.mockImplementation((table: string) => {
+      if (table === 'parent_shares') return buildChain(share);
+      if (table === 'players') return buildChain(player);
+      if (table === 'teams') return buildChain(team);
+      if (table === 'coaches') return buildChain({ full_name: 'Coach Davis' });
+      if (table === 'sessions') return buildChain(fakeSessions);
+      return buildChain(null);
+    });
+
+    const req = new Request('http://localhost/api/share/abc123');
+    const res = await shareTokenGet(req, { params: Promise.resolve({ token: 'abc123' }) });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    expect(Array.isArray(body.upcomingSessions)).toBe(true);
+    expect(body.upcomingSessions).toHaveLength(2);
+
+    const [first, second] = body.upcomingSessions;
+    expect(first.id).toBe('s1');
+    expect(first.type).toBe('practice');
+    expect(first.date).toBe('2026-05-22');
+    expect(first.start_time).toBe('16:00:00');
+    expect(first.location).toBe('North Gym');
+    expect(first.opponent).toBeNull();
+
+    expect(second.id).toBe('s2');
+    expect(second.type).toBe('game');
+    expect(second.opponent).toBe('City Eagles');
+    expect(second.location).toBeNull();
+  });
+
+  it('returns an empty upcomingSessions array when no sessions exist', async () => {
+    const share = makeShare();
+    const player = { id: 'player-1', name: 'Casey', nickname: null, position: null, jersey_number: null, photo_url: null };
+    const team = { name: 'Stars', age_group: '8-10', season: 'Fall 2025', org_id: null };
+
+    mockFromFn.mockImplementation((table: string) => {
+      if (table === 'parent_shares') return buildChain(share);
+      if (table === 'players') return buildChain(player);
+      if (table === 'teams') return buildChain(team);
+      if (table === 'coaches') return buildChain({ full_name: 'Coach Patel' });
+      if (table === 'sessions') return buildChain([]); // no upcoming sessions
+      return buildChain(null);
+    });
+
+    const req = new Request('http://localhost/api/share/abc123');
+    const res = await shareTokenGet(req, { params: Promise.resolve({ token: 'abc123' }) });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.upcomingSessions).toEqual([]);
   });
 });
 

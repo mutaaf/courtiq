@@ -8,58 +8,74 @@ import { Badge } from '@/components/ui/badge';
 import { Mic, MicOff, Sparkles, ArrowRight, Check, Edit2, Trash2, X, Lock, Wand2 } from 'lucide-react';
 import Link from 'next/link';
 
-// Enhanced mock data that plausibly matches common coaching observations
+// Sport-agnostic mock observations — match what coaches say in any sport
 const ENHANCED_MOCK_OBSERVATIONS = [
   {
     player_name: 'Marcus',
-    category: 'Offense',
+    category: 'Effort',
     sentiment: 'positive' as const,
-    text: 'Excellent cut to the basket with great timing. Shows strong off-ball awareness and reads the defense well.',
-    stats: { points: 2 },
-    tendency: null,
+    text: 'Worked incredibly hard the entire session. Showed great attitude and led by example — teammates followed his energy.',
+    stats: null,
+    tendency: 'consistently sets the tone for the team',
   },
   {
     player_name: 'Jayden',
     category: 'Defense',
     sentiment: 'needs-work' as const,
-    text: 'Needs to improve closeout technique on perimeter shooters. Getting caught flat-footed on defensive rotations.',
+    text: 'Needs to improve positioning and reaction time on defense. Gets caught out of position when the play moves quickly.',
     stats: null,
-    tendency: 'hesitates on closeouts',
+    tendency: 'slow to recover on defensive transitions',
   },
   {
     player_name: 'Sofia',
     category: 'IQ',
     sentiment: 'positive' as const,
-    text: 'Made a smart extra pass to the open player instead of forcing a contested shot. Great court vision and decision making.',
-    stats: { assists: 1 },
-    tendency: 'always looks for the extra pass',
+    text: 'Made the smart play under pressure — read the situation quickly and made the right decision. Shows real game intelligence.',
+    stats: null,
+    tendency: 'always looks for the best option',
   },
   {
     player_name: 'Marcus',
-    category: 'Effort',
+    category: 'Teamwork',
     sentiment: 'positive' as const,
-    text: 'Hustled back on defense after the turnover. Led the transition defense and set the tone for the team.',
+    text: 'Communicated constantly and organized the team. Great leader — everyone responds well to his direction.',
     stats: null,
     tendency: null,
   },
   {
-    player_name: 'Jayden',
-    category: 'Offense',
+    player_name: 'Mia',
+    category: 'Footwork',
     sentiment: 'positive' as const,
-    text: 'Hit a nice pull-up jumper from the mid-range. Showing confidence in his shot.',
-    stats: { points: 2 },
-    tendency: 'prefers right hand drives',
+    text: 'Footwork has improved significantly. Moving with purpose and showing real confidence in technique.',
+    stats: null,
+    tendency: null,
+  },
+];
+
+// Clickable example prompts for coaches who don't know what to type
+const EXAMPLE_PROMPTS = [
+  {
+    label: 'Team practice recap',
+    text: 'Marcus worked incredibly hard today — great leader and always communicating. Jayden needs to improve his positioning on defense, keeps getting caught out of place. Sofia made some really smart decisions under pressure, excellent composure. Mia had a great session too — her technique is really clicking.',
+  },
+  {
+    label: 'Mixed feedback session',
+    text: 'Alex was outstanding today — hustle, attitude, everything. Mia needs to keep her head up and communicate more with teammates. Sofia showed great footwork and movement. Jayden is getting better but still hesitates when under pressure — needs to be more decisive. Marcus had some great moments and really stepped up as a leader.',
+  },
+  {
+    label: 'Focus on skill gaps',
+    text: 'Jayden struggled with his footwork today and needs to slow down and think through his movements. Marcus showed excellent decision-making and really read the play well. Sofia needs to improve her defensive awareness — not tracking the play quickly enough. Great effort from Mia all session, never stopped working.',
   },
 ];
 
 const DEMO_TEAM_CONTEXT = {
   teamId: 'demo-team',
   roster: [
-    { name: 'Marcus', nickname: null, position: 'Guard', jersey_number: 12, name_variants: [] },
-    { name: 'Jayden', nickname: 'Jay', position: 'Forward', jersey_number: 7, name_variants: [] },
-    { name: 'Sofia', nickname: null, position: 'Guard', jersey_number: 23, name_variants: [] },
-    { name: 'Alex', nickname: null, position: 'Center', jersey_number: 5, name_variants: [] },
-    { name: 'Mia', nickname: null, position: 'Forward', jersey_number: 15, name_variants: [] },
+    { name: 'Marcus', nickname: null, position: 'Athlete', jersey_number: 12, name_variants: [] },
+    { name: 'Jayden', nickname: 'Jay', position: 'Athlete', jersey_number: 7, name_variants: [] },
+    { name: 'Sofia', nickname: null, position: 'Athlete', jersey_number: 23, name_variants: [] },
+    { name: 'Alex', nickname: null, position: 'Athlete', jersey_number: 5, name_variants: [] },
+    { name: 'Mia', nickname: null, position: 'Athlete', jersey_number: 15, name_variants: [] },
   ],
 };
 
@@ -264,7 +280,7 @@ export default function DemoPage() {
             Tap the mic and talk about your players for 20 seconds.
           </p>
           <p className="text-sm text-zinc-500 mb-8">
-            Say things like: &ldquo;Marcus had a great cut to the basket&rdquo; or &ldquo;Jayden needs to work on his closeouts&rdquo;
+            Works for any sport — basketball, soccer, volleyball, swimming, tennis, and more.
           </p>
 
           {/* Demo roster */}
@@ -279,7 +295,7 @@ export default function DemoPage() {
                     key={p.name}
                     className="rounded-full bg-zinc-800 px-3 py-1 text-sm text-zinc-300"
                   >
-                    #{p.jersey_number} {p.name} <span className="text-zinc-500">({p.position})</span>
+                    #{p.jersey_number} {p.name}
                   </span>
                 ))}
               </div>
@@ -302,8 +318,28 @@ export default function DemoPage() {
               <span className="text-xs text-zinc-600">or type coaching notes</span>
               <div className="h-px flex-1 bg-zinc-800" />
             </div>
+
+            {/* Example prompts */}
+            <p className="text-xs text-zinc-500 mb-2 text-left">Try an example:</p>
+            <div className="flex flex-col gap-1.5 mb-3">
+              {EXAMPLE_PROMPTS.map((ex) => (
+                <button
+                  key={ex.label}
+                  onClick={() => setTextInput(ex.text)}
+                  className={`w-full rounded-xl px-3 py-2.5 text-left text-xs transition-all touch-manipulation active:scale-[0.98] ${
+                    textInput === ex.text
+                      ? 'bg-orange-500/20 border border-orange-500/50 text-orange-200'
+                      : 'bg-zinc-800/60 border border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300'
+                  }`}
+                >
+                  <span className="font-medium text-zinc-300">{ex.label}</span>
+                  <span className="ml-1.5 text-zinc-600">→ {ex.text.slice(0, 60)}…</span>
+                </button>
+              ))}
+            </div>
+
             <Textarea
-              placeholder="Marcus had a great cut to the basket. Jayden needs work on his closeouts..."
+              placeholder="Or write your own: 'Marcus had great positioning today. Jayden needs to work on his footwork…'"
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               rows={3}
@@ -397,7 +433,7 @@ export default function DemoPage() {
             {[
               { label: '🎤 Transcribing speech to text', delay: '0s' },
               { label: '👤 Matching player names phonetically', delay: '0.4s' },
-              { label: '🏀 Categorising observations by skill', delay: '0.8s' },
+              { label: '🎯 Categorising observations by skill', delay: '0.8s' },
               { label: '💡 Flagging needs-work vs positive', delay: '1.2s' },
             ].map(({ label, delay }) => (
               <span
@@ -477,12 +513,12 @@ export default function DemoPage() {
                   {/* Stats */}
                   {obs.stats && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      {Object.entries(obs.stats).map(([key, val]) => (
+                      {Object.entries(obs.stats as Record<string, unknown>).map(([key, val]) => (
                         <span
                           key={key}
                           className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-400"
                         >
-                          {val} {key}
+                          {String(val)} {key}
                         </span>
                       ))}
                     </div>

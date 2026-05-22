@@ -1,8 +1,18 @@
 import type { Metadata } from 'next';
+import { buildShareMetadata } from '@/lib/share-metadata';
 import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { ParentViralCTA } from '@/components/share/parent-viral-cta';
 import { ParentReactionForm } from '@/components/share/parent-reaction-form';
-import { Megaphone, MessageCircle } from 'lucide-react';
+import { ParentContactForm } from '@/components/share/parent-contact-form';
+import { ShareReportButton } from '@/components/share/share-report-button';
+import { ProgressTrendChart } from '@/components/share/progress-trend-chart';
+import { CalendarDays, Megaphone, MessageCircle } from 'lucide-react';
+import {
+  SESSION_EMOJI,
+  SESSION_LABEL,
+  formatSessionDate,
+  isCompetitiveSession,
+} from '@/lib/upcoming-session-utils';
 import {
   buildSeasonStats,
   getImprovingSkills,
@@ -21,7 +31,6 @@ import {
   formatStreakCount,
 } from '@/lib/player-growth-streak-utils';
 
-// ---------------------------------------------------------------------------
 // Skill Radar Chart — pure SVG, server-component safe, light-mode
 // ---------------------------------------------------------------------------
 
@@ -316,58 +325,12 @@ export async function generateMetadata({
   const data = await getShareData(token);
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://youthsportsiq.com';
-  const shareUrl = `${appUrl}/share/${token}`;
-  const ogImageUrl = `${appUrl}/share/${token}/opengraph-image`;
 
-  if (!data || data.error) {
-    return {
-      title: 'Player Progress Report — SportsIQ',
-      openGraph: {
-        title: 'Player Progress Report — SportsIQ',
-        description: 'Coaching intelligence for youth sports.',
-        url: shareUrl,
-        images: [{ url: `${appUrl}/opengraph-image`, width: 1200, height: 630 }],
-      },
-    };
-  }
-
-  const playerName: string = data.player?.nickname || data.player?.name || 'Your Player';
-  const firstName: string = playerName.split(' ')[0];
-  const teamName: string = data.team?.name || 'the team';
-  const obsCount: number = data.totalObservationCount ?? 0;
-  const skillArr: any[] = Array.isArray(data.skillProgress) ? data.skillProgress : [];
-  const improvingCount = skillArr.filter(
-    (s) => s.proficiency_level === 'got_it' || s.proficiency_level === 'game_ready'
-  ).length;
-
-  const statParts: string[] = [];
-  if (obsCount > 0) statParts.push(`${obsCount} coaching observation${obsCount !== 1 ? 's' : ''}`);
-  if (improvingCount > 0)
-    statParts.push(`${improvingCount} skill${improvingCount !== 1 ? 's' : ''} at game level`);
-
-  const title = `${playerName}'s Progress Report — SportsIQ`;
-  const description =
-    statParts.length > 0
-      ? `${statParts.join(' · ')} — see how ${firstName} is growing this season with ${teamName}.`
-      : `See ${playerName}'s coaching report from ${teamName} this season. Powered by SportsIQ.`;
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      type: 'website',
-      url: shareUrl,
-      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: `${playerName}'s SportsIQ Progress Report` }],
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-      images: [ogImageUrl],
-    },
-  };
+  // Ticket 0013: the title/description branch (spotlight vs generic Progress
+  // Report) lives in the pure, unit-tested builder. Presentation only — when a
+  // well-formed playerSpotlight is present, the preview leads with the
+  // celebratory artifact; otherwise it keeps today's generic card unchanged.
+  return buildShareMetadata(data, { token, appUrl });
 }
 
 // ---------------------------------------------------------------------------
@@ -386,22 +349,30 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     player,
     team,
     coachName,
+    isCoachCertified,
     branding,
     customMessage,
     reportCard,
     developmentCard,
     highlights,
     featuredHighlight,
+    starredObservations,
     skillProgress,
     recommendedDrills,
     announcements,
+    upcomingSessions,
     totalObservationCount,
     recentObservationActivity,
     achievements,
     latestSessionMessage,
     skillChallenge,
     playerGoals,
+    hasParentContact,
+    playerSpotlight,
+    referralCode,
   } = data;
+
+  const safeStarred: any[] = starredObservations ?? [];
 
   const playerName = player?.nickname || player?.name || 'your player';
   const firstName = playerName.split(' ')[0];
@@ -461,6 +432,24 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     nextChallenge = typeof area === 'string' ? area : area.skill || area.description || area.name || String(area);
   }
 
+  const safeUpcomingSessions: Array<{
+    id: string; type: string; date: string; start_time: string | null;
+    location: string | null; opponent: string | null;
+  }> = Array.isArray(upcomingSessions) ? upcomingSessions : [];
+
+  // Player of the Week / Player of the Match spotlight (ticket 0009).
+  // content_structured carries either a weekly_star shape (week_label +
+  // coach_shoutout + growth_moment + challenge_ahead) or a player_of_match
+  // shape (session_label + coach_message + key_moment). We render defensively
+  // from whichever fields are present. The presence of session_label (vs
+  // week_label) tells us which celebratory title to show.
+  const spotlight: any = playerSpotlight || null;
+  const isMatchSpotlight = !!spotlight?.session_label;
+  const spotlightTitle = isMatchSpotlight ? 'Player of the Match' : 'Player of the Week';
+  const spotlightLabel: string | null = spotlight?.session_label || spotlight?.week_label || null;
+  const spotlightCoachNote: string | null = spotlight?.coach_shoutout || spotlight?.coach_message || null;
+  const spotlightDetail: string | null = spotlight?.growth_moment || spotlight?.key_moment || null;
+
   // Get the first recommended drill for home practice
   let homePractice: { name: string; description?: string } | null = null;
   if (recommendedDrills?.[0]) {
@@ -509,6 +498,21 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
                   .filter(Boolean)
                   .join(' · ')}
               </p>
+              {coachName && (
+                <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs text-gray-400">
+                    Coach {coachName.split(' ')[0]}
+                  </span>
+                  {isCoachCertified && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200">
+                      <svg className="h-3 w-3 shrink-0" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                        <path d="M6 1L7.5 4.5L11 5L8.5 7.5L9 11L6 9.5L3 11L3.5 7.5L1 5L4.5 4.5L6 1Z" fill="currentColor" />
+                      </svg>
+                      SportsIQ Certified
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -528,7 +532,62 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
               )}
             </p>
           </div>
+
+          {/* Share this report — lets parents forward to family */}
+          <div className="mt-4">
+            <ShareReportButton
+              firstName={firstName}
+              teamName={teamName}
+              coachName={coachName}
+            />
+          </div>
         </div>
+
+        {/* ─── Player of the Week / Player of the Match spotlight (0009) ─── */}
+        {spotlight && spotlight.headline && (
+          <div className="mx-4 mt-4 rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg" aria-hidden="true">⭐</span>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-orange-600">
+                  {spotlightTitle}
+                </h3>
+              </div>
+              {spotlightLabel && (
+                <span className="text-[11px] text-gray-400">{spotlightLabel}</span>
+              )}
+            </div>
+
+            <p className="text-base font-bold leading-snug text-gray-900">
+              {spotlight.headline}
+            </p>
+
+            {spotlight.achievement && (
+              <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                {spotlight.achievement}
+              </p>
+            )}
+
+            {spotlightDetail && (
+              <div className="mt-3 rounded-xl bg-white/70 px-3 py-2.5">
+                <p className="text-sm leading-relaxed text-gray-700">{spotlightDetail}</p>
+              </div>
+            )}
+
+            {spotlightCoachNote && (
+              <div className="mt-3 border-l-2 border-orange-300 pl-3">
+                <p className="text-sm italic leading-relaxed text-gray-800">
+                  &ldquo;{spotlightCoachNote}&rdquo;
+                </p>
+                {coachName && (
+                  <p className="mt-1 text-xs font-medium text-gray-500">
+                    &mdash; Coach {coachName.split(' ')[0]}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ─── Coach's Latest Session Update ─── */}
         {latestSessionMessage && (
@@ -609,8 +668,79 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           </div>
         )}
 
-        {/* ─── Featured Highlight ─── */}
-        {featuredHighlight && (
+        {/* ─── Coach's Best Moments (starred observations) ─── */}
+        {safeStarred.length > 0 && (
+          <div className="mx-4 mt-4 rounded-2xl bg-amber-50 border border-amber-100 p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-lg">⭐</span>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-600">
+                Coach&apos;s Best Moments
+              </h3>
+            </div>
+            <div className="space-y-4">
+              {safeStarred.map((obs: any, i: number) => (
+                <div key={i} className="border-l-2 border-amber-300 pl-4">
+                  <p className="text-sm leading-relaxed text-gray-800 italic">
+                    &ldquo;{obs.text}&rdquo;
+                  </p>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    {obs.category && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                        {obs.category.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-400">
+                      {new Date(obs.created_at).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ─── Upcoming Sessions ─── */}
+        {safeUpcomingSessions.length > 0 && (
+          <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm border border-sky-100">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-sky-100">
+                <CalendarDays className="h-3.5 w-3.5 text-sky-600" aria-hidden="true" />
+              </div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-sky-700">
+                Coming Up
+              </h3>
+            </div>
+            <div className="space-y-2.5">
+              {safeUpcomingSessions.map((s) => (
+                <div key={s.id} className="flex items-start gap-3 rounded-xl bg-sky-50 px-3 py-2.5">
+                  <span className="mt-0.5 shrink-0 text-base" aria-hidden="true">
+                    {SESSION_EMOJI[s.type] ?? '📅'}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800">
+                      {SESSION_LABEL[s.type] ?? s.type}
+                      {isCompetitiveSession(s.type) && s.opponent
+                        ? <span className="font-normal text-gray-600"> vs. {s.opponent}</span>
+                        : null}
+                    </p>
+                    <p className="mt-0.5 text-xs text-sky-700">
+                      {formatSessionDate(s.date, s.start_time)}
+                    </p>
+                    {s.location && (
+                      <p className="mt-0.5 text-xs text-gray-500 truncate">📍 {s.location}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ─── Featured Highlight (fallback when no starred observations) ─── */}
+        {safeStarred.length === 0 && featuredHighlight && (
           <div className="mx-4 mt-4 rounded-2xl bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
               <span className="text-lg">✨</span>
@@ -712,6 +842,9 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             )}
           </div>
         )}
+
+        {/* ─── Weekly Progress Trend ─── */}
+        {safeObs.length >= 6 && <ProgressTrendChart obs={safeObs} firstName={firstName} />}
 
         {/* ─── Skill Radar Chart ─── */}
         {sortedSkills.length >= 3 && (
@@ -1066,9 +1199,20 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           />
         </div>
 
+        {/* ─── Parent Contact Collection ─── */}
+        {/* Shown only when coach doesn't yet have this parent's phone number */}
+        {!hasParentContact && (
+          <ParentContactForm
+            shareToken={token}
+            playerFirstName={firstName}
+            coachName={coachName}
+            teamName={teamName}
+          />
+        )}
+
         {/* ─── Viral CTA ─── */}
         <div className="mx-4 mt-6">
-          <ParentViralCTA coachName={coachName} teamName={team?.name} />
+          <ParentViralCTA coachName={coachName} teamName={team?.name} referralCode={referralCode} />
         </div>
 
         {/* ─── Footer ─── */}

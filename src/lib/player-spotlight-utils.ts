@@ -154,3 +154,55 @@ export function isCurrentWeekStar(createdAt: string, now = Date.now()): boolean 
   const ageMs = now - new Date(createdAt).getTime();
   return ageMs <= 7 * 24 * 60 * 60 * 1000;
 }
+
+// ─── Spotlight link-preview helpers (ticket 0013) ──────────────────────────────
+//
+// The share response's `playerSpotlight` is a `content_structured` blob that is
+// either a weekly_star shape (week_label + coach_shoutout + headline …) or a
+// player_of_match shape (session_label + coach_message + headline …). The portal
+// card (page.tsx, ticket 0009) already disambiguates by `session_label` presence;
+// these helpers mirror that single source of truth so the OG image and the OG
+// metadata agree on the celebratory label.
+
+/**
+ * True when the spotlight is a player_of_match shape. We pick by the presence of
+ * a non-empty `session_label` (the match shape carries it; the weekly_star shape
+ * carries `week_label` instead) — identical to the portal card's disambiguation.
+ */
+export function isMatchSpotlight(spotlight: any): boolean {
+  return !!spotlight && typeof spotlight === 'object' && !!spotlight.session_label;
+}
+
+/** The COPPA-minimized preview projection of a spotlight: nothing but the
+ *  celebratory title, the player's FIRST name, and the coach-authored headline. */
+export interface SpotlightPreview {
+  /** "Player of the Week" or "Player of the Match". */
+  title: string;
+  /** The player's FIRST name only — never the last name, jersey, or roster. */
+  firstName: string;
+  /** The coach-authored headline (the only free text on the public preview). */
+  headline: string;
+}
+
+/**
+ * Build the COPPA-minimized preview projection used by BOTH the OG image and the
+ * OG metadata. Returns null when the spotlight is absent or malformed (no
+ * headline) so callers fall back to the generic Progress Report card — the link
+ * preview must NEVER break.
+ *
+ * Data minimization (AGENTS.md): emits ONLY first name + coach headline + the
+ * derived celebratory title. No last name, jersey, roster, or other minor's data.
+ */
+export function buildSpotlightPreview(
+  spotlight: any,
+  playerName: string | null | undefined
+): SpotlightPreview | null {
+  if (!spotlight || typeof spotlight !== 'object') return null;
+  const headline = typeof spotlight.headline === 'string' ? spotlight.headline.trim() : '';
+  if (!headline) return null;
+
+  const firstName = (playerName || 'Your Player').split(' ')[0];
+  const title = isMatchSpotlight(spotlight) ? 'Player of the Match' : 'Player of the Week';
+
+  return { title, firstName, headline };
+}

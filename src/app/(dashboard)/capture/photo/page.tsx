@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
+import { useAppStore } from '@/lib/store';
 import { useQueryClient } from '@tanstack/react-query';
 import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
@@ -65,6 +66,11 @@ export default function PhotoCapturePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const preselectedPlayerId = searchParams.get('playerId');
+  const urlSessionId = searchParams.get('sessionId');
+  const practiceActive = useAppStore((s) => s.practiceActive);
+  const practiceSessionId = useAppStore((s) => s.practiceSessionId);
+  // Prefer URL param; fall back to active practice session
+  const resolvedSessionId = urlSessionId ?? (practiceActive ? practiceSessionId : null);
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -172,10 +178,10 @@ export default function PhotoCapturePage() {
       const players = await queryClient.fetchQuery({
         queryKey: queryKeys.players.all(activeTeam.id),
         queryFn: () =>
-          query<{ id: string; name: string; nickname: string | null; name_variants: string[] | null }[]>({
+          query<{ id: string; name: string; nickname: string | null; name_variants: string[] | null; jersey_number: number | null }[]>({
             table: 'players',
             filters: { team_id: activeTeam.id, is_active: true },
-            select: 'id,name,nickname,name_variants',
+            select: 'id,name,jersey_number,nickname,name_variants',
           }),
       });
 
@@ -187,7 +193,7 @@ export default function PhotoCapturePage() {
       const rows = selected.map((o) => ({
         team_id: activeTeam.id,
         coach_id: coach.id,
-        session_id: null,
+        session_id: resolvedSessionId,
         player_id: o.isTeam ? null : findPlayerId(o.player_name),
         category: o.category,
         sentiment: o.sentiment,
@@ -204,6 +210,9 @@ export default function PhotoCapturePage() {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.observations.all(activeTeam.id),
       });
+      if (resolvedSessionId) {
+        await queryClient.invalidateQueries({ queryKey: ['session-obs-count', resolvedSessionId] });
+      }
 
       setSavedCount(rows.length);
     } catch (err: any) {
@@ -251,7 +260,13 @@ export default function PhotoCapturePage() {
             <Camera className="h-4 w-4" />
             Snap Another
           </Button>
-          <Button onClick={() => router.push('/observations')}>View Observations</Button>
+          {resolvedSessionId ? (
+            <Button onClick={() => router.push(`/sessions/${resolvedSessionId}`)}>
+              View Session
+            </Button>
+          ) : (
+            <Button onClick={() => router.push('/observations')}>View Observations</Button>
+          )}
         </div>
       </div>
     );
@@ -275,6 +290,14 @@ export default function PhotoCapturePage() {
           <p className="text-xs text-zinc-500">{activeTeam.name}</p>
         </div>
       </div>
+
+      {/* Session context banner */}
+      {resolvedSessionId && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+          Photo linked to active session — observations will count toward coverage tracker
+        </div>
+      )}
 
       {/* Photo upload */}
       {!analyzed ? (
