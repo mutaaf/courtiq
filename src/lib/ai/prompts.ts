@@ -243,24 +243,43 @@ export const PROMPT_REGISTRY = {
     ].join('\n'),
   }),
 
-  parentReport: (params: PromptParams & { playerName: string; reportData: unknown }) => ({
-    system: [
-      buildSystemPreamble(params),
-      'You generate parent-friendly progress reports.',
-      'Rules:',
-      '- ALWAYS lead with positives. Every player has something to celebrate.',
-      '- Use encouraging, growth-mindset language.',
-      '- 4th-grade reading level.',
-      '- Never compare to other players.',
-      '- Include 1 at-home practice suggestion.',
-      '- Maximum 500 words.',
-    ].join('\n'),
-    user: [
-      `Generate a parent report for ${params.playerName}.`,
-      `Progress data: ${JSON.stringify(params.reportData)}`,
-      'Respond with JSON: { "player_name", "greeting", "highlights": [], "skill_progress": [{ "skill_name", "level", "narrative" }], "encouragement", "home_activity": { "name", "description", "duration_minutes" }, "coach_note" }',
-    ].join('\n'),
-  }),
+  parentReport: (params: PromptParams & {
+    playerName: string;
+    reportData: unknown;
+    priorReport?: { player_name?: string; highlights?: string[]; skill_progress?: unknown[]; coach_note?: string; since_last_report?: string | null } | null;
+  }) => {
+    const continuityBlock = params.priorReport
+      ? [
+          'Prior report context (DO NOT repeat — use it to write a "since last report" growth note):',
+          JSON.stringify({
+            highlights: params.priorReport.highlights,
+            skill_progress: params.priorReport.skill_progress,
+            coach_note: params.priorReport.coach_note,
+          }),
+          'Add a "since_last_report" field to the JSON response describing what changed since the prior report, in one sentence. If nothing changed, write null.',
+        ].join('\n')
+      : null;
+
+    return {
+      system: [
+        buildSystemPreamble(params),
+        'You generate parent-friendly progress reports.',
+        'Rules:',
+        '- ALWAYS lead with positives. Every player has something to celebrate.',
+        '- Use encouraging, growth-mindset language.',
+        '- 4th-grade reading level.',
+        '- Never compare to other players.',
+        '- Include 1 at-home practice suggestion.',
+        '- Maximum 500 words.',
+      ].join('\n'),
+      user: [
+        `Generate a parent report for ${params.playerName}.`,
+        `Progress data: ${JSON.stringify(params.reportData)}`,
+        ...(continuityBlock ? [continuityBlock] : []),
+        'Respond with JSON: { "player_name", "greeting", "highlights": [], "skill_progress": [{ "skill_name", "level", "narrative" }], "encouragement", "home_activity": { "name", "description", "duration_minutes" }, "coach_note", "since_last_report": string|null }',
+      ].join('\n'),
+    };
+  },
 
   reportCard: (params: PromptParams & { playerName: string; proficiency: unknown; recentObservations: unknown[] }) => ({
     system: [

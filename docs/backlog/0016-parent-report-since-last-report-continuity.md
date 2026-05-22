@@ -1,7 +1,7 @@
 ---
 id: 0016
 title: Make the parent report a continuity artifact that tells the growth story since the last report
-status: groomed
+status: in-progress
 priority: P1
 area: ai
 created: 2026-05-21
@@ -131,9 +131,8 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
-
-- YYYY-MM-DD — branch `feat/0016-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
+- 2026-05-22 — branch `feat/0016-parent-report-continuity` opened
+- 2026-05-22 — failing tests added: `tests/ai/parent-report-continuity.test.ts` (11 tests covering AC1–AC7)
+- 2026-05-22 — implemented: `parentReportSchema` gains `since_last_report: z.string().nullable().optional()`; `PROMPT_REGISTRY.parentReport` accepts optional `priorReport` and injects continuity block when present; route fetches most-recent prior parent-report plan in try/catch (degrade to snapshot on any failure); full suite 4346/4346; tsc 0 errors; lint 0 errors
+- 2026-05-22 — PR #N opened, CI [state]
 - YYYY-MM-DD — merged to main

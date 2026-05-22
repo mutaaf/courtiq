@@ -55,6 +55,25 @@ export async function POST(request: Request) {
       .select('skill_id, proficiency_level, success_rate, trend')
       .eq('player_id', playerId);
 
+    // Fetch the most recent prior parent report for continuity context (ticket 0016).
+    // Wrapped in try/catch so any read failure degrades to a clean snapshot rather
+    // than erroring — the continuity note is best-effort and never gates generation.
+    let priorReport: import('@/lib/ai/schemas').ParentReport | null = null;
+    try {
+      const { data: priorPlans } = await admin
+        .from('plans')
+        .select('content_structured')
+        .eq('player_id', playerId)
+        .eq('type', 'parent_report')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (priorPlans?.[0]?.content_structured) {
+        priorReport = priorPlans[0].content_structured as import('@/lib/ai/schemas').ParentReport;
+      }
+    } catch {
+      // Degrade silently — snapshot report is still valuable without continuity
+    }
+
     const reportData = {
       observations: observations || [],
       proficiency: proficiency || [],
@@ -65,6 +84,7 @@ export async function POST(request: Request) {
       ...context,
       playerName: player.name,
       reportData,
+      priorReport,
     });
 
     const result = await callAIWithJSON<ParentReport>(
