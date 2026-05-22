@@ -105,6 +105,11 @@ describe('getPhrasesForCategory', () => {
     expect(phrases.length).toBeGreaterThan(0);
   });
 
+  it('returns cooldown generic phrases', () => {
+    const phrases = getPhrasesForCategory('cooldown', 'basketball');
+    expect(phrases.length).toBeGreaterThan(0);
+  });
+
   it('returns flagfootball defense phrases', () => {
     const phrases = getPhrasesForCategory('defense', 'flagfootball');
     expect(phrases.length).toBeGreaterThan(0);
@@ -165,6 +170,10 @@ describe('hasPhrases', () => {
 
   it('returns true for generic warmup category', () => {
     expect(hasPhrases('warmup', 'basketball')).toBe(true);
+  });
+
+  it('returns true for generic cooldown category', () => {
+    expect(hasPhrases('cooldown', 'basketball')).toBe(true);
   });
 
   it('returns false for empty category', () => {

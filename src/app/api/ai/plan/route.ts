@@ -162,6 +162,7 @@ export async function POST(request: Request) {
     opponentWeaknesses,
     keyOpponentPlayers,
     gameNotes,
+    arcContext,
   } = body;
 
   if (!teamId) {
@@ -209,6 +210,7 @@ export async function POST(request: Request) {
         ...context,
         focusSkills,
         observationInsights: observationInsights ?? undefined,
+        arcContext: arcContext ?? undefined,
       });
       schema = practicePlanSchema;
       interactionType = 'generate_practice_plan';

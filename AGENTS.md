@@ -230,6 +230,28 @@ documented quirks. The living version is `docs/LESSONS.md`.)
 > agents read and extend on every run. Add new operational lessons there, not
 > here.
 
+## Agent parameters
+
+> Read by the shared `agent-fleet` runners at runtime. The one place the generic
+> ship/groom/review prompts look for CourtIQ's specifics.
+
+- **Gating checks** — EXACTLY these three GitHub check names gate a merge.
+  Everything else (`Vercel`, preview comments, the nightly AI-contract job) is
+  informational and MUST be ignored when deciding mergeability or what to "fix":
+  - `lint`
+  - `unit-tests`
+  - `e2e-tests`
+- **Agent branch prefixes**: `feat/` (features, ship), `chore/gtm-` (backlog
+  refresh, groom).
+- **Local gate command** (heal/dev runs this before pushing; all must pass):
+  `npm run lint && npx tsc --noEmit && npx vitest run`
+- **Subagents** (`.claude/agents/`): `implementation-dev`, `gtm-innovation`,
+  `review` (the latter two are the fleet-standard names; `product-groomer` /
+  `pr-reviewer` remain as aliases for the slash commands).
+- **Backlog areas**: billing | ai | tier | capture | timer | plans | parent-portal | onboarding | infra | privacy | growth | analytics
+- **Backlog validator**: `node scripts/check-backlog.mjs`, wired into the `lint`
+  gating job — keeps ticket files and the README index in sync.
+
 ## License
 
 Private. For me, and for whoever I hand a copy to. AI agents may contribute, but credit yourself in the commit trailer.
