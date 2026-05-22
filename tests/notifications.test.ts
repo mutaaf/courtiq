@@ -36,8 +36,7 @@ describe('buildNotificationId', () => {
     expect(buildNotificationId('goal_deadline', 'goal-1')).toBe('goal_deadline:goal-1');
     expect(buildNotificationId('session_today', 'session-9')).toBe('session_today:session-9');
     expect(buildNotificationId('achievement_earned', 'ach-7')).toBe('achievement_earned:ach-7');
-    expect(buildNotificationId('birthday_today', 'player-5')).toBe('birthday_today:player-5');
-    expect(buildNotificationId('parent_report_viewed', 'share-42')).toBe('parent_report_viewed:share-42');
+    expect(buildNotificationId('parent_viewed_report', 'share-5')).toBe('parent_viewed_report:share-5');
   });
 
   it('preserves UUIDs unchanged', () => {

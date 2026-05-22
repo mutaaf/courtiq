@@ -1,7 +1,9 @@
 import type { Player, Team, CurriculumSkill } from '@/types/database';
+import { getSportPreamble } from '@/lib/sport-utils';
 
 export interface AIContext {
   sportName: string;
+  sportPreamble: string;
   teamName: string;
   ageGroup: string;
   playerCount: number;
@@ -32,7 +34,7 @@ export async function buildAIContext(
   let team: any = null;
   try {
     const selectFields = lightweight
-      ? 'id, name, age_group, curriculum_id, current_week, org_id, sports(name, default_categories, default_positions)'
+      ? 'id, name, age_group, curriculum_id, current_week, org_id, sports(slug, name, default_categories, default_positions)'
       : '*, organizations(*), sports(*)';
     const { data } = await supabase
       .from('teams')
@@ -103,8 +105,11 @@ export async function buildAIContext(
     }
   }
 
+  const sportSlug: string | null = team?.sports?.slug ?? null;
+
   return {
     sportName: team?.sports?.name || 'Basketball',
+    sportPreamble: getSportPreamble(sportSlug),
     teamName: team?.name || 'Team',
     ageGroup: team?.age_group || '8-10',
     playerCount: players.length,

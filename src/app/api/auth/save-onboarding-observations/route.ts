@@ -38,7 +38,7 @@ export async function POST(request: Request) {
   // Fetch the roster so we can match player names to IDs
   const { data: players } = await admin
     .from('players')
-    .select('id, name, nickname, name_variants')
+    .select('id, name, jersey_number, nickname, name_variants')
     .eq('team_id', teamId)
     .eq('is_active', true);
 

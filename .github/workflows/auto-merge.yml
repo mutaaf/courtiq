@@ -1,0 +1,46 @@
+name: Auto-merge
+
+# Triggers `gh pr merge --auto --squash --delete-branch` on every newly opened
+# or reopened PR, and flips drafts to ready-for-review when they're ready
+# (i.e. when they have a non-empty body and a CI run can fire).
+#
+# Why this exists: Claude Code (and other automation) opens PRs as drafts.
+# Drafts can't auto-merge. Without this, every agent-authored PR sits open
+# indefinitely even when CI is green, and the backlog grows. Branch protection
+# on `main` still requires required status checks (`lint`, `unit-tests`), so
+# nothing un-tested can merge — auto-merge waits for those to go green before
+# squashing.
+#
+# Scope: any PR targeting `main`, from this repo OR a fork (we don't grant
+# secrets to forks, but `gh pr ready` + `gh pr merge --auto` use only the
+# default GITHUB_TOKEN which has appropriate write scopes here).
+
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable-auto-merge:
+    runs-on: ubuntu-latest
+    # Bail on bots that explicitly mark themselves [no-auto-merge]
+    # in the PR title; everyone else gets the treatment.
+    if: ${{ !contains(github.event.pull_request.title, '[no-auto-merge]') }}
+    steps:
+      - name: Flip draft → ready (no-op if already ready)
+        if: github.event.pull_request.draft == true
+        run: gh pr ready "${PR_NUMBER}" --repo "${REPO}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+
+      - name: Enable squash auto-merge + delete branch on merge
+        run: gh pr merge "${PR_NUMBER}" --repo "${REPO}" --auto --squash --delete-branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}

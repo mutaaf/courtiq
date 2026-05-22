@@ -20,31 +20,14 @@ import {
   Lock,
   Calendar,
   Star,
-  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 
-type DemoObs = { player_name: string; category: string; sentiment: string; text: string };
-type DemoResult = { observations: DemoObs[]; fromAI: boolean };
-
-const DEMO_PLACEHOLDER =
-  `Marcus had incredible defensive footwork today — stayed with his man the whole drill. Jayden couldn't handle the pressure dribbling and turned it over twice. Sofia made some beautiful no-look passes in the scrimmage. Really good teamwork overall from the whole squad.`;
-
-const FALLBACK_OBS: DemoObs[] = [
-  { player_name: 'Marcus', category: 'Defense', sentiment: 'positive', text: 'Great defensive footwork — stayed with his man and forced two turnovers.' },
-  { player_name: 'Jayden', category: 'Dribbling', sentiment: 'needs-work', text: 'Struggled under pressure — turned the ball over twice when the defense pressed.' },
-  { player_name: 'Sofia', category: 'Passing', sentiment: 'positive', text: 'Excellent court vision — two no-look passes that led directly to easy layups.' },
-  { player_name: 'Team', category: 'Teamwork', sentiment: 'positive', text: 'Strong team cohesion throughout the scrimmage — great energy.' },
-];
-
 export default function LandingContent() {
   const [annual, setAnnual] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [demoText, setDemoText] = useState(DEMO_PLACEHOLDER);
-  const [demoResult, setDemoResult] = useState<DemoResult | null>(null);
-  const [demoLoading, setDemoLoading] = useState(false);
 
   const monthlyPrices = [0, 9.99, 24.99];
   const annualPrices = monthlyPrices.map((p) => +(p * 0.8).toFixed(2));
@@ -53,25 +36,6 @@ export default function LandingContent() {
 
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const runInlineDemo = async () => {
-    if (!demoText.trim() || demoLoading) return;
-    setDemoLoading(true);
-    try {
-      const res = await fetch('/api/ai/demo-segment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: demoText }),
-      });
-      const data = await res.json();
-      const obs = data.observations?.length ? data.observations : FALLBACK_OBS;
-      setDemoResult({ observations: obs, fromAI: !!data.fromAI });
-    } catch {
-      setDemoResult({ observations: FALLBACK_OBS, fromAI: false });
-    } finally {
-      setDemoLoading(false);
-    }
   };
 
   return (
@@ -421,7 +385,7 @@ export default function LandingContent() {
             <blockquote className="text-base sm:text-lg text-zinc-800 leading-relaxed italic text-center">
               &ldquo;I used to forget what I wanted to work on by the time I got home. Now everything&apos;s captured before I even leave the gym.&rdquo;
             </blockquote>
-            <p className="mt-4 text-sm text-zinc-500 text-center">-- A YMCA Youth Basketball Coach</p>
+            <p className="mt-4 text-sm text-zinc-500 text-center">— A YMCA Youth Basketball Coach</p>
           </Card>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -475,123 +439,41 @@ export default function LandingContent() {
         </div>
       </section>
 
-      {/* ── Inline AI Demo ── */}
+      {/* ── Demo Preview ── */}
       <section className="border-y border-zinc-200 bg-zinc-50/50 py-16 sm:py-20">
-        <div className="mx-auto max-w-3xl px-4">
-          <div className="text-center mb-8">
-            <p className="text-sm font-semibold uppercase tracking-wider text-orange-500 mb-2">Live AI Demo</p>
-            <h2 className="text-2xl font-bold sm:text-3xl">Watch AI turn your words into coaching data</h2>
-            <p className="mt-3 text-zinc-500">Type any practice note and see it instantly organized into player observations. No signup needed.</p>
-          </div>
+        <div className="mx-auto max-w-3xl px-4 text-center">
+          <h2 className="text-2xl font-bold sm:text-3xl mb-4">See it in action</h2>
+          <p className="text-zinc-600 mb-8">Try the live recording demo. 20 seconds, no account needed.</p>
 
-          <Card className="p-6 sm:p-8 bg-white border-orange-200 text-zinc-900">
-            {!demoResult ? (
-              <>
-                <label className="block text-sm font-medium text-zinc-700 mb-2">
-                  Your coaching note <span className="text-zinc-400 font-normal">(or use our example below)</span>
-                </label>
-                <textarea
-                  value={demoText}
-                  onChange={(e) => setDemoText(e.target.value)}
-                  rows={4}
-                  className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400 resize-none"
-                  placeholder="Type something like: Marcus had great defense today..."
-                />
-                <div className="mt-4 flex flex-col sm:flex-row items-center gap-3">
-                  <Button
-                    onClick={runInlineDemo}
-                    disabled={demoLoading || !demoText.trim()}
-                    size="lg"
-                    className="w-full sm:w-auto shadow-lg shadow-orange-500/25"
-                  >
-                    {demoLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        AI is analyzing...
-                      </>
-                    ) : (
-                      <>
-                        See what AI sees
-                        <ArrowRight className="ml-1.5 h-4 w-4" />
-                      </>
-                    )}
-                  </Button>
-                  <span className="text-xs text-zinc-400">Real Claude AI · No account needed</span>
+          <Card className="p-8 sm:p-10 bg-white border-orange-200 text-zinc-900 hover:border-orange-400 hover:shadow-lg transition-all">
+            <div className="flex flex-col items-center gap-5">
+              <div className="relative">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-orange-100 ring-2 ring-orange-500/30">
+                  <Mic className="h-10 w-10 text-orange-500" />
                 </div>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500">
-                    <Sparkles className="h-3 w-3 text-white" />
-                  </div>
-                  <p className="text-xs font-semibold text-violet-700">
-                    {demoResult.fromAI ? 'Live Claude AI' : 'Example result'}{' '}
-                    &middot; {demoResult.observations.length} observation{demoResult.observations.length !== 1 ? 's' : ''} identified
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  {demoResult.observations.map((obs, i) => (
-                    <div
-                      key={i}
-                      className={`rounded-lg p-3.5 border ${
-                        obs.sentiment === 'positive'
-                          ? 'bg-emerald-50 border-emerald-200'
-                          : obs.sentiment === 'needs-work'
-                          ? 'bg-amber-50 border-amber-200'
-                          : 'bg-zinc-50 border-zinc-200'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="text-sm">{obs.sentiment === 'positive' ? '✅' : obs.sentiment === 'needs-work' ? '⚠️' : '⚪'}</span>
-                        <span className="text-sm font-semibold text-zinc-800">{obs.player_name}</span>
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                            obs.sentiment === 'positive'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : obs.sentiment === 'needs-work'
-                              ? 'bg-amber-100 text-amber-700'
-                              : 'bg-zinc-100 text-zinc-600'
-                          }`}
-                        >
-                          {obs.category}
-                        </span>
-                      </div>
-                      <p className="text-sm text-zinc-600 pl-7">{obs.text}</p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-5 pt-4 border-t border-zinc-100 flex flex-col sm:flex-row items-center gap-3">
-                  <Button
-                    onClick={() => { setDemoResult(null); setDemoText(DEMO_PLACEHOLDER); }}
-                    variant="outline"
-                    size="sm"
-                    className="w-full sm:w-auto border-zinc-300 text-zinc-700"
-                  >
-                    Try your own note
-                  </Button>
-                  <Button asChild size="sm" className="w-full sm:w-auto shadow-lg shadow-orange-500/25">
-                    <Link href="/signup">
-                      Save this to a real team
-                      <ArrowRight className="ml-1 h-3.5 w-3.5" />
-                    </Link>
-                  </Button>
-                  <Button asChild variant="outline" size="sm" className="w-full sm:w-auto border-orange-300 text-orange-700 hover:bg-orange-50">
-                    <Link href="/demo/report">See sample parent report</Link>
-                  </Button>
-                </div>
-              </>
-            )}
+                <span className="absolute -top-1 -right-1 flex h-5 w-5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-40" />
+                  <span className="relative inline-flex rounded-full h-5 w-5 bg-orange-500" />
+                </span>
+              </div>
+              <p className="text-sm text-zinc-600 max-w-sm">
+                &ldquo;Hit record, coach like normal, and let AI turn your words into organized player notes.&rdquo;
+              </p>
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                <Button asChild size="lg" className="w-full sm:w-auto shadow-lg shadow-orange-500/25">
+                  <Link href="/demo">
+                    Try it yourself — no signup
+                    <ArrowRight className="ml-1.5 h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="lg" className="w-full sm:w-auto border-orange-300 text-orange-700 hover:bg-orange-50">
+                  <Link href="/demo/report">
+                    See a sample report
+                  </Link>
+                </Button>
+              </div>
+            </div>
           </Card>
-
-          <p className="text-center mt-4 text-xs text-zinc-400">
-            Want the voice version?{' '}
-            <Link href="/demo" className="text-orange-500 hover:text-orange-600 underline">
-              Try the full voice demo →
-            </Link>
-          </p>
         </div>
       </section>
 
@@ -782,7 +664,7 @@ export default function LandingContent() {
               },
               {
                 q: 'What sports do you support?',
-                a: 'Basketball, flag football, soccer, and volleyball are fully supported with sport-specific observation templates and practice drill libraries. More sports are added regularly based on coach feedback.',
+                a: 'Basketball, soccer, volleyball, flag football, baseball, softball, lacrosse, swimming, tennis, and gymnastics are fully supported with sport-specific observation templates and practice drills. More sports are added regularly based on coach feedback.',
               },
               {
                 q: 'Can I cancel anytime?',
@@ -811,23 +693,26 @@ export default function LandingContent() {
       <section className="py-12 sm:py-16">
         <div className="mx-auto max-w-4xl px-4">
           <div className="text-center mb-8">
-            <p className="text-sm text-zinc-400 font-medium uppercase tracking-wider mb-4">Works with your sport</p>
-            <div className="flex justify-center gap-8">
+            <p className="text-sm text-zinc-400 font-medium uppercase tracking-wider mb-3">10 sports fully supported</p>
+            <p className="text-xs text-zinc-500 mb-6">Sport-specific templates, drills, and coaching cues for every team</p>
+            <div className="grid grid-cols-5 gap-4 sm:grid-cols-10 justify-items-center">
               {[
-                { emoji: '\u{1F3C0}', name: 'Basketball' },
-                { emoji: '\u{1F3C8}', name: 'Flag Football' },
-                { emoji: '\u26BD', name: 'Soccer' },
-                { emoji: '\u{1F3D0}', name: 'Volleyball' },
+                { emoji: '🏀', name: 'Basketball' },
+                { emoji: '⚽', name: 'Soccer' },
+                { emoji: '🏐', name: 'Volleyball' },
+                { emoji: '🏈', name: 'Flag Football' },
+                { emoji: '⚾', name: 'Baseball' },
+                { emoji: '🥎', name: 'Softball' },
+                { emoji: '🥍', name: 'Lacrosse' },
+                { emoji: '🏊', name: 'Swimming' },
+                { emoji: '🎾', name: 'Tennis' },
+                { emoji: '🤸', name: 'Gymnastics' },
               ].map((s) => (
-                <div key={s.name} className="flex flex-col items-center gap-1.5">
-                  <span className="text-3xl">{s.emoji}</span>
-                  <span className="text-xs font-medium text-zinc-400">{s.name}</span>
+                <div key={s.name} className="flex flex-col items-center gap-1">
+                  <span className="text-2xl sm:text-3xl">{s.emoji}</span>
+                  <span className="text-[10px] font-medium text-zinc-400 text-center leading-tight">{s.name}</span>
                 </div>
               ))}
-              <div className="flex flex-col items-center gap-1.5 opacity-50">
-                <span className="text-3xl">+</span>
-                <span className="text-xs font-medium text-zinc-400">More coming</span>
-              </div>
             </div>
           </div>
 
@@ -863,7 +748,7 @@ export default function LandingContent() {
       {/* ── Footer ── */}
       <footer className="border-t border-zinc-200 py-8">
         <div className="mx-auto max-w-4xl px-4 text-center">
-          <p className="text-sm text-zinc-400">SportsIQ -- Coaching Intelligence Platform</p>
+          <p className="text-sm text-zinc-400">SportsIQ — Coaching Intelligence Platform</p>
           <div className="mt-3 flex items-center justify-center gap-4 text-xs text-zinc-400 flex-wrap">
             <Link href="/privacy" className="hover:text-zinc-400 transition-colors">Privacy Policy</Link>
             <span>&middot;</span>

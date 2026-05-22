@@ -7,6 +7,7 @@ export interface PlayerObsSummary {
   sentiment: string;
   category: string;
   created_at: string;
+  text?: string;
 }
 
 export interface SkillTrendSummary {
@@ -18,11 +19,13 @@ export interface SkillTrendSummary {
 export interface RosterPlayer {
   id: string;
   name: string;
+  jersey_number?: number | null;
 }
 
 export interface DailyFocusSuggestion {
   playerId: string;
   playerName: string;
+  jerseyNumber: number | null;
   daysSinceObserved: number;
   skillToFocus: string | null;
   reason: string;
@@ -234,6 +237,7 @@ export function buildDailyFocusSuggestion(
   return {
     playerId: target.id,
     playerName: target.name,
+    jerseyNumber: target.jersey_number ?? null,
     daysSinceObserved: days,
     skillToFocus: skill,
     reason: buildFocusReason(days, skill),

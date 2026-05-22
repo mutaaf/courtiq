@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { query } from '@/lib/api';
-import { Dumbbell, ChevronRight, X, Target } from 'lucide-react';
+import { Dumbbell, ChevronRight, X, Target, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -15,13 +15,16 @@ import {
   getDrillPlayerCountLabel,
   buildDrillDismissKey,
   buildDrillViewUrl,
+  filterDrillsByCategory,
 } from '@/lib/drill-of-day-utils';
 import { getWeeklyFocus } from '@/lib/weekly-focus-utils';
+import { getPhraseForDay, hasPhrases } from '@/lib/coaching-phrases';
 import type { Drill } from '@/types/database';
 
 interface DrillOfDayCardProps {
   teamId: string;
   sportId: string;
+  sportSlug?: string;
 }
 
 interface ObsRow {
@@ -48,10 +51,11 @@ function computeTopNeedsWorkCategory(obs: ObsRow[]): string | null {
   return topCat || null;
 }
 
-export function DrillOfDayCard({ teamId, sportId }: DrillOfDayCardProps) {
+export function DrillOfDayCard({ teamId, sportId, sportSlug = 'basketball' }: DrillOfDayCardProps) {
   const today = useMemo(() => new Date(), []);
   const [dismissed, setDismissed] = useState(false);
   const [weeklyFocusCategory, setWeeklyFocusCategory] = useState<string | null>(null);
+  const [altOffset, setAltOffset] = useState(0);
 
   useEffect(() => {
     try {
@@ -97,16 +101,17 @@ export function DrillOfDayCard({ teamId, sportId }: DrillOfDayCardProps) {
     enabled: drills.length > 0,
   });
 
-  const { topCategory, drill } = useMemo(() => {
+  const { topCategory, drill, candidateCount } = useMemo(() => {
     const topCat = computeTopNeedsWorkCategory(recentObs);
     if (!hasEnoughDataForDrillOfDay(topCat, drills.length)) {
-      return { topCategory: null, drill: null };
+      return { topCategory: null, drill: null, candidateCount: 0 };
     }
     return {
       topCategory: topCat,
-      drill: selectDrillOfDay(drills, topCat!, teamId, today),
+      drill: selectDrillOfDay(drills, topCat!, teamId, today, altOffset),
+      candidateCount: filterDrillsByCategory(drills, topCat!).length,
     };
-  }, [drills, recentObs, teamId, today]);
+  }, [drills, recentObs, teamId, today, altOffset]);
 
   const matchesFocus = !!(topCategory && weeklyFocusCategory && topCategory === weeklyFocusCategory);
 
@@ -128,6 +133,13 @@ export function DrillOfDayCard({ teamId, sportId }: DrillOfDayCardProps) {
   const categoryLabel = getDrillCategoryLabel(topCategory);
   const viewUrl = buildDrillViewUrl(topCategory);
 
+  // When the drill has no specific cues, surface a sport-category phrase coaches can use on the court
+  const daySeed = Math.floor(Date.now() / 86_400_000);
+  const coachingPhrase =
+    cues.length === 0 && hasPhrases(topCategory, sportSlug)
+      ? getPhraseForDay(topCategory, sportSlug, daySeed)
+      : null;
+
   return (
     <div className="rounded-2xl border border-teal-500/20 bg-teal-500/5 p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -144,13 +156,25 @@ export function DrillOfDayCard({ teamId, sportId }: DrillOfDayCardProps) {
             </p>
           </div>
         </div>
-        <button
-          onClick={handleDismiss}
-          className="text-zinc-600 hover:text-zinc-400 transition-colors p-1"
-          aria-label="Dismiss drill of the day"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          {candidateCount > 1 && (
+            <button
+              onClick={() => setAltOffset((o) => o + 1)}
+              className="text-zinc-600 hover:text-zinc-400 transition-colors p-1"
+              aria-label="Show a different drill"
+              title="Try a different drill"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            onClick={handleDismiss}
+            className="text-zinc-600 hover:text-zinc-400 transition-colors p-1"
+            aria-label="Dismiss drill of the day"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       <div>
@@ -168,7 +192,7 @@ export function DrillOfDayCard({ teamId, sportId }: DrillOfDayCardProps) {
         )}
       </div>
 
-      {cues.length > 0 && (
+      {(cues.length > 0 || coachingPhrase) && (
         <div className="space-y-1">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
             Key coaching cues
@@ -179,6 +203,12 @@ export function DrillOfDayCard({ teamId, sportId }: DrillOfDayCardProps) {
               <p className="text-xs text-zinc-300">{cue}</p>
             </div>
           ))}
+          {coachingPhrase && (
+            <div className="flex items-start gap-1.5">
+              <span className="mt-0.5 text-teal-500">›</span>
+              <p className="text-xs text-zinc-300">{coachingPhrase}</p>
+            </div>
+          )}
         </div>
       )}
 

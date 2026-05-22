@@ -1,3 +1,5 @@
+import { getSportEmoji } from './sport-utils';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 /** Minimal observation shape needed for breakthrough detection. */
@@ -191,14 +193,16 @@ export function hasEnoughDataForBreakthroughs(obs: BTObs[]): boolean {
 export function buildBreakthroughShareText(
   playerName: string,
   category: string,
-  coachName?: string
+  coachName?: string,
+  sportSlug?: string | null,
 ): string {
   const cat = formatCategory(category);
   const coach = coachName ?? 'Your coach';
+  const emoji = getSportEmoji(sportSlug);
   return (
     `Hi! 🎉 Just wanted to share some great news — ${playerName} has been making ` +
     `real progress on ${cat} in our recent practices! ${coach} has noticed the hard ` +
-    `work paying off. Keep it up! 🏀`
+    `work paying off. Keep it up! ${emoji}`
   );
 }
 
