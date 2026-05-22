@@ -30,6 +30,7 @@ import {
 import Link from 'next/link';
 import type { Drill, Observation, Player } from '@/types/database';
 import { useAppStore } from '@/lib/store';
+import { addDrillToQueue } from '@/lib/practice-queue';
 import {
   buildDrillUsageSummary,
   buildUsageSummaryLabel,
@@ -93,28 +94,15 @@ export default function DrillDetailPage({
     staleTime: 5 * 60 * 1000,
   });
 
-  const { practiceActive, practiceSessionId } = useAppStore((state) => ({
-    practiceActive: state.practiceActive,
-    practiceSessionId: state.practiceSessionId,
-  }));
+  const practiceActive = useAppStore((s) => s.practiceActive);
+  const practiceSessionId = useAppStore((s) => s.practiceSessionId);
 
   const [addedToTimer, setAddedToTimer] = useState(false);
 
   function handleAddToTimer() {
     if (!practiceSessionId || !drill) return;
-    const key = `practice-timer-queue-v1-${practiceSessionId}`;
     try {
-      const raw = localStorage.getItem(key);
-      const existing: { id: string; name: string; durationSecs: number; cues: string[]; drillId?: string; skill_category?: string }[] = raw ? JSON.parse(raw) : [];
-      existing.push({
-        id: `drill-${drill.id}-${Date.now()}`,
-        name: drill.name,
-        durationSecs: (drill.duration_minutes ?? 5) * 60,
-        cues: drill.teaching_cues ?? [],
-        drillId: drill.id,
-        skill_category: drill.category,
-      });
-      localStorage.setItem(key, JSON.stringify(existing));
+      addDrillToQueue(practiceSessionId, drill);
       setAddedToTimer(true);
       setTimeout(() => setAddedToTimer(false), 2500);
     } catch {
@@ -317,7 +305,7 @@ export default function DrillDetailPage({
         </Card>
       )}
 
-      {/* ── Drill History ─────────────────────────────────────────────── */}
+      {/* ── Drill History ───────────────────────────────────────────────── */}
       {(() => {
         const usage = buildDrillUsageSummary(drillObs);
         const recent = getRecentObservations(drillObs, 5);
