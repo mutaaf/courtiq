@@ -15,6 +15,9 @@ This is the human-contributor reference. It documents the patterns and conventio
 - A pattern you keep tripping over → a one-line entry in `docs/LESSONS.md`.
 - A new architectural rule → this file's **Architecture Rules** section below, after you've discussed it.
 
+### P62 — Weekly Parent Update UX
+- [x] **Editable weekly parent update message in WeeklyWrapCard** — the home-dashboard "This Week's Update" card previously showed a 3-line truncated preview and sent a pre-built message coaches had never fully read; coaches now see the complete auto-generated message in the card with a ✏️ pencil button; tapping it opens a full editable textarea so coaches can personalise the player shoutout, adjust the tone, or remove anything that doesn't fit before sending; "Done editing" collapses the textarea; "Send to Parents" and "Copy" both use the edited text; data has a 10-min staleTime so the editable buffer is never refreshed during an active editing session; also installs `vitest` in `node_modules` (was in `package.json` but missing from `node_modules`, causing recurring "Cannot find type definition file for vitest/globals" TypeScript error on fresh checkouts); `Pencil` + `CheckCheck` icons added; zero new API routes, DB tables, or utility modules; PR #56
+
 ---
 
 ## Architecture Rules
