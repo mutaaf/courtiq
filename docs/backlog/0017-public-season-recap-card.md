@@ -1,7 +1,7 @@
 ---
 id: 0017
 title: Turn the end-of-season recap into a public card the coach is proud to send
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-05-22
@@ -147,4 +147,17 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-05-22 [implementation-dev] Picked up 0017. Mirrors ticket 0010 (team-card)
+  almost verbatim: a public, no-auth, referral-carrying surface for an existing
+  `season_summary` artifact. Branch `feat/0017-season-recap-card`. Status →
+  in-progress. Plan: new migration `036_season_recap_shares.sql` (UNIQUE version
+  prefix — 035 is team_card_shares), `POST /api/season-recap/create`, public
+  `GET /api/season-recap/[token]` with an explicit `PUBLIC_RECAP_FIELDS` allow-list
+  (NO `player_breakthroughs` / per-player names — COPPA), public page
+  `/season-recap/[token]` (server component, dark zinc-950 + orange),
+  `/season-recap/` + `/api/season-recap/` added to `publicPaths`, `generateMetadata`
+  OG tags, and referral resolution via `makeReferralCode`. Confirmed
+  `plans_type_check` already permits `season_summary` (migration 034) — no
+  constraint change. `season_recap_shares` is read only via the dedicated route
+  (not `/api/data`), mirroring the 0010 team-card decision — no generated type or
+  `/api/data` allow-list entry needed.
