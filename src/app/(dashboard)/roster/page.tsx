@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlayerCard } from '@/components/roster/player-card';
 import { BulkActionsBar } from '@/components/roster/bulk-actions-bar';
-import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareArrows, CheckSquare, ShieldAlert, Radio, Share2, Check, Mic, X, Zap } from 'lucide-react';
+import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareArrows, CheckSquare, ShieldAlert, Radio, Share2, Check, Zap } from 'lucide-react';
 import { PlayerFocusEntry } from '@/components/observations/PlayerFocusEntry';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
@@ -521,25 +521,12 @@ export default function RosterPage() {
           <div className="flex justify-center pt-3 pb-1">
             <div className="h-1 w-10 rounded-full bg-zinc-700" />
           </div>
-          <div className="flex items-center justify-between px-5 pb-2 pt-2">
-            <div className="flex items-center gap-2">
-              <Mic className="h-4 w-4 text-orange-400" aria-hidden="true" />
-              <p className="text-sm font-semibold text-zinc-200">Observing {focusedPlayer.name.split(' ')[0]}</p>
-            </div>
-            <button
-              onClick={() => setFocusedPlayer(null)}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors touch-manipulation"
-              aria-label="Close focus mode"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
           <PlayerFocusEntry
             player={focusedPlayer}
             teamId={activeTeam.id}
             coachId={coach.id}
             sessionId={practiceSessionId ?? null}
-            sportId={(activeTeam as any).sport_slug ?? null}
+            sportId={activeTeam.sport_id}
             onSwitchPlayer={() => {
               const idx = sorted.findIndex((p) => p.id === focusedPlayer.id);
               const next = sorted[(idx + 1) % sorted.length];
