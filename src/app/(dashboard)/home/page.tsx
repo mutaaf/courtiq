@@ -4,12 +4,13 @@ import { useActiveTeam } from '@/hooks/use-active-team';
 import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { OBSERVATION_TEMPLATES, getTemplatesBySentiment } from '@/lib/observation-templates';
-import { Textarea } from '@/components/ui/textarea';
 import { query, mutate } from '@/lib/api';
+import { queryKeys } from '@/lib/query/keys';
+import { resolveInsertedId, buildQuickGamePayload, quickGameDestination, type QuickGameType } from '@/lib/quick-game-utils';
 import { useElapsedTime } from '@/hooks/use-elapsed-time';
 import { shouldShowWrapUpNudge } from '@/lib/elapsed-time-utils';
 import { formatSkillLabel } from '@/lib/skill-trend-utils';
+import { getSportEmoji } from '@/lib/sport-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,9 +29,9 @@ import {
   History,
   Star,
   Share2,
+  Trophy,
   CheckCircle2,
   X,
-  Check,
   Loader2,
   BarChart2,
 } from 'lucide-react';
@@ -60,8 +61,11 @@ import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot
 import { ContinueArcCard } from '@/components/home/continue-arc-card';
 import { ArcCompleteCard } from '@/components/home/arc-complete-card';
 import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
+import { InviteCoachCard } from '@/components/home/invite-coach-card';
+import { GameDayCard } from '@/components/home/game-day-card';
 import { GoalDeadlineCard } from '@/components/home/goal-deadline-card';
 import { QuickWinsCard } from '@/components/home/quick-wins-card';
+import { HomeQuickObserveSheet } from '@/components/home/home-quick-observe-sheet';
 
 // ─── Live capture feed helper ──────────────────────────────────────────────────
 
@@ -465,21 +469,30 @@ function LastSessionCard({ session }: {
   );
 }
 
+// ─── Greeting helpers ────────────────────────────────────────────────────────────────────────
+
+function getTimeGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
-  const { activeTeam, coach, aiPlatformAvailable } = useActiveTeam();
+  const { activeTeam, coach, aiPlatformAvailable, sportSlug } = useActiveTeam();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [showDebrief, setShowDebrief] = useState(false);
+  const [showGameQuickStart, setShowGameQuickStart] = useState(false);
+  const [gameType, setGameType] = useState<QuickGameType>('game');
+  const [gameOpponent, setGameOpponent] = useState('');
+  const [startingGame, setStartingGame] = useState(false);
+  const [gameError, setGameError] = useState(false);
   const [midPracticeShared, setMidPracticeShared] = useState(false);
 
   const [qoPlayer, setQoPlayer] = useState<{ id: string; name: string; jersey_number: number | null } | null>(null);
-  const [qoSentiment, setQoSentiment] = useState<'positive' | 'needs-work'>('positive');
-  const [qoTemplate, setQoTemplate] = useState<string | null>(null);
-  const [qoText, setQoText] = useState('');
-  const [qoSaving, setQoSaving] = useState(false);
-  const [qoSaved, setQoSaved] = useState(false);
 
   const hasAIKeys = (() => {
     if (aiPlatformAvailable) return true;
@@ -524,6 +537,33 @@ export default function HomePage() {
     }
   }
 
+  async function startPracticeWithTimer() {
+    if (!activeTeam || !coach) return;
+    try {
+      const session = await mutate<{ id: string }>({
+        table: 'sessions',
+        operation: 'insert',
+        data: {
+          team_id: activeTeam.id,
+          coach_id: coach.id,
+          type: 'practice',
+          date: new Date().toISOString().split('T')[0],
+          notes: 'Auto-created practice session',
+        },
+        select: 'id',
+      });
+      const id = Array.isArray(session) ? (session as any)[0]?.id : session?.id;
+      if (id) {
+        setPracticeActive(true);
+        setPracticeSessionId(id);
+        setPracticeStartedAt(new Date().toISOString());
+        router.push(`/sessions/${id}/timer`);
+      }
+    } catch (err) {
+      console.warn('Failed to start practice with timer:', err);
+    }
+  }
+
   async function startPracticeWithPlan(planId: string) {
     if (!activeTeam || !coach) return;
     try {
@@ -551,52 +591,33 @@ export default function HomePage() {
     }
   }
 
-  async function handleHomeQuickObsSave() {
-    if (!activeTeam || !qoPlayer || !practiceSessionId) return;
-    const template = OBSERVATION_TEMPLATES.find((t) => t.id === qoTemplate);
-    const text = qoText.trim() || template?.text || '';
-    if (!text) return;
-    setQoSaving(true);
+  async function quickStartGame() {
+    if (!activeTeam || !coach || startingGame) return;
+    setStartingGame(true);
+    setGameError(false);
     try {
-      await mutate({
-        table: 'observations',
+      const session = await mutate<{ id: string }>({
+        table: 'sessions',
         operation: 'insert',
-        data: {
-          team_id: activeTeam.id,
-          org_id: activeTeam.org_id,
-          player_name: qoPlayer.name,
-          player_id: qoPlayer.id,
-          session_id: practiceSessionId,
-          text,
-          sentiment: qoSentiment,
-          category: template?.category || 'general',
-          source: 'template',
-        },
+        data: buildQuickGamePayload(activeTeam.id, coach.id, gameType, gameOpponent),
+        select: 'id',
       });
-      queryClient.invalidateQueries({ queryKey: ['session-obs-count', practiceSessionId] });
-      setQoSaved(true);
-      setTimeout(() => {
-        setQoSaved(false);
-        setQoPlayer(null);
-        setQoTemplate(null);
-        setQoText('');
-        setQoSentiment('positive');
-      }, 1400);
-    } catch {
-      // silent — save button stays enabled for retry
+      const id = resolveInsertedId(session);
+      if (id) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.sessions.all(activeTeam.id) });
+        router.push(quickGameDestination(gameType, id));
+      } else {
+        setGameError(true);
+      }
+    } catch (err) {
+      console.warn('Failed to create game session:', err);
+      setGameError(true);
     } finally {
-      setQoSaving(false);
+      setStartingGame(false);
     }
   }
 
-  function dismissQo() {
-    if (qoSaving) return;
-    setQoPlayer(null);
-    setQoTemplate(null);
-    setQoText('');
-    setQoSentiment('positive');
-  }
-
+  // Core stats
   const { data: stats, isLoading: isLoadingStats } = useQuery({
     queryKey: ['home-stats', activeTeam?.id],
     queryFn: async () => {
@@ -677,7 +698,13 @@ export default function HomePage() {
       const json = await res.json();
       return json.availability as Record<string, { status: string; reason: string | null }>;
     },
-    enabled: !!activeTeam && todaySessions.length > 0,
+    enabled:
+      !!activeTeam &&
+      (todaySessions.length > 0 ||
+        practiceActive ||
+        upcomingSessions.some(
+          (s) => s.type === 'game' || s.type === 'scrimmage' || s.type === 'tournament',
+        )),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -843,11 +870,21 @@ export default function HomePage() {
     return { pct, emoji: '⚠️', label: 'Keep going', colorClass: 'text-zinc-400' };
   }, [sessionObsStats]);
 
+  // Players who are present at practice (exclude injured/sick/unavailable)
+  const presentPlayers = useMemo(() => {
+    if (!rosterPlayers.length) return rosterPlayers;
+    if (!Object.keys(playerAvailability).length) return rosterPlayers;
+    return rosterPlayers.filter((p) => {
+      const avail = playerAvailability[p.id];
+      return !avail || avail.status === 'available' || avail.status === 'limited';
+    });
+  }, [rosterPlayers, playerAvailability]);
+
   const unobservedDuringPractice = useMemo(() => {
-    if (!practiceActive || !rosterPlayers.length) return [];
+    if (!practiceActive || !presentPlayers.length) return [];
     const observed = new Set(sessionObsStats?.observedPlayerIds ?? []);
-    return rosterPlayers.filter((p) => !observed.has(p.id));
-  }, [practiceActive, rosterPlayers, sessionObsStats]);
+    return presentPlayers.filter((p) => !observed.has(p.id));
+  }, [practiceActive, presentPlayers, sessionObsStats]);
 
   const playerNameById = useMemo(() => {
     const map: Record<string, string> = {};
@@ -858,6 +895,53 @@ export default function HomePage() {
     });
     return map;
   }, [rosterPlayers]);
+
+  const coachFirstName = coach?.full_name?.split(' ')[0] ?? null;
+
+  // Contextual one-liner shown beneath the team name — uses only already-fetched data
+  const greetingInsight = useMemo<{ emoji: string; text: string; color: string } | null>(() => {
+    // Practice is live
+    if (practiceActive && sessionObsStats && sessionObsStats.count >= 1) {
+      const { count, players, positiveCount } = sessionObsStats;
+      const pctStr = count > 0 ? ` · ${Math.round((positiveCount / count) * 100)}% positive` : '';
+      return {
+        emoji: '🏃',
+        text: `Live now — ${count} obs · ${players} player${players !== 1 ? 's' : ''} covered${pctStr}`,
+        color: 'text-emerald-400',
+      };
+    }
+    // Game / scrimmage / tournament today
+    const competitiveToday = todaySessions.find(
+      (s) => s.type === 'game' || s.type === 'scrimmage' || s.type === 'tournament',
+    );
+    if (!practiceActive && competitiveToday) {
+      const typeLabel = ({ game: 'Game', scrimmage: 'Scrimmage', tournament: 'Tournament' } as Record<string, string>)[competitiveToday.type] ?? 'Game';
+      const opp = competitiveToday.opponent ? ` vs ${competitiveToday.opponent}` : '';
+      return { emoji: '🏆', text: `${typeLabel} day${opp}!`, color: 'text-orange-400' };
+    }
+    // Practice / training today (not yet started)
+    const practiceToday = todaySessions.find((s) => s.type === 'practice' || s.type === 'training');
+    if (!practiceActive && practiceToday) {
+      return { emoji: '👟', text: 'Practice today — tap Start Practice when you\'re ready', color: 'text-blue-400' };
+    }
+    // Recent session highlight
+    if (!practiceActive && lastSession) {
+      const obsArr = lastSession.observations as { count: number }[] | undefined;
+      const obsCount = Array.isArray(obsArr) ? (obsArr[0]?.count ?? 0) : 0;
+      if (obsCount >= 5) {
+        const daysAgo = Math.floor(
+          (Date.now() - new Date(lastSession.date + 'T12:00:00').getTime()) / 86_400_000,
+        );
+        const when = daysAgo <= 0 ? 'today' : daysAgo === 1 ? 'yesterday' : `${daysAgo}d ago`;
+        return {
+          emoji: '💪',
+          text: `Last session ${when} · ${obsCount} observations captured`,
+          color: 'text-zinc-400',
+        };
+      }
+    }
+    return null;
+  }, [practiceActive, sessionObsStats, todaySessions, lastSession]);
 
   if (!activeTeam) {
     return (
@@ -884,8 +968,13 @@ export default function HomePage() {
     <>
     <div className="p-4 lg:p-8 space-y-6 pb-8">
       <div>
+        {coachFirstName && (
+          <p className="text-sm font-medium text-zinc-500 mb-0.5">
+            {getTimeGreeting()}, {coachFirstName}! 👋
+          </p>
+        )}
         <h1 className="text-2xl font-bold">{activeTeam.name}</h1>
-        <p className="text-zinc-400">
+        <p className="text-zinc-400 text-sm">
           Season {activeTeam.season || 'Not set'} &middot;{' '}
           <Link
             href="/curriculum"
@@ -895,10 +984,28 @@ export default function HomePage() {
             Week {activeTeam.current_week}
           </Link>
         </p>
+        {greetingInsight && (
+          <p className={`text-sm font-medium mt-1 ${greetingInsight.color}`}>
+            {greetingInsight.emoji} {greetingInsight.text}
+          </p>
+        )}
       </div>
 
       <BirthdayCard teamId={activeTeam.id} teamName={activeTeam.name} />
 
+      {/* Game Day Card — surfaces 48 h before any game/scrimmage/tournament */}
+      {!practiceActive && (
+        <GameDayCard
+          sessions={[...todaySessions, ...upcomingSessions]}
+          todayStr={todayStr}
+          tomorrowStr={tomorrowStr}
+          teamName={activeTeam.name}
+          coachName={coach?.full_name ?? null}
+          playerAvailability={playerAvailability}
+        />
+      )}
+
+      {/* AI Keys Onboarding Banner */}
       {!hasAIKeys && (
         <Card className="border-orange-500/30 bg-gradient-to-r from-orange-500/10 to-orange-500/5 p-4">
           <div className="flex items-start gap-3">
@@ -982,16 +1089,21 @@ export default function HomePage() {
             )}
           </div>
 
-          {practiceSessionId && rosterPlayers.length > 0 && (
+          {practiceSessionId && presentPlayers.length > 0 && (
             unobservedDuringPractice.length === 0 ? (
               <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
                 <span aria-hidden="true">✓</span>
-                <span>All {rosterPlayers.length} players observed this session</span>
+                <span>
+                  All {presentPlayers.length}{presentPlayers.length < rosterPlayers.length ? ' present' : ''} players observed this session
+                </span>
               </div>
             ) : (
               <div className="space-y-1.5">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-                  Not yet observed ({unobservedDuringPractice.length}/{rosterPlayers.length})
+                  Not yet observed ({unobservedDuringPractice.length}/{presentPlayers.length}
+                  {presentPlayers.length < rosterPlayers.length && (
+                    <span className="normal-case font-normal text-zinc-600"> · {rosterPlayers.length - presentPlayers.length} absent</span>
+                  )})
                 </p>
                 <div className="flex gap-2 flex-wrap">
                   {unobservedDuringPractice.map((p) => {
@@ -1001,7 +1113,8 @@ export default function HomePage() {
                     return (
                       <button
                         key={p.id}
-                        onClick={() => { setQoPlayer(p); setQoSentiment('positive'); setQoTemplate(null); setQoText(''); }}
+                        onClick={() => setQoPlayer(p)}
+                        aria-label={`Quick observe ${p.name}`}
                         className="inline-flex items-center gap-1 rounded-full border border-orange-500/30 bg-orange-500/10 px-2.5 py-1 text-xs font-medium text-orange-300 hover:bg-orange-500/20 transition-colors touch-manipulation active:scale-95"
                       >
                         {label}
@@ -1081,7 +1194,7 @@ export default function HomePage() {
                       ? formatSkillLabel(sessionObsStats.topCategory)
                       : null;
 
-                    let msg = `🏀 Quick practice update from ${teamName}!\n\n`;
+                    let msg = `${getSportEmoji(sportSlug)} Quick practice update from ${teamName}!\n\n`;
                     if (positiveNames.length >= 2) {
                       msg += `${positiveNames[0]} & ${positiveNames[1]} are looking great out there`;
                     } else if (positiveNames.length === 1) {
@@ -1147,7 +1260,7 @@ export default function HomePage() {
               </div>
             </div>
           </button>
-          {recentPracticePlan && (
+          {recentPracticePlan ? (
             <button
               onClick={() => startPracticeWithPlan(recentPracticePlan.id)}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-2.5 text-sm text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 transition-colors touch-manipulation active:scale-[0.98]"
@@ -1162,6 +1275,86 @@ export default function HomePage() {
               </span>
               <ChevronRight className="h-3.5 w-3.5 shrink-0" />
             </button>
+          ) : (
+            <button
+              onClick={startPracticeWithTimer}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/5 px-4 py-2.5 text-sm text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 transition-colors touch-manipulation active:scale-[0.98]"
+            >
+              <Timer className="h-3.5 w-3.5 shrink-0" />
+              <span>Use Practice Timer</span>
+              <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+            </button>
+          )}
+
+          {/* Quick Game shortcut */}
+          {!showGameQuickStart ? (
+            <button
+              onClick={() => setShowGameQuickStart(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/5 px-4 py-2.5 text-sm text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 transition-colors touch-manipulation active:scale-[0.98]"
+            >
+              <Trophy className="h-3.5 w-3.5 shrink-0" />
+              <span>Game day? Log a game</span>
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 ml-auto" />
+            </button>
+          ) : (
+            <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Trophy className="h-4 w-4 text-blue-400" />
+                  <span className="text-sm font-semibold text-blue-300">Quick Game Start</span>
+                </div>
+                <button
+                  onClick={() => { setShowGameQuickStart(false); setGameOpponent(''); setGameType('game'); setGameError(false); }}
+                  className="rounded-full p-1 text-zinc-500 hover:text-zinc-300 transition-colors touch-manipulation"
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Session type picker */}
+              <div className="flex gap-2">
+                {(['game', 'scrimmage', 'tournament'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setGameType(t)}
+                    className={`flex-1 rounded-lg border py-1.5 text-xs font-medium capitalize transition-colors touch-manipulation ${
+                      gameType === t
+                        ? 'border-blue-500 bg-blue-500/20 text-blue-300'
+                        : 'border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300'
+                    }`}
+                  >
+                    {t === 'game' ? '🏆 Game' : t === 'scrimmage' ? '⚡ Scrimmage' : '🏅 Tournament'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Opponent input */}
+              <input
+                type="text"
+                value={gameOpponent}
+                onChange={(e) => setGameOpponent(e.target.value)}
+                placeholder={gameType === 'tournament' ? 'Tournament name (optional)' : 'vs. Opponent (optional)'}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500 focus:border-blue-500/50 focus:outline-none transition-colors"
+                onKeyDown={(e) => { if (e.key === 'Enter') quickStartGame(); }}
+              />
+
+              <button
+                onClick={quickStartGame}
+                disabled={startingGame}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 hover:bg-blue-500 active:scale-[0.98] transition-all touch-manipulation disabled:opacity-60"
+              >
+                {startingGame ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" />Creating…</>
+                ) : (
+                  <><Trophy className="h-4 w-4" />Go Live</>
+                )}
+              </button>
+
+              {gameError && (
+                <p className="text-xs text-red-400 text-center">Couldn&apos;t create session — please try again.</p>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -1199,7 +1392,7 @@ export default function HomePage() {
         </Link>
       </div>
 
-      {!practiceActive && activeTeam && stats && stats.observations >= 5 && (
+      {!practiceActive && activeTeam && stats && (
         <PrePracticeSnapshotCard
           teamId={activeTeam.id}
           sessionId={todaySessions[0]?.id}
@@ -1222,11 +1415,11 @@ export default function HomePage() {
         <DailyFocusCard teamId={activeTeam.id} />
       )}
 
-      {!isLoadingStats && stats && stats.observations >= 5 && (
+      {!isLoadingStats && stats && stats.observations >= 3 && (
         <DrillOfDayCard
           teamId={activeTeam.id}
           sportId={activeTeam.sport_id}
-          sportSlug={(coach as any)?.organizations?.sport_config?.default_sport_slug ?? 'basketball'}
+          sportSlug={sportSlug}
         />
       )}
 
@@ -1266,30 +1459,36 @@ export default function HomePage() {
           </>
         ) : (
           <>
-            <Card>
-              <CardContent className="p-3 sm:p-4 text-center">
-                <p className="text-2xl sm:text-3xl font-bold text-orange-500">
-                  {stats?.players ?? 0}
-                </p>
-                <p className="text-xs text-zinc-400 mt-1">Players</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-3 sm:p-4 text-center">
-                <p className="text-2xl sm:text-3xl font-bold text-blue-500">
-                  {stats?.observations ?? 0}
-                </p>
-                <p className="text-xs text-zinc-400 mt-1">Observations</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-3 sm:p-4 text-center">
-                <p className="text-2xl sm:text-3xl font-bold text-emerald-500">
-                  {stats?.sessions ?? 0}
-                </p>
-                <p className="text-xs text-zinc-400 mt-1">Sessions</p>
-              </CardContent>
-            </Card>
+            <Link href="/roster">
+              <Card className="cursor-pointer hover:border-orange-500/40 transition-colors active:scale-[0.97] touch-manipulation">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <p className="text-2xl sm:text-3xl font-bold text-orange-500">
+                    {stats?.players ?? 0}
+                  </p>
+                  <p className="text-xs text-zinc-400 mt-1">Players</p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/observations">
+              <Card className="cursor-pointer hover:border-blue-500/40 transition-colors active:scale-[0.97] touch-manipulation">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <p className="text-2xl sm:text-3xl font-bold text-blue-500">
+                    {stats?.observations ?? 0}
+                  </p>
+                  <p className="text-xs text-zinc-400 mt-1">Observations</p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/sessions">
+              <Card className="cursor-pointer hover:border-emerald-500/40 transition-colors active:scale-[0.97] touch-manipulation">
+                <CardContent className="p-3 sm:p-4 text-center">
+                  <p className="text-2xl sm:text-3xl font-bold text-emerald-500">
+                    {stats?.sessions ?? 0}
+                  </p>
+                  <p className="text-xs text-zinc-400 mt-1">Sessions</p>
+                </CardContent>
+              </Card>
+            </Link>
           </>
         )}
       </div>
@@ -1302,7 +1501,7 @@ export default function HomePage() {
         <WeeklyFocusCard teamId={activeTeam.id} />
       )}
 
-      {!practiceActive && activeTeam && stats && stats.observations >= 5 && stats.sessions >= 1 && (
+      {!practiceActive && activeTeam && stats && stats.sessions >= 1 && (
         <QuickWinsCard
           teamId={activeTeam.id}
           lastSession={lastSession ?? null}
@@ -1312,7 +1511,7 @@ export default function HomePage() {
         />
       )}
 
-      {activeTeam && stats && stats.observations >= 5 && (
+      {activeTeam && (
         <TeamSkillTrendsCard teamId={activeTeam.id} />
       )}
 
@@ -1328,24 +1527,24 @@ export default function HomePage() {
 
       {activeTeam && <GoalDeadlineCard teamId={activeTeam.id} />}
 
-      {activeTeam && stats && stats.observations >= 5 && (
+      {activeTeam && (
         <PlayerBreakthroughCard
           teamId={activeTeam.id}
           coachName={coach?.full_name ?? undefined}
         />
       )}
 
-      {activeTeam && stats && stats.observations >= 5 && (
+      {activeTeam && (
         <PlayerOnARollCard teamId={activeTeam.id} />
       )}
 
-      {activeTeam && stats && stats.observations >= 5 && (
+      {activeTeam && (
         <StrugglingPlayerCard teamId={activeTeam.id} />
       )}
 
       {activeTeam && <ParentReactionsCard teamId={activeTeam.id} />}
 
-      {activeTeam && coach && stats && stats.observations >= 5 && (
+      {activeTeam && coach && stats && (
         <WeeklyWrapCard
           teamId={activeTeam.id}
           teamName={activeTeam.name}
@@ -1354,6 +1553,19 @@ export default function HomePage() {
         />
       )}
 
+      {/* Invite a Coach — shown to established coaches (≥2 sessions, ≥10 obs) to drive referrals */}
+      {activeTeam && coach && stats && stats.sessions >= 2 && stats.observations >= 10 && (
+        <InviteCoachCard
+          coachId={coach.id}
+          coachName={coach.full_name ?? null}
+          teamName={activeTeam.name}
+          observations={stats.observations}
+          players={stats.players}
+          sessions={stats.sessions}
+        />
+      )}
+
+      {/* Upcoming sessions this week */}
       {upcomingSessions.length > 0 && (
         <UpcomingSessionsCard
           sessions={upcomingSessions}
@@ -1364,107 +1576,18 @@ export default function HomePage() {
 
     </div>
 
-    {qoPlayer && (
-      <>
-        <div
-          className="fixed inset-0 z-40 bg-black/60"
-          onClick={dismissQo}
-          aria-hidden="true"
-        />
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Quick observation for ${qoPlayer.name}`}
-          className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-zinc-900 border-t border-zinc-800 p-4 pb-10 space-y-4"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-zinc-500 font-medium">Quick Observation</p>
-              <p className="text-sm font-semibold text-zinc-100">
-                {qoPlayer.jersey_number != null ? `#${qoPlayer.jersey_number} ` : ''}{qoPlayer.name}
-              </p>
-              {playerFocusMap[qoPlayer.id] && (
-                <p className="text-xs text-amber-400 mt-0.5">
-                  Focus: {formatSkillLabel(playerFocusMap[qoPlayer.id])}
-                </p>
-              )}
-            </div>
-            <button
-              aria-label="Close"
-              onClick={dismissQo}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="flex gap-2">
-            {(['positive', 'needs-work'] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => { setQoSentiment(s); setQoTemplate(null); }}
-                className={`flex-1 rounded-xl py-2.5 text-sm font-medium transition-all touch-manipulation active:scale-[0.97] ${
-                  qoSentiment === s
-                    ? s === 'positive'
-                      ? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-300'
-                      : 'bg-amber-500/20 border border-amber-500/50 text-amber-300'
-                    : 'bg-zinc-800 border border-zinc-700 text-zinc-400'
-                }`}
-              >
-                {s === 'positive' ? '👍 Positive' : '👎 Needs Work'}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {getTemplatesBySentiment(qoSentiment).slice(0, 8).map((t) => (
-              <button
-                key={t.id}
-                onClick={() => { setQoTemplate(qoTemplate === t.id ? null : t.id); setQoText(''); }}
-                className={`rounded-xl px-3 py-2 text-xs font-medium transition-all touch-manipulation active:scale-[0.97] ${
-                  qoTemplate === t.id
-                    ? qoSentiment === 'positive'
-                      ? 'bg-emerald-500/25 border border-emerald-500/60 text-emerald-200'
-                      : 'bg-amber-500/25 border border-amber-500/60 text-amber-200'
-                    : 'bg-zinc-800 border border-zinc-700 text-zinc-300'
-                }`}
-              >
-                {t.text}
-              </button>
-            ))}
-          </div>
-
-          <Textarea
-            placeholder="Add a specific note (optional)…"
-            value={qoText}
-            onChange={(e) => { setQoText(e.target.value); if (e.target.value) setQoTemplate(null); }}
-            rows={2}
-            className="text-sm resize-none"
-          />
-
-          <Button
-            onClick={handleHomeQuickObsSave}
-            disabled={qoSaving || qoSaved || (!qoTemplate && !qoText.trim())}
-            className={`w-full h-12 text-base font-semibold transition-all ${
-              qoSaved ? 'bg-emerald-500 hover:bg-emerald-500' : ''
-            }`}
-          >
-            {qoSaved ? (
-              <>
-                <Check className="h-5 w-5" />
-                Saved!
-              </>
-            ) : qoSaving ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Saving…
-              </>
-            ) : (
-              'Save Observation'
-            )}
-          </Button>
-        </div>
-      </>
+    {qoPlayer && activeTeam && practiceSessionId && (
+      <HomeQuickObserveSheet
+        player={qoPlayer}
+        focusCategory={playerFocusMap[qoPlayer.id] ?? null}
+        sportSlug={sportSlug}
+        teamId={activeTeam.id}
+        orgId={activeTeam.org_id}
+        coachId={coach?.id ?? ''}
+        sessionId={practiceSessionId}
+        onClose={() => setQoPlayer(null)}
+        onSaved={() => setQoPlayer(null)}
+      />
     )}
 
     {showDebrief && practiceSessionId && (
@@ -1473,6 +1596,7 @@ export default function HomePage() {
         onClose={() => setShowDebrief(false)}
       />
     )}
+
     </>
   );
 }

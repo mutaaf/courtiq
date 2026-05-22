@@ -469,7 +469,7 @@ const VOLLEYBALL_U16: PracticeTemplate = {
 const FLAG_FOOTBALL_U8: PracticeTemplate = {
   id: 'ffb-u8-30',
   name: 'Flag Football Intro',
-  sport: 'flagfootball',
+  sport: 'flag_football',
   ageLabel: 'Ages 6–8',
   totalMins: 30,
   description: 'Flag pulling, throwing, catching, and a fun mini-game for brand-new players.',
@@ -525,7 +525,7 @@ const FLAG_FOOTBALL_U8: PracticeTemplate = {
 const FLAG_FOOTBALL_U12: PracticeTemplate = {
   id: 'ffb-u12-45',
   name: 'Flag Football Fundamentals',
-  sport: 'flagfootball',
+  sport: 'flag_football',
   ageLabel: 'Ages 9–12',
   totalMins: 45,
   description: 'Route running, QB mechanics, coverage fundamentals, and competitive scrimmage.',
@@ -591,7 +591,7 @@ const FLAG_FOOTBALL_U12: PracticeTemplate = {
 const FLAG_FOOTBALL_U16: PracticeTemplate = {
   id: 'ffb-u16-60',
   name: 'Flag Football Game Prep',
-  sport: 'flagfootball',
+  sport: 'flag_football',
   ageLabel: 'Ages 13–18',
   totalMins: 60,
   description: 'Advanced route combinations, red zone execution, rush defense, and full competitive scrimmage.',
@@ -665,6 +665,131 @@ const FLAG_FOOTBALL_U16: PracticeTemplate = {
   ],
 };
 
+// ─── Lacrosse Templates ───────────────────────────────────────────────────────
+
+const LACROSSE_U10: PracticeTemplate = {
+  id: 'lacrosse-u10-30',
+  name: 'Lacrosse Fundamentals',
+  sport: 'lacrosse',
+  ageLabel: 'Ages 6–10',
+  totalMins: 30,
+  description: 'Cradling, passing, catching, and a fun game for brand-new lacrosse players.',
+  tags: ['beginner', 'fundamentals', 'short'],
+  drills: [
+    {
+      name: 'Cradling Warm-Up',
+      durationMins: 6,
+      cues: [
+        'Top hand does the work — bottom hand guides',
+        'Keep the stick in front of your body to protect it',
+        'Try to feel the ball at the top of the pocket — not the middle',
+        'Eyes up while cradling — look around, not at your stick',
+      ],
+      description: 'Each player with a ball, walk and cradle around cones. Progress to a light jog when comfortable.',
+    },
+    {
+      name: 'Partner Catch & Pass',
+      durationMins: 8,
+      cues: [
+        'Step toward your target when you throw — power starts with your feet',
+        'Make a window with your gloves to show your partner where to throw',
+        'Soft hands — give a little when the ball hits the pocket',
+        'Lead your partner — throw where they\'re going, not where they are',
+      ],
+      description: 'Partners 5 yards apart passing and catching. Move back 2 yards every 3 successful exchanges.',
+    },
+    {
+      name: 'Cone Dodge Course',
+      durationMins: 8,
+      cues: [
+        'Plant your outside foot hard before each dodge — explode in the new direction',
+        'Keep the ball in the pocket between cones — tight cradle',
+        'Speed up between cones, slow down for the turn',
+        'Encourage every attempt — the stick is new, mistakes are expected!',
+      ],
+      description: 'Players weave through a line of cones while cradling. Reverse direction and return.',
+    },
+    {
+      name: 'Bucket Shooting Game',
+      durationMins: 8,
+      cues: [
+        'Aim for the corners — that\'s where goals are scored',
+        'Hips into the shot — rotate your whole body, not just your arms',
+        'Fake first if a defender is close — then shoot',
+        'Cheer for everyone — celebrate the shot attempt, not just the goal',
+      ],
+      description: 'Line of players take turns shooting at a goal or bucket from 5 yards. Count goals, celebrate effort.',
+    },
+  ],
+};
+
+const LACROSSE_U13: PracticeTemplate = {
+  id: 'lacrosse-u13-45',
+  name: 'Lacrosse Skill Builder',
+  sport: 'lacrosse',
+  ageLabel: 'Ages 11–14',
+  totalMins: 45,
+  description: 'Ground balls, passing patterns, shooting mechanics, and 3v3 transition play.',
+  tags: ['intermediate', 'balanced', 'medium'],
+  drills: [
+    {
+      name: 'Stick Skills Warm-Up',
+      durationMins: 7,
+      cues: [
+        'Wall ball rule: 100 reps a day makes you a great stick handler',
+        'Quick release after the catch — don\'t hold the ball',
+        'Work your weak hand too — don\'t skip it',
+        'Stay athletic: feet moving, weight on the balls of your feet',
+      ],
+      description: 'Partner quick-stick passing 8 yards apart — catch and throw in one motion. Progress to behind-the-back catches.',
+    },
+    {
+      name: 'Ground Ball Battles',
+      durationMins: 8,
+      cues: [
+        'Scoop low — get your stick under the ball before you pick it up',
+        'Body position: put your body between the defender and the ball',
+        'Sprint to the ball — first to arrive usually wins',
+        'Win the ground ball, then immediately look to pass',
+      ],
+      description: 'Coach rolls ball out, two players race to scoop it up. Winner gets to keep possession, loser plays defense.',
+    },
+    {
+      name: 'Shooting From Angles',
+      durationMins: 10,
+      cues: [
+        'Off-stick side is the goalie\'s weak side — aim there',
+        'Low shots are hardest to save — bounce shots work',
+        'Quick release: catch the pass and shoot in one motion',
+        'Hips forward, follow through past your hip — full rotation',
+      ],
+      description: 'Line feeds from behind the goal. Attacker catches, dodges once, and shoots from a 45-degree angle.',
+    },
+    {
+      name: '3v3 Transition',
+      durationMins: 12,
+      cues: [
+        'Clear immediately when you get the ball — sprint upfield',
+        'Two outlets — the ball-carrier always has two passing options',
+        'Weak-side cutter: when someone drives, cut to the open space',
+        'Defense: force them to their off hand — make them uncomfortable',
+      ],
+      description: '3v3 half-field. On a save or ground ball, teams transition immediately — no reset. Coach counts fast breaks.',
+    },
+    {
+      name: 'Team Talk',
+      durationMins: 8,
+      cues: [
+        'Name one player who won a key ground ball today — be specific',
+        'Name one thing to work on before the next practice',
+        'Ask players: "What was the hardest part today?"',
+        'Confirm next session and preview one drill they\'ll run',
+      ],
+      description: 'Bring the team in. Coach shares observations, players share wins and areas to improve.',
+    },
+  ],
+};
+
 // ─── Generic Template ────────────────────────────────────────────────────────
 
 const FIRST_PRACTICE: PracticeTemplate = {
@@ -722,6 +847,511 @@ const FIRST_PRACTICE: PracticeTemplate = {
   ],
 };
 
+const SWIMMING_FUNDAMENTALS: PracticeTemplate = {
+  id: 'swimming-fundamentals-30',
+  name: 'Swim Fundamentals',
+  sport: 'swimming',
+  ageLabel: 'All ages',
+  totalMins: 30,
+  description: 'Streamline push-offs, kick sets, arm drill, and easy cool-down.',
+  tags: ['beginner', 'fundamentals', 'short'],
+  drills: [
+    {
+      name: 'Streamline Push-Off Warm-Up',
+      durationMins: 6,
+      cues: [
+        'Arms squeezed tight over your ears — make yourself as narrow as possible',
+        'Push off the wall with both feet at the same time',
+        'Hold the streamline until you slow to swimming speed — no rush',
+        'Eyes down, face in the water — head up creates drag',
+      ],
+      description: 'Push off the wall in streamline, glide as far as possible, then begin swimming. Repeat on every lap.',
+    },
+    {
+      name: 'Kick Set',
+      durationMins: 8,
+      cues: [
+        'Flutter kick from the hip, not the knee — keep legs long',
+        'Point your toes on every kick — maximise propulsion',
+        'Small kicks are faster than big splashy ones',
+        'Use a kickboard so you can focus entirely on your legs',
+      ],
+      description: 'Kick sets with a board, focusing on ankle flexibility and hip-driven kick technique.',
+    },
+    {
+      name: 'Catch & Pull Drill',
+      durationMins: 10,
+      cues: [
+        'High elbow on the catch — that\'s where the power starts',
+        'Reach long before you pull — full extension gets you more water',
+        'Rotate your hips as you pull — the whole body powers each stroke',
+        'Finish the stroke past your hip — don\'t cut it short',
+      ],
+      description: 'Full freestyle laps focusing on the arm pull cycle. Coaches watch for elbow position and hip rotation.',
+    },
+    {
+      name: 'Easy Cool-Down Backstroke',
+      durationMins: 6,
+      cues: [
+        'Slow and smooth — let your heart rate come down',
+        'Keep your hips at the surface — don\'t let them sink',
+        'Big arm circles — reach tall behind your head',
+        'Talk to your swimmer about one thing they did well today',
+      ],
+      description: 'Easy backstroke to cool down. Good time for individual feedback as swimmers go at their own pace.',
+    },
+  ],
+};
+
+const SWIMMING_SKILLS_BUILDER: PracticeTemplate = {
+  id: 'swimming-skills-45',
+  name: 'Swim Skills Builder',
+  sport: 'swimming',
+  ageLabel: 'Ages 9–14',
+  totalMins: 45,
+  description: 'Flip turns, stroke drills, race-pace intervals, and team cool-down.',
+  tags: ['intermediate', 'technique', 'medium'],
+  drills: [
+    {
+      name: 'Dynamic Warm-Up & Drill Swim',
+      durationMins: 7,
+      cues: [
+        'Increase intensity each lap — start at 50%, finish at 80%',
+        'Focus on one technique point each warm-up length',
+        'Breathe every three strokes — balance both sides',
+        'Arms loose, kick steady — wake the body up gradually',
+      ],
+      description: 'Two easy laps building intensity, then 2 drill lengths (catch-up drill or finger-drag drill).',
+    },
+    {
+      name: 'Flip Turn Practice',
+      durationMins: 10,
+      cues: [
+        'Count your strokes from the flags to the wall — always the same number',
+        'Tuck tight and fast — a slow flip is a slow turn',
+        'Push off on your back, rotate to your front as you glide out',
+        'Streamline off every turn — that\'s where time is saved or lost',
+      ],
+      description: 'Dedicated flip turn drills. Swimmers do approach, flip, and push-off. Isolate each phase before combining.',
+    },
+    {
+      name: 'Stroke Drill Sets',
+      durationMins: 15,
+      cues: [
+        'One-arm drill: non-working arm on your side — feel the full rotation',
+        'Catch-up drill: one hand waits at the front until the other catches up',
+        'Bilateral breathing: breathe to your weak side too — balance your stroke',
+        'Every drill has a purpose — focus on the feel, not the speed',
+      ],
+      description: 'Alternating drill and swim: 1 length drill, 1 length swim at moderate pace applying the drill feel.',
+    },
+    {
+      name: 'Race-Pace Intervals',
+      durationMins: 8,
+      cues: [
+        'This should be uncomfortable — that\'s race pace',
+        'Drive off the start and turns — those are your free speed moments',
+        'Keep your stroke long even when tired — short fast strokes slow you down',
+        'Go! Finish strong — race to the wall, every time',
+      ],
+      description: 'Short race-pace intervals (25s or 50s) with rest. Coaches track times and give split feedback.',
+    },
+    {
+      name: 'Team Cool-Down',
+      durationMins: 5,
+      cues: [
+        'Slow and easy — any stroke you like',
+        'Talk to your swimmers one-on-one during cool-down',
+        'Shake out your shoulders — recover properly',
+        'End with one team huddle: celebrate one great moment from today',
+      ],
+      description: 'Easy cool-down. Good time for coaches to give individual feedback and celebrate the session.',
+    },
+  ],
+};
+
+const TENNIS_FUNDAMENTALS: PracticeTemplate = {
+  id: 'tennis-fundamentals-30',
+  name: 'Tennis Fundamentals',
+  sport: 'tennis',
+  ageLabel: 'All ages',
+  totalMins: 30,
+  description: 'Rally warm-up, forehand & backhand groundstrokes, and mini-tennis games.',
+  tags: ['beginner', 'fundamentals', 'short'],
+  drills: [
+    {
+      name: 'Rally Warm-Up',
+      durationMins: 5,
+      cues: [
+        'Split step every time your partner contacts the ball',
+        'Short swings to start — get the feel of the ball first',
+        'Talk to each other — "nice shot!", "great rally"',
+        'Stay relaxed — loose grip, loose shoulders',
+      ],
+      description: 'Partners rally from the service line. Focus is on consistency, not power. Coach circulates and observes.',
+    },
+    {
+      name: 'Forehand Groundstroke Feed',
+      durationMins: 10,
+      cues: [
+        'Turn your shoulders early — racket back before the ball bounces',
+        'Step toward the ball — transfer your weight forward into the shot',
+        'Low to high swing path — brush up the back of the ball for topspin',
+        'Follow through over your shoulder — finish high',
+      ],
+      description: 'Coach or partner feeds balls to the forehand side. Players focus on footwork and swing path. 10 reps each.',
+    },
+    {
+      name: 'Backhand Practice',
+      durationMins: 10,
+      cues: [
+        'Two hands for younger players — both hands guide through contact',
+        'Step across with your front foot — get sideways to the ball',
+        'Racket low and back — prepare early before the ball arrives',
+        'Watch the ball all the way to the strings',
+      ],
+      description: 'Fed balls to the backhand side. Focus on preparation and contact point out in front of the body.',
+    },
+    {
+      name: 'Mini-Tennis Rallies',
+      durationMins: 5,
+      cues: [
+        'Stay at the service line — small court, small swings, lots of rallies',
+        'Count your rallies — beat your personal best!',
+        'Move your feet to every ball — never reach from a standstill',
+        'Congratulate long rallies — consistency is a win',
+      ],
+      description: 'Mini-tennis within the service boxes. Great for footwork habits and rally consistency in a fun format.',
+    },
+  ],
+};
+
+const TENNIS_SKILLS_BUILDER: PracticeTemplate = {
+  id: 'tennis-skills-45',
+  name: 'Tennis Skills Builder',
+  sport: 'tennis',
+  ageLabel: 'Ages 9–14',
+  totalMins: 45,
+  description: 'Footwork agility, serve practice, crosscourt rallies, and points play.',
+  tags: ['intermediate', 'balanced', 'medium'],
+  drills: [
+    {
+      name: 'Footwork Agility Warm-Up',
+      durationMins: 7,
+      cues: [
+        'Split step on every ball — make it a habit, not a thought',
+        'Move to the ball — reach only as a last resort',
+        'Recovery steps after every shot — get back to the ready position',
+        'Low athletic stance — bend your knees, weight on the balls of your feet',
+      ],
+      description: 'Ladder or cone agility drills, then shadow footwork: forehand side, backhand side, centre recovery. No rackets.',
+    },
+    {
+      name: 'Serve Practice',
+      durationMins: 10,
+      cues: [
+        'Toss the ball in front and slightly to the right (right-handers) — not behind your head',
+        'Trophy position: front arm up, racket arm drops — load the coil',
+        'Snap your wrist at contact — brush up the back of the ball',
+        'Land on your front foot — follow the serve into the court',
+      ],
+      description: 'Players hit 10 serves each from the deuce and ad court. Coach feeds quick technical tips between reps.',
+    },
+    {
+      name: 'Crosscourt Rally Drill',
+      durationMins: 15,
+      cues: [
+        'Crosscourt is your highest-percentage shot — aim for the widest target',
+        'Depth over speed: a deep ball forces your opponent back',
+        'Watch your opponent\'s racket to read the direction early',
+        'Stay patient — errors beat you more than winners win for you',
+      ],
+      description: 'Partners rally crosscourt — one plays forehand to forehand, one plays backhand to backhand. Switch sides.',
+    },
+    {
+      name: 'Points Play',
+      durationMins: 8,
+      cues: [
+        'Play to win, but play the right shot — patience over power',
+        'One tactical focus per point: "I\'m going crosscourt today"',
+        'Between points: breathe, bounce on your toes, reset',
+        'Encourage each other — competitive but positive',
+      ],
+      description: 'Short sets or tiebreaks. Coach watches patterns and notes tactical and technical trends.',
+    },
+    {
+      name: 'Circle Debrief',
+      durationMins: 5,
+      cues: [
+        'Ask: "What\'s one thing you\'ll work on next time?"',
+        'Tell each player one specific improvement you noticed today',
+        'Celebrate effort and rallies, not just winners',
+        'Preview next practice so players leave excited',
+      ],
+      description: 'Bring players together. Coach highlights one moment per player. Sets focus for next session.',
+    },
+  ],
+};
+
+// ─── Gymnastics Templates ────────────────────────────────────────────────────
+
+const GYMNASTICS_BEGINNERS: PracticeTemplate = {
+  id: 'gymnastics-beginners-30',
+  name: 'Gymnastics Fundamentals',
+  sport: 'gymnastics',
+  ageLabel: 'All ages',
+  totalMins: 30,
+  description: 'Warm-up, basic body shapes, cartwheel practice, and balance beam walking.',
+  tags: ['beginner', 'fundamentals', 'short'],
+  drills: [
+    {
+      name: 'Warm-Up & Stretch',
+      durationMins: 5,
+      cues: [
+        'Jog laps and shake out your arms — get your body warm',
+        'Star jumps and tuck jumps — wake up every muscle',
+        'Butterfly stretch: push your knees gently toward the floor',
+        'Reach for the sky, then touch your toes — feel the length in your spine',
+      ],
+      description: 'Light cardio around the floor, followed by seated stretching focusing on hips, hamstrings, and shoulders.',
+    },
+    {
+      name: 'Basic Body Shapes',
+      durationMins: 7,
+      cues: [
+        'Tuck: knees to chest, squeeze tight — small and round',
+        'Straddle: legs wide, toes pointed, back straight — not collapsed',
+        'Hollow: arms overhead, lower back pressed flat — no arch at all',
+        'Arch: belly down, chest up, legs straight and squeezed together',
+      ],
+      description: 'Gymnasts practise the four foundational shapes on the floor mat. Coach checks body tension and toe point.',
+    },
+    {
+      name: 'Cartwheel Practice',
+      durationMins: 10,
+      cues: [
+        'Start in a lunge: lead hand and lead foot same side (right-right or left-left)',
+        'Arms straight, reach through the sky like you\'re climbing a ladder',
+        'One hand, other hand, one foot, other foot — rhythm counts',
+        'Land in a lunge with arms up: stick every cartwheel like it\'s a skill in a routine',
+      ],
+      description: 'Individual cartwheel reps on a straight line on the floor mat. Coach spots newer gymnasts hand-over-hand.',
+    },
+    {
+      name: 'Balance Beam Walk',
+      durationMins: 6,
+      cues: [
+        'Eyes forward — pick a spot on the wall and stare at it',
+        'Arms out and slightly raised — they\'re your rudder for balance',
+        'Step heel-to-toe: feel the beam under each foot before shifting weight',
+        'Slow and controlled beats rushing — beam is a patience skill',
+      ],
+      description: 'Gymnasts walk the length of the low beam. Progress to relevé (tip-toe) walk and quarter-turn for stronger athletes.',
+    },
+    {
+      name: 'Cool-Down Circle',
+      durationMins: 2,
+      cues: [
+        'One thing you did well today — say it out loud',
+        'One thing to focus on next time',
+        'Celebrate every small win — gymnastics is a long journey',
+      ],
+      description: 'Athletes sit in a circle. Coach gives brief individual feedback and closes practice with an encouraging team moment.',
+    },
+  ],
+};
+
+const GYMNASTICS_SKILLS_BUILDER: PracticeTemplate = {
+  id: 'gymnastics-skills-45',
+  name: 'Gymnastics Skills Builder',
+  sport: 'gymnastics',
+  ageLabel: 'Ages 9–14',
+  totalMins: 45,
+  description: 'Tumbling progressions, apparatus rotations, and strength conditioning.',
+  tags: ['intermediate', 'balanced', 'medium'],
+  drills: [
+    {
+      name: 'Dynamic Warm-Up',
+      durationMins: 7,
+      cues: [
+        'High knees, butt kicks, and side shuffles — get your hips loose',
+        'Bear crawls across the mat — core on, back flat',
+        'Handstand kicks against the wall: 5 each, hold each kick for 2 seconds',
+        'Hollow-body rock: press your lower back into the mat the whole time',
+      ],
+      description: 'Movement prep circuit: jogging patterns, core activation, and handstand wall-kicks. No passive stretching yet.',
+    },
+    {
+      name: 'Tumbling Progressions',
+      durationMins: 12,
+      cues: [
+        'Round-off: snap your feet together at the top — land like one foot',
+        'Back walkover: open your chest early, push the floor away with your lead foot',
+        'Punch board (if available): arms drive up, jump off your heels — height first',
+        'Tight, tight, tight — no skill works without a tight body',
+      ],
+      description: 'Gymnasts cycle through progressions for their current level: forward roll → back walkover → round-off → round-off back-handspring. Coach spots individual athletes.',
+    },
+    {
+      name: 'Apparatus Rotations',
+      durationMins: 15,
+      cues: [
+        'Bars: long body on the hang — shoulders active, no shrug',
+        'Beam: chin up, look ahead — never look down at your feet',
+        'Floor (skills only): full extension at the top of every jump and leap',
+        'Reset between skills: breathe, stand tall, set your shape before you go',
+      ],
+      description: 'Three stations (bars / beam / floor tumbling) with 5 minutes each. Athletes rotate on the coach\'s signal. Coach circulates to spot.',
+    },
+    {
+      name: 'Strength & Flexibility',
+      durationMins: 8,
+      cues: [
+        'Hollow holds: 30 seconds, lower back glued to the mat — no breaks',
+        'Pike stretch: reach past your toes, not just to them — breathe into the stretch',
+        'V-ups: slow down on the way up — control beats momentum',
+        'Split holds: relax your hips into the floor — every practice a little further',
+      ],
+      description: 'Conditioning circuit: hollow holds, V-ups, and shoulder flexibility. Ends with a 2-minute seated split stretch to cool the muscles.',
+    },
+    {
+      name: 'Team Debrief',
+      durationMins: 3,
+      cues: [
+        'What\'s the one technical fix you\'re taking home from today?',
+        'Name a teammate who helped you or cheered you on',
+        'Preview next session: "Next time we\'re working on..."',
+      ],
+      description: 'Athletes share one takeaway each. Coach highlights two or three specific improvements observed during practice. Closes on a positive note.',
+    },
+  ],
+};
+
+// ─── Baseball / Softball ─────────────────────────────────────────────────────
+
+const BASEBALL_FUNDAMENTALS: PracticeTemplate = {
+  id: 'baseball-fundamentals-30',
+  name: 'Baseball Fundamentals',
+  sport: 'baseball',
+  ageLabel: 'Ages 6–10',
+  totalMins: 30,
+  description: 'Throwing & catching, soft-toss hitting, fielding grounders, and a base-running relay for young beginners.',
+  tags: ['beginner', 'fundamentals', 'short'],
+  drills: [
+    {
+      name: 'Throwing & Catching Warm-Up',
+      durationMins: 6,
+      cues: [
+        'Four-seam grip — find the seams every single time',
+        'Step toward your partner — feet aim the throw',
+        'Follow through all the way down — arm finishes near your opposite hip',
+        'Soft hands when catching — give a little as the ball arrives',
+      ],
+      description: 'Partners 10 feet apart tossing and catching. Move back 5 feet every 5 successful exchanges. Focus on grip and stepping into each throw.',
+    },
+    {
+      name: 'Soft Toss Hitting',
+      durationMins: 8,
+      cues: [
+        'Eyes on the ball from the toss to contact — watch it all the way in',
+        'Hips first — rotate your hips before your arms swing',
+        'Level swing — keep the bat path flat through the zone',
+        'Stay balanced — weight on your back foot until you stride',
+      ],
+      description: 'Coach kneels beside the batter and tosses softly into the hitting zone. Batter hits into a net or open field. Rotate every 5 swings.',
+    },
+    {
+      name: 'Fielding Ground Balls',
+      durationMins: 8,
+      cues: [
+        'Glove down first — easier to come up than go down',
+        'Charge the ball — go get it, don\'t let it come to you',
+        'Two hands — cover the glove with your throwing hand on every catch',
+        'Ready position: weight forward, on your toes on every pitch',
+      ],
+      description: 'Coach rolls or bounces ground balls to each player in turn. Focus on approaching the ball in a ready position and fielding cleanly before throwing to first.',
+    },
+    {
+      name: 'Base Running Relay',
+      durationMins: 8,
+      cues: [
+        'Run through first base — don\'t slow down until you\'ve passed the bag',
+        'Touch the inside corner of the bag when rounding second and third',
+        'Sprint from the moment your foot leaves the batter\'s box',
+        'Make the game fun — cheer for every teammate who scores',
+      ],
+      description: 'Players take turns running the bases on a timed relay. Coach calls out base-running fundamentals as each player rounds the bags. Celebration at home plate.',
+    },
+  ],
+};
+
+const BASEBALL_SKILLS_BUILDER: PracticeTemplate = {
+  id: 'baseball-skills-45',
+  name: 'Baseball Skills Builder',
+  sport: 'baseball',
+  ageLabel: 'Ages 11–14',
+  totalMins: 45,
+  description: 'Arm care warm-up, hitting mechanics, infield & outfield fielding, situational base running, and a live defence scrimmage.',
+  tags: ['intermediate', 'balanced', 'medium'],
+  drills: [
+    {
+      name: 'Arm Care & Catch Progression',
+      durationMins: 7,
+      cues: [
+        'Start short and work your way back — never throw long with a cold arm',
+        'Crow hop on longer throws — build momentum before you release',
+        'Snap your wrist at release — feel the spin on the ball',
+        'Call the direction of bad throws before your partner has to move',
+      ],
+      description: 'Players start 30 feet apart and play catch. Every 2 minutes they take a step back. Ends at comfortable game-distance. Includes light crow-hop throws.',
+    },
+    {
+      name: 'Hitting Station (Tee & Soft Toss)',
+      durationMins: 10,
+      cues: [
+        'Back elbow up in your stance — creates a powerful swing path',
+        'See the ball, hit the ball — don\'t guess, react',
+        'Drive through the ball — finish with your hands high on your follow-through',
+        'Hips before hands on every swing — let your power source lead',
+      ],
+      description: 'Two stations simultaneously: half the group hits off a tee (focusing on mechanics), half takes soft toss (focusing on timing). Rotate after 5 minutes.',
+    },
+    {
+      name: 'Infield & Outfield Fielding',
+      durationMins: 10,
+      cues: [
+        'Infield: shuffle step to the ball, field out front, not between your feet',
+        'Outfield: drop step on balls behind you — never turn your back to the infield',
+        'Communicate — outfielders call off infielders on shallow pop-ups',
+        'After the catch, find your target before you throw — no rush-and-throw errors',
+      ],
+      description: 'Coach hits or throws fungos to alternate infield and outfield positions. Infielders work grounders and double-play feeds; outfielders work fly balls and crow-hop throws to a cut-off.',
+    },
+    {
+      name: 'Situational Base Running',
+      durationMins: 9,
+      cues: [
+        'Know the situation before every pitch — outs, score, runners',
+        'Read the ball off the bat — move on contact, don\'t wait for an obvious hit',
+        'Tag up on fly balls — tag the bag the moment the ball is caught',
+        'Third-base coach is your eyes — trust the stop sign or go signal',
+      ],
+      description: 'Coach calls out game situations (runner on first, one out; runner on second, none out, etc.) and hits balls into play. Baserunners must react correctly to each situation.',
+    },
+    {
+      name: 'Team Defence Scrimmage',
+      durationMins: 9,
+      cues: [
+        'Call out the play before the pitch — everyone know their assignment',
+        'Back up every throw — if the ball gets away, you prevent the extra base',
+        'Three outs every inning — concentrate until the last out',
+        'Encourage every good play — build the culture you want in a game',
+      ],
+      description: 'Coach hits or pitches while the team plays live defence. Rotate fielders every 3 outs. Focus on communication, backing up, and executing fundamental plays as a unit.',
+    },
+  ],
+};
+
 // ─── Template Registry ───────────────────────────────────────────────────────
 
 export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
@@ -736,14 +1366,32 @@ export const PRACTICE_TEMPLATES: PracticeTemplate[] = [
   FLAG_FOOTBALL_U8,
   FLAG_FOOTBALL_U12,
   FLAG_FOOTBALL_U16,
+  LACROSSE_U10,
+  LACROSSE_U13,
+  SWIMMING_FUNDAMENTALS,
+  SWIMMING_SKILLS_BUILDER,
+  TENNIS_FUNDAMENTALS,
+  TENNIS_SKILLS_BUILDER,
+  GYMNASTICS_BEGINNERS,
+  GYMNASTICS_SKILLS_BUILDER,
+  BASEBALL_FUNDAMENTALS,
+  BASEBALL_SKILLS_BUILDER,
 ];
 
 // ─── Utility Functions ───────────────────────────────────────────────────────
 
+// Normalise DB sport slugs to the keys used inside this module
+function normaliseSportId(sportId: string): string {
+  const slug = sportId.toLowerCase();
+  if (slug === 'flag_football' || slug === 'flag football' || slug === 'flagfootball') return 'flag_football';
+  if (slug === 'softball') return 'baseball';
+  return slug;
+}
+
 export function getTemplatesForSport(sportId: string): PracticeTemplate[] {
-  const sport = sportId.toLowerCase();
+  const matchSport = normaliseSportId(sportId);
   return PRACTICE_TEMPLATES.filter(
-    (t) => t.sport === '' || t.sport === sport
+    (t) => t.sport === '' || t.sport === matchSport
   );
 }
 

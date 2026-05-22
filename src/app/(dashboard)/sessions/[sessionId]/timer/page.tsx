@@ -48,6 +48,7 @@ import {
   VolumeX,
   Users,
   BookOpen,
+  Award,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Drill, Player, Session, Plan } from '@/types/database';
@@ -75,6 +76,7 @@ import {
 } from '@/lib/timer-focus-utils';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 import { useAnnouncer } from '@/hooks/use-announcer';
+import { useHaptic } from '@/hooks/use-haptic';
 import {
   buildDrillAnnouncement,
   buildBreakAnnouncement,
@@ -125,6 +127,11 @@ import {
   hasMultipleCategories,
   computeTopGapCategories,
 } from '@/lib/drill-category-utils';
+import {
+  getWeeklyFocus,
+  getFocusCategoryConfig,
+  type WeeklyFocus,
+} from '@/lib/weekly-focus-utils';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -677,6 +684,21 @@ function BreakScreen({
 
 // ─── Done Screen ─────────────────────────────────────────────────────────────
 
+const BADGE_NAMES: Record<string, string> = {
+  first_star: '⭐ First Star',
+  team_player: '🤝 Team Player',
+  grinder: '💪 Grinder',
+  all_rounder: '🎯 All-Rounder',
+  breakthrough: '🚀 Breakthrough',
+  game_changer: '⚡ Game Changer',
+  session_regular: '📅 Session Regular',
+};
+
+interface EarnedBadge {
+  playerName: string;
+  badgeName: string;
+}
+
 function DoneScreen({
   drillsRun,
   notes,
@@ -691,6 +713,7 @@ function DoneScreen({
   saveSuccess,
   coachName,
   teamName,
+  newlyAwardedBadges,
 }: {
   drillsRun: QueueItem[];
   notes: CapturedNote[];
@@ -705,6 +728,7 @@ function DoneScreen({
   saveSuccess?: boolean;
   coachName?: string;
   teamName?: string;
+  newlyAwardedBadges?: EarnedBadge[];
 }) {
   const [rating, setRating] = useState<number>(0);
   const [ratingSaved, setRatingSaved] = useState(false);
@@ -1022,6 +1046,35 @@ function DoneScreen({
               </p>
             </div>
 
+            {/* Badge celebration — shown when players earned new badges this practice */}
+            {newlyAwardedBadges && newlyAwardedBadges.length > 0 && (
+              <div className="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <Award className="h-4 w-4 text-amber-400 shrink-0" />
+                  <p className="text-sm font-semibold text-amber-300">
+                    {newlyAwardedBadges.length === 1
+                      ? '1 player earned a badge!'
+                      : `${newlyAwardedBadges.length} badges earned this practice!`}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {newlyAwardedBadges.map((b) => (
+                    <span
+                      key={`${b.playerName}-${b.badgeName}`}
+                      className="inline-flex items-center gap-1 rounded-lg bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 text-xs"
+                    >
+                      <span className="font-semibold text-amber-200">{b.playerName}</span>
+                      <span className="text-amber-500">·</span>
+                      <span className="text-amber-300">{b.badgeName}</span>
+                    </span>
+                  ))}
+                </div>
+                <p className="text-xs text-amber-500/70">
+                  Badges appear on their parent report card 🎉
+                </p>
+              </div>
+            )}
+
             {/* Quick parent update card — pre-built message, zero AI, instant display */}
             <div className="w-full rounded-xl border border-teal-500/30 bg-teal-500/10 p-4 space-y-3">
               <div className="flex items-center gap-2">
@@ -1109,7 +1162,7 @@ export default function PracticeTimerPage({
   const arcSessionParam = searchParams.get('arcSession');
   const arcSessionIndex = arcSessionParam !== null ? parseInt(arcSessionParam, 10) : null;
   const templateIdParam = searchParams.get('templateId');
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
 
   // ── Persistence keys ─────────────────────────────────────────────────────
   const NOTES_KEY = `practice-timer-notes-v1-${sessionId}`;
@@ -1159,6 +1212,7 @@ export default function PracticeTimerPage({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [newlyAwardedBadges, setNewlyAwardedBadges] = useState<EarnedBadge[]>([]);
   const [loadedPlanTitle, setLoadedPlanTitle] = useState<string | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [showSwapSheet, setShowSwapSheet] = useState(false);
@@ -1190,6 +1244,7 @@ export default function PracticeTimerPage({
   });
 
   const [bgAdjustMsg, setBgAdjustMsg] = useState<string | null>(null);
+  const [weeklyFocus, setWeeklyFocus] = useState<WeeklyFocus | null>(null);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cueIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1560,10 +1615,13 @@ export default function PracticeTimerPage({
     };
   }, [clearIntervals]);
 
-  // ── Audio announcements ──────────────────────────────────────────────────
+  // ── Audio + haptic announcements ─────────────────────────────────────────
   const { speak } = useAnnouncer(audioEnabled);
   const speakRef = useRef(speak);
   useEffect(() => { speakRef.current = speak; }, [speak]);
+  const haptic = useHaptic();
+  const hapticRef = useRef(haptic);
+  useEffect(() => { hapticRef.current = haptic; }, [haptic]);
   // Keep refs in sync so the mode-change effect reads latest data without
   // triggering on every note/queue mutation.
   useEffect(() => { queueRef.current = queue; }, [queue]);
@@ -1575,6 +1633,12 @@ export default function PracticeTimerPage({
     try { localStorage.setItem('coach-audio-enabled', String(audioEnabled)); } catch { /* ignore */ }
   }, [audioEnabled]);
 
+  // Load weekly focus from localStorage after hydration (SSR-safe).
+  useEffect(() => {
+    if (!activeTeam?.id) return;
+    setWeeklyFocus(getWeeklyFocus(activeTeam.id));
+  }, [activeTeam?.id]);
+
   // Announce each drill start, break prompt, and practice-complete moment.
   // Uses refs so this effect only fires on mode/drill transitions, not on
   // every note saved or queue reorder.
@@ -1582,10 +1646,13 @@ export default function PracticeTimerPage({
     const drill = queueRef.current[currentIdx];
     if (mode === 'running' && drill) {
       speakRef.current(buildDrillAnnouncement(drill.name, drill.durationSecs, drill.cues[0]));
+      hapticRef.current.tap(); // single pulse — new drill starting
     } else if (mode === 'break') {
       speakRef.current(buildBreakAnnouncement());
+      hapticRef.current.success(); // double pulse — drill ended, observe now
     } else if (mode === 'done') {
       speakRef.current(buildPracticeCompleteAnnouncement(notesRef.current.length));
+      hapticRef.current.success(); // double pulse — practice complete
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, currentIdx]);
@@ -1629,6 +1696,20 @@ export default function PracticeTimerPage({
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [mode, isPaused, clearIntervals]);
+
+  // Screen Wake Lock: keep the display on while the timer is counting down so
+  // coaches don't have to unlock their phone between drills.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('wakeLock' in navigator)) return;
+    if (mode !== 'running' || isPaused) return;
+
+    let lock: WakeLockSentinel | null = null;
+    (navigator as any).wakeLock.request('screen').then((l: WakeLockSentinel) => {
+      lock = l;
+    }).catch(() => { /* permission denied or unsupported — silent */ });
+
+    return () => { lock?.release().catch(() => {}); };
+  }, [mode, isPaused]);
 
   // Auto-persist captured notes so they survive accidental app closes
   useEffect(() => {
@@ -1777,7 +1858,37 @@ export default function PracticeTimerPage({
       } catch { /* ignore */ }
       setSaveSuccess(true);
       setIsSaving(false);
-      // Coach sees success state with parent update card; navigates via "View Session & AI Debrief" button.
+
+      // Fire-and-forget: check badges for all observed players and surface any wins
+      const observedPlayerIds = [...new Set(notes.filter((n) => n.playerId).map((n) => n.playerId!))];
+      if (observedPlayerIds.length > 0) {
+        Promise.all(
+          observedPlayerIds.map(async (playerId) => {
+            try {
+              const res = await fetch('/api/player-achievements', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'check', player_id: playerId }),
+              });
+              if (!res.ok) return [];
+              const data = await res.json();
+              const awarded: any[] = data.newly_awarded ?? [];
+              if (awarded.length === 0) return [];
+              const playerName =
+                notes.find((n) => n.playerId === playerId)?.playerName ?? 'Player';
+              return awarded.map((b) => ({
+                playerName: playerName.split(' ')[0],
+                badgeName: BADGE_NAMES[b.badge_type] ?? b.badge_type,
+              }));
+            } catch {
+              return [];
+            }
+          })
+        ).then((results) => {
+          const all = (results as EarnedBadge[][]).flat();
+          if (all.length > 0) setNewlyAwardedBadges(all);
+        });
+      }
     } catch (err: any) {
       setSaveError(err.message || 'Failed to save observations');
       setIsSaving(false);
@@ -1949,9 +2060,15 @@ export default function PracticeTimerPage({
   );
 
   // ── Skill-gap drill suggestions for the empty queue screen ───────────────
-  // Uses already-fetched needsWorkObs + drills — no extra API call.
+  // When a weekly focus is active it earns the top slot; data-driven gap drills
+  // fill the remaining spots. No extra API call — reuses already-fetched data.
   const suggestedDrills = useMemo(() => {
-    if (!drills.length || !needsWorkObs.length) return [] as Drill[];
+    if (!drills.length) return [] as Drill[];
+    if (!needsWorkObs.length && !weeklyFocus) return [] as Drill[];
+    const queuedIds = new Set(queue.map((q) => q.drillId).filter(Boolean));
+    const available = drills.filter((d) => !queuedIds.has(d.id));
+
+    // Build the top-gap categories from observation history.
     const counts: Record<string, number> = {};
     for (const obs of needsWorkObs) {
       if (obs.category) counts[obs.category] = (counts[obs.category] ?? 0) + 1;
@@ -1960,23 +2077,37 @@ export default function PracticeTimerPage({
       .sort(([, a], [, b]) => b - a)
       .slice(0, 2)
       .map(([cat]) => cat.toLowerCase());
-    if (!topGaps.length) return [] as Drill[];
-    const queuedIds = new Set(queue.map((q) => q.drillId).filter(Boolean));
-    return drills
-      .filter((d) => topGaps.includes(d.category.toLowerCase()) && !queuedIds.has(d.id))
-      .sort((a, b) => {
-        const ai = topGaps.indexOf(a.category.toLowerCase());
-        const bi = topGaps.indexOf(b.category.toLowerCase());
-        return ai - bi;
-      })
-      .slice(0, 3);
-  }, [drills, needsWorkObs, queue]);
+
+    const focusCat = weeklyFocus?.category?.toLowerCase();
+
+    // Drills matching the weekly focus get the top slot (up to 1).
+    const focusDrills = focusCat
+      ? available.filter((d) => d.category.toLowerCase() === focusCat).slice(0, 1)
+      : [];
+
+    // Drills matching top skill gaps fill remaining slots (skip focus category
+    // if already represented so we don't duplicate).
+    const gapDrills = topGaps.length
+      ? available
+          .filter((d) => {
+            const cat = d.category.toLowerCase();
+            return topGaps.includes(cat) && cat !== focusCat;
+          })
+          .sort((a, b) => {
+            const ai = topGaps.indexOf(a.category.toLowerCase());
+            const bi = topGaps.indexOf(b.category.toLowerCase());
+            return ai - bi;
+          })
+          .slice(0, 3 - focusDrills.length)
+      : [];
+
+    return [...focusDrills, ...gapDrills].slice(0, 3);
+  }, [drills, needsWorkObs, queue, weeklyFocus]);
 
   // ── Coaching phrase fallback ─────────────────────────────────────────────
   // When the current drill has no teaching cues, surface a sport- and
   // category-specific phrase from the static coaching-phrases library so
   // coaches always have something concrete to SAY to players.
-  const sportSlug = (coach?.organizations as any)?.sport_config?.default_sport_slug ?? 'basketball';
 
   const fallbackCue = useMemo(() => {
     const drill = queue[currentIdx];
@@ -2045,6 +2176,7 @@ export default function PracticeTimerPage({
         saveSuccess={saveSuccess}
         coachName={coach?.full_name ?? undefined}
         teamName={activeTeam?.name ?? undefined}
+        newlyAwardedBadges={newlyAwardedBadges}
       />
     );
   }
@@ -2323,7 +2455,7 @@ export default function PracticeTimerPage({
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link href={`/sessions/${sessionId}`}>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" aria-label="Back to session">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
@@ -2366,6 +2498,20 @@ export default function PracticeTimerPage({
           Loaded template: <span className="font-medium">{loadedTemplateName}</span>
         </div>
       )}
+
+      {/* Weekly Focus banner */}
+      {weeklyFocus && (() => {
+        const cfg = getFocusCategoryConfig(weeklyFocus.category);
+        return cfg ? (
+          <div className="flex items-center gap-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-4 py-3 text-sm text-indigo-300">
+            <span className="text-base leading-none">{cfg.emoji}</span>
+            <span className="flex-1">
+              <span className="font-semibold">{cfg.label} Week</span>
+              <span className="text-indigo-400/70"> · drill suggestions prioritised for your focus</span>
+            </span>
+          </div>
+        ) : null;
+      })()}
 
       {/* Absent/unavailable players banner */}
       {absentPlayers.length > 0 && (
@@ -2627,29 +2773,41 @@ export default function PracticeTimerPage({
             {suggestedDrills.length > 0 && (
               <>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                  Suggested for today · based on your team&apos;s skill gaps
+                  {weeklyFocus
+                    ? `Suggested for today · ${getFocusCategoryConfig(weeklyFocus.category)?.label ?? weeklyFocus.category} focus + skill gaps`
+                    : 'Suggested for today · based on your team’s skill gaps'}
                 </p>
                 <div className="flex flex-col gap-2">
-                  {suggestedDrills.map((drill) => (
+                  {suggestedDrills.map((drill) => {
+                    const isFocusDrill = weeklyFocus && drill.category.toLowerCase() === weeklyFocus.category.toLowerCase();
+                    return (
                     <button
                       key={drill.id}
                       onClick={() => addFromLibrary(drill)}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3 text-left hover:border-orange-500/30 hover:bg-zinc-800/60 transition-colors group touch-manipulation active:scale-[0.98]"
+                      className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left hover:bg-zinc-800/60 transition-colors group touch-manipulation active:scale-[0.98] ${isFocusDrill ? 'border-indigo-700/40 bg-indigo-500/5 hover:border-indigo-600/50' : 'border-zinc-800 bg-zinc-900/40 hover:border-orange-500/30'}`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 group-hover:bg-orange-500/20 transition-colors">
-                          <Target className="h-4 w-4 text-orange-400" />
+                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${isFocusDrill ? 'bg-indigo-500/15 group-hover:bg-indigo-500/25' : 'bg-orange-500/10 group-hover:bg-orange-500/20'}`}>
+                          <Target className={`h-4 w-4 ${isFocusDrill ? 'text-indigo-400' : 'text-orange-400'}`} />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-zinc-200 truncate">{drill.name}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-sm font-medium text-zinc-200 truncate">{drill.name}</p>
+                            {isFocusDrill && (
+                              <span className="shrink-0 rounded-full bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-indigo-400 border border-indigo-500/30">
+                                Focus
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-zinc-500">
                             {drill.category} · {drill.duration_minutes ?? 10} min
                           </p>
                         </div>
                       </div>
-                      <Plus className="h-4 w-4 text-zinc-600 group-hover:text-orange-400 shrink-0 transition-colors" />
+                      <Plus className={`h-4 w-4 shrink-0 transition-colors ${isFocusDrill ? 'text-indigo-500 group-hover:text-indigo-300' : 'text-zinc-600 group-hover:text-orange-400'}`} />
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}

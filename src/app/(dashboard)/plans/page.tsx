@@ -65,6 +65,7 @@ import type { Plan, Player, PlanType, Session } from '@/types/database';
 import type { ObservationInsights } from '@/app/api/ai/plan/route';
 import { getCategoryLabel, getCategoryColor } from '@/lib/coach-reflection-utils';
 import { trackEvent } from '@/lib/analytics';
+import { getSportEmoji } from '@/lib/sport-utils';
 
 const PLAN_TYPE_CONFIG: Record<
   string,
@@ -96,11 +97,24 @@ const PLAN_TYPE_CONFIG: Record<
   season_letter: { label: 'Season Letter', icon: Mail, color: 'text-pink-400' },
 };
 
-const SUGGESTION_CHIPS = [
-  '60-min practice',
-  'Game day sheet',
-  'Ball handling drills',
-];
+function getSuggestionChips(sportSlug: string): string[] {
+  switch (sportSlug) {
+    case 'soccer':
+      return ['60-min practice', 'Game day sheet', 'Passing & movement drills'];
+    case 'volleyball':
+      return ['60-min practice', 'Game day sheet', 'Serving & passing drills'];
+    case 'flag_football':
+      return ['60-min practice', 'Game day sheet', 'Route running drills'];
+    case 'baseball':
+      return ['60-min practice', 'Game day sheet', 'Hitting & fielding drills'];
+    case 'lacrosse':
+      return ['60-min practice', 'Game day sheet', 'Stick skills drills'];
+    case 'tennis':
+      return ['60-min practice', 'Match prep sheet', 'Groundstroke drills'];
+    default:
+      return ['60-min practice', 'Game day sheet', 'Ball handling drills'];
+  }
+}
 
 function PlayerMsgItem({ msg }: { msg: { player_name: string; message: string; highlight: string; next_focus: string } }) {
   const [copied, setCopied] = useState(false);
@@ -178,12 +192,12 @@ interface TeamGroupMessageData {
   next_session_note?: string;
 }
 
-function TeamGroupMessageRenderer({ data }: { data: TeamGroupMessageData }) {
+function TeamGroupMessageRenderer({ data, sportSlug }: { data: TeamGroupMessageData; sportSlug?: string }) {
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState(false);
 
   const fullText = [
-    data.session_label ? `🏀 ${data.session_label}` : '',
+    data.session_label ? `${getSportEmoji(sportSlug)} ${data.session_label}` : '',
     '',
     data.message,
     data.coaching_focus?.length ? `\nToday we focused on: ${data.coaching_focus.join(', ')}` : '',
@@ -501,7 +515,7 @@ function SeasonLetterRenderer({ data }: { data: SeasonLetterData }) {
 }
 
 export default function PlansPage() {
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
   const router = useRouter();
   const { canAccess } = useTier();
   const canUseGameDayPrep = canAccess('tendencies');
@@ -2743,7 +2757,7 @@ export default function PlansPage() {
                 `Strengths: ${Array.isArray(personality.strengths) ? personality.strengths.join(', ') : ''}`,
                 `Working on: ${Array.isArray(personality.growth_areas) ? personality.growth_areas.join(', ') : ''}`,
                 '',
-                'Powered by SportsIQ 🏀',
+                `Powered by SportsIQ ${getSportEmoji(sportSlug)}`,
               ].join('\n');
               try {
                 if (navigator.share) {
@@ -2775,7 +2789,7 @@ export default function PlansPage() {
       !Array.isArray(structured.messages)
     ) {
       return (
-        <TeamGroupMessageRenderer data={structured as any} />
+        <TeamGroupMessageRenderer data={structured as any} sportSlug={sportSlug} />
       );
     }
 
@@ -3009,7 +3023,7 @@ export default function PlansPage() {
       <div className="p-4 lg:p-8 space-y-6 max-w-3xl mx-auto">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => setSelectedPlan(null)}>
+            <Button variant="ghost" size="icon" onClick={() => setSelectedPlan(null)} aria-label="Close plan">
               <X className="h-5 w-5" />
             </Button>
             <div>
@@ -3044,6 +3058,7 @@ export default function PlansPage() {
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Delete plan"
               className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
               onClick={() => {
                 if (confirm('Delete this plan? This cannot be undone.')) {
@@ -3216,6 +3231,7 @@ export default function PlansPage() {
               onClick={() => generateFromPrompt(prompt)}
               disabled={!prompt.trim() || generating || !activeTeam}
               size="icon"
+              aria-label="Generate plan"
               className="h-11 w-11 shrink-0 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-30"
             >
               {generating ? (
@@ -3731,7 +3747,7 @@ export default function PlansPage() {
 
             {/* Generic suggestion chips */}
             <div className="flex flex-wrap gap-2">
-              {SUGGESTION_CHIPS.map((chip) => (
+              {getSuggestionChips(sportSlug).map((chip) => (
                 <button
                   key={chip}
                   onClick={() => handleChipClick(chip)}

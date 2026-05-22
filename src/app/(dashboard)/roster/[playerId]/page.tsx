@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useEffect, useMemo } from 'react';
+import { use, useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useActiveTeam } from '@/hooks/use-active-team';
@@ -53,7 +53,8 @@ import { AchievementBadgesPanel } from '@/components/player/achievement-badges';
 import { PlayerGoalsPanel } from '@/components/player/player-goals-panel';
 import { PlayerNotesPanel } from '@/components/player/player-notes-panel';
 import { countHighlighted } from '@/lib/observation-highlights';
-import { OBSERVATION_TEMPLATES, getTemplatesBySentiment } from '@/lib/observation-templates';
+import { findTemplateById, getTemplatesBySentiment } from '@/lib/observation-templates';
+import { getSportEmoji } from '@/lib/sport-utils';
 import { useAppStore } from '@/lib/store';
 import type { Player, Observation, PlayerSkillProficiency, Plan, Sentiment, ParentShare } from '@/types/database';
 import type { PlayerAttendanceStat } from '@/app/api/attendance-stats/route';
@@ -462,7 +463,7 @@ export default function PlayerDetailPage({
   params: Promise<{ playerId: string }>;
 }) {
   const { playerId } = use(params);
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
   const qc = useQueryClient();
   const searchParams = useSearchParams();
   const validTabs: Tab[] = ['overview', 'observations', 'report-card', 'media', 'share', 'challenges', 'storyline', 'self-assessment', 'goals', 'notes'];
@@ -514,6 +515,8 @@ export default function PlayerDetailPage({
 
   // Observation highlights filter
   const [obsHighlightsOnly, setObsHighlightsOnly] = useState(false);
+  const [obsSentimentFilter, setObsSentimentFilter] = useState<'all' | 'positive' | 'needs-work'>('all');
+  const [obsCategoryFilter, setObsCategoryFilter] = useState<string | null>(null);
   const [sharedObsId, setSharedObsId] = useState<string | null>(null);
 
   // Quick Observe bottom sheet
@@ -523,6 +526,25 @@ export default function PlayerDetailPage({
   const [qoText, setQoText] = useState('');
   const [qoSaving, setQoSaving] = useState(false);
   const [qoSaved, setQoSaved] = useState(false);
+
+  // Coaching Brief bottom sheet
+  const [showBrief, setShowBrief] = useState(false);
+  const [briefData, setBriefData] = useState<{
+    status: string;
+    acknowledge: string;
+    focus: string;
+    script: string;
+    focus_skill: string;
+    tone: 'celebrating' | 'encouraging' | 'redirecting';
+  } | null>(null);
+  const [briefLoading, setBriefLoading] = useState(false);
+  const [briefError, setBriefError] = useState<string | null>(null);
+  const [briefCopied, setBriefCopied] = useState(false);
+
+  // Photo upload
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const { data: player, isLoading: playerLoading } = useQuery({
     queryKey: queryKeys.players.detail(playerId),
@@ -642,6 +664,10 @@ export default function PlayerDetailPage({
     enabled: activeTab === 'overview',
   });
 
+  const daysSinceLastObs = observations.length > 0
+    ? Math.floor((Date.now() - new Date(observations[0].created_at).getTime()) / 86_400_000)
+    : null;
+
   // Category breakdown
   const categoryBreakdown = observations.reduce<Record<string, number>>((acc, obs) => {
     acc[obs.category] = (acc[obs.category] || 0) + 1;
@@ -687,7 +713,7 @@ export default function PlayerDetailPage({
 
   // Quick Observe — templates ordered by player's most-observed categories first
   const qoTemplates = useMemo(() => {
-    const templates = getTemplatesBySentiment(qoSentiment);
+    const templates = getTemplatesBySentiment(qoSentiment, sportSlug);
     const topCats = sortedCategories.slice(0, 4).map(([c]) => c);
     return [
       ...templates.filter((t) => topCats.includes(t.category)),
@@ -695,9 +721,33 @@ export default function PlayerDetailPage({
     ].slice(0, 8);
   }, [qoSentiment, sortedCategories]);
 
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoUploading(true);
+    setPhotoError(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('player_id', playerId);
+      const res = await fetch('/api/player-photo', { method: 'POST', body: fd });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setPhotoError(data.error ?? 'Upload failed');
+      } else {
+        await qc.invalidateQueries({ queryKey: queryKeys.players.detail(playerId) });
+      }
+    } catch {
+      setPhotoError('Upload failed');
+    } finally {
+      setPhotoUploading(false);
+      if (photoInputRef.current) photoInputRef.current.value = '';
+    }
+  }
+
   async function handleQuickObsSave() {
     if (!activeTeam || !player) return;
-    const template = OBSERVATION_TEMPLATES.find((t) => t.id === qoTemplate);
+    const template = findTemplateById(qoTemplate ?? '');
     const text = qoText.trim() || template?.text || '';
     if (!text) return;
     setQoSaving(true);
@@ -735,6 +785,42 @@ export default function PlayerDetailPage({
       // silent — save button stays enabled for retry
     } finally {
       setQoSaving(false);
+    }
+  }
+
+  async function handleGetBrief() {
+    if (!activeTeam || !player) return;
+    setShowBrief(true);
+    setBriefLoading(true);
+    setBriefError(null);
+    setBriefData(null);
+    try {
+      const res = await fetch('/api/ai/coaching-brief', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id, playerId: player.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate coaching brief');
+      }
+      const data = await res.json();
+      setBriefData(data.brief);
+    } catch (err: any) {
+      setBriefError(err.message || 'Something went wrong. Try again.');
+    } finally {
+      setBriefLoading(false);
+    }
+  }
+
+  async function handleCopyScript() {
+    if (!briefData) return;
+    try {
+      await navigator.clipboard.writeText(briefData.script);
+      setBriefCopied(true);
+      setTimeout(() => setBriefCopied(false), 2000);
+    } catch {
+      // clipboard unavailable
     }
   }
 
@@ -822,7 +908,7 @@ export default function PlayerDetailPage({
     if (!challengeData) return;
     const challenges = Array.isArray(challengeData.challenges) ? challengeData.challenges : [];
     const lines = [
-      `🏀 ${challengeData.week_label ?? 'Weekly'} Skill Challenges for ${player?.name ?? 'your player'}`,
+      `${getSportEmoji(sportSlug)} ${challengeData.week_label ?? 'Weekly'} Skill Challenges for ${player?.name ?? 'your player'}`,
       '',
       ...challenges.flatMap((c: any, i: number) => [
         `Challenge ${i + 1}: ${c.title} (${c.skill_area})`,
@@ -1290,7 +1376,28 @@ export default function PlayerDetailPage({
       {/* Player Header */}
       <Card>
         <CardContent className="flex items-center gap-5 p-6">
-          <PlayerAvatar photoUrl={player.photo_url} name={player.name} size={80} />
+          <div className="relative shrink-0">
+            <PlayerAvatar photoUrl={player.photo_url} name={player.name} size={80} />
+            <button
+              onClick={() => photoInputRef.current?.click()}
+              disabled={photoUploading}
+              aria-label={player.photo_url ? 'Change player photo' : 'Add player photo'}
+              className="absolute inset-0 flex items-center justify-center rounded-full bg-black/0 hover:bg-black/50 transition-colors group touch-manipulation"
+            >
+              {photoUploading ? (
+                <Loader2 className="h-6 w-6 animate-spin text-white" />
+              ) : (
+                <Camera className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+              )}
+            </button>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handlePhotoChange}
+              className="sr-only"
+            />
+          </div>
           <div className="flex-1">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-zinc-100">{player.name}</h1>
@@ -1311,6 +1418,24 @@ export default function PlayerDetailPage({
                 &ldquo;{player.nickname}&rdquo;
               </p>
             )}
+            <p className={`mt-1 flex items-center gap-1 text-xs ${
+              daysSinceLastObs === null ? 'text-zinc-600' :
+              daysSinceLastObs === 0 ? 'text-emerald-400' :
+              daysSinceLastObs >= 7 ? 'text-amber-400' :
+              'text-zinc-500'
+            }`}>
+              <Clock className="h-3 w-3 shrink-0" />
+              {daysSinceLastObs === null
+                ? 'No observations yet'
+                : daysSinceLastObs === 0
+                ? 'Observed today'
+                : daysSinceLastObs === 1
+                ? 'Observed yesterday'
+                : `Last observed ${daysSinceLastObs}d ago`}
+            </p>
+            {photoError && (
+              <p className="mt-1 text-xs text-red-400">{photoError}</p>
+            )}
           </div>
           <div className="flex flex-col items-end gap-2">
             <Button
@@ -1320,6 +1445,16 @@ export default function PlayerDetailPage({
             >
               <Plus className="h-3.5 w-3.5 mr-1" />
               Observe
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-violet-500/40 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300"
+              onClick={handleGetBrief}
+              title="Get an AI coaching brief for this player"
+            >
+              <Sparkles className="h-3.5 w-3.5 mr-1" />
+              Brief
             </Button>
             <Link href={`/roster/${playerId}/edit`}>
               <Button size="sm" variant="outline">Edit</Button>
@@ -1520,7 +1655,20 @@ export default function PlayerDetailPage({
             </CardHeader>
             <CardContent className="space-y-3">
               {observations.length === 0 ? (
-                <p className="text-sm text-zinc-500">No observations yet.</p>
+                <div className="flex flex-col items-center gap-3 py-4 text-center">
+                  <MessageSquare className="h-8 w-8 text-zinc-700" />
+                  <div>
+                    <p className="text-sm font-medium text-zinc-400">No observations yet</p>
+                    <p className="text-xs text-zinc-600 mt-0.5">Capture your first note for {player.name.split(' ')[0]}</p>
+                  </div>
+                  <Link
+                    href={`/capture?playerId=${player.id}&player=${encodeURIComponent(player.name.split(' ')[0])}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-orange-500/15 border border-orange-500/30 px-3 py-1.5 text-xs font-medium text-orange-400 hover:bg-orange-500/25 transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Capture observation
+                  </Link>
+                </div>
               ) : (
                 observations.slice(0, 5).map((obs) => (
                   <div
@@ -1550,7 +1698,14 @@ export default function PlayerDetailPage({
           {activeTeam && (
             <>
               <div className="lg:col-span-2">
-                <PlayerGoalsPanel playerId={playerId} teamId={activeTeam.id} />
+                <PlayerGoalsPanel
+                  playerId={playerId}
+                  teamId={activeTeam.id}
+                  playerName={player.name}
+                  coachName={coach?.full_name ?? undefined}
+                  teamName={activeTeam.name}
+                  parentPhone={player.parent_phone}
+                />
               </div>
               <div className="lg:col-span-2">
                 <PlayerNotesPanel playerId={playerId} teamId={activeTeam.id} />
@@ -1562,47 +1717,136 @@ export default function PlayerDetailPage({
 
       {activeTab === 'observations' && (
         <div className="space-y-3">
-          {/* Highlights filter toggle */}
+          {/* Section header with persistent capture CTA */}
           {observations.length > 0 && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setObsHighlightsOnly((v) => !v)}
-                aria-pressed={obsHighlightsOnly}
-                className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors touch-manipulation ${
-                  obsHighlightsOnly
-                    ? 'bg-amber-500 text-white'
-                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
-                }`}
-              >
-                <Star className={`h-3.5 w-3.5 ${obsHighlightsOnly ? 'fill-white' : ''}`} />
-                Highlights only
-                {!obsHighlightsOnly && countHighlighted(observations) > 0 && (
-                  <span className="rounded-full bg-amber-500/20 px-1.5 text-amber-400 text-[10px]">
-                    {countHighlighted(observations)}
-                  </span>
-                )}
-              </button>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-zinc-500">{observations.length} observation{observations.length !== 1 ? 's' : ''}</span>
+              <Link href={`/capture?playerId=${playerId}`}>
+                <Button size="sm" variant="outline" className="h-7 gap-1.5 border-orange-500/40 text-orange-400 hover:bg-orange-500/10 text-xs px-2.5">
+                  <Plus className="h-3.5 w-3.5" />
+                  Capture
+                </Button>
+              </Link>
             </div>
           )}
+          {/* Filter bar */}
+          {observations.length > 0 && (() => {
+            const uniqueCategories = Array.from(new Set(observations.map((o) => o.category).filter(Boolean))).sort();
+            const hasActiveFilter = obsHighlightsOnly || obsSentimentFilter !== 'all' || obsCategoryFilter !== null;
+            return (
+              <div className="space-y-2">
+                {/* Row 1: Sentiment + Highlights */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {(['all', 'positive', 'needs-work'] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setObsSentimentFilter(s)}
+                      aria-pressed={obsSentimentFilter === s}
+                      className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors touch-manipulation ${
+                        obsSentimentFilter === s
+                          ? s === 'positive'
+                            ? 'bg-emerald-500 text-white'
+                            : s === 'needs-work'
+                              ? 'bg-red-500 text-white'
+                              : 'bg-orange-500 text-white'
+                          : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
+                      }`}
+                    >
+                      {s === 'all' ? 'All' : s === 'positive' ? '✓ Positive' : '⚠ Needs Work'}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setObsHighlightsOnly((v) => !v)}
+                    aria-pressed={obsHighlightsOnly}
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors touch-manipulation ${
+                      obsHighlightsOnly
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
+                    }`}
+                  >
+                    <Star className={`h-3.5 w-3.5 ${obsHighlightsOnly ? 'fill-white' : ''}`} />
+                    ★
+                    {!obsHighlightsOnly && countHighlighted(observations) > 0 && (
+                      <span className="rounded-full bg-amber-500/20 px-1 text-amber-400 text-[10px]">
+                        {countHighlighted(observations)}
+                      </span>
+                    )}
+                  </button>
+                  {hasActiveFilter && (
+                    <button
+                      onClick={() => {
+                        setObsHighlightsOnly(false);
+                        setObsSentimentFilter('all');
+                        setObsCategoryFilter(null);
+                      }}
+                      className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors touch-manipulation"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                {/* Row 2: Category chips */}
+                {uniqueCategories.length > 1 && (() => {
+                  const catCounts: Record<string, number> = {};
+                  for (const o of observations) {
+                    if (o.category) catCounts[o.category] = (catCounts[o.category] ?? 0) + 1;
+                  }
+                  return (
+                    <div className="flex flex-wrap gap-1.5">
+                      {uniqueCategories.map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => setObsCategoryFilter(obsCategoryFilter === cat ? null : cat)}
+                          aria-pressed={obsCategoryFilter === cat}
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors touch-manipulation capitalize ${
+                            obsCategoryFilter === cat
+                              ? 'bg-blue-500/30 text-blue-300 ring-1 ring-blue-500/50'
+                              : 'bg-zinc-800/70 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700/70'
+                          }`}
+                        >
+                          {cat}
+                          <span className={`text-[10px] tabular-nums ${obsCategoryFilter === cat ? 'text-blue-400/70' : 'text-zinc-600'}`}>
+                            {catCounts[cat] ?? 0}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            );
+          })()}
 
           {(() => {
-            const displayed = obsHighlightsOnly
+            const byHighlight = obsHighlightsOnly
               ? observations.filter((o) => o.is_highlighted)
               : observations;
+            const bySentiment = obsSentimentFilter !== 'all'
+              ? byHighlight.filter((o) => o.sentiment === obsSentimentFilter)
+              : byHighlight;
+            const displayed = obsCategoryFilter
+              ? bySentiment.filter((o) => o.category === obsCategoryFilter)
+              : bySentiment;
+
+            const isFiltered = obsHighlightsOnly || obsSentimentFilter !== 'all' || obsCategoryFilter !== null;
 
             if (displayed.length === 0) {
               return (
                 <Card>
                   <CardContent className="flex flex-col items-center p-8 text-center">
-                    {obsHighlightsOnly ? (
+                    {isFiltered ? (
                       <>
-                        <Star className="mb-3 h-10 w-10 text-zinc-700" />
-                        <p className="text-zinc-400">No highlights yet. Tap ★ on any observation to star it.</p>
+                        <Eye className="mb-3 h-10 w-10 text-zinc-700" />
+                        <p className="text-zinc-400">No observations match your current filters.</p>
                         <button
-                          onClick={() => setObsHighlightsOnly(false)}
+                          onClick={() => {
+                            setObsHighlightsOnly(false);
+                            setObsSentimentFilter('all');
+                            setObsCategoryFilter(null);
+                          }}
                           className="mt-3 text-sm text-orange-400 hover:text-orange-300 transition-colors"
                         >
-                          Show all observations
+                          Clear filters
                         </button>
                       </>
                     ) : (
@@ -1619,7 +1863,14 @@ export default function PlayerDetailPage({
               );
             }
 
-            return displayed.map((obs) => (
+            return (
+              <>
+                {isFiltered && (
+                  <p className="text-xs text-zinc-500 px-1">
+                    Showing {displayed.length} of {observations.length} observations
+                  </p>
+                )}
+                {displayed.map((obs) => (
               <Card
                 key={obs.id}
                 className={obs.is_highlighted ? 'border-amber-500/40 bg-amber-500/5' : ''}
@@ -1677,7 +1928,9 @@ export default function PlayerDetailPage({
                   )}
                 </CardContent>
               </Card>
-            ));
+            ))}
+              </>
+            );
           })()}
         </div>
       )}
@@ -2723,6 +2976,124 @@ export default function PlayerDetailPage({
                 'Save Observation'
               )}
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Coaching Brief Bottom Sheet ─────────────────────────────────────── */}
+      {showBrief && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setShowBrief(false)}
+          />
+          {/* Sheet */}
+          <div className="relative rounded-t-2xl bg-zinc-900 border-t border-zinc-800 p-5 space-y-4 max-h-[85vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-violet-400 font-medium uppercase tracking-wide">AI Coaching Brief</p>
+                <h2 className="text-base font-bold text-zinc-100">{player?.name}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBrief(false)}
+                className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {briefLoading && (
+              <div className="flex flex-col items-center gap-3 py-8">
+                <Loader2 className="h-7 w-7 animate-spin text-violet-400" />
+                <p className="text-sm text-zinc-400">Analysing {player?.name?.split(' ')[0]}&apos;s observations…</p>
+              </div>
+            )}
+
+            {briefError && (
+              <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4">
+                <p className="text-sm text-red-400">{briefError}</p>
+                <button
+                  type="button"
+                  onClick={handleGetBrief}
+                  className="mt-2 text-xs text-red-400 underline"
+                >
+                  Try again
+                </button>
+              </div>
+            )}
+
+            {briefData && !briefLoading && (
+              <div className="space-y-4">
+                {/* Status chip */}
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${
+                    briefData.tone === 'celebrating'
+                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                      : briefData.tone === 'encouraging'
+                      ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                      : 'bg-orange-500/15 text-orange-400 border border-orange-500/30'
+                  }`}>
+                    {briefData.tone === 'celebrating' ? '🔥' : briefData.tone === 'encouraging' ? '💪' : '🎯'}
+                    {briefData.status}
+                  </span>
+                  {briefData.focus_skill && (
+                    <span className="rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-400">
+                      {briefData.focus_skill}
+                    </span>
+                  )}
+                </div>
+
+                {/* Acknowledge + Focus */}
+                <div className="space-y-2">
+                  <div className="rounded-xl bg-zinc-800/60 p-3">
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-500">Acknowledge</p>
+                    <p className="text-sm text-zinc-200 leading-relaxed">{briefData.acknowledge}</p>
+                  </div>
+                  <div className="rounded-xl bg-zinc-800/60 p-3">
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-amber-500">Today&apos;s Focus</p>
+                    <p className="text-sm text-zinc-200 leading-relaxed">{briefData.focus}</p>
+                  </div>
+                </div>
+
+                {/* Script */}
+                <div className="rounded-xl border border-violet-500/25 bg-violet-500/10 p-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-400">What to say</p>
+                    <button
+                      type="button"
+                      onClick={handleCopyScript}
+                      className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-violet-400 hover:bg-violet-500/15 transition-colors"
+                    >
+                      {briefCopied ? (
+                        <>
+                          <Check className="h-3 w-3" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3" />
+                          Copy
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-sm text-zinc-100 leading-relaxed italic">&ldquo;{briefData.script}&rdquo;</p>
+                </div>
+
+                {/* Regenerate */}
+                <button
+                  type="button"
+                  onClick={handleGetBrief}
+                  className="w-full rounded-xl border border-zinc-700 py-2.5 text-sm text-zinc-400 hover:border-zinc-600 hover:text-zinc-300 transition-colors"
+                >
+                  Regenerate brief
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

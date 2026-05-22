@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createServiceSupabase } from '@/lib/supabase/server';
+// Ticket 0011: resolve the creating coach's referral code so the parent portal's
+// "Share with your other coach" CTA can deep-link to /signup?ref=CODE. Reuses
+// the SAME deterministic helper /api/referrals uses — do not re-inline it.
+import { makeReferralCode } from '@/lib/referral-code';
 
 export async function GET(
   request: Request,
@@ -54,10 +58,10 @@ export async function GET(
       .eq('id', share.team_id)
       .single();
 
-    // Get coach name
+    // Get coach name + certification status
     const { data: coach } = await supabase
       .from('coaches')
-      .select('full_name')
+      .select('full_name, preferences')
       .eq('id', share.coach_id)
       .single();
 
@@ -79,10 +83,42 @@ export async function GET(
     }
 
     // Build the report data based on what's included
+    const coachPrefs: any = coach?.preferences ?? {};
+
+    // Ticket 0011: resolve the creating coach's referral code so the parent's
+    // "Share with your other coach" CTA forwards /signup?ref=CODE and the
+    // sharing coach gets the referral credit. Mirror the lazy-generate-and-persist
+    // pattern in /api/referrals exactly (preferences.referral_code). The whole
+    // resolution is best-effort: any failure degrades to referralCode: null and
+    // MUST never 500 the public portal.
+    let referralCode: string | null = null;
+    try {
+      if (coach) {
+        referralCode = (coachPrefs?.referral_code as string) || null;
+        if (!referralCode) {
+          const code = makeReferralCode(share.coach_id);
+          await supabase
+            .from('coaches')
+            .update({ preferences: { ...coachPrefs, referral_code: code } })
+            .eq('id', share.coach_id);
+          referralCode = code;
+        }
+      }
+    } catch (refErr) {
+      // A read/write failure must not break the share button — fall back to the
+      // plain app URL on the client by sending a null code.
+      console.error('Referral code resolution failed (degrading to null):', refErr);
+      referralCode = null;
+    }
+
     const reportData: Record<string, any> = {
       player,
       team,
       coachName: coach?.full_name,
+      isCoachCertified: !!(coachPrefs?.certified_at),
+      // Coach-level referral code (or null). Carried by the viral CTA only;
+      // never derived from or scoped to the player (COPPA — ticket 0011).
+      referralCode,
       branding,
       customMessage: share.custom_message,
       // True when the player already has a parent phone on file; the share
@@ -175,6 +211,18 @@ export async function GET(
       reportData.recommendedDrills = drills;
     }
 
+    // Always fetch coach-starred (★) observations — the moments the coach
+    // deliberately curated as the player's best. Shown as "Coach's Best Moments"
+    // on the parent portal regardless of share settings.
+    const { data: starredObs } = await supabase
+      .from('observations')
+      .select('category, sentiment, text, created_at')
+      .eq('player_id', share.player_id)
+      .eq('is_highlighted', true)
+      .order('created_at', { ascending: false })
+      .limit(5);
+    reportData.starredObservations = starredObs ?? [];
+
     // Always fetch earned achievement badges — shown on the parent portal
     // regardless of share settings to celebrate the player's milestones.
     const { data: achievements } = await supabase
@@ -239,6 +287,19 @@ export async function GET(
       .limit(1);
     reportData.skillChallenge = skillChallengePlans?.[0]?.content_structured || null;
 
+    // Player of the Week / Player of the Match spotlight — the most recent
+    // celebratory artifact for THIS player (ticket 0009). Scoped to the share's
+    // player_id so a sibling player's spotlight never leaks. weekly_star and
+    // player_of_match share the same "type IN (...)" lane; most recent wins.
+    const { data: spotlightPlans } = await supabase
+      .from('plans')
+      .select('content_structured, created_at, type')
+      .eq('player_id', share.player_id)
+      .in('type', ['weekly_star', 'player_of_match'])
+      .order('created_at', { ascending: false })
+      .limit(1);
+    reportData.playerSpotlight = spotlightPlans?.[0]?.content_structured ?? null;
+
     // Player development goals — active and achieved goals give parents concrete
     // targets to celebrate and encourage at home. Archived/stalled goals are hidden.
     const { data: playerGoals } = await supabase
@@ -266,6 +327,28 @@ export async function GET(
       .or(`expires_at.is.null,expires_at.gt.${now}`)
       .order('created_at', { ascending: false });
     reportData.announcements = announcements ?? [];
+
+    // Upcoming sessions — show parents when the next practice/game is so
+    // they stop texting the coach "when is practice?". Fetch next 14 days, max 3.
+    const todayDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const twoWeeksDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const { data: upcomingSessions } = await supabase
+      .from('sessions')
+      .select('id, type, date, start_time, location, opponent')
+      .eq('team_id', share.team_id)
+      .gte('date', todayDate)
+      .lte('date', twoWeeksDate)
+      .order('date', { ascending: true })
+      .order('start_time', { ascending: true })
+      .limit(3);
+    reportData.upcomingSessions = (upcomingSessions ?? []).map((s: any) => ({
+      id: s.id,
+      type: s.type,
+      date: s.date,
+      start_time: s.start_time ?? null,
+      location: s.location ?? null,
+      opponent: s.opponent ?? null,
+    }));
 
     // Increment view count
     await supabase

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { Mic, X, CheckCircle2, Loader2, AlertCircle, Square, Zap, Keyboard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { findPlayerByName } from '@/lib/player-match';
@@ -12,7 +13,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query/keys';
 import { useAppStore } from '@/lib/store';
 import {
-  OBSERVATION_TEMPLATES,
   getTemplatesBySentiment,
   type ObservationTemplate,
 } from '@/lib/observation-templates';
@@ -23,7 +23,7 @@ type TemplateStep = 'pick' | 'player' | 'saved';
 
 export function QuickCaptureWidget() {
   const pathname = usePathname();
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
   const queryClient = useQueryClient();
   const practiceActive = useAppStore((s) => s.practiceActive);
   const practiceSessionId = useAppStore((s) => s.practiceSessionId);
@@ -36,6 +36,7 @@ export function QuickCaptureWidget() {
   const [liveTranscript, setLiveTranscript] = useState('');
   const [savedCount, setSavedCount] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [savedPreview, setSavedPreview] = useState<Array<{ playerName: string; sentiment: string; text: string }>>([]);
 
   const transcriptRef = useRef('');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -51,6 +52,7 @@ export function QuickCaptureWidget() {
   const [roster, setRoster] = useState<{ id: string; name: string; jersey_number: number | null }[]>([]);
   const [rosterLoading, setRosterLoading] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [lastObsByPlayer, setLastObsByPlayer] = useState<Map<string, string>>(new Map());
 
   const trapRef = useFocusTrap<HTMLDivElement>({
     enabled: isOpen,
@@ -60,18 +62,45 @@ export function QuickCaptureWidget() {
     },
   });
 
-  // Load roster when templates tab is opened
+  // Load roster + last-observation date per player when templates tab opens.
+  // Players are sorted by recency so unobserved/cold players float to the top.
   useEffect(() => {
     if (!isOpen || activeTab !== 'templates' || !activeTeam?.id || roster.length > 0) return;
     setRosterLoading(true);
-    query<{ id: string; name: string; jersey_number: number | null }[]>({
-      table: 'players',
-      select: 'id, name, jersey_number',
-      filters: { team_id: activeTeam.id, is_active: true },
-    }).then((data) => {
-      setRoster(data || []);
+    Promise.all([
+      query<{ id: string; name: string; jersey_number: number | null }[]>({
+        table: 'players',
+        select: 'id, name, jersey_number',
+        filters: { team_id: activeTeam.id, is_active: true },
+      }),
+      query<{ player_id: string; created_at: string }[]>({
+        table: 'observations',
+        select: 'player_id, created_at',
+        filters: { team_id: activeTeam.id },
+        order: { column: 'created_at', ascending: false },
+        limit: 500,
+      }),
+    ]).then(([playersData, obsData]) => {
+      const players = playersData || [];
+      if (obsData) {
+        const map = new Map<string, string>();
+        for (const obs of obsData) {
+          if (!map.has(obs.player_id)) map.set(obs.player_id, obs.created_at);
+        }
+        setLastObsByPlayer(map);
+        // Never observed → oldest last obs → observed today
+        players.sort((a, b) => {
+          const aDate = map.get(a.id);
+          const bDate = map.get(b.id);
+          if (!aDate && !bDate) return 0;
+          if (!aDate) return -1;
+          if (!bDate) return 1;
+          return new Date(aDate).getTime() - new Date(bDate).getTime();
+        });
+      }
+      setRoster(players);
       setRosterLoading(false);
-    });
+    }).catch(() => setRosterLoading(false));
   }, [isOpen, activeTab, activeTeam?.id, roster.length]);
 
   const cleanupMedia = useCallback(() => {
@@ -93,6 +122,7 @@ export function QuickCaptureWidget() {
     setLiveTranscript('');
     setErrorMsg(null);
     setSavedCount(0);
+    setSavedPreview([]);
     transcriptRef.current = '';
     audioChunksRef.current = [];
   }, []);
@@ -278,6 +308,13 @@ export function QuickCaptureWidget() {
         }
 
         setSavedCount(rows.length);
+        setSavedPreview(
+          observations.map((obs: any) => ({
+            playerName: obs.player_name || 'Team',
+            sentiment: obs.sentiment || 'neutral',
+            text: (obs.text || '').slice(0, 60),
+          }))
+        );
         setWidgetState('success');
 
         if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
@@ -285,7 +322,7 @@ export function QuickCaptureWidget() {
         autoCloseTimerRef.current = setTimeout(() => {
           setIsOpen(false);
           resetVoiceState();
-        }, 2500);
+        }, 3500);
       } catch (err: any) {
         setWidgetState('error');
         setErrorMsg(err.message || 'Failed to save observations.');
@@ -353,8 +390,8 @@ export function QuickCaptureWidget() {
 
   const isBusy = widgetState === 'recording' || widgetState === 'processing' || savingTemplate;
 
-  const positiveTemplates = getTemplatesBySentiment('positive');
-  const needsWorkTemplates = getTemplatesBySentiment('needs-work');
+  const positiveTemplates = getTemplatesBySentiment('positive', sportSlug);
+  const needsWorkTemplates = getTemplatesBySentiment('needs-work', sportSlug);
   const shownTemplates = templateSentiment === 'positive' ? positiveTemplates : needsWorkTemplates;
 
   return (
@@ -519,16 +556,38 @@ export function QuickCaptureWidget() {
                 )}
 
                 {widgetState === 'success' && (
-                  <div className="flex flex-col items-center gap-4 py-6">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20">
-                      <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+                  <div className="flex flex-col gap-3 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
+                        <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-zinc-100">
+                          {savedCount} observation{savedCount !== 1 ? 's' : ''} saved!
+                        </p>
+                        <p className="text-xs text-zinc-500">Closing in a moment…</p>
+                      </div>
                     </div>
-                    <div className="text-center">
-                      <p className="text-sm font-semibold text-zinc-100">
-                        {savedCount} observation{savedCount !== 1 ? 's' : ''} saved!
-                      </p>
-                      <p className="mt-1 text-xs text-zinc-500">Closing in a moment…</p>
-                    </div>
+                    {savedPreview.length > 0 && (
+                      <div className="space-y-1.5">
+                        {savedPreview.slice(0, 4).map((obs, i) => (
+                          <div
+                            key={i}
+                            className="flex items-start gap-2 rounded-xl bg-zinc-800/60 px-3 py-2"
+                          >
+                            <span className="mt-0.5 text-sm leading-none" aria-hidden="true">
+                              {obs.sentiment === 'positive' ? '✅' : obs.sentiment === 'needs-work' ? '⚠️' : '·'}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-medium text-zinc-300">
+                                {obs.playerName}
+                              </p>
+                              <p className="truncate text-xs text-zinc-500">{obs.text}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -638,12 +697,25 @@ export function QuickCaptureWidget() {
                         <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
                       </div>
                     ) : roster.length === 0 ? (
-                      <p className="py-3 text-center text-xs text-zinc-500">
-                        No active players on roster yet
-                      </p>
+                      <div className="py-4 text-center space-y-2">
+                        <p className="text-xs text-zinc-500">No active players on roster yet</p>
+                        <Link
+                          href="/roster/add"
+                          className="inline-block rounded-lg bg-orange-500/15 px-3 py-1.5 text-xs font-medium text-orange-400 hover:bg-orange-500/25 transition-colors"
+                        >
+                          Build your roster →
+                        </Link>
+                      </div>
                     ) : (
                       <div className="grid max-h-52 grid-cols-2 gap-1.5 overflow-y-auto pb-1">
-                        {roster.map((player) => (
+                        {roster.map((player) => {
+                          const lastIso = lastObsByPlayer.get(player.id);
+                          const days = lastIso ? Math.floor((Date.now() - new Date(lastIso).getTime()) / 86_400_000) : null;
+                          const ring = lastObsByPlayer.size === 0 ? '' :
+                            days === null ? 'ring-1 ring-zinc-500/70' :
+                            days === 0 ? 'ring-1 ring-emerald-500/60' :
+                            days < 7 ? 'ring-1 ring-amber-500/60' : 'ring-1 ring-red-500/70';
+                          return (
                           <button
                             key={player.id}
                             type="button"
@@ -655,12 +727,13 @@ export function QuickCaptureWidget() {
                               savingTemplate && 'pointer-events-none opacity-50'
                             )}
                           >
-                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500/20 text-xs font-bold text-orange-400">
+                            <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500/20 text-xs font-bold text-orange-400', ring)}>
                               {player.jersey_number != null ? `#${player.jersey_number}` : player.name.charAt(0).toUpperCase()}
                             </span>
                             <span className="truncate">{player.name.split(' ')[0]}</span>
                           </button>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
 

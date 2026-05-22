@@ -101,7 +101,7 @@ export function isGameSession(session: ActionSession): boolean {
 // ── Gate check ────────────────────────────────────────────────────────────────
 
 export function hasSufficientDataForWins(obsCount: number, sessionCount: number): boolean {
-  return obsCount >= 5 && sessionCount >= 1;
+  return sessionCount >= 1;
 }
 
 // ── Action builders ───────────────────────────────────────────────────────────

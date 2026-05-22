@@ -122,6 +122,9 @@ export async function POST(request: Request) {
       .insert({
         team_id: teamId,
         coach_id: user.id,
+        // Stamp the standout player so the spotlight can be attached to the
+        // right player's parent share portal (ticket 0009).
+        player_id: candidate.player_id,
         ai_interaction_id: result.interactionId,
         type: 'weekly_star',
         title: `Weekly Star — ${candidate.player_name} (${weekLabel})`,

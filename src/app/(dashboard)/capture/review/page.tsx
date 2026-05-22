@@ -1,9 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  formatPlayerChipLabel,
+  getUnobservedPlayers,
+  countUnobservedPlayers,
+  hasAllPlayersObserved,
+} from '@/lib/capture-coverage-utils';
 import { query, mutate } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +32,8 @@ import {
   AlertTriangle,
   Sparkles,
   Calendar,
+  Share2,
+  MessageCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { findPlayerByName } from '@/lib/player-match';
@@ -91,6 +99,21 @@ export default function ReviewPage() {
   const [aiUpgrade, setAiUpgrade] = useState<{ message: string } | null>(null);
   const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [parentUpdateShared, setParentUpdateShared] = useState(false);
+
+  // Lightweight session fetch — shows which session observations will be saved to
+  const { data: sessionMeta } = useQuery<{ date: string; type: string } | null>({
+    queryKey: ['review-session-meta', sessionId],
+    queryFn: () =>
+      query<{ date: string; type: string }[]>({
+        table: 'sessions',
+        select: 'date, type',
+        filters: { id: sessionId! },
+        limit: 1,
+      }).then((r) => r?.[0] ?? null),
+    enabled: !!sessionId && !!activeTeam,
+    staleTime: 10 * 60_000,
+  });
 
   // Roster for player reassignment picker
   const { data: rosterPlayers = [] } = useQuery<RosterPlayer[]>({
@@ -104,6 +127,34 @@ export default function ReviewPage() {
     enabled: !!activeTeam,
     staleTime: 5 * 60_000,
   });
+
+  // Fetch session coverage after save to show "who's next" chips
+  const { data: sessionObservedIds } = useQuery({
+    queryKey: ['review-session-coverage', sessionId],
+    queryFn: async () => {
+      if (!sessionId) return null;
+      const obs = await query<{ player_id: string | null }[]>({
+        table: 'observations',
+        select: 'player_id',
+        filters: { session_id: sessionId },
+      });
+      if (!obs) return new Set<string>();
+      return new Set(obs.filter((o) => o.player_id).map((o) => o.player_id as string));
+    },
+    enabled: !!sessionId && savedCount !== null,
+    staleTime: 0,
+  });
+
+  const { unobservedChips, unobservedTotal, allObserved } = useMemo(() => {
+    if (!sessionObservedIds || !rosterPlayers) {
+      return { unobservedChips: [], unobservedTotal: 0, allObserved: false };
+    }
+    return {
+      unobservedChips: getUnobservedPlayers(rosterPlayers, sessionObservedIds),
+      unobservedTotal: countUnobservedPlayers(rosterPlayers, sessionObservedIds),
+      allObserved: hasAllPlayersObserved(rosterPlayers, sessionObservedIds),
+    };
+  }, [sessionObservedIds, rosterPlayers]);
 
   const isApiKeyError = (msg: string): boolean => {
     const lower = msg.toLowerCase();
@@ -437,6 +488,48 @@ export default function ReviewPage() {
     const uniquePlayers = new Set(savedObs.map((o) => o.player_name)).size;
     const topHighlights = positiveObs.slice(0, 2);
 
+    // Build top positive skill categories for the quick parent update message
+    const topPositiveCats = positiveObs
+      .map((o) => o.category)
+      .filter((c, i, arr) => arr.indexOf(c) === i && c !== 'general')
+      .slice(0, 2)
+      .map((c) => c.charAt(0).toUpperCase() + c.slice(1).replace(/_/g, ' '));
+
+    function buildQuickParentUpdate(): string {
+      const coachFirst = coach?.full_name?.split(' ')[0] ?? 'Coach';
+      const teamName = activeTeam?.name ?? 'the team';
+      const lines: string[] = [];
+      lines.push(`📋 Practice update from Coach ${coachFirst}!`);
+      lines.push('');
+      if (uniquePlayers > 0) {
+        lines.push(
+          `Great session! ${savedCount} coaching moment${savedCount !== 1 ? 's' : ''} captured across ${uniquePlayers} player${uniquePlayers !== 1 ? 's' : ''}.`
+        );
+      } else {
+        lines.push('Great practice today! The team put in some solid work.');
+      }
+      if (topPositiveCats.length > 0) {
+        lines.push(`Highlights today: ${topPositiveCats.join(' & ')}.`);
+      }
+      if (needsWorkObs.length > 0) {
+        lines.push('Keep practising at home to stay sharp!');
+      }
+      lines.push('');
+      lines.push(`— Coach ${coachFirst}, ${teamName}`);
+      return lines.join('\n');
+    }
+
+    async function handleShareParentUpdate() {
+      const msg = buildQuickParentUpdate();
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        try { await navigator.share({ text: msg }); } catch { /* dismissed */ }
+      } else {
+        await navigator.clipboard.writeText(msg);
+      }
+      setParentUpdateShared(true);
+      setTimeout(() => setParentUpdateShared(false), 2500);
+    }
+
     return (
       <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center p-4">
         <Card className="w-full max-w-md border-emerald-500/20">
@@ -493,6 +586,71 @@ export default function ReviewPage() {
               </div>
             )}
 
+            {/* Unobserved player chips — shown during active sessions */}
+            {sessionId && unobservedChips.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                  Not yet observed this session ({unobservedTotal})
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {unobservedChips.map((p) => (
+                    <Link
+                      key={p.id}
+                      href={`/capture?sessionId=${sessionId}&playerId=${p.id}&player=${encodeURIComponent(p.name)}`}
+                    >
+                      <span className="inline-flex items-center rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-xs font-medium text-orange-300 hover:bg-orange-500/20 transition-colors touch-manipulation active:scale-95">
+                        {formatPlayerChipLabel(p.name, p.jersey_number)} →
+                      </span>
+                    </Link>
+                  ))}
+                  {unobservedTotal > unobservedChips.length && (
+                    <Link href={`/sessions/${sessionId}`}>
+                      <span className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:bg-zinc-700 transition-colors touch-manipulation active:scale-95">
+                        +{unobservedTotal - unobservedChips.length} more
+                      </span>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {sessionId && allObserved && rosterPlayers && rosterPlayers.length > 0 && (
+              <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                <span>Every player observed this session — great coverage!</span>
+              </div>
+            )}
+
+            {/* Quick parent update — instant, no-AI WhatsApp/SMS message */}
+            {positiveObs.length > 0 && (
+              <div className="rounded-xl border border-teal-500/30 bg-teal-500/10 p-3.5 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 text-teal-400 shrink-0" />
+                  <p className="text-sm font-semibold text-teal-300">Quick parent update ready</p>
+                </div>
+                <p className="text-xs text-zinc-400 leading-relaxed whitespace-pre-line">
+                  {buildQuickParentUpdate()}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleShareParentUpdate}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-500/20 border border-teal-500/30 px-3 py-2 text-sm font-medium text-teal-300 hover:bg-teal-500/30 active:scale-[0.98] transition-all touch-manipulation"
+                >
+                  {parentUpdateShared ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      {typeof navigator !== 'undefined' && 'share' in navigator ? 'Sent!' : 'Copied!'}
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="h-4 w-4" />
+                      Send to Parent Group Chat
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
             {/* CTAs */}
             <div className="flex flex-col gap-2.5 pt-1">
               {sessionId ? (
@@ -511,7 +669,7 @@ export default function ReviewPage() {
                   <Button
                     variant="outline"
                     className="w-full"
-                    onClick={() => router.push('/capture')}
+                    onClick={() => router.push(`/capture?sessionId=${sessionId}`)}
                   >
                     <Mic className="h-4 w-4" />
                     Capture More
@@ -561,6 +719,20 @@ export default function ReviewPage() {
         <ArrowLeft className="h-4 w-4" />
         Capture
       </Link>
+
+      {/* Session context banner — confirms which session observations will be saved to */}
+      {sessionId && sessionMeta && (
+        <div className="flex items-center gap-2.5 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2.5">
+          <Calendar className="h-4 w-4 shrink-0 text-blue-400" />
+          <p className="text-sm text-blue-300">
+            Saving to:{' '}
+            <span className="font-semibold text-blue-200">
+              {(sessionMeta.type.charAt(0).toUpperCase() + sessionMeta.type.slice(1))} ·{' '}
+              {new Date(sessionMeta.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </span>
+          </p>
+        </div>
+      )}
 
       {/* AI Error Banner */}
       {aiError && (
