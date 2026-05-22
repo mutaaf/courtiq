@@ -1,7 +1,7 @@
 ---
 id: 0018
 title: Make the Practice Arc remember itself — surface "what carried forward" at the next practice
-status: groomed
+status: shipped
 priority: P1
 area: plans
 created: 2026-05-22
