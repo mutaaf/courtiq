@@ -1,7 +1,7 @@
 ---
 id: 0014
 title: Show last practice's focus areas at the top of Capture so the coach picks up where they left off
-status: in-progress
+status: shipped
 priority: P1
 area: capture
 created: 2026-05-21
