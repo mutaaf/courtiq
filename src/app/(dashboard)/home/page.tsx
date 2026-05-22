@@ -61,6 +61,7 @@ import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot
 import { ContinueArcCard } from '@/components/home/continue-arc-card';
 import { ArcCompleteCard } from '@/components/home/arc-complete-card';
 import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
+import { InviteCoachCard } from '@/components/home/invite-coach-card';
 import { GameDayCard } from '@/components/home/game-day-card';
 import { GoalDeadlineCard } from '@/components/home/goal-deadline-card';
 import { QuickWinsCard } from '@/components/home/quick-wins-card';
@@ -1552,6 +1553,19 @@ export default function HomePage() {
         />
       )}
 
+      {/* Invite a Coach — shown to established coaches (≥2 sessions, ≥10 obs) to drive referrals */}
+      {activeTeam && coach && stats && stats.sessions >= 2 && stats.observations >= 10 && (
+        <InviteCoachCard
+          coachId={coach.id}
+          coachName={coach.full_name ?? null}
+          teamName={activeTeam.name}
+          observations={stats.observations}
+          players={stats.players}
+          sessions={stats.sessions}
+        />
+      )}
+
+      {/* Upcoming sessions this week */}
       {upcomingSessions.length > 0 && (
         <UpcomingSessionsCard
           sessions={upcomingSessions}
