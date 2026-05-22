@@ -1,5 +1,6 @@
 /**
  * E2E: Generate Plan → View Plan → Delete Plan
+ *       + Arc Continuity Banner (ticket 0018)
  *
  * Requires E2E_TEST_EMAIL + E2E_TEST_PASSWORD env vars for authenticated flows.
  */
@@ -168,5 +169,121 @@ test.describe('Generate Plan → View Plan → Delete Plan', () => {
 
     // Plan should be removed from list
     await expect(page.getByText('Weekly Practice Plan')).not.toBeVisible({ timeout: 5000 });
+  });
+});
+
+// ── Ticket 0018: arc continuity banner ────────────────────────────────────────
+test.describe('Practice Arc Continuity Banner', () => {
+  let authenticated = false;
+
+  test.beforeEach(async ({ page }) => {
+    authenticated = await signInViaUI(page);
+    if (!authenticated) return;
+    await mockMeEndpoint(page);
+    await mockDataEndpoint(page, { plans: TEST_PLANS, players: [], observations: [] });
+    await mockMutateEndpoint(page);
+    // Prevent real plan-generation calls
+    await page.route('**/api/ai/plan', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) })
+    );
+  });
+
+  // AC: continuity line visible when active arc exists (text matching /session \d+ of \d+/i)
+  test('shows arc continuity banner when an active practice arc exists', async ({ page }) => {
+    if (!authenticated) {
+      test.skip(true, 'Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD to run authenticated tests');
+    }
+
+    await page.route('**/api/ai/practice-arc/active**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          active: {
+            arc_title: 'Defense Arc',
+            total_sessions: 3,
+            currentSessionNumber: 2,
+            currentSession: { session_number: 2, theme: 'Help Defense', key_coaching_point: 'Talk on every cut' },
+            priorSession: {
+              session_number: 1,
+              theme: 'Closeouts',
+              carries_forward: 'Introduced closeout footwork; reinforce stance in session 2',
+            },
+          },
+        }),
+      })
+    );
+
+    await page.goto('/plans');
+
+    // Banner text matches /session \d+ of \d+/i — per the ticket's AC
+    await expect(page.getByText(/session 2 of 3/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/Defense Arc/i)).toBeVisible();
+    // Prior session carries_forward text visible
+    await expect(page.getByText(/Introduced closeout footwork/i)).toBeVisible();
+  });
+
+  // AC: continuity banner absent when no active arc
+  test('hides arc continuity banner when there is no active practice arc', async ({ page }) => {
+    if (!authenticated) {
+      test.skip(true, 'Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD to run authenticated tests');
+    }
+
+    await page.route('**/api/ai/practice-arc/active**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ active: null }),
+      })
+    );
+
+    await page.goto('/plans');
+
+    await expect(page.getByText(/session \d+ of \d+/i)).not.toBeVisible({ timeout: 5000 });
+  });
+
+  // AC5: when active-arc read fails, plan generation still proceeds
+  test('plan generation proceeds even when active-arc endpoint returns 500', async ({ page }) => {
+    if (!authenticated) {
+      test.skip(true, 'Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD to run authenticated tests');
+    }
+
+    // Arc endpoint errors out — should not block the generate flow
+    await page.route('**/api/ai/practice-arc/active**', (route) =>
+      route.fulfill({ status: 500, body: 'Internal Server Error' })
+    );
+
+    // Plan generation returns a valid plan
+    await page.unroute('**/api/ai/plan');
+    await page.route('**/api/ai/plan', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          title: 'Defensive Focus Practice',
+          type: 'practice',
+          content: {
+            objective: 'Improve defensive positioning and communication',
+            drills: [
+              { name: 'Box Out Drill', duration: 10, notes: 'Focus on footwork' },
+            ],
+          },
+        }),
+      })
+    );
+
+    await page.goto('/plans');
+
+    // No banner — arc failed to load
+    await expect(page.getByText(/session \d+ of \d+/i)).not.toBeVisible({ timeout: 5000 });
+
+    // Generate still works
+    const promptInput = page.getByPlaceholder(/describe what you need/i);
+    await expect(promptInput).toBeVisible();
+    await promptInput.fill('Defensive positioning');
+    await page.getByRole('button', { name: /generate with ai/i }).click();
+
+    // Plan preview appears — generation was not blocked by arc failure
+    await expect(page.getByText('Defensive Focus Practice')).toBeVisible({ timeout: 10000 });
   });
 });
