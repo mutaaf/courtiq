@@ -476,3 +476,70 @@ describe('truncateObsText', () => {
     expect(result.endsWith('…')).toBe(true);
   });
 });
+
+// ─── countObsByPlayer / sortPlayersByObsCount ─────────────────────────────────
+
+import { countObsByPlayer, sortPlayersByObsCount } from '../src/lib/timer-focus-utils';
+
+describe('countObsByPlayer', () => {
+  it('returns empty object for empty notes', () => {
+    expect(countObsByPlayer([])).toEqual({});
+  });
+
+  it('ignores notes without a playerId', () => {
+    const notes = [{ note: 'team note' }, { playerId: undefined }];
+    expect(countObsByPlayer(notes)).toEqual({});
+  });
+
+  it('counts each player correctly', () => {
+    const notes = [
+      { playerId: 'p1' },
+      { playerId: 'p2' },
+      { playerId: 'p1' },
+      { playerId: 'p1' },
+    ];
+    expect(countObsByPlayer(notes)).toEqual({ p1: 3, p2: 1 });
+  });
+
+  it('mixes noted and un-noted players in same array', () => {
+    const notes = [{ playerId: 'p1' }, { note: 'general' }, { playerId: 'p1' }];
+    expect(countObsByPlayer(notes)).toEqual({ p1: 2 });
+  });
+});
+
+describe('sortPlayersByObsCount', () => {
+  it('returns empty array for empty players', () => {
+    expect(sortPlayersByObsCount([], {})).toEqual([]);
+  });
+
+  it('places unobserved players before observed ones', () => {
+    const players = [{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }];
+    const counts = { p1: 3, p3: 1 };
+    const result = sortPlayersByObsCount(players, counts);
+    expect(result[0].id).toBe('p2'); // 0 obs
+    expect(result[1].id).toBe('p3'); // 1 obs
+    expect(result[2].id).toBe('p1'); // 3 obs
+  });
+
+  it('preserves original roster order for ties', () => {
+    const players = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+    const counts = { a: 2, b: 2, c: 2 };
+    const result = sortPlayersByObsCount(players, counts);
+    expect(result.map((p) => p.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('treats missing count as 0', () => {
+    const players = [{ id: 'x' }, { id: 'y' }];
+    const counts = { y: 1 };
+    const result = sortPlayersByObsCount(players, counts);
+    expect(result[0].id).toBe('x');
+    expect(result[1].id).toBe('y');
+  });
+
+  it('does not mutate the original players array', () => {
+    const players = [{ id: 'p1' }, { id: 'p2' }];
+    const counts = { p1: 5 };
+    sortPlayersByObsCount(players, counts);
+    expect(players[0].id).toBe('p1');
+  });
+});

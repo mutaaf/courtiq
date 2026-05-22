@@ -202,3 +202,35 @@ export function truncateObsText(text: string, maxLen = 72): string {
   if (text.length <= maxLen) return text;
   return text.slice(0, maxLen - 1).trimEnd() + '…';
 }
+
+// ─── Session Coverage Helpers ─────────────────────────────────────────────────
+// Used by the mid-drill Quick Note overlay to sort players so unobserved ones
+// appear first, reducing the coach's mental overhead of tracking coverage.
+
+/**
+ * Count how many observations each player has received in the current session.
+ * Notes without a `playerId` (team/general notes) are ignored.
+ */
+export function countObsByPlayer(
+  notes: { playerId?: string }[]
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const n of notes) {
+    if (!n.playerId) continue;
+    counts[n.playerId] = (counts[n.playerId] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/**
+ * Return a copy of `players` sorted ascending by session observation count
+ * (players with 0 observations first). Ties preserve the original roster order.
+ */
+export function sortPlayersByObsCount<T extends { id: string }>(
+  players: T[],
+  counts: Record<string, number>
+): T[] {
+  return [...players].sort(
+    (a, b) => (counts[a.id] ?? 0) - (counts[b.id] ?? 0)
+  );
+}

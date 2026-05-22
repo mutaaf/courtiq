@@ -68,6 +68,8 @@ import {
   buildLastObsByPlayer,
   formatLastObsTime,
   truncateObsText,
+  countObsByPlayer,
+  sortPlayersByObsCount,
   type NeedsWorkObs,
   type RecentObs,
   type LastObsInfo,
@@ -1184,20 +1186,14 @@ export default function PracticeTimerPage({
   );
 
   // Per-player observation count for this session — drives Quick Note sort order
-  const sessionObsCountByPlayer = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const n of notes) {
-      if (n.playerId) counts[n.playerId] = (counts[n.playerId] ?? 0) + 1;
-    }
-    return counts;
-  }, [notes]);
+  const sessionObsCountByPlayer = useMemo(
+    () => countObsByPlayer(notes),
+    [notes]
+  );
 
   // Sorted player list for Quick Note overlay: unobserved players first
   const sortedForQuickNote = useMemo(
-    () =>
-      [...presentPlayers].sort(
-        (a, b) => (sessionObsCountByPlayer[a.id] ?? 0) - (sessionObsCountByPlayer[b.id] ?? 0)
-      ),
+    () => sortPlayersByObsCount(presentPlayers, sessionObsCountByPlayer),
     [presentPlayers, sessionObsCountByPlayer]
   );
 
@@ -2071,7 +2067,7 @@ export default function PracticeTimerPage({
                     <div key={p.id} className={`flex items-center gap-2 rounded-xl px-3 py-2.5 ${sessionCount === 0 ? 'bg-zinc-800 border border-zinc-700/40' : 'bg-zinc-800/60'}`}>
                       <span className={`flex-1 text-sm font-medium truncate ${sessionCount === 0 ? 'text-zinc-100' : 'text-zinc-400'}`}>{label}</span>
                       {sessionCount > 0 && (
-                        <span className="text-[10px] font-medium text-zinc-600 tabular-nums shrink-0">{sessionCount}×</span>
+                        <span className="text-[10px] font-medium text-zinc-400 tabular-nums shrink-0">{sessionCount}×</span>
                       )}
                       <button
                         onClick={() => handleMidDrillNote(p.id, p.name, 'positive')}
