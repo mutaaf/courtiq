@@ -1,7 +1,7 @@
 ---
 id: 0020
 title: Bring the active Practice Arc onto Capture so the coach picks up the arc mid-practice
-status: groomed
+status: in-progress
 priority: P1
 area: capture
 created: 2026-05-22
@@ -150,7 +150,11 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0020-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-22 — branch `feat/0020-arc-continuity-on-capture` opened; ticket marked in-progress.
+- 2026-05-22 — Contract reconciliation: the ticket prose says the endpoint returns `arcTitle`,
+  but the real `GET /api/ai/practice-arc/active` (`src/app/api/ai/practice-arc/active/route.ts`)
+  returns `{ active: { arc_title, total_sessions, currentSessionNumber, currentSession,
+  priorSession, progression_note } }` (snake_case `arc_title`; per-session
+  `key_coaching_point` / `carries_forward` live on `currentSession`/`priorSession`). Per
+  LESSONS#39 I assert the REAL contract — the component consumes `ActiveArcResponse` from the
+  route, not the prose shape. Route is NOT modified (out-of-scope).
