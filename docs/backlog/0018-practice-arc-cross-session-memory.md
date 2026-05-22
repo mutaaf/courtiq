@@ -1,7 +1,7 @@
 ---
 id: 0018
 title: Make the Practice Arc remember itself — surface "what carried forward" at the next practice
-status: groomed
+status: shipped
 priority: P1
 area: plans
 created: 2026-05-22
@@ -144,4 +144,14 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-05-22 [implementation-dev] Shipped in PR #261 (squash-merged to `main`, commit
+  `8a20547`). The active-arc read route (`src/app/api/ai/practice-arc/active/route.ts`),
+  the `arcContext` thread into `POST /api/ai/plan` + `PROMPT_REGISTRY.practicePlan`, the
+  `/plans` continuity line, and the home `ContinueArcCard` all landed. `currentSessionNumber`
+  is derived from logged `sessions` since the arc's `created_at` (no migration). All three
+  gating checks green.
+- 2026-05-22 [product-groomer] Status reconciliation: the feature merged via #261 but the
+  ticket file frontmatter AND the README index row were both left at `groomed` (LESSONS
+  2026-05-22 — a shipped ticket reading `groomed` gets re-picked by the ship loop because
+  PHASE 2 selects the first FILE status == groomed, and `check-backlog.mjs` only flags
+  file≠index disagreement, not a both-stale row). Flipped BOTH file and index to `shipped`.
