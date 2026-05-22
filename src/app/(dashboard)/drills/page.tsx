@@ -18,6 +18,7 @@ import { useRouter } from 'next/navigation';
 import type { Drill, Observation } from '@/types/database';
 import { isFavorited, filterToFavorites, parseFavoritedDrills } from '@/lib/drill-favorites-utils';
 import { useAppStore } from '@/lib/store';
+import { addDrillToQueue, readQueuedDrillIds } from '@/lib/practice-queue';
 
 const DRILL_CATEGORIES = [
   'Offense', 'Defense', 'Conditioning', 'Fundamentals', 'Passing', 'Shooting', 'Dribbling', 'Teamwork',
@@ -182,10 +183,8 @@ export default function DrillsPage() {
   const hasActiveFilters = categoryFilter || ageFilter || search || showFavoritesOnly;
 
   // ─── Practice queue integration ──────────────────────────────────────────────
-  const { practiceActive, practiceSessionId } = useAppStore((s) => ({
-    practiceActive: s.practiceActive,
-    practiceSessionId: s.practiceSessionId,
-  }));
+  const practiceActive = useAppStore((s) => s.practiceActive);
+  const practiceSessionId = useAppStore((s) => s.practiceSessionId);
 
   // Tracks which drill IDs are already in the current practice queue (from localStorage)
   const [queuedDrillIds, setQueuedDrillIds] = useState<Set<string>>(new Set());
@@ -198,33 +197,15 @@ export default function DrillsPage() {
       setQueuedDrillIds(new Set());
       return;
     }
-    try {
-      const key = `practice-timer-queue-v1-${practiceSessionId}`;
-      const raw = localStorage.getItem(key);
-      const queue: { drillId?: string }[] = raw ? JSON.parse(raw) : [];
-      setQueuedDrillIds(new Set(queue.map((q) => q.drillId).filter(Boolean) as string[]));
-    } catch {
-      setQueuedDrillIds(new Set());
-    }
+    setQueuedDrillIds(readQueuedDrillIds(practiceSessionId));
   }, [practiceActive, practiceSessionId]);
 
   function handleAddToQueue(e: React.MouseEvent, drill: Drill) {
     e.preventDefault();
     e.stopPropagation();
     if (!practiceSessionId) return;
-    const key = `practice-timer-queue-v1-${practiceSessionId}`;
     try {
-      const raw = localStorage.getItem(key);
-      const existing: { id: string; name: string; durationSecs: number; cues: string[]; drillId?: string; skill_category?: string }[] = raw ? JSON.parse(raw) : [];
-      existing.push({
-        id: `drill-${drill.id}-${Date.now()}`,
-        name: drill.name,
-        durationSecs: (drill.duration_minutes ?? 5) * 60,
-        cues: drill.teaching_cues ?? [],
-        drillId: drill.id,
-        skill_category: drill.category,
-      });
-      localStorage.setItem(key, JSON.stringify(existing));
+      addDrillToQueue(practiceSessionId, drill);
       setQueuedDrillIds((prev) => new Set([...prev, drill.id]));
       setJustAddedIds((prev) => new Set([...prev, drill.id]));
       setTimeout(() => {
@@ -387,7 +368,7 @@ export default function DrillsPage() {
                           : 'bg-orange-500/15 text-orange-400 hover:bg-orange-500/25'
                       }`}
                     >
-                      {justAdded ? <Check className="h-3.5 w-3.5" /> : inQueue ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                      {justAdded || inQueue ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
                     </button>
                   ) : (
                     <ChevronRight className="h-4 w-4 text-zinc-600 shrink-0 mt-0.5" />
