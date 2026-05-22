@@ -116,6 +116,20 @@ values (
 )
 on conflict (id) do nothing;
 
+-- ── debriefed session (ticket 0014 — carryover strip) ─────────────────────
+-- An older practice session with coach_debrief_extracts populated so the
+-- carryover route returns a deterministic phrase for the capture-carryover
+-- spec. The focus phrase 'closeouts' is the one asserted in the spec.
+insert into sessions (id, team_id, coach_id, type, date, location, notes, coach_debrief_extracts)
+values (
+  '00000000-0000-4000-a000-000000000041',
+  '00000000-0000-4000-a000-000000000020',
+  '00000000-0000-4000-a000-000000000001',
+  'practice', current_date - 10, 'Main Gym', 'E2E seed debriefed session',
+  '{"session_summary":"Good practice","player_highlights":[],"areas_to_improve":[],"next_practice_focus":[{"focus":"closeouts","rationale":"Gave up too many open threes","suggested_drill":"Close-out drill"},{"focus":"weak-hand finishing","rationale":"Drove left repeatedly","suggested_drill":"Mikan drill"}],"coaching_tip":"Keep it simple","overall_tone":"good"}'::jsonb
+)
+on conflict (id) do nothing;
+
 -- ── observations ──────────────────────────────────────────────────────────
 -- A few observations on Alice (positive ones surface on the parent portal as
 -- highlights / season stats). Text mirrors the spec fixtures so the un-mocked
