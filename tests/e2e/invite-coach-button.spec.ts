@@ -10,7 +10,7 @@
  *     still records referred_by_code. No new spec needed here.
  */
 import { test, expect } from '@playwright/test';
-import { signInViaUI, TEST_COACH, TEST_TEAM } from './helpers/auth';
+import { signInViaUI, mockMeEndpoint } from './helpers/auth';
 
 // The seeded coach's lazily-generated code (all-zero hex → CHARS[0]='A' ×6)
 const INVITE_CODE = 'AAAAAA';
@@ -21,19 +21,6 @@ async function mockReferralsEndpoint(page: import('@playwright/test').Page, code
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ code, referralCount: 0, rewardEarned: false }),
-    })
-  );
-}
-
-async function mockMeEndpoint(page: import('@playwright/test').Page) {
-  await page.route('**/api/me', (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        coach: { ...TEST_COACH, organizations: { id: TEST_COACH.org_id, tier: 'coach' } },
-        teams: [TEST_TEAM],
-      }),
     })
   );
 }
