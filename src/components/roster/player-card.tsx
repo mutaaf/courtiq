@@ -41,6 +41,8 @@ interface PlayerCardProps {
   teamId?: string;
   orgId?: string;
   momentum?: PlayerMomentum | null;
+  /** When provided, tapping the card opens practice focus mode instead of navigating. */
+  onPracticeFocus?: (player: Player) => void;
   coachName?: string | null;
   teamName?: string | null;
   sportSlug?: string | null;
@@ -93,6 +95,7 @@ export function PlayerCard({
   teamId,
   orgId,
   momentum = null,
+  onPracticeFocus,
   coachName,
   teamName,
   sportSlug,
@@ -169,6 +172,8 @@ export function PlayerCard({
   function handleClick() {
     if (selectMode && onSelect) {
       onSelect(player.id);
+    } else if (onPracticeFocus) {
+      onPracticeFocus(player);
     } else {
       router.push(`/roster/${player.id}`);
     }
@@ -198,6 +203,7 @@ export function PlayerCard({
         className={cn(
           'cursor-pointer transition-all hover:border-orange-500/50 hover:bg-zinc-900/80',
           selected && 'border-orange-500 bg-orange-500/5',
+          onPracticeFocus && 'hover:border-orange-500/70 active:scale-[0.98] touch-manipulation',
         )}
         onClick={handleClick}
       >
@@ -296,49 +302,57 @@ export function PlayerCard({
             )}
           </div>
 
-          {/* Right side: obs count (desktop only) + quick actions */}
+          {/* Right side: practice focus indicator OR obs count + quick actions */}
           <div className="flex flex-col items-end gap-2">
-            {observationCount > 0 && (
-              <div className="hidden sm:flex flex-col items-center">
-                <span className="text-lg font-bold text-orange-500">{observationCount}</span>
-                <span className="text-[10px] text-zinc-500">obs</span>
+            {onPracticeFocus ? (
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-500/15">
+                <Zap className="h-4 w-4 text-orange-400" aria-hidden="true" />
               </div>
-            )}
-            {/* Quick Observe — one tap to log an observation without leaving the roster list */}
-            {!selectMode && teamId && orgId && (
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowQuickObs(true); }}
-                className="touch-manipulation rounded-full p-1.5 transition-colors text-orange-500 hover:bg-orange-500/10 hover:text-orange-400"
-                aria-label={`Quick observation for ${player.name}`}
-                title="Quick observation"
-              >
-                <Zap className="h-3.5 w-3.5" />
-              </button>
-            )}
-            {/* Quick-text parent via WhatsApp — only when phone is on file */}
-            {player.parent_phone && !selectMode && (
-              <button
-                onClick={handleQuickText}
-                className="touch-manipulation rounded-full p-1.5 transition-colors text-teal-600 hover:bg-teal-500/10 hover:text-teal-400"
-                aria-label={`Send WhatsApp update to ${player.name}'s parent`}
-                title={`Text ${player.parent_name?.split(' ')[0] ?? 'parent'} on WhatsApp`}
-              >
-                {textSent
-                  ? <Check className="h-3.5 w-3.5 text-teal-400" />
-                  : <Phone className="h-3.5 w-3.5" />
-                }
-              </button>
-            )}
-            {/* Tap when "available" to set a restriction */}
-            {!showBadge && teamId && !selectMode && (
-              <button
-                onClick={handleAvailabilityClick}
-                className="touch-manipulation rounded-full p-1 text-zinc-600 hover:bg-zinc-800 hover:text-zinc-400"
-                aria-label={`Set availability for ${player.name}`}
-                title="Set availability"
-              >
-                <AvailabilityBadge status="available" size="dot" />
-              </button>
+            ) : (
+              <>
+                {observationCount > 0 && (
+                  <div className="hidden sm:flex flex-col items-center">
+                    <span className="text-lg font-bold text-orange-500">{observationCount}</span>
+                    <span className="text-[10px] text-zinc-500">obs</span>
+                  </div>
+                )}
+                {/* Quick Observe — one tap to log an observation without leaving the roster list */}
+                {!selectMode && teamId && orgId && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowQuickObs(true); }}
+                    className="touch-manipulation rounded-full p-1.5 transition-colors text-orange-500 hover:bg-orange-500/10 hover:text-orange-400"
+                    aria-label={`Quick observation for ${player.name}`}
+                    title="Quick observation"
+                  >
+                    <Zap className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                {/* Quick-text parent via WhatsApp — only when phone is on file */}
+                {player.parent_phone && !selectMode && (
+                  <button
+                    onClick={handleQuickText}
+                    className="touch-manipulation rounded-full p-1.5 transition-colors text-teal-600 hover:bg-teal-500/10 hover:text-teal-400"
+                    aria-label={`Send WhatsApp update to ${player.name}'s parent`}
+                    title={`Text ${player.parent_name?.split(' ')[0] ?? 'parent'} on WhatsApp`}
+                  >
+                    {textSent
+                      ? <Check className="h-3.5 w-3.5 text-teal-400" />
+                      : <Phone className="h-3.5 w-3.5" />
+                    }
+                  </button>
+                )}
+                {/* Tap when "available" to set a restriction */}
+                {!showBadge && teamId && !selectMode && (
+                  <button
+                    onClick={handleAvailabilityClick}
+                    className="touch-manipulation rounded-full p-1 text-zinc-600 hover:bg-zinc-800 hover:text-zinc-400"
+                    aria-label={`Set availability for ${player.name}`}
+                    title="Set availability"
+                  >
+                    <AvailabilityBadge status="available" size="dot" />
+                  </button>
+                )}
+              </>
             )}
           </div>
         </CardContent>
