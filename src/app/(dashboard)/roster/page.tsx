@@ -11,7 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlayerCard } from '@/components/roster/player-card';
 import { BulkActionsBar } from '@/components/roster/bulk-actions-bar';
-import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareArrows, CheckSquare, ShieldAlert, Radio, Share2, Check } from 'lucide-react';
+import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareArrows, CheckSquare, ShieldAlert, Radio, Share2, Check, Zap } from 'lucide-react';
+import { PlayerFocusEntry } from '@/components/observations/PlayerFocusEntry';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { ParentEngagementPanel } from '@/components/roster/parent-engagement-panel';
@@ -24,15 +25,18 @@ import { useAppStore } from '@/lib/store';
 type SortMode = 'alpha' | 'attention' | 'momentum';
 
 export default function RosterPage() {
-  const { activeTeam, coach } = useActiveTeam();
+  const { activeTeam, coach, sportSlug } = useActiveTeam();
   const [search, setSearch] = useState('');
   const [positionFilter, setPositionFilter] = useState<string>('all');
   const [sortMode, setSortMode] = useState<SortMode>('alpha');
+  const [showUnobserved, setShowUnobserved] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const practiceActive = useAppStore((s) => s.practiceActive);
   const practiceSessionId = useAppStore((s) => s.practiceSessionId);
+
+  const [focusedPlayer, setFocusedPlayer] = useState<Player | null>(null);
 
   // Collect parent contacts
   const [contactLinkGenerating, setContactLinkGenerating] = useState(false);
@@ -133,7 +137,7 @@ export default function RosterPage() {
       return map;
     },
     enabled: !!activeTeam,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   // Fetch latest availability record per player
@@ -146,7 +150,7 @@ export default function RosterPage() {
       return json.availability ?? {};
     },
     enabled: !!activeTeam,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 2 * 60 * 1000,
   });
 
   const positions = useMemo(() => {
@@ -168,8 +172,15 @@ export default function RosterPage() {
     if (positionFilter !== 'all') {
       result = result.filter((p) => p.position === positionFilter);
     }
+    if (showUnobserved) {
+      const cutoff = Date.now() - 14 * 86_400_000;
+      result = result.filter((p) => {
+        const last = lastObsMap[p.id];
+        return !last || new Date(last).getTime() < cutoff;
+      });
+    }
     return result;
-  }, [players, search, positionFilter]);
+  }, [players, search, positionFilter, showUnobserved, lastObsMap]);
 
   const sorted = useMemo(() => {
     const result = [...filtered];
@@ -178,28 +189,26 @@ export default function RosterPage() {
         const aDate = lastObsMap[a.id] ?? '';
         const bDate = lastObsMap[b.id] ?? '';
         if (!aDate && !bDate) return a.name.localeCompare(b.name);
-        if (!aDate) return -1; // never observed → highest priority
+        if (!aDate) return -1;
         if (!bDate) return 1;
-        return aDate.localeCompare(bDate); // oldest last observation first
+        return aDate.localeCompare(bDate);
       });
     } else if (sortMode === 'momentum') {
       result.sort((a, b) => {
         const aScore = momentumMap[a.id]?.score ?? -1;
         const bScore = momentumMap[b.id]?.score ?? -1;
         if (aScore === bScore) return a.name.localeCompare(b.name);
-        return aScore - bScore; // lowest momentum first
+        return aScore - bScore;
       });
     }
     return result;
   }, [filtered, sortMode, lastObsMap, momentumMap]);
 
-  // Summary: players with a non-available status
   const unavailableCount = useMemo(
     () => players.filter((p) => availabilityMap[p.id]?.status && availabilityMap[p.id].status !== 'available').length,
     [players, availabilityMap],
   );
 
-  // Players with no parent phone — used to show the collect-contacts prompt
   const missingContactCount = useMemo(
     () => players.filter((p) => !p.parent_phone).length,
     [players],
@@ -218,6 +227,7 @@ export default function RosterPage() {
   }
 
   return (
+    <>
     <PullToRefresh onRefresh={async () => { await Promise.all([refetchPlayers(), refetchObs(), refetchAvailability()]); }}>
     <div className="p-4 lg:p-8 space-y-6 pb-28 lg:pb-8">
       {/* Header */}
@@ -240,7 +250,6 @@ export default function RosterPage() {
               <span className="hidden sm:inline">{selectMode ? `${selectedIds.size} selected` : 'Select'}</span>
             </Button>
           )}
-          {/* Mobile: compact add button */}
           <Link href="/roster/add" className="sm:hidden">
             <Button size="sm">
               <Plus className="h-4 w-4" />
@@ -278,6 +287,20 @@ export default function RosterPage() {
         </div>
       </div>
 
+      {/* Practice Mode Banner — shown when a session is live */}
+      {practiceActive && !selectMode && (
+        <div className="flex items-center gap-3 rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-500/20">
+            <Radio className="h-4 w-4 text-orange-400 animate-pulse" aria-hidden="true" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-orange-300">Practice is live</p>
+            <p className="text-xs text-zinc-400">Tap any player to log observations instantly</p>
+          </div>
+          <Zap className="h-4 w-4 shrink-0 text-orange-400/60" aria-hidden="true" />
+        </div>
+      )}
+
       {/* Availability Summary Strip — shown when any player is unavailable */}
       {unavailableCount > 0 && (
         <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
@@ -300,7 +323,6 @@ export default function RosterPage() {
         </div>
       )}
 
-      {/* Collect parent contacts — shown when players have no phone numbers */}
       {players.length > 0 && missingContactCount > 0 && (
         <div className="flex items-center justify-between gap-4 rounded-xl border border-teal-500/30 bg-teal-500/5 px-4 py-3">
           <div className="min-w-0 flex-1">
@@ -327,17 +349,14 @@ export default function RosterPage() {
         </div>
       )}
 
-      {/* Parent Engagement Panel — shown once there are players */}
       {players.length > 0 && activeTeam && (
         <ParentEngagementPanel teamId={activeTeam.id} />
       )}
 
-      {/* Team Attendance Panel — shown once attendance has been tracked */}
       {players.length > 0 && activeTeam && (
         <TeamAttendancePanel teamId={activeTeam.id} />
       )}
 
-      {/* Search & Filter - sticky on mobile */}
       {players.length > 0 && (
         <div className="sticky top-0 z-10 -mx-4 bg-zinc-950/95 backdrop-blur-sm px-4 py-2 sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -374,11 +393,21 @@ export default function RosterPage() {
                 <option value="momentum">By Momentum</option>
               </select>
             </div>
+            <button
+              onClick={() => setShowUnobserved((v) => !v)}
+              aria-pressed={showUnobserved}
+              className={`h-10 rounded-lg border px-3 text-sm font-medium transition-colors touch-manipulation ${
+                showUnobserved
+                  ? 'border-amber-500/50 bg-amber-500/15 text-amber-300'
+                  : 'border-zinc-700 bg-zinc-900 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600'
+              }`}
+            >
+              {showUnobserved ? '👁 Unobserved only' : 'Unobserved'}
+            </button>
           </div>
         </div>
       )}
 
-      {/* Mobile quick actions — Import & Photo Import */}
       {players.length > 0 && (
         <div className="flex sm:hidden gap-2">
           <Link href="/roster/import" className="flex-1">
@@ -404,7 +433,6 @@ export default function RosterPage() {
         </div>
       )}
 
-      {/* Player Grid */}
       {isLoading ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -467,13 +495,17 @@ export default function RosterPage() {
               onSelect={toggleSelect}
               availability={availabilityMap[player.id] ?? null}
               teamId={activeTeam.id}
+              orgId={activeTeam.org_id}
               momentum={momentumMap[player.id] ?? null}
+              onPracticeFocus={practiceActive && !selectMode ? setFocusedPlayer : undefined}
+              coachName={coach?.full_name ?? null}
+              teamName={activeTeam.name}
+              sportSlug={sportSlug}
             />
           ))}
         </div>
       )}
 
-      {/* Bulk Actions Bar */}
       {selectMode && coach && activeTeam && (
         <BulkActionsBar
           selectedPlayers={players.filter((p) => selectedIds.has(p.id))}
@@ -485,5 +517,39 @@ export default function RosterPage() {
 
     </div>
     </PullToRefresh>
+
+    {/* Practice Focus Mode — bottom sheet for rapid observation entry */}
+    {focusedPlayer && practiceActive && coach && activeTeam && (
+      <div
+        className="fixed inset-0 z-50 flex items-end bg-black/60 backdrop-blur-sm"
+        onClick={() => setFocusedPlayer(null)}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Log observations for ${focusedPlayer.name}`}
+      >
+        <div
+          className="w-full max-h-[88vh] overflow-y-auto rounded-t-2xl border-t border-zinc-800 bg-zinc-950 pb-safe"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="h-1 w-10 rounded-full bg-zinc-700" />
+          </div>
+          <PlayerFocusEntry
+            player={focusedPlayer}
+            teamId={activeTeam.id}
+            coachId={coach.id}
+            sessionId={practiceSessionId ?? null}
+            sportId={activeTeam.sport_id}
+            onSwitchPlayer={() => {
+              const idx = sorted.findIndex((p) => p.id === focusedPlayer.id);
+              const next = sorted[(idx + 1) % sorted.length];
+              if (next) setFocusedPlayer(next);
+            }}
+            onClose={() => setFocusedPlayer(null)}
+          />
+        </div>
+      </div>
+    )}
+    </>
   );
 }

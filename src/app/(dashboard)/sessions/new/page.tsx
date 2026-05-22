@@ -9,7 +9,7 @@ import { queryKeys } from '@/lib/query/keys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, Calendar, Clock, MapPin, Users, BookOpen } from 'lucide-react';
+import { ArrowLeft, Loader2, Calendar, Clock, MapPin, Users, BookOpen, Target } from 'lucide-react';
 import Link from 'next/link';
 import type { SessionType } from '@/types/database';
 import { trackEvent } from '@/lib/analytics';
@@ -38,6 +38,7 @@ export default function NewSessionPage() {
   const [curriculumWeek, setCurriculumWeek] = useState<string>(
     activeTeam?.current_week?.toString() || '1'
   );
+  const [sessionFocus, setSessionFocus] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -62,6 +63,7 @@ export default function NewSessionPage() {
           location: location || null,
           opponent: (type === 'game' || type === 'scrimmage' || type === 'tournament') ? opponent || null : null,
           curriculum_week: curriculumWeek ? parseInt(curriculumWeek) : null,
+          notes: sessionFocus.trim() || null,
         },
         select: '*',
       });
@@ -88,7 +90,7 @@ export default function NewSessionPage() {
     <div className="p-4 lg:p-8 space-y-6 pb-8 max-w-2xl mx-auto">
       <div className="flex items-center gap-3">
         <Link href={searchParams.get('date') ? '/calendar' : '/sessions'}>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" aria-label="Go back">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
@@ -196,6 +198,29 @@ export default function NewSessionPage() {
               Team is currently on week {activeTeam.current_week}
             </p>
           )}
+        </div>
+
+        {/* Session focus */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-zinc-300 flex items-center gap-1.5">
+            <Target className="h-3.5 w-3.5 text-zinc-500" />
+            Session focus
+            <span className="text-zinc-600 font-normal">(optional)</span>
+          </label>
+          <textarea
+            value={sessionFocus}
+            onChange={(e) => setSessionFocus(e.target.value)}
+            placeholder={
+              type === 'game' || type === 'scrimmage' || type === 'tournament'
+                ? 'e.g. "Focus on fast break defense, rotate on pick-and-roll"'
+                : 'e.g. "Work on ball handling with Marcus, zone defense drills"'
+            }
+            rows={2}
+            className="w-full rounded-lg border border-zinc-700 bg-zinc-800/50 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-orange-500/50 focus:outline-none focus:ring-1 focus:ring-orange-500/30 resize-none"
+          />
+          <p className="text-xs text-zinc-600">
+            Shown on the session page and shared with the AI pre-session briefing.
+          </p>
         </div>
 
         {/* Error */}
