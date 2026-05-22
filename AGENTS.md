@@ -249,9 +249,9 @@ documented quirks. The living version is `docs/LESSONS.md`.)
   `npm run lint && npx tsc --noEmit && npx vitest run`
 - **Subagents** (`.claude/agents/`): `implementation-dev`, `gtm-innovation`, `review`
 - **Backlog areas**: billing | ai | tier | capture | timer | plans | parent-portal | onboarding | infra | privacy | growth | analytics
-- **Backlog validator**: TODO — copy `agent-fleet/templates/scripts/check-backlog.mjs`
-  into `scripts/` and add `node scripts/check-backlog.mjs` to the `lint` (or a
-  dedicated) gating job. Until then, ticket-file ↔ index drift is not enforced.
+- **Backlog validator**: `node scripts/check-backlog.mjs`, wired into the `lint`
+  gating job — keeps ticket files and the README index in sync (fails the build
+  on drift, so the loop can't re-ship a merged ticket).
 
 ## License
 
