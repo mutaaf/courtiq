@@ -31,7 +31,14 @@ test.describe('Public org landing page with staff invite (/org/[slug])', () => {
 
   test('renders the branded program hero (org name)', async ({ page }) => {
     await page.goto(ORG_INVITE_URL);
-    await expect(page.getByRole('heading', { name: ORG_NAME })).toBeVisible({ timeout: 10000 });
+    // exact:true scopes to the hero <h1> (the org name appears verbatim only
+    // there); the ?invite=staff CTA <h2> reads "Your program invited you to
+    // <org>", so a non-exact name would strict-mode-collide on two headings
+    // (docs/LESSONS.md 2026-05-22 ship/0022 — page-level duplicate the real
+    // e2e surfaces but component isolation does not).
+    await expect(
+      page.getByRole('heading', { name: ORG_NAME, exact: true })
+    ).toBeVisible({ timeout: 10000 });
   });
 
   // AC8: the "Get started free" CTA deep-links to /signup?org=<slug>.

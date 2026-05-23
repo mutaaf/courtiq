@@ -170,5 +170,10 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   4435/4436 pass; the 1 fail is `player-of-match-utils.test.ts` date assertion (`Apr 27` vs `Apr 28`) — the
   known TZ/jsdom environmental fail (LESSONS.md #36) in a file this ticket never touched; reproduces in
   isolation, CI's Node 20/UTC arbitrates.
-- YYYY-MM-DD — PR #N opened, CI [state]
+- 2026-05-23 — PR #274 opened, auto-merge armed; first CI run: lint+unit-tests green, e2e-tests RED.
+  Cause: my own `?invite=staff` CTA copy ("Your program invited you to <org>") put the org NAME into a
+  SECOND heading, so the spec's `getByRole('heading', { name: ORG_NAME })` strict-mode-collided on two
+  `<h*>` (the LESSONS.md #80 page-level-duplicate family the real e2e surfaces but component isolation
+  doesn't). Fix: scope the hero assertion with `exact: true` so it matches only the `<h1>`. No source
+  change; assertion intent unchanged. Re-pushed.
 - YYYY-MM-DD — merged to main
