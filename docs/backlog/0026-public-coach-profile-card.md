@@ -1,7 +1,7 @@
 ---
 id: 0026
 title: Give the coach a public, shareable coaching profile a parent or rival coach can land on
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-05-23
@@ -159,7 +159,4 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0026-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-23 — branch `feat/0026-public-coach-profile-card` opened off fresh `origin/main` (`d2cd876`); ticket flipped to `in-progress` (file + README index).
