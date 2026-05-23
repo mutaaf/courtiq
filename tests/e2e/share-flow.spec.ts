@@ -274,14 +274,20 @@ test.describe('Parent portal (/share/[token]) — public', () => {
     // The success confirmation renders…
     await expect(page.getByText(/message sent/i)).toBeVisible({ timeout: 10000 });
 
-    // …and below it, the self-signup link carries the seeded coach's ref code.
-    const startCta = page.getByRole('link', { name: /start your own team/i });
+    // Scope to the success card's actions container — the page-bottom 0019 CTA
+    // renders an identical "Start your own team" link by design (AC7), so a bare
+    // getByRole would be a strict-mode duplicate (cf. LESSONS#50).
+    const successActions = page.getByTestId('reaction-success-actions');
+    await expect(successActions).toBeVisible({ timeout: 10000 });
+
+    // …and below the confirmation, the self-signup link carries the coach's code.
+    const startCta = successActions.getByRole('link', { name: /start your own team/i });
     await expect(startCta).toBeVisible();
     await expect(startCta).toHaveAttribute('href', `/signup?ref=${SHARE_REF}`);
 
     // …and the forward control reuses the navigator.share/clipboard path, so it
     // exposes the constructed URL via data-share-url (no <a href>; LESSONS#11).
-    const forwardCta = page.getByRole('button', { name: /share .* with the other parents/i });
+    const forwardCta = successActions.getByRole('button', { name: /share .* with the other parents/i });
     await expect(forwardCta).toBeVisible();
     const shareUrl = await forwardCta.getAttribute('data-share-url');
     expect(shareUrl).toContain(`/signup?ref=${SHARE_REF}`);

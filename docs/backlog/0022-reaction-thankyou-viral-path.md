@@ -155,5 +155,12 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   CTAs are untouched. Full local gate: lint 0 errors, tsc 0 errors, vitest 4397 passing (the lone
   `player-of-match-utils` date fail is the documented TZ/jsdom artifact — America/Chicago, not a
   regression, reproduces on main; CI Node 20 UTC arbitrates).
-- 2026-05-22 — PR #269 opened (https://github.com/mutaaf/courtiq/pull/269), auto-merge armed; CI running.
+- 2026-05-22 — PR #269 opened (https://github.com/mutaaf/courtiq/pull/269), auto-merge armed.
+- 2026-05-22 — CI caught a real bug: `lint`+`unit-tests` green but `e2e-tests` red with a strict-mode
+  violation — `getByRole('link', {name:/start your own team/i})` resolved to 2 elements because the
+  success-screen self-signup link AND the page-bottom 0019 CTA both render the same accessible name
+  by design (AC7). The component test passed in isolation (one link). Fix: added a stable
+  `data-testid="reaction-success-actions"` on the success card and scoped the e2e locator to it
+  (`getByTestId(...).getByRole(...)`) — both links legitimately exist, so no assertion was weakened.
+  Lesson appended to docs/LESSONS.md. Re-ran component test (8/8) + tsc (clean) + e2e --list.
 - YYYY-MM-DD — merged to main

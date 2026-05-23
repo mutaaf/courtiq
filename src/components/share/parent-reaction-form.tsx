@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Share2, Check, Rocket, ArrowRight } from 'lucide-react';
+import { Share2, Check, ArrowRight } from 'lucide-react';
 import { ALLOWED_REACTIONS, getReactionLabel, MAX_MESSAGE_LENGTH } from '@/lib/parent-reaction-utils';
 
 interface ParentReactionFormProps {
@@ -110,8 +110,14 @@ export function ParentReactionForm({ shareToken, playerFirstName, coachName, ref
 
         {/* Ticket 0022: at the parent's peak-engagement moment, two relocated
             referral-carrying actions — same destinations as the page-bottom CTAs
-            (0011 forward, 0019 self-signup), placed where intent is highest. */}
-        <div className="mt-5 space-y-2.5 border-t border-gray-100 pt-4">
+            (0011 forward, 0019 self-signup), placed where intent is highest. The
+            data-testid scopes these to the success card so an e2e can disambiguate
+            them from the identical page-bottom self-signup link (both genuinely
+            render by design — AC7; cf. LESSONS#50 duplicate-text strict mode). */}
+        <div
+          data-testid="reaction-success-actions"
+          className="mt-5 space-y-2.5 border-t border-gray-100 pt-4"
+        >
           {/* Forward — reuses the navigator.share / clipboard path of
               ParentViralCTA. Renders no <a href>, so the constructed URL is
               exposed on the trigger via data-share-url for assertion (LESSONS#11). */}
