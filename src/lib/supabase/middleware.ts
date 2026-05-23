@@ -41,6 +41,9 @@ export async function updateSession(request: NextRequest) {
     // Public season-recap card (ticket 0017) — page + its API.
     '/season-recap/',
     '/api/season-recap/',
+    // Public referral lookup (ticket 0021) — names the inviting coach on the
+    // warm signup landing. Returns the referrer's first name only, no auth.
+    '/api/referrals/lookup',
     '/observe/',
     '/api/observe/',
     '/parents/',

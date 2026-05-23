@@ -1,7 +1,7 @@
 ---
 id: 0021
 title: Name the inviting coach on the referral signup so the invite lands warm, not anonymous
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-05-22
@@ -147,7 +147,17 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0021-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-22 — branch `feat/0021-warm-referral-landing` opened; ticket marked in-progress.
+- 2026-05-22 — Interpretation notes: the storage path is `coaches.preferences.referral_code`
+  (JSONB), confirmed against `src/app/api/referrals/route.ts` (lazy-generate + persist) and
+  `src/app/api/team-card/[token]/route.ts` (resolves it the same way). `coachFirstName` is the
+  first whitespace-token of `coaches.full_name` (matching the team-card route's
+  `full_name.split(' ')[0]`). Middleware DOES gate `/api/*` (returns 401 for unauthenticated
+  requests on any non-public `/api/` path), so `/api/referrals/lookup` MUST be added to
+  `publicPaths` — mirrors how `/api/team-card/` and `/api/season-recap/` were added.
+- 2026-05-22 — The lookup matches the STORED `preferences.referral_code` via a single
+  `eq('preferences->>referral_code', code).maybeSingle()` lookup (no full-table recompute, no
+  new code-index table, no algorithm change). The seeded e2e coach was missing
+  `preferences.referral_code`, so the seed now stores `AAAAAA` (= `makeReferralCode` of the
+  seeded coach UUID, the same code the team-card flow already deep-links to) so the lookup
+  resolves deterministically regardless of spec ordering.

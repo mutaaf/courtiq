@@ -50,6 +50,50 @@ test.describe('Signup page', () => {
     await expect(signInLink).toBeVisible();
     await expect(signInLink).toHaveAttribute('href', '/login');
   });
+
+  // ── Warm referral landing (ticket 0021) ──────────────────────────────────
+  // The signup page client-fetches /api/referrals/lookup?code=<ref> and, when
+  // it resolves, names the inviting coach in the banner. The lookup is backed by
+  // the seeded coach whose preferences.referral_code = 'AAAAAA' (= makeReferralCode
+  // of the seeded coach UUID, full_name 'E2E Test Coach'), so /signup?ref=AAAAAA
+  // resolves to "Coach E2E invited you". This is the SAME code the team-card /
+  // season-recap CTAs already deep-link to.
+  const SEEDED_REF = 'AAAAAA';
+
+  test('signup?ref=<valid code> names the inviting coach in the banner', async ({ page }) => {
+    await page.goto(`/signup?ref=${SEEDED_REF}`);
+
+    // Generic "a fellow coach" copy is replaced by the named-coach copy once the
+    // lookup resolves (text matches /coach \w+ invited/i per the ticket AC).
+    await expect(page.getByText(/coach \w+ invited/i).first()).toBeVisible({ timeout: 10000 });
+    // The anonymous fallback copy must NOT be the visible description anymore.
+    await expect(page.getByText('You were invited by a fellow coach!')).toHaveCount(0);
+    // The form still works — the page is the real signup, not an error.
+    await expect(page.getByLabel('Full Name')).toBeVisible();
+  });
+
+  test('signup?ref=<unresolvable code> falls back to the generic referral banner', async ({ page }) => {
+    // A well-formed-but-unknown code resolves to no coach → the lookup returns
+    // { coachFirstName: null } and the page keeps today's generic copy.
+    await page.goto('/signup?ref=ZZZZZZ');
+
+    await expect(page.getByText('You were invited by a fellow coach!')).toBeVisible({ timeout: 10000 });
+    // No named-coach banner for an unresolvable code.
+    await expect(page.getByText(/coach \w+ invited/i)).toHaveCount(0);
+    // Signup still works.
+    await expect(page.getByLabel('Full Name')).toBeVisible();
+  });
+
+  test('signup with NO ref param shows the default headline and no referral banner', async ({ page }) => {
+    await page.goto('/signup');
+
+    // Default headline only when no code is present.
+    await expect(page.getByText('Start coaching smarter with SportsIQ')).toBeVisible();
+    // Neither referral banner variant appears.
+    await expect(page.getByText('You were invited by a fellow coach!')).toHaveCount(0);
+    await expect(page.getByText(/coach \w+ invited/i)).toHaveCount(0);
+    await expect(page.getByText(/referral applied/i)).toHaveCount(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
