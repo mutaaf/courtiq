@@ -157,3 +157,18 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
     `200 { lastNeedsWork: null, lastPositive: null }` (the AC's allowed "200 nulls" branch), never
     another team's observations — verified server-side by asserting the route does not query
     `observations` for a non-owned team.
+- 2026-05-23 — Failing tests added first (all 13 fail-then-pass against the new route + component):
+  `tests/capture/player-memory.test.ts` (route: needs-work+positive selection, nulls-when-empty,
+  401 + no-DB-read, cross-org nulls + no-observations-read, order(created_at desc)+limit(1) excludes
+  the in-progress note, 200-nulls when playerId missing), `tests/components/player-memory-line.test.tsx`
+  (renders text when present, nothing when both null/undefined, no disabled control), and
+  `tests/e2e/capture-player-memory.spec.ts` (focus → line, focus-switch updates, no-history hides,
+  fetch-failure degrades silently; `test.skip` without E2E creds).
+- 2026-05-23 — Implemented `src/app/api/capture/player-memory/route.ts` (GET; auth→401 via
+  createServerSupabase, then createServiceSupabase; org-scoped like carryover), presentational
+  `src/components/capture/player-memory-line.tsx` (`data-testid="player-memory-line"`), and wired a
+  best-effort TanStack `useQuery` keyed on the focused playerId into the capture page — coexists with
+  the 0014 carryover strip and 0020 arc line, never gates the record control. No migration, no env
+  var, no AI call, no tier gate, no new `publicPaths` entry. Local gate green: lint (0 errors), tsc
+  (0 errors), vitest (new files 13/13; the lone full-suite failure is the documented TZ artifact in
+  `player-of-match-utils.test.ts`, LESSONS.md 2026-05-20, on files this branch does not touch).

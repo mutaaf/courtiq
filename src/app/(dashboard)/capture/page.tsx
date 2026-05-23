@@ -12,6 +12,7 @@ import { RecordingButton } from '@/components/capture/recording-button';
 import { AIUsageMeter, type AIUsageStatus } from '@/components/capture/ai-usage-meter';
 import { CarryoverStrip } from '@/components/capture/carryover-strip';
 import { ArcContinuityLine } from '@/components/capture/arc-continuity-line';
+import { PlayerMemoryLine } from '@/components/capture/player-memory-line';
 import type { ActiveArcResponse } from '@/app/api/ai/practice-arc/active/route';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Send, Keyboard, Mic, AlertCircle, Sparkles, Upload, FileAudio, Camera, Lock } from 'lucide-react';
@@ -185,6 +186,36 @@ export default function CapturePage() {
       }
     },
     enabled: !!activeTeam?.id,
+    retry: false,
+    staleTime: 5 * 60_000,
+  });
+
+  // Best-effort per-player memory line (ticket 0025): when the coach focuses a
+  // player for capture, remind them of that player's most recent prior needs-work
+  // (and a recent positive) observation — "Last time — needs work: hesitated on
+  // closeouts" — so they coach the same kid toward the same thing across weeks.
+  // Keyed on the focused playerId so switching focus updates the line. Reuses the
+  // server-backed /api/capture/player-memory route (NOT a direct Supabase call —
+  // AGENTS.md rule 3). Fire-and-forget: this read NEVER gates capture — on
+  // failure/timeout it resolves undefined and the line renders nothing; the
+  // record button's `disabled` state does not depend on it.
+  const focusedPlayerId =
+    urlPlayerId && urlPlayerId.includes('-') && urlPlayerId.length > 20 ? urlPlayerId : null;
+  const { data: playerMemory } = useQuery<{ lastNeedsWork: string | null; lastPositive: string | null } | undefined>({
+    queryKey: ['capture-player-memory', focusedPlayerId, activeTeam?.id],
+    queryFn: async () => {
+      if (!focusedPlayerId || !activeTeam?.id) return undefined;
+      try {
+        const res = await fetch(
+          `/api/capture/player-memory?playerId=${focusedPlayerId}&teamId=${activeTeam.id}`
+        );
+        if (!res.ok) return undefined;
+        return (await res.json()) as { lastNeedsWork: string | null; lastPositive: string | null };
+      } catch {
+        return undefined; // degrade silently — capture must never be blocked by this read
+      }
+    },
+    enabled: !!focusedPlayerId && !!activeTeam?.id,
     retry: false,
     staleTime: 5 * 60_000,
   });
@@ -1010,6 +1041,18 @@ export default function CapturePage() {
                 session; never gates the record button. */}
             {captureState !== 'recording' && (
               <ArcContinuityLine arc={activeArc} />
+            )}
+
+            {/* Per-player memory line (ticket 0025): when a player is focused,
+                remind the coach what that kid was last working on. Best-effort:
+                absent when no focused player, no prior observations, or the read
+                fails; coexists with the team carryover strip + arc line above and
+                never gates the record button. */}
+            {captureState !== 'recording' && (
+              <PlayerMemoryLine
+                lastNeedsWork={playerMemory?.lastNeedsWork}
+                lastPositive={playerMemory?.lastPositive}
+              />
             )}
 
             <RecordingButton
