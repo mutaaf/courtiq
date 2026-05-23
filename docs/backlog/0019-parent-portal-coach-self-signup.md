@@ -1,7 +1,7 @@
 ---
 id: 0019
 title: Let the parent who is also a coach start their own free team from the report they're reading
-status: groomed
+status: in-progress
 priority: P2
 area: growth
 created: 2026-05-22
@@ -129,4 +129,17 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-05-22 [implementation-dev] Started. Branch `feat/0019-parent-portal-coach-self-signup`,
+  status → in-progress. Confirmed against the codebase: `GET /api/share/[token]` already
+  resolves + returns `referralCode` (ticket 0011, `src/app/api/share/[token]/route.ts`), and
+  `src/app/share/[token]/page.tsx` already destructures `referralCode` and passes it to
+  `ParentViralCTA`. AC 1 (the referral-code resolution + lazy `makeReferralCode` regression) is
+  already covered by `tests/share/referral-code.test.ts` — no route change needed. This ticket
+  ADDS a second, sibling CTA only.
+- Plan: new presentational server component `src/components/share/start-your-team-cta.tsx`
+  rendering a plain `<a href={code ? `/signup?ref=${code}` : '/signup'}>` (no JS, no
+  navigator.share — deliberately a different primitive from the forward button). Wire it into
+  the portal next to `ParentViralCTA`, leaving the forward button untouched. Tests:
+  `tests/components/start-your-team-cta.test.tsx` (`.test.tsx`, not `.spec.ts` — LESSONS#38),
+  plus extend `tests/e2e/share-flow.spec.ts` so both CTAs coexist and the self-signup link's
+  href carries the seeded code `AAAAAA`.
