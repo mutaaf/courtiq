@@ -255,6 +255,52 @@ test.describe('Parent portal (/share/[token]) — public', () => {
     expect(href).not.toContain(SHARE_TOKEN);
   });
 
+  // ── Ticket 0022: the reaction thank-you screen becomes a viral fork point ──
+  // After a parent submits a reaction (real public POST /api/parent-reactions on
+  // the seeded share token), the success state surfaces BOTH a "share with the
+  // other parents" forward control AND a "start your own team" self-signup link
+  // carrying the same seeded coach's referral code ('AAAAAA' / SHARE_REF). The
+  // page-bottom CTAs (0011/0019) are unchanged — these actions are ADDED on the
+  // success micro-surface, at the parent's peak-engagement moment.
+
+  test('submitting a reaction shows both viral actions with the coach referral code', async ({ page }) => {
+    await page.goto(SHARE_URL);
+
+    // Pick a reaction (aria-labelled by getReactionLabel) to expand the form,
+    // then submit. The seeded token is active so the real POST returns 200.
+    await page.getByRole('button', { name: /love it/i }).click();
+    await page.getByRole('button', { name: /send .* to coach/i }).click();
+
+    // The success confirmation renders…
+    await expect(page.getByText(/message sent/i)).toBeVisible({ timeout: 10000 });
+
+    // …and below it, the self-signup link carries the seeded coach's ref code.
+    const startCta = page.getByRole('link', { name: /start your own team/i });
+    await expect(startCta).toBeVisible();
+    await expect(startCta).toHaveAttribute('href', `/signup?ref=${SHARE_REF}`);
+
+    // …and the forward control reuses the navigator.share/clipboard path, so it
+    // exposes the constructed URL via data-share-url (no <a href>; LESSONS#11).
+    const forwardCta = page.getByRole('button', { name: /share .* with the other parents/i });
+    await expect(forwardCta).toBeVisible();
+    const shareUrl = await forwardCta.getAttribute('data-share-url');
+    expect(shareUrl).toContain(`/signup?ref=${SHARE_REF}`);
+  });
+
+  // Regression: the success-screen actions are ADDED — the page-bottom forward
+  // CTA (0011) and the 0019 self-signup CTA still render on the un-submitted page.
+  test('the page-bottom CTAs (0011/0019) still render — this ticket only ADDS to the success screen', async ({ page }) => {
+    await page.goto(SHARE_URL);
+    // The bottom-of-page forward button (0011) is still present pre-submit…
+    await expect(
+      page.getByRole('button', { name: /share with your other coach/i })
+    ).toBeVisible({ timeout: 10000 });
+    // …and the bottom-of-page self-signup link (0019) is still present.
+    await expect(
+      page.getByRole('link', { name: /start your own team/i })
+    ).toBeVisible();
+  });
+
   test('expired share token shows error state', async ({ page }) => {
     await page.route(`**/api/share/expired-token`, (route) =>
       route.fulfill({

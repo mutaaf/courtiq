@@ -1,23 +1,71 @@
 'use client';
 
 import { useState } from 'react';
+import { Share2, Check, Rocket, ArrowRight } from 'lucide-react';
 import { ALLOWED_REACTIONS, getReactionLabel, MAX_MESSAGE_LENGTH } from '@/lib/parent-reaction-utils';
 
 interface ParentReactionFormProps {
   shareToken: string;
   playerFirstName: string;
   coachName: string | null;
+  // Ticket 0022: the creating coach's referral code, resolved server-side by
+  // GET /api/share/[token] (ticket 0011) and passed straight down — NO Supabase
+  // access from this 'use client' component (AGENTS.md rule 3). On the success
+  // state it powers two relocated, referral-carrying actions: a plain self-signup
+  // link and a forward control. null/absent falls back to a bare URL so a missing
+  // code never breaks either action. COPPA: the outbound URLs carry ONLY the
+  // referral code — never the player/parent name, message text, or share token.
+  referralCode?: string | null;
 }
 
 type FormState = 'idle' | 'loading' | 'success' | 'error';
 
-export function ParentReactionForm({ shareToken, playerFirstName, coachName }: ParentReactionFormProps) {
+export function ParentReactionForm({ shareToken, playerFirstName, coachName, referralCode }: ParentReactionFormProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [parentName, setParentName] = useState('');
   const [state, setState] = useState<FormState>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [expanded, setExpanded] = useState(false);
+  const [shared, setShared] = useState(false);
+
+  // Ticket 0022: the two success-screen actions both carry ONLY the referral
+  // code. The self-signup link mirrors the 0019 StartYourTeamCTA primitive
+  // (a plain /signup?ref=<code> anchor, working without JS); the forward control
+  // reuses the 0011 ParentViralCTA navigator.share / clipboard path. Both fall
+  // back to a bare URL when no code is resolved.
+  const base = process.env.NEXT_PUBLIC_APP_URL || 'https://sportsiq.app';
+  const forwardUrl = referralCode ? `${base}/signup?ref=${referralCode}` : base;
+  const signupHref = referralCode ? `/signup?ref=${referralCode}` : '/signup';
+  const forwardText = coachName
+    ? `${coachName} sends updates like this with SportsIQ. Have a look!`
+    : 'This update was built with SportsIQ. Have a look!';
+
+  async function handleForward() {
+    const shareData = {
+      title: 'SportsIQ — Coaching Intelligence Platform',
+      text: forwardText,
+      url: forwardUrl,
+    };
+
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share(shareData);
+        setShared(true);
+        setTimeout(() => setShared(false), 3000);
+      } catch {
+        // User cancelled share — no-op
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(`${forwardText}\n\n${forwardUrl}`);
+        setShared(true);
+        setTimeout(() => setShared(false), 3000);
+      } catch {
+        window.open(forwardUrl, '_blank', 'noopener,noreferrer');
+      }
+    }
+  }
 
   async function handleSubmit() {
     if (!selected) return;
@@ -50,12 +98,54 @@ export function ParentReactionForm({ shareToken, playerFirstName, coachName }: P
 
   if (state === 'success') {
     return (
-      <div className="rounded-2xl bg-white p-5 shadow-sm text-center">
-        <div className="text-3xl mb-2">🎉</div>
-        <p className="text-base font-semibold text-gray-900">Message sent!</p>
-        <p className="mt-1 text-sm text-gray-500">
-          {coachName ? `Coach ${coachName} will see your reaction.` : 'The coach will see your reaction.'}
-        </p>
+      <div className="rounded-2xl bg-white p-5 shadow-sm">
+        {/* Confirmation — unchanged copy, the parent's reaction is recorded */}
+        <div className="text-center">
+          <div className="text-3xl mb-2">🎉</div>
+          <p className="text-base font-semibold text-gray-900">Message sent!</p>
+          <p className="mt-1 text-sm text-gray-500">
+            {coachName ? `Coach ${coachName} will see your reaction.` : 'The coach will see your reaction.'}
+          </p>
+        </div>
+
+        {/* Ticket 0022: at the parent's peak-engagement moment, two relocated
+            referral-carrying actions — same destinations as the page-bottom CTAs
+            (0011 forward, 0019 self-signup), placed where intent is highest. */}
+        <div className="mt-5 space-y-2.5 border-t border-gray-100 pt-4">
+          {/* Forward — reuses the navigator.share / clipboard path of
+              ParentViralCTA. Renders no <a href>, so the constructed URL is
+              exposed on the trigger via data-share-url for assertion (LESSONS#11). */}
+          <button
+            onClick={handleForward}
+            data-share-url={forwardUrl}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-orange-300 bg-white px-4 py-3 text-sm font-medium text-orange-600 shadow-sm transition-all hover:border-orange-400 hover:bg-orange-50 active:scale-[0.98] touch-manipulation"
+          >
+            {shared ? (
+              <>
+                <Check className="h-4 w-4 text-emerald-500" />
+                <span className="text-emerald-600">
+                  {typeof navigator !== 'undefined' && 'share' in navigator ? 'Shared!' : 'Link copied!'}
+                </span>
+              </>
+            ) : (
+              <>
+                <Share2 className="h-4 w-4" />
+                Share this with the other parents
+                <ArrowRight className="ml-auto h-3.5 w-3.5 opacity-50" />
+              </>
+            )}
+          </button>
+
+          {/* Self-signup — a PLAIN server-friendly anchor (works without JS),
+              mirroring the 0019 StartYourTeamCTA primitive. 44px touch target. */}
+          <a
+            href={signupHref}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 text-sm font-medium text-white shadow-sm transition-all hover:bg-orange-600 active:scale-[0.98] touch-manipulation"
+          >
+            Start your own team — free
+            <ArrowRight className="ml-auto h-3.5 w-3.5 opacity-70" />
+          </a>
+        </div>
       </div>
     );
   }

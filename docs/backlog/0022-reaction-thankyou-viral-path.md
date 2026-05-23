@@ -145,6 +145,15 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   `navigator.share`/clipboard path as `ParentViralCTA` (ticket 0011), exposed via
   `data-share-url` for assertion. The page-bottom CTAs and `ParentViralCTA`'s public behavior
   are untouched.
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
+- 2026-05-22 — failing tests added: `tests/components/parent-reaction-form.test.tsx` (8 cases,
+  ACs 1-5 + regressions) and the 0022 extension in `tests/e2e/share-flow.spec.ts` (ACs 6-7).
+  Confirmed failing for the right reason (success state rendered only "Message sent!" with no
+  actions), then implemented: added `referralCode?: string | null` prop to `ParentReactionForm`,
+  rendering on the success state a plain `/signup?ref=<code>` self-signup link and a forward
+  control reusing the `navigator.share`/clipboard path (exposing `data-share-url`); threaded the
+  same `referralCode` from `src/app/share/[token]/page.tsx`. `ParentViralCTA` + the page-bottom
+  CTAs are untouched. Full local gate: lint 0 errors, tsc 0 errors, vitest 4397 passing (the lone
+  `player-of-match-utils` date fail is the documented TZ/jsdom artifact — America/Chicago, not a
+  regression, reproduces on main; CI Node 20 UTC arbitrates).
 - YYYY-MM-DD — PR #N opened, CI [state]
 - YYYY-MM-DD — merged to main
