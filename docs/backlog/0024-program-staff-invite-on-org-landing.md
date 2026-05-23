@@ -1,7 +1,7 @@
 ---
 id: 0024
 title: Let a program director bring their whole coaching staff onto SportsIQ from the org page
-status: in-progress
+status: shipped
 priority: P1
 area: growth
 created: 2026-05-23
@@ -176,4 +176,5 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   `<h*>` (the LESSONS.md #80 page-level-duplicate family the real e2e surfaces but component isolation
   doesn't). Fix: scope the hero assertion with `exact: true` so it matches only the `<h1>`. No source
   change; assertion intent unchanged. Re-pushed.
-- YYYY-MM-DD — merged to main
+- 2026-05-23 — CI green on all three gating checks (lint, unit-tests, e2e-tests); PR #274 auto-merged to main.
+- 2026-05-23 — status → shipped via chore/0024-mark-shipped (file frontmatter + README index row).

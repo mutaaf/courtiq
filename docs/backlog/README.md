@@ -76,7 +76,6 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0024 | Let a program director bring their whole coaching staff onto SportsIQ from the org page | P1 | in-progress | growth |
 | 0025 | When the coach starts observing a player, remind them what that player was working on | P2 | proposed | capture |
 | 0001 | Stripe webhook signature verification on the live endpoint | P0 | shipped | billing |
 | 0002 | End-to-end checkout flow test — upgrade → pay → tier unlocks features | P0 | shipped | billing |
@@ -96,6 +95,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | 0020 | Bring the active Practice Arc onto Capture so the coach picks up the arc mid-practice | P1 | shipped | capture |
 | 0021 | Name the inviting coach on the referral signup so the invite lands warm, not anonymous | P1 | shipped | growth |
 | 0023 | Give the coach a Monday "your week in coaching" digest that pulls them back in | P1 | shipped | analytics |
+| 0024 | Let a program director bring their whole coaching staff onto SportsIQ from the org page | P1 | shipped | growth |
 | 0009 | Put the Player of the Week / Player of the Match spotlight on the parent portal | P2 | shipped | parent-portal |
 | 0010 | Make the Team Personality card a public, coach-to-coach referral surface | P2 | shipped | growth |
 | 0013 | Give the Player-of-the-Week spotlight its own rich link preview when a parent forwards the portal | P2 | shipped | parent-portal |
