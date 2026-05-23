@@ -76,6 +76,9 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
+| 0026 | Give the coach a public, shareable coaching profile a parent or rival coach can land on | P1 | groomed | growth |
+| 0027 | Turn the game recap into a public card the coach drops in the team group chat on the drive home | P2 | groomed | parent-portal |
+| 0028 | Give the program director a weekly "program pulse" they actually read instead of a dashboard they don't | P2 | groomed | analytics |
 | 0025 | When the coach starts observing a player, remind them what that player was working on | P2 | shipped | capture |
 | 0001 | Stripe webhook signature verification on the live endpoint | P0 | shipped | billing |
 | 0002 | End-to-end checkout flow test — upgrade → pay → tier unlocks features | P0 | shipped | billing |
