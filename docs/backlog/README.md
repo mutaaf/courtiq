@@ -76,8 +76,6 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0020 | Bring the active Practice Arc onto Capture so the coach picks up the arc mid-practice | P1 | shipped | capture |
-| 0021 | Name the inviting coach on the referral signup so the invite lands warm, not anonymous | P1 | in-progress | growth |
 | 0019 | Let the parent who is also a coach start their own free team from the report they're reading | P2 | groomed | growth |
 | 0022 | Turn the parent-reaction thank-you screen into the moment the parent acts on the app | P2 | proposed | parent-portal |
 | 0001 | Stripe webhook signature verification on the live endpoint | P0 | shipped | billing |
@@ -95,6 +93,8 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | 0016 | Make the parent report a continuity artifact that tells the growth story since the last report | P1 | shipped | ai |
 | 0017 | Turn the end-of-season recap into a public card the coach is proud to send | P1 | shipped | growth |
 | 0018 | Make the Practice Arc remember itself — surface "what carried forward" at the next practice | P1 | shipped | plans |
+| 0020 | Bring the active Practice Arc onto Capture so the coach picks up the arc mid-practice | P1 | shipped | capture |
+| 0021 | Name the inviting coach on the referral signup so the invite lands warm, not anonymous | P1 | shipped | growth |
 | 0009 | Put the Player of the Week / Player of the Match spotlight on the parent portal | P2 | shipped | parent-portal |
 | 0010 | Make the Team Personality card a public, coach-to-coach referral surface | P2 | shipped | growth |
 | 0013 | Give the Player-of-the-Week spotlight its own rich link preview when a parent forwards the portal | P2 | shipped | parent-portal |
