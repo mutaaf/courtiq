@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { RecordingButton } from '@/components/capture/recording-button';
 import { AIUsageMeter, type AIUsageStatus } from '@/components/capture/ai-usage-meter';
 import { CarryoverStrip } from '@/components/capture/carryover-strip';
+import { ArcContinuityLine } from '@/components/capture/arc-continuity-line';
+import type { ActiveArcResponse } from '@/app/api/ai/practice-arc/active/route';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Send, Keyboard, Mic, AlertCircle, Sparkles, Upload, FileAudio, Camera, Lock } from 'lucide-react';
 import { generateId } from '@/lib/utils';
@@ -154,6 +156,32 @@ export default function CapturePage() {
         return (await res.json()) as { focus: string[] };
       } catch {
         return undefined;
+      }
+    },
+    enabled: !!activeTeam?.id,
+    retry: false,
+    staleTime: 5 * 60_000,
+  });
+
+  // Best-effort active Practice Arc read (ticket 0020): surfaces the team's active
+  // arc — "Defense Arc · session 2 of 3 · today: build on closeouts" — above the
+  // record control so the coach picks up the arc thread mid-practice instead of
+  // flipping back to /plans. Reuses the SAME endpoint the /plans continuity line
+  // and home ContinueArcCard consume (ticket 0018) so the surfaces never disagree.
+  // Fire-and-forget: this read NEVER gates capture — on failure/timeout it resolves
+  // undefined and the line renders nothing; the record button's `disabled` state
+  // does not depend on it. NOT a direct Supabase call (AGENTS.md rule 3).
+  const { data: activeArc } = useQuery<ActiveArcResponse | null | undefined>({
+    queryKey: ['capture-active-arc', activeTeam?.id],
+    queryFn: async () => {
+      if (!activeTeam?.id) return undefined;
+      try {
+        const res = await fetch(`/api/ai/practice-arc/active?teamId=${activeTeam.id}`);
+        if (!res.ok) return undefined;
+        const json = (await res.json()) as { active: ActiveArcResponse | null };
+        return json.active ?? null;
+      } catch {
+        return undefined; // degrade silently — capture must never be blocked by this read
       }
     },
     enabled: !!activeTeam?.id,
@@ -974,6 +1002,14 @@ export default function CapturePage() {
                 Best-effort: absent when no prior debrief or fetch fails; never gates. */}
             {captureState !== 'recording' && (
               <CarryoverStrip focus={carryover?.focus} />
+            )}
+
+            {/* Active Practice Arc continuity line (ticket 0020): "Defense Arc ·
+                session 2 of 3 · today: build on closeouts". Best-effort: absent
+                when there's no active arc or the read fails; dismissible for the
+                session; never gates the record button. */}
+            {captureState !== 'recording' && (
+              <ArcContinuityLine arc={activeArc} />
             )}
 
             <RecordingButton
