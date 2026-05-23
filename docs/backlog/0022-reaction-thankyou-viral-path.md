@@ -1,7 +1,7 @@
 ---
 id: 0022
 title: Turn the parent-reaction thank-you screen into the moment the parent acts on the app
-status: in-progress
+status: shipped
 priority: P2
 area: parent-portal
 created: 2026-05-22
@@ -163,4 +163,5 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   `data-testid="reaction-success-actions"` on the success card and scoped the e2e locator to it
   (`getByTestId(...).getByRole(...)`) — both links legitimately exist, so no assertion was weakened.
   Lesson appended to docs/LESSONS.md. Re-ran component test (8/8) + tsc (clean) + e2e --list.
-- YYYY-MM-DD — merged to main
+- 2026-05-22 — PR #269 merged to main (`39f1477`); all three gating checks green
+  (lint, unit-tests, e2e-tests). Ticket marked shipped.
