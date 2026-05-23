@@ -1,7 +1,7 @@
 ---
 id: 0025
 title: When the coach starts observing a player, remind them what that player was working on
-status: proposed
+status: in-progress
 priority: P2
 area: capture
 created: 2026-05-23
@@ -146,7 +146,14 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0025-per-player-capture-memory` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-23 — branch `feat/0025-per-player-capture-memory` opened; ticket flipped to in-progress.
+- 2026-05-23 — Interpretation notes (none of these change the privacy/tier/public-API contract, so no human block):
+  - The ticket's `e2e/` reference maps to `tests/e2e/` (this repo's Playwright `testDir`); the
+    extended spec is `tests/e2e/capture-player-memory.spec.ts`, matching the `.spec.ts` Playwright
+    convention used by `capture-carryover.spec.ts` / `capture-usage-meter.spec.ts`.
+  - The route reads `request.url` for `playerId`/`teamId`, so its vitest invokes it with a `Request`
+    (mirrors the carryover route; LESSONS.md 2026-05-21 re: handler signatures).
+  - Cross-org safety follows the carryover route's chosen contract: a non-owned player/team returns
+    `200 { lastNeedsWork: null, lastPositive: null }` (the AC's allowed "200 nulls" branch), never
+    another team's observations — verified server-side by asserting the route does not query
+    `observations` for a non-owned team.
