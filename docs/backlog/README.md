@@ -76,6 +76,9 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
+| 0023 | Give the coach a Monday "your week in coaching" digest that pulls them back in | P1 | proposed | analytics |
+| 0024 | Let a program director bring their whole coaching staff onto SportsIQ from the org page | P1 | proposed | growth |
+| 0025 | When the coach starts observing a player, remind them what that player was working on | P2 | proposed | capture |
 | 0001 | Stripe webhook signature verification on the live endpoint | P0 | shipped | billing |
 | 0002 | End-to-end checkout flow test — upgrade → pay → tier unlocks features | P0 | shipped | billing |
 | 0003 | Cancellation flow test — cancel → webhook → downgrade at period end | P0 | shipped | billing |
