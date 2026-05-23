@@ -1,7 +1,7 @@
 ---
 id: 0024
 title: Let a program director bring their whole coaching staff onto SportsIQ from the org page
-status: proposed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-05-23
@@ -151,7 +151,7 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0024-program-staff-invite-on-org-landing` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
+- 2026-05-23 — branch `feat/0024-program-staff-invite-on-org-landing` opened; status → in-progress
+- 2026-05-23 — failing test added in `tests/...` or `e2e/...`
 - YYYY-MM-DD — PR #N opened, CI [state]
 - YYYY-MM-DD — merged to main
