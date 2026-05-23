@@ -56,10 +56,18 @@ export async function generateMetadata({
 
 export default async function OrgLandingPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ invite?: string }>;
 }) {
   const { slug } = await params;
+  // Program staff-invite path (ticket 0024): the director broadcasts
+  // /org/<slug>?invite=staff. The param only tunes the CTA copy ("Your program
+  // invited you") — it does not change the page's auth-free, server-rendered
+  // nature. The CTA still deep-links to /signup?org=<slug>.
+  const { invite } = await searchParams;
+  const isStaffInvite = invite === 'staff';
   const data = await getOrgData(slug);
 
   if (!data) {
@@ -240,10 +248,12 @@ export default async function OrgLandingPage({
         {/* CTA */}
         <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 text-center">
           <h2 className="text-lg font-bold text-zinc-100">
-            Coach at {org.name}?
+            {isStaffInvite ? `Your program invited you to ${org.name}` : `Coach at ${org.name}?`}
           </h2>
           <p className="mt-2 text-sm text-zinc-400">
-            Join your program on SportsIQ and start building smarter, data-driven practices today.
+            {isStaffInvite
+              ? 'Sign up to join your coaching staff on SportsIQ — you’ll land right in the program.'
+              : 'Join your program on SportsIQ and start building smarter, data-driven practices today.'}
           </p>
           <Link
             href={`/signup?org=${org.slug}`}

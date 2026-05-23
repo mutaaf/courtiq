@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { InviteCoachButton } from '@/components/growth/invite-coach-button';
+import { StaffInviteButton } from '@/components/growth/staff-invite-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -176,6 +177,24 @@ export default function ReferralsPage() {
 
       {/* One-tap invite button (ticket 0015) */}
       <InviteCoachButton />
+
+      {/* Program staff invite (ticket 0024) — one org-scoped link a director
+          broadcasts to bring their whole coaching staff into the same program. */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Users className="h-4 w-4 text-orange-400" />
+            Bring your coaching staff
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-zinc-400">
+            Share one link in your staff group chat and every coach who follows it
+            joins your program — no separate sign-ups to chase down.
+          </p>
+          <StaffInviteButton />
+        </CardContent>
+      </Card>
 
       {/* Referral link */}
       <Card>

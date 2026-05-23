@@ -152,6 +152,23 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 (Appended by the implementation-dev agent during execution.)
 
 - 2026-05-23 — branch `feat/0024-program-staff-invite-on-org-landing` opened; status → in-progress
-- 2026-05-23 — failing test added in `tests/...` or `e2e/...`
+- 2026-05-23 — failing tests added FIRST (all `.test.ts`/`.test.tsx`, never `.spec.ts`):
+  `tests/org/invite.test.ts` (AC1/AC2/AC3/AC6 — GET /api/org/invite), `tests/auth/setup-org.test.ts`
+  (AC5/AC9 — org slug attaches org_id; ref + org independent), `tests/components/staff-invite-button.test.tsx`
+  (AC7/AC6 — director control + null-hint), `tests/org/public-get.test.ts` (AC4 — public org route shape
+  unchanged), and Playwright `tests/e2e/org-staff-invite.spec.ts` (AC7/AC8 — public landing CTA href +
+  authed director control). Confirmed each failed for the right reason (missing module / missing behavior).
+- 2026-05-23 — implemented: new `GET /api/org/invite` (authed; 401 no-auth with no DB read; returns ONLY
+  `{ url }` = `${NEXT_PUBLIC_APP_URL}/org/<slug>?invite=staff` or `{ url: null }`). `/api/auth/setup` now
+  resolves a `org` slug → existing org and attaches `org_id` (joins as role `coach`, not admin); unknown slug
+  falls back to today's solo-org create; `ref` path untouched and independent. Signup forwards `org` to setup.
+  New `StaffInviteButton` (client `query()` to `/api/org/invite`, `data-share-url` for testability, "create your
+  program first" hint when null) mounted on `/settings/referrals`. `/org/[slug]` reads `?invite=staff` to tune
+  the CTA copy only — page stays auth-free + server-rendered; CTA still deep-links `/signup?org=<slug>`.
+  No new tier key (ungated growth surface, gated on having an org). No new minor-data field. No new dep / migration.
+- 2026-05-23 — local gate (Node 20.19.0): `npm run lint` 0 errors, `tsc --noEmit` clean, full `vitest run`
+  4435/4436 pass; the 1 fail is `player-of-match-utils.test.ts` date assertion (`Apr 27` vs `Apr 28`) — the
+  known TZ/jsdom environmental fail (LESSONS.md #36) in a file this ticket never touched; reproduces in
+  isolation, CI's Node 20/UTC arbitrates.
 - YYYY-MM-DD — PR #N opened, CI [state]
 - YYYY-MM-DD — merged to main
