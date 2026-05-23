@@ -1,7 +1,7 @@
 ---
 id: 0021
 title: Name the inviting coach on the referral signup so the invite lands warm, not anonymous
-status: in-progress
+status: shipped
 priority: P1
 area: growth
 created: 2026-05-22
@@ -161,3 +161,6 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   `preferences.referral_code`, so the seed now stores `AAAAAA` (= `makeReferralCode` of the
   seeded coach UUID, the same code the team-card flow already deep-links to) so the lookup
   resolves deterministically regardless of spec ordering.
+- 2026-05-22 — PR #265 opened; all three gating checks green (lint / unit-tests / e2e-tests);
+  auto-merged to main as squash commit `9008940`. Status flipped to shipped via
+  `chore/0021-mark-shipped`.
