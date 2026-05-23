@@ -1,7 +1,7 @@
 ---
 id: 0025
 title: When the coach starts observing a player, remind them what that player was working on
-status: proposed
+status: in-progress
 priority: P2
 area: capture
 created: 2026-05-23
@@ -146,7 +146,29 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0025-per-player-capture-memory` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-23 — branch `feat/0025-per-player-capture-memory` opened; ticket flipped to in-progress.
+- 2026-05-23 — Interpretation notes (none of these change the privacy/tier/public-API contract, so no human block):
+  - The ticket's `e2e/` reference maps to `tests/e2e/` (this repo's Playwright `testDir`); the
+    extended spec is `tests/e2e/capture-player-memory.spec.ts`, matching the `.spec.ts` Playwright
+    convention used by `capture-carryover.spec.ts` / `capture-usage-meter.spec.ts`.
+  - The route reads `request.url` for `playerId`/`teamId`, so its vitest invokes it with a `Request`
+    (mirrors the carryover route; LESSONS.md 2026-05-21 re: handler signatures).
+  - Cross-org safety follows the carryover route's chosen contract: a non-owned player/team returns
+    `200 { lastNeedsWork: null, lastPositive: null }` (the AC's allowed "200 nulls" branch), never
+    another team's observations — verified server-side by asserting the route does not query
+    `observations` for a non-owned team.
+- 2026-05-23 — Failing tests added first (all 13 fail-then-pass against the new route + component):
+  `tests/capture/player-memory.test.ts` (route: needs-work+positive selection, nulls-when-empty,
+  401 + no-DB-read, cross-org nulls + no-observations-read, order(created_at desc)+limit(1) excludes
+  the in-progress note, 200-nulls when playerId missing), `tests/components/player-memory-line.test.tsx`
+  (renders text when present, nothing when both null/undefined, no disabled control), and
+  `tests/e2e/capture-player-memory.spec.ts` (focus → line, focus-switch updates, no-history hides,
+  fetch-failure degrades silently; `test.skip` without E2E creds).
+- 2026-05-23 — Implemented `src/app/api/capture/player-memory/route.ts` (GET; auth→401 via
+  createServerSupabase, then createServiceSupabase; org-scoped like carryover), presentational
+  `src/components/capture/player-memory-line.tsx` (`data-testid="player-memory-line"`), and wired a
+  best-effort TanStack `useQuery` keyed on the focused playerId into the capture page — coexists with
+  the 0014 carryover strip and 0020 arc line, never gates the record control. No migration, no env
+  var, no AI call, no tier gate, no new `publicPaths` entry. Local gate green: lint (0 errors), tsc
+  (0 errors), vitest (new files 13/13; the lone full-suite failure is the documented TZ artifact in
+  `player-of-match-utils.test.ts`, LESSONS.md 2026-05-20, on files this branch does not touch).
