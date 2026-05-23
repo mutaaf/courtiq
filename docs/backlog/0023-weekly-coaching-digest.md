@@ -164,3 +164,25 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   `coaches.org_id`; an unowned team is treated as not-found so we never leak its
   existence), reading nothing from `observations` for that team. (d) `interactionType`
   is `'custom'` (no new `ai_interactions` enum value, no new `plans.type`).
+- 2026-05-23 — Tests first (all failed for the right reason before implementation):
+  `tests/ai/weekly-digest.test.ts` (route: 401, free→403, coach→200, cross-org→404 with
+  no obs read, below-threshold→`{digest:null}` no-AI, happy-path shape, `callAIWithJSON`
+  invoked with resolved `orgId`+`interactionType:'custom'`, COPPA prompt-content);
+  `tests/ai/weekly-digest-contract.test.ts` (multi-provider: digest JSON parses against
+  `weeklyDigestSchema` via mocked Anthropic primary AND OpenAI failover, mirrors
+  `provider-failover.test.ts`); `tests/components/weekly-digest-card.test.tsx` (best-effort
+  card: null/undefined→nothing, summary+next-action button, kind→route map, 44px touch,
+  no banned words); `src/lib/tier.test.ts` (free→false, coach/pro/org→true);
+  `tests/e2e/weekly-digest-flow.spec.ts` (home card for coach, UpgradeGate for free,
+  absent on failure/quiet week — skips without E2E creds per convention).
+- 2026-05-23 — Reconciliation (cf. LESSONS#0002): the ticket prose said
+  `<UpgradeGate feature="weekly_digest" …>`, but `UpgradeGate` resolves entitlement via
+  `useTier().canAccess(feature)` → `canAccess(tier, feature)`, so the `feature` prop MUST
+  equal the tier key. Used `feature="feature_weekly_digest"` (the real key) so the gate
+  actually functions; registered that key in `FEATURE_CONFIG`. The component split mirrors
+  ArcContinuityLine (0020): a pure `WeeklyDigestCard` (testable) + a `WeeklyDigestSection`
+  container that owns the `useQuery` POST and the `<UpgradeGate>` wrap.
+- 2026-05-23 — Local gate: `npm run lint` 0 errors; `tsc --noEmit` 0 errors; full
+  `vitest run` 4417 passed, 1 failed — the failure is the documented LESSONS#36 TZ artifact
+  (`player-of-match-utils` `Apr 27`/`Apr 28`, unrelated to this change). Confirmed it passes
+  47/47 under `TZ=UTC` (CI's TZ), so CI arbitrates green.

@@ -59,6 +59,7 @@ import { PlayerOnARollCard } from '@/components/home/player-on-a-roll-card';
 import { StrugglingPlayerCard } from '@/components/home/struggling-player-card';
 import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot-card';
 import { ContinueArcCard } from '@/components/home/continue-arc-card';
+import { WeeklyDigestSection } from '@/components/home/weekly-digest-card';
 import { ArcCompleteCard } from '@/components/home/arc-complete-card';
 import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
 import { InviteCoachCard } from '@/components/home/invite-coach-card';
@@ -1397,6 +1398,10 @@ export default function HomePage() {
           teamId={activeTeam.id}
           sessionId={todaySessions[0]?.id}
         />
+      )}
+
+      {!practiceActive && activeTeam && (
+        <WeeklyDigestSection teamId={activeTeam.id} />
       )}
 
       {!practiceActive && activeTeam && (

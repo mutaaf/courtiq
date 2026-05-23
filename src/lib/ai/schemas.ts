@@ -495,3 +495,35 @@ export const coachingBriefSchema = z.object({
 });
 
 export type CoachingBrief = z.infer<typeof coachingBriefSchema>;
+
+// ── Weekly Coaching Digest (ticket 0023) ────────────────────────────────────
+//
+// A coach-private "your week in coaching" recap built from the last 7 days of a
+// team's observations. The `next_action.kind` is a CLOSED enum so the home card
+// can map it to a known in-app route (parent report / weekly star / practice
+// plan / capture). COPPA: `top_players` carries only first names the coach
+// already entered in their own observations — no new minor-scoped field.
+
+export const WEEKLY_DIGEST_ACTION_KINDS = [
+  'parent_report',
+  'weekly_star',
+  'practice_plan',
+  'capture',
+] as const;
+
+export type WeeklyDigestActionKind = (typeof WEEKLY_DIGEST_ACTION_KINDS)[number];
+
+export const weeklyDigestSchema = z.object({
+  week_summary: z.string().min(1),               // One glanceable line about the week
+  top_players: z.array(z.object({
+    player_name: z.string().min(1),              // First name from the coach's own notes
+    note: z.string().min(1),                     // One line on why they stood out
+  })),
+  next_action: z.object({
+    label: z.string().min(1),                    // The button text, e.g. "Send Maya's report"
+    kind: z.enum(WEEKLY_DIGEST_ACTION_KINDS),    // Closed set → mapped to a route client-side
+    rationale: z.string().min(1),                // Why this is the one thing worth doing
+  }),
+});
+
+export type WeeklyDigest = z.infer<typeof weeklyDigestSchema>;

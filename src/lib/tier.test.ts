@@ -151,6 +151,17 @@ describe('canAccess', () => {
     }
   });
 
+  // ── Ticket 0023 — weekly coaching digest (Coach+) ──────────────────────────
+  it('blocks free users from the weekly digest', () => {
+    expect(canAccess('free', 'feature_weekly_digest')).toBe(false);
+  });
+
+  it('allows coach, pro_coach, and organization to access the weekly digest', () => {
+    expect(canAccess('coach', 'feature_weekly_digest')).toBe(true);
+    expect(canAccess('pro_coach', 'feature_weekly_digest')).toBe(true);
+    expect(canAccess('organization', 'feature_weekly_digest')).toBe(true);
+  });
+
   it('organization can access everything pro_coach can', () => {
     for (const feature of TIER_LIMITS.pro_coach.features) {
       expect(canAccess('organization', feature)).toBe(true);
