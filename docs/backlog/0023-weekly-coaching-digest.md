@@ -1,7 +1,7 @@
 ---
 id: 0023
 title: Give the coach a Monday "your week in coaching" digest that pulls them back in
-status: proposed
+status: in-progress
 priority: P1
 area: analytics
 created: 2026-05-23
@@ -154,7 +154,13 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0023-weekly-coaching-digest` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-23 — branch `feat/0023-weekly-coaching-digest` opened; ticket marked in-progress.
+- 2026-05-23 — Interpretation notes: (a) "small threshold" for the null short-circuit
+  is set to **3** observations in the last 7 days — a team with 0–2 weekly observations
+  returns `{ digest: null }` with NO AI call (matches the AC wording "0–2 weekly
+  observations short-circuits"). (b) The `next_action.kind` enum is the closed set
+  `parent_report | weekly_star | practice_plan | capture`. (c) Cross-org team ownership
+  returns **404** (the route reads the team's `org_id` and compares to the caller's
+  `coaches.org_id`; an unowned team is treated as not-found so we never leak its
+  existence), reading nothing from `observations` for that team. (d) `interactionType`
+  is `'custom'` (no new `ai_interactions` enum value, no new `plans.type`).
