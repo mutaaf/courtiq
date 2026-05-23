@@ -1197,6 +1197,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             shareToken={token}
             playerFirstName={firstName}
             coachName={coachName}
+            referralCode={referralCode}
           />
         </div>
 

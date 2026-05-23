@@ -1,7 +1,7 @@
 ---
 id: 0022
 title: Turn the parent-reaction thank-you screen into the moment the parent acts on the app
-status: proposed
+status: in-progress
 priority: P2
 area: parent-portal
 created: 2026-05-22
@@ -137,7 +137,30 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0022-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
+- 2026-05-22 — branch `feat/0022-reaction-thankyou-viral-path` opened; ticket marked in-progress.
+  Interpretation: thread the existing portal `referralCode` (already resolved by
+  `GET /api/share/[token]`, ticket 0011) into `<ParentReactionForm>` as a prop and surface
+  TWO actions on the success state — (1) a plain `<a href="/signup?ref=<code>">` self-signup
+  link mirroring `StartYourTeamCTA` (ticket 0019), and (2) a forward control reusing the same
+  `navigator.share`/clipboard path as `ParentViralCTA` (ticket 0011), exposed via
+  `data-share-url` for assertion. The page-bottom CTAs and `ParentViralCTA`'s public behavior
+  are untouched.
+- 2026-05-22 — failing tests added: `tests/components/parent-reaction-form.test.tsx` (8 cases,
+  ACs 1-5 + regressions) and the 0022 extension in `tests/e2e/share-flow.spec.ts` (ACs 6-7).
+  Confirmed failing for the right reason (success state rendered only "Message sent!" with no
+  actions), then implemented: added `referralCode?: string | null` prop to `ParentReactionForm`,
+  rendering on the success state a plain `/signup?ref=<code>` self-signup link and a forward
+  control reusing the `navigator.share`/clipboard path (exposing `data-share-url`); threaded the
+  same `referralCode` from `src/app/share/[token]/page.tsx`. `ParentViralCTA` + the page-bottom
+  CTAs are untouched. Full local gate: lint 0 errors, tsc 0 errors, vitest 4397 passing (the lone
+  `player-of-match-utils` date fail is the documented TZ/jsdom artifact — America/Chicago, not a
+  regression, reproduces on main; CI Node 20 UTC arbitrates).
+- 2026-05-22 — PR #269 opened (https://github.com/mutaaf/courtiq/pull/269), auto-merge armed.
+- 2026-05-22 — CI caught a real bug: `lint`+`unit-tests` green but `e2e-tests` red with a strict-mode
+  violation — `getByRole('link', {name:/start your own team/i})` resolved to 2 elements because the
+  success-screen self-signup link AND the page-bottom 0019 CTA both render the same accessible name
+  by design (AC7). The component test passed in isolation (one link). Fix: added a stable
+  `data-testid="reaction-success-actions"` on the success card and scoped the e2e locator to it
+  (`getByTestId(...).getByRole(...)`) — both links legitimately exist, so no assertion was weakened.
+  Lesson appended to docs/LESSONS.md. Re-ran component test (8/8) + tsc (clean) + e2e --list.
 - YYYY-MM-DD — merged to main
