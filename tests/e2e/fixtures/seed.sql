@@ -62,11 +62,18 @@ on conflict (org_id) do nothing;
 -- ── coaches ──────────────────────────────────────────────────────────────
 -- 'E2E Test Coach' mirrors TEST_COACH; role 'admin' so the (skipped-in-CI)
 -- admin-flow spec has a valid coach if creds are ever supplied.
-insert into coaches (id, org_id, full_name, email, role, onboarding_complete)
+-- preferences.referral_code is stored explicitly as 'AAAAAA' = makeReferralCode
+-- of this coach's UUID (the first 12 hex bytes are all 0x00 → CHARS[0]='A').
+-- That's the SAME code the team-card / season-recap CTAs deep-link to; storing
+-- it here lets the public /api/referrals/lookup (ticket 0021) resolve the
+-- inviting coach's first name deterministically regardless of e2e spec ordering
+-- (rather than relying on another spec to lazily persist it first).
+insert into coaches (id, org_id, full_name, email, role, onboarding_complete, preferences)
 values (
   '00000000-0000-4000-a000-000000000001',
   '00000000-0000-4000-a000-000000000010',
-  'E2E Test Coach', 'e2e@test.com', 'admin', true
+  'E2E Test Coach', 'e2e@test.com', 'admin', true,
+  '{"referral_code": "AAAAAA"}'::jsonb
 )
 on conflict (id) do nothing;
 

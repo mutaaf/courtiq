@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -42,6 +42,31 @@ function SignupForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Warm-landing: resolve the inviting coach's first name from the referral code
+  // so the banner can name them ("Coach Sarah invited you") instead of the
+  // generic "a fellow coach" copy (ticket 0021). Best-effort only — if it
+  // doesn't resolve or the fetch fails, we keep today's generic copy byte-for-
+  // byte. Attribution (referredByCode → /api/auth/setup) is untouched.
+  const [inviterFirstName, setInviterFirstName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!refCode) return;
+    let cancelled = false;
+    fetch(`/api/referrals/lookup?code=${encodeURIComponent(refCode)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data && typeof data.coachFirstName === 'string') {
+          setInviterFirstName(data.coachFirstName);
+        }
+      })
+      .catch(() => {
+        // Stay on the generic banner — a bad lookup never blocks signup.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [refCode]);
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
@@ -121,7 +146,9 @@ function SignupForm() {
           <CardTitle className="text-2xl">Create your account</CardTitle>
           <CardDescription>
             {refCode
-              ? 'You were invited by a fellow coach!'
+              ? inviterFirstName
+                ? `Coach ${inviterFirstName} invited you to SportsIQ`
+                : 'You were invited by a fellow coach!'
               : planConfig
                 ? `You're one step away from your ${planConfig.label}`
                 : 'Start coaching smarter with SportsIQ'}
@@ -146,11 +173,14 @@ function SignupForm() {
             );
           })()}
 
-          {/* Referral banner */}
+          {/* Referral banner — names the inviting coach when the code resolves
+              (ticket 0021), else falls back to the generic copy. */}
           {refCode && (
             <div className="mb-4 flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3 text-sm text-emerald-400">
               <CheckCircle2 className="h-4 w-4 shrink-0" />
-              Referral applied — your coach connection will be tracked
+              {inviterFirstName
+                ? `Coach ${inviterFirstName} invited you — start free`
+                : 'Referral applied — your coach connection will be tracked'}
             </div>
           )}
 
