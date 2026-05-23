@@ -32,6 +32,11 @@ function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const refCode = searchParams.get('ref') ?? '';
+  // Program staff-invite path (ticket 0024): /org/<slug> CTA deep-links here as
+  // /signup?org=<slug>. Forwarded to /api/auth/setup so the new coach attaches
+  // to that existing program. Independent of the `ref` referral path — both may
+  // be present at once.
+  const orgSlug = searchParams.get('org') ?? '';
   const planParam = searchParams.get('plan') ?? '';
   const planConfig = PLAN_CONFIG[planParam] ?? null;
 
@@ -108,7 +113,11 @@ function SignupForm() {
       await fetch('/api/auth/setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fullName, referredByCode: refCode || undefined }),
+        body: JSON.stringify({
+          fullName,
+          referredByCode: refCode || undefined,
+          org: orgSlug || undefined,
+        }),
       });
       router.push('/onboarding/setup');
       router.refresh();
