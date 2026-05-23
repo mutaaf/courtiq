@@ -459,6 +459,18 @@ export interface TeamCardShare {
   created_at: string;
 }
 
+// Public coach profile card mapping (ticket 0026). Maps a public token to the
+// COACH themselves (not a plan): /coach/[token] renders the coach's standing
+// identity surface. No minor data — the public read exposes only coach-level
+// fields + aggregate integer counts derived from existing rows.
+export interface CoachCardShare {
+  id: string;
+  token: string;
+  coach_id: string;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface ConfigOverride {
   id: string;
   org_id: string | null;

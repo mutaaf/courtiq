@@ -41,6 +41,12 @@ export async function updateSession(request: NextRequest) {
     // Public season-recap card (ticket 0017) — page + its API.
     '/season-recap/',
     '/api/season-recap/',
+    // Public coach profile card (ticket 0026) — the page + its public token GET.
+    // /api/coach-card/create is NOT a public surface: it self-enforces auth in
+    // the handler (auth.getUser() → 401), exactly like the team-card / season-recap
+    // create routes do, so a blanket prefix here never bypasses that 401 guard.
+    '/coach/',
+    '/api/coach-card/',
     // Public referral lookup (ticket 0021) — names the inviting coach on the
     // warm signup landing. Returns the referrer's first name only, no auth.
     '/api/referrals/lookup',
