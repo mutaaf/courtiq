@@ -1,7 +1,7 @@
 'use client';
 import { useTier } from '@/hooks/use-tier';
 import { Button } from './button';
-import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye, FileAudio } from 'lucide-react';
+import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye, FileAudio, CalendarDays } from 'lucide-react';
 import Link from 'next/link';
 import type { Tier } from '@/lib/tier';
 
@@ -172,6 +172,22 @@ const FEATURE_CONFIG: Record<string, FeatureConfig> = {
     accentColor: 'text-teal-400',
     accentBg: 'bg-teal-500/15',
     accentBorder: 'border-teal-500/30',
+  },
+  feature_weekly_digest: {
+    icon: CalendarDays,
+    headline: 'Unlock the Weekly Digest',
+    tagline: 'Open the app on a quiet day and see your whole week in coaching at a glance.',
+    benefits: [
+      'A one-line recap of your last 7 days of practices and notes',
+      'The players who showed up most in your observations',
+      'One concrete next action, with a one-tap path to do it',
+      'Generated from notes you already captured — nothing extra to set up',
+      'Appears on your home screen; gone on a quiet week, no nagging',
+    ],
+    requiredTier: 'coach',
+    accentColor: 'text-orange-400',
+    accentBg: 'bg-orange-500/15',
+    accentBorder: 'border-orange-500/30',
   },
   long_session_audio: {
     icon: FileAudio,

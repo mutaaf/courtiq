@@ -1216,4 +1216,54 @@ export const PROMPT_REGISTRY = {
       '{ "team_talk": "full 3-4 sentence script under 70 words", "focus_words": ["Word1", "Word2"], "energy_level": "high|focused|calm", "chant": "1-2-3 TEAMNAME!" }',
     ].filter(Boolean).join('\n'),
   }),
+
+  // ── Weekly Coaching Digest (ticket 0023) ──────────────────────────────────
+  // A coach-private "your week in coaching" recap of the last 7 days. Three
+  // things: a one-line week_summary, the top_players who showed up most in the
+  // coach's notes, and ONE next_action drawn from the candidate actions provided
+  // (the kind is a closed enum the home card maps to a route). Voice: clipboard,
+  // factual, encouraging-not-breathless. COPPA: it is fed ONLY the observation
+  // text + player first names the coach already entered — no new minor data.
+  weeklyDigest: (params: PromptParams & {
+    totalObservations: number;
+    sessionCount: number;
+    players: Array<{
+      player_name: string;
+      positiveCount: number;
+      needsWorkCount: number;
+      topCategory: string;
+      sampleObservation: string;
+    }>;
+    candidateActions: Array<{ kind: string; label: string; reason: string }>;
+  }) => ({
+    system: [
+      buildSystemPreamble(params),
+      'You write a short, coach-private "your week in coaching" recap for the coach to read on a quiet day.',
+      '',
+      'Rules:',
+      '- This is for the COACH only — never a parent. It is a factual recap, not a celebration card.',
+      '- week_summary: ONE glanceable line. State what happened (practices, notes) and one honest read of the week. Plain, clipboard tone — no hype.',
+      '- top_players: 2–3 players who showed up MOST in the coach\'s notes this week. Use the first name exactly as given. Each note is one short line on why they stood out (paraphrase a real observation; do not invent skills).',
+      '- next_action: pick EXACTLY ONE action from the candidate actions provided — the single highest-value thing for the coach to do next. Copy its `kind` verbatim (it must be one of the candidate kinds). Write a short label and a one-line rationale grounded in the week\'s data.',
+      '- Do NOT invent players, observations, or actions beyond what is provided.',
+      '- Tone is encouraging but factual — write like a coach\'s clipboard, not a marketing landing page. Avoid breathless hype words. No emoji.',
+    ].join('\n'),
+    user: [
+      `Team: ${params.teamName || 'your team'} (${params.sportName || 'basketball'}, ${params.ageGroup || 'youth'})`,
+      `Last 7 days: ${params.sessionCount} session(s), ${params.totalObservations} observation(s).`,
+      '',
+      'Players who came up in the notes (most observed first):',
+      params.players
+        .map((p) => `- ${p.player_name}: ${p.positiveCount} positive, ${p.needsWorkCount} needs-work, mostly ${p.topCategory}. e.g. "${p.sampleObservation}"`)
+        .join('\n') || '(none)',
+      '',
+      'Candidate next actions (pick exactly ONE; copy its kind verbatim):',
+      params.candidateActions
+        .map((a) => `- kind="${a.kind}": ${a.label} — ${a.reason}`)
+        .join('\n'),
+      '',
+      'Write the weekly coaching digest as JSON:',
+      '{ "week_summary": "one glanceable line", "top_players": [{ "player_name": "first name", "note": "one line on why they stood out" }], "next_action": { "label": "button text", "kind": "one of the candidate kinds", "rationale": "one line grounded in the week" } }',
+    ].filter(Boolean).join('\n'),
+  }),
 } as const;
