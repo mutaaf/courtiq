@@ -143,3 +143,16 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   `tests/components/start-your-team-cta.test.tsx` (`.test.tsx`, not `.spec.ts` — LESSONS#38),
   plus extend `tests/e2e/share-flow.spec.ts` so both CTAs coexist and the self-signup link's
   href carries the seeded code `AAAAAA`.
+- 2026-05-22 [implementation-dev] Shipped. Added `src/components/share/start-your-team-cta.tsx`
+  (a plain `<a href>`, no client JS) and wired it into `src/app/share/[token]/page.tsx` directly
+  below `ParentViralCTA`, both fed the same resolved `referralCode`. The forward button is
+  untouched (out-of-scope per the ticket). Light-mode gray/orange aesthetic; `py-3` button is a
+  44px touch target; banned words avoided. Tests:
+  `tests/components/start-your-team-cta.test.tsx` (real link, /signup?ref=<code>, bare-/signup
+  fallback for null/empty, COPPA: only `ref` in the href) and three new `tests/e2e/share-flow`
+  scenarios (self-signup href = `/signup?ref=AAAAAA`, both CTAs coexist, href has no
+  player/token PII). Local gate: `npm run lint` 0 errors, `tsc --noEmit` clean, vitest
+  4389 passed. The single vitest failure (`player-of-match-utils.test.ts` "Apr 27" vs "Apr 28")
+  is the documented TZ artifact (LESSONS#36): the file is byte-identical to origin/main, the
+  machine is America/Chicago (UTC-5), and CI runs UTC where it passes — NOT a regression, not
+  weakened.

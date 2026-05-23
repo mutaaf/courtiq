@@ -217,6 +217,44 @@ test.describe('Parent portal (/share/[token]) — public', () => {
     await expect(page.getByText(/referral applied/i)).toBeVisible({ timeout: 10000 });
   });
 
+  // ── Ticket 0019: a SECOND, distinct self-signup CTA on the portal ─────────
+  // The "Start your own team — free" CTA converts a parent-who-is-also-a-coach
+  // directly into a coach signup. Unlike the forward button it is a PLAIN
+  // server-rendered <a href> (works without JS) carrying the same coach's
+  // referral code. The seeded coach's code is 'AAAAAA' (SHARE_REF).
+
+  test('the "Start your own team" CTA is a real link to /signup?ref=<code>', async ({ page }) => {
+    await page.goto(SHARE_URL);
+    const startCta = page.getByRole('link', { name: /start your own team/i });
+    await expect(startCta).toBeVisible({ timeout: 10000 });
+    // A plain link (not a JS share handler) — assertable by href directly.
+    await expect(startCta).toHaveAttribute('href', `/signup?ref=${SHARE_REF}`);
+  });
+
+  test('both portal CTAs coexist — the forward button AND the self-signup link', async ({ page }) => {
+    await page.goto(SHARE_URL);
+    // The existing forward button (ticket 0011) is not removed or replaced…
+    await expect(
+      page.getByRole('button', { name: /share with your other coach/i })
+    ).toBeVisible({ timeout: 10000 });
+    // …and the new self-signup link sits alongside it.
+    await expect(
+      page.getByRole('link', { name: /start your own team/i })
+    ).toBeVisible();
+  });
+
+  // COPPA: the outbound /signup link carries ONLY the referral code — no player
+  // name, no parent contact, no token-derived PII in the href.
+  test('the self-signup CTA href exposes only ref=<code> (no player/token PII)', async ({ page }) => {
+    await page.goto(SHARE_URL);
+    const href = await page
+      .getByRole('link', { name: /start your own team/i })
+      .getAttribute('href');
+    expect(href).toBe(`/signup?ref=${SHARE_REF}`);
+    expect(href).not.toContain('Alice');
+    expect(href).not.toContain(SHARE_TOKEN);
+  });
+
   test('expired share token shows error state', async ({ page }) => {
     await page.route(`**/api/share/expired-token`, (route) =>
       route.fulfill({

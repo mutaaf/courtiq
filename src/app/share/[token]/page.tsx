@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { buildShareMetadata } from '@/lib/share-metadata';
 import { PlayerAvatar } from '@/components/ui/player-avatar';
 import { ParentViralCTA } from '@/components/share/parent-viral-cta';
+import { StartYourTeamCTA } from '@/components/share/start-your-team-cta';
 import { ParentReactionForm } from '@/components/share/parent-reaction-form';
 import { ParentContactForm } from '@/components/share/parent-contact-form';
 import { ShareReportButton } from '@/components/share/share-report-button';
@@ -1210,9 +1211,17 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           />
         )}
 
-        {/* ─── Viral CTA ─── */}
+        {/* ─── Viral CTA (forward the app to the parent's OTHER coach) ─── */}
         <div className="mx-4 mt-6">
           <ParentViralCTA coachName={coachName} teamName={team?.name} referralCode={referralCode} />
+        </div>
+
+        {/* ─── Self-signup CTA (ticket 0019) — for the parent who is themselves a
+            coach: a direct "start your own team" path, a plain server-rendered
+            link (no JS) carrying the same coach's referral code. Sits alongside
+            the forward button above; does not replace it. ─── */}
+        <div className="mx-4 mt-4">
+          <StartYourTeamCTA referralCode={referralCode} />
         </div>
 
         {/* ─── Footer ─── */}
