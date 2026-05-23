@@ -1,7 +1,7 @@
 ---
 id: 0020
 title: Bring the active Practice Arc onto Capture so the coach picks up the arc mid-practice
-status: in-progress
+status: shipped
 priority: P1
 area: capture
 created: 2026-05-22
@@ -158,3 +158,18 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   `key_coaching_point` / `carries_forward` live on `currentSession`/`priorSession`). Per
   LESSONS#39 I assert the REAL contract — the component consumes `ActiveArcResponse` from the
   route, not the prose shape. Route is NOT modified (out-of-scope).
+- 2026-05-22 — Failing test added first: `tests/components/arc-continuity-line.test.tsx`
+  (`.test.tsx`, NOT `.spec.ts`, per LESSONS#38). Confirmed it failed on the missing
+  `@/components/capture/arc-continuity-line` import before implementation.
+- 2026-05-22 — Implemented `src/components/capture/arc-continuity-line.tsx` (pure presentational,
+  mirrors 0008's `ai-usage-meter.tsx`; renders null on no-arc/loading/failure; session-scoped
+  in-memory dismiss; 44px touch target) and wired a fire-and-forget TanStack `useQuery` on the
+  Capture page hitting `GET /api/ai/practice-arc/active?teamId=<id>` via `useActiveTeam()` — the
+  record button's `disabled` state does NOT depend on it. Added `tests/e2e/capture-arc-continuity.spec.ts`
+  (mocks the endpoint, `test.skip` when E2E creds unset, per the 0008 convention; no seed change
+  needed since the spec mocks the endpoint like the sibling capture specs).
+- 2026-05-22 — Local gate green under pinned Node 20.19.0: lint 0 errors, `tsc --noEmit` clean,
+  vitest 4376 passed (the lone `player-of-match-utils` `Apr 27` vs `Apr 28` fail is the documented
+  environmental TZ artifact, LESSONS#36 — reproduces on pure main, arbitrated green by CI/UTC).
+- 2026-05-22 — PR #263 opened, auto-merge armed; all three gating checks green
+  (lint, unit-tests, e2e-tests 3m29s). Merged to main.
