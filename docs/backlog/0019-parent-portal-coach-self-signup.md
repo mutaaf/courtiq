@@ -1,7 +1,7 @@
 ---
 id: 0019
 title: Let the parent who is also a coach start their own free team from the report they're reading
-status: in-progress
+status: shipped
 priority: P2
 area: growth
 created: 2026-05-22
