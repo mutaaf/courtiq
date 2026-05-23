@@ -1,7 +1,7 @@
 ---
 id: 0023
 title: Give the coach a Monday "your week in coaching" digest that pulls them back in
-status: in-progress
+status: shipped
 priority: P1
 area: analytics
 created: 2026-05-23
@@ -186,3 +186,6 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   `vitest run` 4417 passed, 1 failed — the failure is the documented LESSONS#36 TZ artifact
   (`player-of-match-utils` `Apr 27`/`Apr 28`, unrelated to this change). Confirmed it passes
   47/47 under `TZ=UTC` (CI's TZ), so CI arbitrates green.
+- 2026-05-23 — PR #272 opened with auto-merge; all three gating checks green
+  (lint, unit-tests, e2e-tests); squash-merged to main. Shipped-flip done on
+  `chore/0023-mark-shipped` (feature branch already merged — LESSONS#0020).
