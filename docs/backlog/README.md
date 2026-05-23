@@ -76,7 +76,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0022 | Turn the parent-reaction thank-you screen into the moment the parent acts on the app | P2 | proposed | parent-portal |
+| 0022 | Turn the parent-reaction thank-you screen into the moment the parent acts on the app | P2 | in-progress | parent-portal |
 | 0001 | Stripe webhook signature verification on the live endpoint | P0 | shipped | billing |
 | 0002 | End-to-end checkout flow test — upgrade → pay → tier unlocks features | P0 | shipped | billing |
 | 0003 | Cancellation flow test — cancel → webhook → downgrade at period end | P0 | shipped | billing |

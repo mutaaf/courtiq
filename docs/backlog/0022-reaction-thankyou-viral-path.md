@@ -1,7 +1,7 @@
 ---
 id: 0022
 title: Turn the parent-reaction thank-you screen into the moment the parent acts on the app
-status: proposed
+status: in-progress
 priority: P2
 area: parent-portal
 created: 2026-05-22
@@ -137,7 +137,14 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0022-...` opened
+- 2026-05-22 — branch `feat/0022-reaction-thankyou-viral-path` opened; ticket marked in-progress.
+  Interpretation: thread the existing portal `referralCode` (already resolved by
+  `GET /api/share/[token]`, ticket 0011) into `<ParentReactionForm>` as a prop and surface
+  TWO actions on the success state — (1) a plain `<a href="/signup?ref=<code>">` self-signup
+  link mirroring `StartYourTeamCTA` (ticket 0019), and (2) a forward control reusing the same
+  `navigator.share`/clipboard path as `ParentViralCTA` (ticket 0011), exposed via
+  `data-share-url` for assertion. The page-bottom CTAs and `ParentViralCTA`'s public behavior
+  are untouched.
 - YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
 - YYYY-MM-DD — PR #N opened, CI [state]
 - YYYY-MM-DD — merged to main
