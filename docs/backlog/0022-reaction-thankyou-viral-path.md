@@ -155,5 +155,5 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   CTAs are untouched. Full local gate: lint 0 errors, tsc 0 errors, vitest 4397 passing (the lone
   `player-of-match-utils` date fail is the documented TZ/jsdom artifact — America/Chicago, not a
   regression, reproduces on main; CI Node 20 UTC arbitrates).
-- YYYY-MM-DD — PR #N opened, CI [state]
+- 2026-05-22 — PR #269 opened (https://github.com/mutaaf/courtiq/pull/269), auto-merge armed; CI running.
 - YYYY-MM-DD — merged to main
