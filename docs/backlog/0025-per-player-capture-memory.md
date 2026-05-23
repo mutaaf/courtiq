@@ -1,7 +1,7 @@
 ---
 id: 0025
 title: When the coach starts observing a player, remind them what that player was working on
-status: in-progress
+status: shipped
 priority: P2
 area: capture
 created: 2026-05-23
@@ -172,3 +172,7 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   var, no AI call, no tier gate, no new `publicPaths` entry. Local gate green: lint (0 errors), tsc
   (0 errors), vitest (new files 13/13; the lone full-suite failure is the documented TZ artifact in
   `player-of-match-utils.test.ts`, LESSONS.md 2026-05-20, on files this branch does not touch).
+- 2026-05-23 — PR #276 opened; all three gating checks green (lint, unit-tests, e2e-tests 3m33s);
+  merged to main via auto-merge (squash). Status flipped to shipped on chore/0025-mark-shipped (per
+  LESSONS.md 2026-05-22 #0020: the feature branch merges before the watch returns, so the shipped-flip
+  rides a separate chore branch off freshly-pulled main).
