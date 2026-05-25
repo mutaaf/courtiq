@@ -67,18 +67,37 @@ html {
 .light .bg-zinc-900\/95 { background-color: rgba(249, 250, 251, 0.95); }
 .light .bg-zinc-900\/30 { background-color: rgba(249, 250, 251, 0.3); }
 .light .bg-zinc-900\/60 { background-color: rgba(249, 250, 251, 0.6); }
+.light .bg-zinc-900\/70 { background-color: rgba(249, 250, 251, 0.7); }
+/* Desktop top header + floating dock use bg-zinc-900/90 — without this
+   override they render dark gray on the white light-mode canvas. */
+.light .bg-zinc-900\/90 { background-color: rgba(249, 250, 251, 0.9); }
+.light .bg-zinc-900\/10 { background-color: rgba(249, 250, 251, 0.1); }
 .light .bg-zinc-800 { background-color: #f1f5f9; }
-.light .bg-zinc-800\/50 { background-color: rgba(241, 245, 249, 0.5); }
 .light .bg-zinc-800\/30 { background-color: rgba(241, 245, 249, 0.3); }
+.light .bg-zinc-800\/40 { background-color: rgba(241, 245, 249, 0.4); }
+.light .bg-zinc-800\/50 { background-color: rgba(241, 245, 249, 0.5); }
+.light .bg-zinc-800\/60 { background-color: rgba(241, 245, 249, 0.6); }
+.light .bg-zinc-800\/70 { background-color: rgba(241, 245, 249, 0.7); }
+.light .bg-zinc-800\/80 { background-color: rgba(241, 245, 249, 0.8); }
 .light .bg-zinc-700 { background-color: #e2e8f0; }
+.light .bg-zinc-700\/30 { background-color: rgba(226, 232, 240, 0.3); }
+.light .bg-zinc-700\/40 { background-color: rgba(226, 232, 240, 0.4); }
 .light .bg-zinc-700\/50 { background-color: rgba(226, 232, 240, 0.5); }
+.light .bg-zinc-700\/60 { background-color: rgba(226, 232, 240, 0.6); }
+.light .bg-zinc-700\/70 { background-color: rgba(226, 232, 240, 0.7); }
 
 /* Borders */
 .light .border-zinc-800 { border-color: #e2e8f0; }
+.light .border-zinc-800\/50 { border-color: rgba(226, 232, 240, 0.5); }
 .light .border-zinc-800\/60 { border-color: rgba(226, 232, 240, 0.6); }
 .light .border-zinc-700 { border-color: #cbd5e1; }
+.light .border-zinc-700\/40 { border-color: rgba(203, 213, 225, 0.4); }
 .light .border-zinc-700\/50 { border-color: rgba(203, 213, 225, 0.5); }
+.light .border-zinc-700\/60 { border-color: rgba(203, 213, 225, 0.6); }
 .light .border-zinc-600 { border-color: #94a3b8; }
+.light .border-zinc-600\/30 { border-color: rgba(148, 163, 184, 0.3); }
+.light .border-zinc-600\/40 { border-color: rgba(148, 163, 184, 0.4); }
+.light .border-zinc-600\/50 { border-color: rgba(148, 163, 184, 0.5); }
 
 /* Text — good contrast on white backgrounds */
 .light .text-zinc-100 { color: #0f172a; }
