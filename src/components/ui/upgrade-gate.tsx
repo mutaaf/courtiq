@@ -1,7 +1,7 @@
 'use client';
 import { useTier } from '@/hooks/use-tier';
 import { Button } from './button';
-import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye, FileAudio, CalendarDays, Gauge } from 'lucide-react';
+import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye, FileAudio, CalendarDays, Gauge, CalendarRange } from 'lucide-react';
 import Link from 'next/link';
 import type { Tier } from '@/lib/tier';
 
@@ -183,6 +183,22 @@ const FEATURE_CONFIG: Record<string, FeatureConfig> = {
       'One concrete next action, with a one-tap path to do it',
       'Generated from notes you already captured — nothing extra to set up',
       'Appears on your home screen; gone on a quiet week, no nagging',
+    ],
+    requiredTier: 'coach',
+    accentColor: 'text-orange-400',
+    accentBg: 'bg-orange-500/15',
+    accentBorder: 'border-orange-500/30',
+  },
+  feature_season_momentum: {
+    icon: CalendarRange,
+    headline: 'Unlock Season Momentum',
+    tagline: 'See where you are in the season and how your notes are adding up — at a glance.',
+    benefits: [
+      'Your position in the season — "Week N of M" with a progress bar',
+      'One factual line on how your notes have trended since week one',
+      'A reason to open the app on a quiet day with no practice',
+      'Built from notes you already captured — nothing extra to set up',
+      'A quiet card on your home screen, never a guilt-trip',
     ],
     requiredTier: 'coach',
     accentColor: 'text-orange-400',
