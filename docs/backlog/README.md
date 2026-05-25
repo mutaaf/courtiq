@@ -76,7 +76,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0033 | Let a cold searcher find a program and claim the team they coach — free | P1 | groomed | growth |
+| 0033 | Let a cold searcher find a program and claim the team they coach — free | P1 | in-progress | growth |
 | 0032 | Show the coach where they are in the season so the arc itself pulls them back | P2 | groomed | analytics |
 | 0034 | Let the parent report remember a returning player across seasons, not just within one | P2 | groomed | ai |
 | 0029 | Turn the helper who used the observer link into a coach with their own free team | P1 | shipped | growth |

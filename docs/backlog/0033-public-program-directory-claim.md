@@ -1,7 +1,7 @@
 ---
 id: 0033
 title: Let a cold searcher find a program and claim the team they coach — free
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-05-25
@@ -182,4 +182,24 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-05-25 [implementation-dev] Picked up 0033 (top groomed P1). Branch
+  `feat/0033-public-program-directory-claim`; status → in-progress.
+- 2026-05-25 [implementation-dev] Schema/contract reconciliation against ground truth:
+  - `Organization.settings` is already `Json` in `src/types/database.ts` — no type
+    change needed for the `settings.discoverable` flag; no migration.
+  - `team_coaches` is already in the mutate allow-list and `TeamCoach.role` is
+    `'head_coach' | 'coach' | 'assistant'` — the team-claim insert uses role `'coach'`.
+  - `GET /api/org/[slug]` already returns `teams` objects with `id` (it selects
+    `id, name, age_group, season, sport_id`) and `src/app/org/[slug]/page.tsx` already
+    threads `team.id` through — so the per-team claim CTA can use it without a route
+    change. The org-GET regression test just pins this.
+  - Director opt-in toggle: instead of a raw client `mutate({table:'organizations'})`
+    that would have to read-merge the whole `settings` jsonb on the client, added a
+    small auth-enforcing endpoint `GET/PATCH /api/org/discoverable` (mirrors
+    `/api/org/invite`): resolves the caller's org server-side, read-modify-writes ONLY
+    the `settings.discoverable` boolean. The client toggle component fetches/patches it.
+    This keeps the merge atomic server-side and the org-ownership check in one place,
+    while staying off direct client Supabase (AGENTS.md rule 3). Documented here as the
+    deviation from the literal `mutate()` wording in the engineering notes.
+  - vitest files created as `.test.ts` (never `.spec.ts` — vitest excludes the spec
+    glob; LESSONS.md 2026-05-20). Playwright spec is `.spec.ts` under `tests/e2e/`.
