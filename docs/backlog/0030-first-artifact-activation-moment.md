@@ -1,7 +1,7 @@
 ---
 id: 0030
 title: Walk the brand-new coach to their first shareable AI artifact the moment they have enough notes
-status: in-progress
+status: shipped
 priority: P2
 area: onboarding
 created: 2026-05-25
@@ -157,5 +157,5 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   Full `vitest run --no-file-parallelism` = 4519 passed; the single fail
   (`player-of-match-utils` `Apr 27` vs `Apr 28`) is the documented non-UTC-TZ env artifact
   (LESSONS 2026-05-20), reproduces identically in isolation, and is untouched by this change.
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-25 — PR #289 opened; all three gating checks green (lint / unit-tests / e2e-tests).
+- 2026-05-25 — PR #289 squash-merged to main; status flipped to shipped via chore/0030-mark-shipped.
