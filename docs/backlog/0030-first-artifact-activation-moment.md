@@ -1,7 +1,7 @@
 ---
 id: 0030
 title: Walk the brand-new coach to their first shareable AI artifact the moment they have enough notes
-status: groomed
+status: in-progress
 priority: P2
 area: onboarding
 created: 2026-05-25
