@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { InviteCoachButton } from '@/components/growth/invite-coach-button';
 import { StaffInviteButton } from '@/components/growth/staff-invite-button';
+import { ProgramDiscoveryToggle } from '@/components/growth/program-discovery-toggle';
 import { CoachProfileShareButton } from '@/components/growth/coach-profile-share-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -194,6 +195,15 @@ export default function ReferralsPage() {
             joins your program — no separate sign-ups to chase down.
           </p>
           <StaffInviteButton />
+
+          {/* Public directory opt-in (ticket 0033) — list the program at /programs
+              so a coach who searches for your league can find it and claim their
+              team. Off until you turn it on; org-level info only. */}
+          <p className="text-sm text-zinc-400 pt-2">
+            Or list your program publicly so a coach who searches for your league
+            can find it and claim the team they coach.
+          </p>
+          <ProgramDiscoveryToggle />
         </CardContent>
       </Card>
 

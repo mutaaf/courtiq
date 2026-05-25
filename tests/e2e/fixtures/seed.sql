@@ -592,4 +592,66 @@ values (
 )
 on conflict (org_id, team_id, domain, key) do nothing;
 
+-- ════════════════════════════════════════════════════════════════════════
+-- Ticket 0033 — public program directory + per-team claim fixture
+-- ════════════════════════════════════════════════════════════════════════
+-- The /programs directory and /org/<slug> pages are SERVER components: their
+-- data comes from the seed, not page.route() mocks (LESSONS.md 2026-05-21). This
+-- block seeds:
+--   • a DISCOVERABLE org ('Discoverable Rec League', slug 'discoverable-rec') with
+--     settings.discoverable = true → it MUST appear at /programs and its team must
+--     show a "Coach this team — free" CTA on /org/discoverable-rec.
+--   • The existing default E2E org ('E2E Test Org', slug 'e2e-test-org') has NO
+--     discoverable flag, so the directory spec asserts it is ABSENT (the opt-in
+--     gate working). No new "hidden" org is needed — that org is the negative case.
+--
+-- The discoverable flag is a jsonb boolean: `settings = '{"discoverable": true}'`
+-- is valid JSON under psql ON_ERROR_STOP=1 (LESSONS.md 2026-05-25 re: jsonb
+-- literals). The org's coach needs a matching auth.users row FIRST (coaches.id
+-- references auth.users(id) — LESSONS.md 2026-05-25), seeded in the same block.
+
+-- Auth user for the discoverable org's director (FK coaches_id_fkey). No password.
+insert into auth.users (id, instance_id, aud, role, email,
+                        email_confirmed_at, created_at, updated_at)
+values (
+  '00000000-0000-4000-a000-000000000201',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated', 'authenticated', 'discoverable-dir-e2e@test.com', now(), now(), now()
+)
+on conflict (id) do nothing;
+
+-- The discoverable org: settings.discoverable = true opts it into the directory.
+insert into organizations (id, name, slug, tier, settings)
+values (
+  '00000000-0000-4000-a000-000000000210',
+  'Discoverable Rec League', 'discoverable-rec', 'pro_coach',
+  '{"discoverable": true}'::jsonb
+)
+on conflict (id) do nothing;
+
+-- Branding (the org landing page reads org_branding).
+insert into org_branding (org_id, primary_color, parent_portal_header_text)
+values ('00000000-0000-4000-a000-000000000210', '#F97316', 'Go Hawks')
+on conflict (org_id) do nothing;
+
+-- The director coach for the discoverable org.
+insert into coaches (id, org_id, full_name, email, role, onboarding_complete)
+values (
+  '00000000-0000-4000-a000-000000000201',
+  '00000000-0000-4000-a000-000000000210',
+  'Discoverable Director', 'discoverable-dir-e2e@test.com', 'admin', true
+)
+on conflict (id) do nothing;
+
+-- One active team in the discoverable org. Its id is the claim key the per-team
+-- CTA deep-links to as /signup?org=discoverable-rec&team=<this id>. The CTA spec
+-- asserts the href contains exactly that.
+insert into teams (id, org_id, sport_id, name, age_group, season, season_weeks, current_week, is_active)
+select
+  '00000000-0000-4000-a000-000000000220',
+  '00000000-0000-4000-a000-000000000210',
+  (select id from sports where slug = 'basketball' limit 1),
+  'U10 Hawks', '9-10', 'Spring 2026', 10, 3, true
+on conflict (id) do nothing;
+
 commit;

@@ -61,6 +61,11 @@ export async function updateSession(request: NextRequest) {
     '/api/parents/join',
     '/org/',
     '/api/org/',
+    // Public program directory (ticket 0033) — the page + its public list API.
+    // A cold searcher finds their league here and taps through to /org/<slug> to
+    // claim the team they coach. Org-level/aggregate data only (opt-in required).
+    '/programs',
+    '/api/programs',
     '/api/health',
     '/api/debug',
     '/api/auth/',

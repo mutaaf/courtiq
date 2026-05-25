@@ -37,6 +37,11 @@ function SignupForm() {
   // to that existing program. Independent of the `ref` referral path — both may
   // be present at once.
   const orgSlug = searchParams.get('org') ?? '';
+  // Per-team claim path (ticket 0033): the /org/<slug> per-team CTA deep-links
+  // here as /signup?org=<slug>&team=<teamId>. Forwarded to /api/auth/setup so the
+  // new coach lands associated with the exact team they coach (the route only
+  // honors a team that belongs to the resolved org). Independent of `ref`/`org`.
+  const teamId = searchParams.get('team') ?? '';
   const planParam = searchParams.get('plan') ?? '';
   const planConfig = PLAN_CONFIG[planParam] ?? null;
 
@@ -117,6 +122,7 @@ function SignupForm() {
           fullName,
           referredByCode: refCode || undefined,
           org: orgSlug || undefined,
+          team: teamId || undefined,
         }),
       });
       router.push('/onboarding/setup');
