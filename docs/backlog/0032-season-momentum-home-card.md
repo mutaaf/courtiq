@@ -1,7 +1,7 @@
 ---
 id: 0032
 title: Show the coach where they are in the season so the arc itself pulls them back
-status: groomed
+status: in-progress
 priority: P2
 area: analytics
 created: 2026-05-25
@@ -178,4 +178,18 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-05-25 [implementation-dev] Picked up; branched `feat/0032-season-momentum-home-card`,
+  status → in-progress. Test-first.
+- 2026-05-25 [implementation-dev] DECISION: NO-AI trend sentence. Per the ticket's PREFERRED
+  default and LESSONS.md guidance, the one-line trend sentence is derived deterministically from
+  the numeric `{ positiveCount, totalCount }` counts in `season-momentum-utils.ts` — no `callAI*`
+  call, no quota cost, always renders. The AI-contract AC is satisfied by the no-AI-call vitest
+  branch (asserts the route never invokes the AI client). No `seasonMomentum` prompt or schema
+  added; no migration; no new artifact persisted.
+- 2026-05-25 [implementation-dev] Contract reconciliation (cf. LESSONS.md 2026-05-23 re: the
+  `<UpgradeGate feature>` prop being the tier-lookup KEY): registered `feature_season_momentum`
+  in `src/lib/tier.ts` for coach/pro_coach/organization (NOT free) and in `FEATURE_CONFIG` in
+  `upgrade-gate.tsx`. The route gate uses `canAccess(tier, 'feature_season_momentum')`.
+- 2026-05-25 [implementation-dev] Recent-observation window for `trend`: the most recent 30
+  observations for the team (ordered created_at desc, limit 30) — deterministic and documented,
+  mirroring the `since`/`order`/`limit` pattern from the weekly-star + carryover routes.
