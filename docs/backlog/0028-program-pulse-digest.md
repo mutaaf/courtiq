@@ -192,3 +192,11 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   (best-effort card states), `tests/e2e/program-pulse-flow.spec.ts` (authed, skips
   without E2E creds; seed adds an Organization-tier org + admin + coaches + a week
   of activity).
+- 2026-05-25 — local gate green under Node 20.19.0: lint 0 errors, `tsc --noEmit`
+  0 errors, vitest 4502/4503 (the lone fail is the documented TZ artifact in
+  `player-of-match-utils.test.ts`, passes under `TZ=UTC` as CI runs — LESSONS
+  2026-05-20).
+- 2026-05-25 — PR #287 opened with auto-merge (squash) armed. First CI run: lint +
+  unit-tests green; e2e-tests RED at the `Seed test data` step (psql exit 3,
+  `coaches_id_fkey` — the two added program coaches lacked `auth.users` rows).
+  Fixed by seeding their `auth.users` rows (new LESSONS entry 2026-05-25 [ship/0028]).
