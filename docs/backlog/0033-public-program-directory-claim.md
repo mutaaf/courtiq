@@ -1,7 +1,7 @@
 ---
 id: 0033
 title: Let a cold searcher find a program and claim the team they coach — free
-status: in-progress
+status: shipped
 priority: P1
 area: growth
 created: 2026-05-25
@@ -203,3 +203,10 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
     deviation from the literal `mutate()` wording in the engineering notes.
   - vitest files created as `.test.ts` (never `.spec.ts` — vitest excludes the spec
     glob; LESSONS.md 2026-05-20). Playwright spec is `.spec.ts` under `tests/e2e/`.
+- 2026-05-25 [implementation-dev] Shipped via PR #294 (squash-merged to main).
+  All three gating checks green: lint pass, unit-tests pass, e2e-tests pass
+  (3m43s — the new discoverable-org seed applied cleanly under ON_ERROR_STOP and
+  the new Playwright spec passed against real seeded data). The PR auto-merged
+  while CI was being watched, so this shipped-flip lands on a separate
+  `chore/0033-mark-shipped` branch (LESSONS.md 2026-05-22 ship/0020), flipping
+  BOTH the frontmatter and the README index row. Status → shipped.
