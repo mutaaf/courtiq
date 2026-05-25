@@ -1,7 +1,7 @@
 ---
 id: 0029
 title: Turn the helper who used the observer link into a coach with their own free team
-status: in-progress
+status: shipped
 priority: P1
 area: growth
 created: 2026-05-25
@@ -149,5 +149,10 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   `check-backlog.mjs` in sync, `vitest` 4480/4481 (the lone fail is the documented
   TZ/jsdom `player-of-match-utils` "Apr 27 vs Apr 28" environmental artifact, LESSONS.md
   2026-05-20 — not a regression, untouched by this change, green on CI's UTC Node 20).
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-25 — PR #284 opened. First e2e run failed: a page-wide `getByText(/E2E/)`
+  strict-mode-collided (the seeded coach first name "E2E" is also in the team name in the
+  header). Fixed by scoping the count + coach-name assertions to the
+  `observer-conversion-footer` data-testid container (test-only; lesson appended). All
+  three gating checks green on the re-run (lint, unit-tests, e2e-tests).
+- 2026-05-25 — PR #284 auto-merged to main. Status flipped to `shipped` (file + index) via
+  `chore/0029-mark-shipped`.

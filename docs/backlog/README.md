@@ -76,7 +76,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0029 | Turn the helper who used the observer link into a coach with their own free team | P1 | in-progress | growth |
+| 0029 | Turn the helper who used the observer link into a coach with their own free team | P1 | shipped | growth |
 | 0028 | Give the program director a weekly "program pulse" they actually read instead of a dashboard they don't | P2 | groomed | analytics |
 | 0030 | Walk the brand-new coach to their first shareable AI artifact the moment they have enough notes | P2 | groomed | onboarding |
 | 0031 | Let a program director set one weekly focus that shows up in every coach's Capture and practice plan | P2 | groomed | plans |
