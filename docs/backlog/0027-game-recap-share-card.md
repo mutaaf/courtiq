@@ -1,7 +1,7 @@
 ---
 id: 0027
 title: Turn the game recap into a public card the coach drops in the team group chat on the drive home
-status: in-progress
+status: shipped
 priority: P1
 area: parent-portal
 created: 2026-05-23
@@ -176,5 +176,6 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   and `tests/e2e/recap-card-flow.spec.ts` (seeded `game_recap` plan +
   `game_recap_shares` row; `game_recap` is already allowed by `plans_type_check`
   via migration 034, so no CHECK migration needed).
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-25 — PR #282 opened; all three gating checks green (lint, unit-tests,
+  e2e-tests 3m25s).
+- 2026-05-25 — merged to main (#282). Status → shipped via chore/0027-mark-shipped.

@@ -76,7 +76,6 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0027 | Turn the game recap into a public card the coach drops in the team group chat on the drive home | P1 | in-progress | parent-portal |
 | 0029 | Turn the helper who used the observer link into a coach with their own free team | P1 | groomed | growth |
 | 0028 | Give the program director a weekly "program pulse" they actually read instead of a dashboard they don't | P2 | groomed | analytics |
 | 0030 | Walk the brand-new coach to their first shareable AI artifact the moment they have enough notes | P2 | groomed | onboarding |
@@ -101,6 +100,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | 0023 | Give the coach a Monday "your week in coaching" digest that pulls them back in | P1 | shipped | analytics |
 | 0024 | Let a program director bring their whole coaching staff onto SportsIQ from the org page | P1 | shipped | growth |
 | 0026 | Give the coach a public, shareable coaching profile a parent or rival coach can land on | P1 | shipped | growth |
+| 0027 | Turn the game recap into a public card the coach drops in the team group chat on the drive home | P1 | shipped | parent-portal |
 | 0009 | Put the Player of the Week / Player of the Match spotlight on the parent portal | P2 | shipped | parent-portal |
 | 0010 | Make the Team Personality card a public, coach-to-coach referral surface | P2 | shipped | growth |
 | 0013 | Give the Player-of-the-Week spotlight its own rich link preview when a parent forwards the portal | P2 | shipped | parent-portal |
