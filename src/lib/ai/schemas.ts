@@ -144,6 +144,11 @@ export const parentReportSchema = z.object({
   }).optional(),
   coach_note: z.string(),
   since_last_report: z.string().nullable().optional(),
+  // Ticket 0034 — optional cross-season growth note, populated only when the
+  // target player has a coach-confirmed prior-season link (prior_player_id) and a
+  // prior-season report was resolvable. Optional so existing reports, the no-link
+  // path, and the 0016 since_last_report path all still validate.
+  since_last_season: z.string().nullable().optional(),
 });
 
 export const rosterImportSchema = z.object({

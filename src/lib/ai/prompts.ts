@@ -289,6 +289,11 @@ export const PROMPT_REGISTRY = {
     playerName: string;
     reportData: unknown;
     priorReport?: { player_name?: string; highlights?: string[]; skill_progress?: unknown[]; coach_note?: string; since_last_report?: string | null } | null;
+    // Ticket 0034 — the most recent PRIOR-SEASON parent report for the coach-
+    // confirmed prior_player_id (a different players row, same org). Gated on
+    // presence exactly like priorReport: absent → the prompt is byte-identical to
+    // the 0016 behavior; present → add a cross-season "since_last_season" note.
+    priorSeasonReport?: { highlights?: string[]; skill_progress?: unknown[]; coach_note?: string } | null;
   }) => {
     const continuityBlock = params.priorReport
       ? [
@@ -299,6 +304,23 @@ export const PROMPT_REGISTRY = {
             coach_note: params.priorReport.coach_note,
           }),
           'Add a "since_last_report" field to the JSON response describing what changed since the prior report, in one sentence. If nothing changed, write null.',
+        ].join('\n')
+      : null;
+
+    // Ticket 0034 — cross-season block. Only the prior-season report's coach-
+    // authored narrative is threaded (no raw DB minor fields). Instruct positively
+    // ("a coach who has watched this player grow"), never an enumerated ban-list,
+    // so the prompt stays clipboard-plain and never trips the banned-words contract
+    // test (LESSONS.md 2026-05-23).
+    const crossSeasonBlock = params.priorSeasonReport
+      ? [
+          'Last season context (the SAME player, a prior season — DO NOT repeat it; use it to write one true "since last season" note):',
+          JSON.stringify({
+            highlights: params.priorSeasonReport.highlights,
+            skill_progress: params.priorSeasonReport.skill_progress,
+            coach_note: params.priorSeasonReport.coach_note,
+          }),
+          'Add a "since_last_season" field: one sentence, written like a coach who has watched this player grow over more than one season, naming the real difference between last season and now. Keep it plain and specific. If there is no honest change to point to, write null.',
         ].join('\n')
       : null;
 
@@ -318,6 +340,7 @@ export const PROMPT_REGISTRY = {
         `Generate a parent report for ${params.playerName}.`,
         `Progress data: ${JSON.stringify(params.reportData)}`,
         ...(continuityBlock ? [continuityBlock] : []),
+        ...(crossSeasonBlock ? [crossSeasonBlock] : []),
         'Respond with JSON: { "player_name", "greeting", "highlights": [], "skill_progress": [{ "skill_name", "level", "narrative" }], "encouragement", "home_activity": { "name", "description", "duration_minutes" }, "coach_note", "since_last_report": string|null }',
       ].join('\n'),
     };

@@ -203,6 +203,11 @@ export interface Player {
   medical_notes: string | null;
   notes: string | null;
   is_active: boolean;
+  // Ticket 0034 — coach-confirmed cross-season link to this player's prior-season
+  // players row (nullable self-FK). Carries NO new information about the minor; it
+  // is only a pointer used to thread the coach's own prior-season parent report as
+  // continuity context. Null for every existing player (behaves as today).
+  prior_player_id: string | null;
   created_at: string;
   updated_at: string;
 }

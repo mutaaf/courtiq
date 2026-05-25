@@ -63,6 +63,7 @@ export const playerFactory = buildFactory<Omit<Player, 'created_at' | 'updated_a
   medical_notes: null,
   notes: null,
   is_active: true,
+  prior_player_id: null,
 });
 
 export const observationFactory = buildFactory<Omit<Observation, 'updated_at'>>({
