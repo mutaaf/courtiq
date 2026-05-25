@@ -178,6 +178,17 @@ describe('canAccess', () => {
     expect(canAccess('coach', 'feature_program_pulse')).toBe(false);
     expect(canAccess('pro_coach', 'feature_program_pulse')).toBe(false);
   });
+
+  // ── Ticket 0031 — program weekly focus (Organization tier ONLY) ────────────
+  it('allows organization to set the program weekly focus', () => {
+    expect(canAccess('organization', 'feature_program_focus')).toBe(true);
+  });
+
+  it('blocks free, coach, and pro_coach from setting the program focus (org-direction surface)', () => {
+    expect(canAccess('free', 'feature_program_focus')).toBe(false);
+    expect(canAccess('coach', 'feature_program_focus')).toBe(false);
+    expect(canAccess('pro_coach', 'feature_program_focus')).toBe(false);
+  });
 });
 
 // ─── getTierLimit ─────────────────────────────────────────────────────────────

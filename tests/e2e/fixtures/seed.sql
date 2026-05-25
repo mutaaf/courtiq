@@ -568,4 +568,28 @@ values
    'IQ', 'positive', 'Read the press well as a unit', 'typed', false)
 on conflict (id) do nothing;
 
+-- ════════════════════════════════════════════════════════════════════════
+-- Ticket 0031 — program weekly-focus fixture (org-scoped config override)
+-- ════════════════════════════════════════════════════════════════════════
+-- The program weekly focus reuses the EXISTING System→Org→Team config cascade:
+-- one config_overrides row at ORG scope (domain `program` / key `focus`, value =
+-- the free-text string in the jsonb `value` column). This seeds the focus for the
+-- Organization-tier program org (...110) so the un-mocked GET /api/org/weekly-focus
+-- resolves the same string the program-focus e2e mock asserts whenever creds point
+-- at that org's admin. value is stored as a JSON string (jsonb column), which
+-- resolveConfig returns verbatim. unique (org_id, team_id, domain, key); team_id
+-- is null for the org-scope override. No per-minor data — org-direction config only.
+insert into config_overrides (id, org_id, team_id, scope, domain, key, value, changed_by)
+values (
+  '00000000-0000-4000-a000-000000000150',
+  '00000000-0000-4000-a000-000000000110',
+  null,
+  'org',
+  'program',
+  'focus',
+  '"spacing & off-ball movement"'::jsonb,
+  '00000000-0000-4000-a000-000000000101'
+)
+on conflict (org_id, team_id, domain, key) do nothing;
+
 commit;
