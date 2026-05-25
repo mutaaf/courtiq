@@ -184,3 +184,22 @@ export function getSessionTypeLabel(type: string): string {
   };
   return labels[type] ?? 'Session';
 }
+
+/**
+ * Copy for the observer page's conversion footer (ticket 0029). Names the
+ * helper's OWN saved-count and the host coach's FIRST name only — never a player
+ * name, jersey, or observation text (COPPA). Kept as a pure helper so the footer
+ * wording is unit-testable without rendering the client page.
+ */
+export function buildObserverConversionMessage(opts: {
+  savedCount: number;
+  coachFirstName: string;
+}): string {
+  const { savedCount, coachFirstName } = opts;
+  const noun = savedCount === 1 ? 'observation' : 'observations';
+  const tally = `You logged ${savedCount} ${noun}`;
+  const attributed = coachFirstName
+    ? `${tally} for Coach ${coachFirstName}`
+    : tally;
+  return `${attributed} — do this for your own team.`;
+}
