@@ -179,22 +179,40 @@ export default async function OrgLandingPage({
                   {groupTeams.map((team) => (
                     <div
                       key={team.id}
-                      className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 p-4"
+                      className="rounded-xl border border-zinc-800 bg-zinc-900 p-4"
                     >
-                      <div
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
-                        style={{ backgroundColor: accentColor + '33' }}
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
+                          style={{ backgroundColor: accentColor + '33' }}
+                        >
+                          <span style={{ color: accentColor }}>
+                            {team.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-zinc-100">{team.name}</p>
+                          {team.season && (
+                            <p className="text-xs text-zinc-500">Season: {team.season}</p>
+                          )}
+                        </div>
+                      </div>
+                      {/* Per-team claim path (ticket 0033): a real <a href> (not a
+                          JS share handler) so a cold-inbound coach can tap "Coach
+                          this team — free" and sign up already attached to the
+                          program AND requesting the exact team they run. The
+                          opaque team.id (already on the public org payload) is the
+                          claim key; /api/auth/setup validates it belongs to the
+                          org server-side. Real link → directly assertable. */}
+                      <Link
+                        href={`/signup?org=${org.slug}&team=${team.id}`}
+                        data-testid="claim-team-cta"
+                        className="mt-3 flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white active:scale-[0.98]"
+                        style={{ backgroundColor: accentColor }}
                       >
-                        <span style={{ color: accentColor }}>
-                          {team.name.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium text-zinc-100">{team.name}</p>
-                        {team.season && (
-                          <p className="text-xs text-zinc-500">Season: {team.season}</p>
-                        )}
-                      </div>
+                        Coach this team — free
+                        <ChevronRight className="h-4 w-4" />
+                      </Link>
                     </div>
                   ))}
                 </div>

@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { fullName, referredByCode, org: orgSlug } = body;
+  const { fullName, referredByCode, org: orgSlug, team: teamId } = body;
   const name = fullName || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Coach';
 
   const adminSupabase = await createServiceSupabase();
@@ -84,6 +84,32 @@ export async function POST(request: Request) {
 
   if (coachError) {
     return NextResponse.json({ error: 'Failed to create coach record' }, { status: 500 });
+  }
+
+  // Per-team claim path (ticket 0033): the org-landing per-team CTA deep-links to
+  // /signup?org=<slug>&team=<teamId>, so a cold-inbound coach lands associated
+  // with the EXACT team they coach. We only honor `team` when it BELONGS to the
+  // resolved org — the team's org_id is read server-side and compared, so a
+  // foreign teamId cannot be claimed by passing it on the URL. An unknown or
+  // foreign team is silently IGNORED (org-only attachment, never an error). This
+  // is independent of the `ref` and bare `org` paths above — all three may
+  // co-occur. The roster the coach then sees is governed by existing team /
+  // membership permissions; nothing is widened here (out-of-scope per the ticket).
+  if (teamId && typeof teamId === 'string') {
+    const { data: team } = await adminSupabase
+      .from('teams')
+      .select('id, org_id')
+      .eq('id', teamId)
+      .single();
+
+    if (team?.id && team.org_id === org.id) {
+      // Associate as a regular coach; head-coach assignment stays a director action.
+      await adminSupabase.from('team_coaches').insert({
+        team_id: team.id,
+        coach_id: user.id,
+        role: 'coach',
+      });
+    }
   }
 
   return NextResponse.json({ success: true, orgId: org.id });

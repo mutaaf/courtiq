@@ -96,6 +96,18 @@ describe('GET /api/org/[slug] — public response shape unchanged (ticket 0024 A
     expect(body.teams).toHaveLength(1);
     expect(body.teams[0].name).toBe('U12 Lions');
     expect(body.stats).toEqual({ coaches: 4, players: 22, teams: 1 });
+
+    // Ticket 0033 AC3: each team object carries a stable `id` usable for the
+    // per-team "Coach this team — free" claim deep-link, and the rest of the
+    // team shape is unchanged (regression on the public org endpoint).
+    expect(body.teams[0].id).toBe('t1');
+    expect(body.teams[0]).toMatchObject({
+      id: 't1',
+      name: 'U12 Lions',
+      age_group: '11-13',
+      season: 'Fall 2025',
+      sport_id: 'sp1',
+    });
   });
 
   it('returns 404 for an unknown slug (unchanged)', async () => {
