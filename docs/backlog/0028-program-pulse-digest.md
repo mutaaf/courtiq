@@ -18,6 +18,12 @@ to read.
 
 ## Why now (four lenses)
 
+> Groom 2026-05-25: held at P2 (not bumped to P1). It is a genuine org-tier retention moat-
+> deepener, but it reaches only the Organization-tier director — the smallest audience — so it
+> is not the *next* lever for a product still growing its coach base. The game-recap card (0027,
+> raised to P1) reaches every family of every coach who plays a game and is the higher-leverage
+> next ship. Revisit this to P1 once org-tier acquisition is the active growth front.
+
 ### Product Owner
 We already built the org-analytics *dashboard* (`/admin/org-analytics`, org-tier admins only)
 — team stats, coach engagement, skill health. But it is exactly the surface a director won't
