@@ -42,6 +42,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GettingStartedCard } from '@/components/home/getting-started-card';
+import { FirstArtifactCard } from '@/components/home/first-artifact-card';
 import { FirstPracticeLauncher } from '@/components/home/first-practice-launcher';
 import { StreakCard } from '@/components/home/streak-card';
 import { TeamWinsCard } from '@/components/home/team-wins-card';
@@ -623,7 +624,7 @@ export default function HomePage() {
     queryKey: ['home-stats', activeTeam?.id],
     queryFn: async () => {
       if (!activeTeam) return null;
-      const [players, observations, sessions] = await Promise.all([
+      const [players, observations, sessions, artifacts] = await Promise.all([
         query<{ id: string }[]>({
           table: 'players',
           select: 'id',
@@ -639,11 +640,20 @@ export default function HomePage() {
           select: 'id',
           filters: { team_id: activeTeam.id },
         }),
+        // Count of the coach's generated AI artifacts (plans rows) for this
+        // team — drives the first-artifact activation nudge (ticket 0030).
+        // Read via the existing query() path; NOT a new tracking field.
+        query<{ id: string }[]>({
+          table: 'plans',
+          select: 'id',
+          filters: { team_id: activeTeam.id },
+        }),
       ]);
       return {
         players: players.length,
         observations: observations.length,
         sessions: sessions.length,
+        artifactsGenerated: artifacts.length,
       };
     },
     enabled: !!activeTeam,
@@ -1434,6 +1444,18 @@ export default function HomePage() {
           sessions={stats.sessions}
           observations={stats.observations}
           teamId={activeTeam.id}
+        />
+      )}
+
+      {/* First-artifact activation nudge (ticket 0030) — the missing OUTPUT step
+          of the activation arc: shown once the coach has enough notes but no
+          artifact yet, with a one-tap path to generate their first report. */}
+      {!isLoadingStats && stats && coach && (
+        <FirstArtifactCard
+          teamId={activeTeam.id}
+          teamName={activeTeam.name}
+          observations={stats.observations}
+          artifactsGenerated={stats.artifactsGenerated}
         />
       )}
 
