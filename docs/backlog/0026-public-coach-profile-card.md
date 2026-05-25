@@ -1,7 +1,7 @@
 ---
 id: 0026
 title: Give the coach a public, shareable coaching profile a parent or rival coach can land on
-status: in-progress
+status: shipped
 priority: P1
 area: growth
 created: 2026-05-23

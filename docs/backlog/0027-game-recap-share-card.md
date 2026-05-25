@@ -1,7 +1,7 @@
 ---
 id: 0027
 title: Turn the game recap into a public card the coach drops in the team group chat on the drive home
-status: groomed
+status: in-progress
 priority: P1
 area: parent-portal
 created: 2026-05-23
@@ -156,7 +156,25 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0027-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
+- 2026-05-25 — branch `feat/0027-game-recap-share-card` opened; status → in-progress.
+- 2026-05-25 — Mirrored the season-recap public-card family wholesale: migration
+  `038_game_recap_shares.sql` (modeled on `036_season_recap_shares.sql`, unique
+  version prefix, balanced columns/values); `GameRecapShare` type in
+  `src/types/database.ts`; authed `POST /api/recap-card/create`; public service-role
+  `GET /api/recap-card/[token]` with an explicit `PUBLIC_RECAP_FIELDS` allow-list
+  (`title`, `result_headline`, `intro`, `key_moments`, `team_performance`,
+  `coach_message`, `looking_ahead`) that EXCLUDES `player_highlights` (names minors);
+  public server-component page `src/app/recap/[token]/page.tsx`; `'/recap/'` +
+  `'/api/recap-card/'` added to `publicPaths` (NOT `/api/recap-card/create`).
+- 2026-05-25 — In-app "Share this recap" control: a reusable client
+  `RecapShareButton` (mirrors `CoachProfileShareButton`) embedded in the
+  `GameRecapCard` on the session page; POSTs `/api/recap-card/create` and exposes
+  the `/recap/<token>` link on a stable `data-share-url` attribute (LESSONS.md
+  2026-05-21 — share buttons render no `<a href>`).
+- 2026-05-25 — Tests: `tests/recap-card/create.test.ts`,
+  `tests/recap-card/token.test.ts`, `tests/components/recap-share-button.test.tsx`,
+  and `tests/e2e/recap-card-flow.spec.ts` (seeded `game_recap` plan +
+  `game_recap_shares` row; `game_recap` is already allowed by `plans_type_check`
+  via migration 034, so no CHECK migration needed).
 - YYYY-MM-DD — PR #N opened, CI [state]
 - YYYY-MM-DD — merged to main

@@ -76,13 +76,11 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0026 | Give the coach a public, shareable coaching profile a parent or rival coach can land on | P1 | in-progress | growth |
-| 0027 | Turn the game recap into a public card the coach drops in the team group chat on the drive home | P1 | groomed | parent-portal |
+| 0027 | Turn the game recap into a public card the coach drops in the team group chat on the drive home | P1 | in-progress | parent-portal |
 | 0029 | Turn the helper who used the observer link into a coach with their own free team | P1 | groomed | growth |
 | 0028 | Give the program director a weekly "program pulse" they actually read instead of a dashboard they don't | P2 | groomed | analytics |
 | 0030 | Walk the brand-new coach to their first shareable AI artifact the moment they have enough notes | P2 | groomed | onboarding |
 | 0031 | Let a program director set one weekly focus that shows up in every coach's Capture and practice plan | P2 | groomed | plans |
-| 0025 | When the coach starts observing a player, remind them what that player was working on | P2 | shipped | capture |
 | 0001 | Stripe webhook signature verification on the live endpoint | P0 | shipped | billing |
 | 0002 | End-to-end checkout flow test — upgrade → pay → tier unlocks features | P0 | shipped | billing |
 | 0003 | Cancellation flow test — cancel → webhook → downgrade at period end | P0 | shipped | billing |
@@ -102,11 +100,13 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | 0021 | Name the inviting coach on the referral signup so the invite lands warm, not anonymous | P1 | shipped | growth |
 | 0023 | Give the coach a Monday "your week in coaching" digest that pulls them back in | P1 | shipped | analytics |
 | 0024 | Let a program director bring their whole coaching staff onto SportsIQ from the org page | P1 | shipped | growth |
+| 0026 | Give the coach a public, shareable coaching profile a parent or rival coach can land on | P1 | shipped | growth |
 | 0009 | Put the Player of the Week / Player of the Match spotlight on the parent portal | P2 | shipped | parent-portal |
 | 0010 | Make the Team Personality card a public, coach-to-coach referral surface | P2 | shipped | growth |
 | 0013 | Give the Player-of-the-Week spotlight its own rich link preview when a parent forwards the portal | P2 | shipped | parent-portal |
 | 0019 | Let the parent who is also a coach start their own free team from the report they're reading | P2 | shipped | growth |
 | 0022 | Turn the parent-reaction thank-you screen into the moment the parent acts on the app | P2 | shipped | parent-portal |
+| 0025 | When the coach starts observing a player, remind them what that player was working on | P2 | shipped | capture |
 
 ## Hand-off discipline
 
