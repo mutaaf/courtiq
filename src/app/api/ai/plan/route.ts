@@ -5,6 +5,7 @@ import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { buildAIContext } from '@/lib/ai/context-builder';
 import { practicePlanSchema, gamedaySheetSchema } from '@/lib/ai/schemas';
 import { handleAIError } from '@/lib/ai/error';
+import { readProgramFocus } from '@/lib/ai/program-focus';
 
 export interface TrendEntry {
   category: string;
@@ -177,8 +178,11 @@ export async function POST(request: Request) {
       .eq('id', user.id)
       .single();
 
-    // Fetch AI context and observation insights in parallel
-    const [context, observationInsights] = await Promise.all([
+    // Fetch AI context, observation insights, and the program weekly focus in
+    // parallel. The program focus (ticket 0031) is a best-effort org-config read
+    // that resolves to null off the Organization tier or when unset; it is woven
+    // into the practice-plan prompt as a SOFT hint and never blocks generation.
+    const [context, observationInsights, programFocus] = await Promise.all([
       buildAIContext(teamId, admin),
       type === 'practice'
         ? fetchObservationInsights(teamId, admin).catch((): ObservationInsights => ({
@@ -189,6 +193,7 @@ export async function POST(request: Request) {
             trendData: undefined,
           }))
         : Promise.resolve(null),
+      type === 'practice' ? readProgramFocus(teamId, admin) : Promise.resolve(null),
     ]);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -211,6 +216,7 @@ export async function POST(request: Request) {
         focusSkills,
         observationInsights: observationInsights ?? undefined,
         arcContext: arcContext ?? undefined,
+        programFocus: programFocus ?? undefined,
       });
       schema = practicePlanSchema;
       interactionType = 'generate_practice_plan';

@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTier } from '@/hooks/use-tier';
-import { ArrowLeft, Save, Loader2, Building2, Shield, Palette, Eye, Lock } from 'lucide-react';
+import { UpgradeGate } from '@/components/ui/upgrade-gate';
+import { ArrowLeft, Save, Loader2, Building2, Shield, Palette, Eye, Lock, Target } from 'lucide-react';
 import Link from 'next/link';
 
 interface OrgBranding {
@@ -65,6 +66,11 @@ export default function OrganizationSettingsPage() {
   const [logoUrl, setLogoUrl] = useState('');
   const [headerText, setHeaderText] = useState('');
   const [brandingInitialized, setBrandingInitialized] = useState(false);
+
+  // Program weekly focus (ticket 0031)
+  const [programFocus, setProgramFocus] = useState('');
+  const [focusInitialized, setFocusInitialized] = useState(false);
+  const hasProgramFocus = canAccess('feature_program_focus');
 
   const { data: coachWithOrg, isLoading } = useQuery({
     queryKey: [...queryKeys.coach.current(), 'with-org'],
@@ -151,6 +157,47 @@ export default function OrganizationSettingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['org-branding'] });
+    },
+  });
+
+  // Load the current program weekly focus for display (ticket 0031). The route
+  // scopes the read to the caller's own org server-side. Only relevant on the
+  // Organization tier — gated so we don't query for other tiers.
+  const { data: focusData } = useQuery({
+    queryKey: ['org-weekly-focus', org?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/org/weekly-focus?orgId=${org?.id ?? ''}`);
+      if (!res.ok) return { focus: null } as { focus: string | null };
+      return (await res.json()) as { focus: string | null };
+    },
+    enabled: hasProgramFocus && !!org?.id,
+  });
+
+  useEffect(() => {
+    if (focusData && !focusInitialized) {
+      setProgramFocus(focusData.focus || '');
+      setFocusInitialized(true);
+    }
+  }, [focusData, focusInitialized]);
+
+  // Set the program weekly focus (ticket 0031). Goes through the dedicated route
+  // (NOT direct Supabase — AGENTS.md rule 3); the server enforces admin + org tier.
+  const focusMutation = useMutation({
+    mutationFn: async () => {
+      if (!org) throw new Error('No organization');
+      const res = await fetch('/api/org/weekly-focus', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orgId: org.id, focus: programFocus.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to save the weekly focus');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['org-weekly-focus', org?.id] });
     },
   });
 
@@ -244,6 +291,68 @@ export default function OrganizationSettingsPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Program weekly focus (ticket 0031) — one director-set focus that
+              shows up on every coach's Capture and in the AI practice plans.
+              Server-AND-client gated: <UpgradeGate feature="feature_program_focus">
+              pairs with the canAccess('organization','feature_program_focus')
+              check in /api/org/weekly-focus. */}
+          <UpgradeGate feature="feature_program_focus" featureLabel="Program Weekly Focus">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Target className="h-5 w-5 text-orange-500" />
+                  Program Focus This Week
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-zinc-400">
+                  Set one focus for the whole program. It shows up at the top of every
+                  coach&apos;s Capture screen and leans the AI practice plans they make
+                  toward it. Replace it any week.
+                </p>
+                <div className="space-y-2">
+                  <label htmlFor="program-focus" className="text-sm font-medium text-zinc-300">
+                    Weekly focus
+                  </label>
+                  <Input
+                    id="program-focus"
+                    value={programFocus}
+                    onChange={(e) => setProgramFocus(e.target.value.slice(0, 140))}
+                    placeholder="e.g. spacing & off-ball movement"
+                    maxLength={140}
+                  />
+                  <p className="text-xs text-zinc-500">
+                    Leave it blank and clear it to set no focus this week.
+                  </p>
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    onClick={() => focusMutation.mutate()}
+                    disabled={focusMutation.isPending || !programFocus.trim()}
+                    className="h-11"
+                  >
+                    {focusMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    Save Focus
+                  </Button>
+                </div>
+                {focusMutation.isSuccess && (
+                  <p className="text-xs text-emerald-400">
+                    Saved — live on every coach&apos;s Capture screen.
+                  </p>
+                )}
+                {focusMutation.isError && (
+                  <p className="text-xs text-red-400">
+                    {(focusMutation.error as Error)?.message || 'Failed to save the focus.'}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </UpgradeGate>
 
           {/* Parent Portal Branding */}
           {hasBranding ? (

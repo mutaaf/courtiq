@@ -175,3 +175,30 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
     exact tier-feature lookup key `feature_program_focus` (LESSONS#0023), never a shorthand.
   - Plan/arc prompt threads an OPTIONAL `programFocus?: string` param as a SOFT hint;
     the plan/arc Zod schema is unchanged (no migration, no required field).
+- 2026-05-25 — Implementation:
+  - `src/lib/tier.ts`: `feature_program_focus` added to `organization` ONLY.
+  - `src/lib/ai/prompts.ts`: optional `programFocus` soft-hint block on `practicePlan`
+    + `practiceArc` (omitted cleanly when absent/whitespace; schema unchanged).
+  - `src/lib/ai/program-focus.ts` (new): shared `readProgramFocus(teamId, admin)` —
+    tier-gated, org-config-only resolver used by BOTH plan + arc routes (one source
+    of truth); never reads `players` (COPPA). Threaded into `/api/ai/plan` and
+    `/api/ai/practice-arc` (best-effort, never blocks generation).
+  - `src/app/api/org/weekly-focus/route.ts` (new): GET (any org coach, scoped to
+    caller's OWN org) + POST (admin + Organization tier). Reuses the config cascade
+    (`config_overrides` org override, domain `program`/key `focus`).
+  - `<UpgradeGate>` registered `feature_program_focus`; director-set card on
+    `settings/organization` behind `<UpgradeGate feature="feature_program_focus">`.
+  - Capture: `ProgramFocusLine` passive label at the top of `/capture` (best-effort,
+    never gates), fed by a best-effort `query` to `/api/org/weekly-focus`.
+  - Seed: a config_overrides org-focus row for the Organization-tier program org.
+  - No new field on `players`; no schema migration; no new deps; no env vars.
+- 2026-05-25 — Tests (test-first): `tests/org/weekly-focus.test.ts` (route: 401, set→get
+  round-trip, non-admin 403, non-org-tier 403, cross-org 404, cross-org read isolation,
+  empty-focus 400), `tests/lib/program-focus.test.ts` (helper: tier gate, unset→null,
+  COPPA no-players-read), `src/lib/tier.test.ts` (tier key org-only), and
+  `tests/ai/contracts.test.ts` (program-focus threaded when present / omitted when
+  absent; plan+arc schema unchanged). E2E: `tests/e2e/program-focus-flow.spec.ts`
+  (line present with focus / absent without / absent on read failure; capture never
+  gated). Local gate green (lint 0 errors, tsc clean, vitest 4538 passing; the lone
+  `player-of-match-utils` `Apr 27` vs `Apr 28` fail is the documented LESSONS#36 local
+  non-UTC TZ artifact — passes 47/47 under TZ=UTC, the CI condition; file untouched).

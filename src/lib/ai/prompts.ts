@@ -106,7 +106,23 @@ export const PROMPT_REGISTRY = {
       carriesForward?: string;
       keyCoachingPoint?: string;
     };
+    /**
+     * Ticket 0031 — the program director's org-scoped weekly focus, threaded as a
+     * SOFT hint. When set, the prompt asks the model to lean toward it; when
+     * absent (or whitespace) the block is omitted cleanly. It NEVER changes the
+     * response JSON schema — it only shapes the prompt.
+     */
+    programFocus?: string;
   }) => {
+    const programFocus = params.programFocus?.trim();
+    const programFocusBlock = programFocus
+      ? [
+          '',
+          `PROGRAM FOCUS (set by the program director for every team this week): "${programFocus}".`,
+          'Lean this practice toward the program focus where it fits the team\'s real needs — it is a soft priority, not a hard requirement. Do not force it if the team\'s observation data clearly points elsewhere.',
+        ].join('\n')
+      : '';
+
     const insights = params.observationInsights;
     const hasInsights = insights && insights.totalObs > 0;
 
@@ -199,6 +215,7 @@ export const PROMPT_REGISTRY = {
       user: [
         `Generate a practice plan for ${params.teamName || 'the team'}.`,
         params.focusSkills?.length ? `Requested focus skills: ${params.focusSkills.join(', ')}` : '',
+        programFocusBlock,
         insightsBlock,
         arcBlock,
         params.proficiencyData ? `Additional proficiency data: ${JSON.stringify(params.proficiencyData)}` : '',
@@ -1059,6 +1076,8 @@ export const PROMPT_REGISTRY = {
     topStrengths: string[];
     totalObs: number;
     recentSessions: number;
+    /** Ticket 0031 — org-scoped program weekly focus, threaded as a SOFT hint. */
+    programFocus?: string;
   }) => ({
     system: [
       buildSystemPreamble(params),
@@ -1085,6 +1104,9 @@ export const PROMPT_REGISTRY = {
       `Each practice: ${params.sessionDurationMinutes} minutes`,
       params.upcomingEvent ? `Upcoming event: ${params.upcomingEvent}` : '',
       params.focusArea ? `Requested focus: ${params.focusArea}` : '',
+      params.programFocus?.trim()
+        ? `PROGRAM FOCUS (set by the program director for every team this week): "${params.programFocus.trim()}". Lean the arc toward it as a soft priority where it fits the team's real needs — do not force it if the data points elsewhere.`
+        : '',
       '',
       `Team skill data (${params.totalObs} total observations, ${params.recentSessions} recent sessions):`,
       `- Top needs-work areas: ${params.topNeedsWork.join(', ') || 'general fundamentals'}`,

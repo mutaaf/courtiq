@@ -10,6 +10,7 @@ import {
   isValidSessionDuration,
   buildArcTitle,
 } from '@/lib/practice-arc-utils';
+import { readProgramFocus } from '@/lib/ai/program-focus';
 
 /** Fetch top needs-work and strength categories from recent observations */
 async function fetchObsSummary(
@@ -92,9 +93,12 @@ export async function POST(request: Request) {
       .eq('id', user.id)
       .single();
 
-    const [context, obsSummary] = await Promise.all([
+    const [context, obsSummary, programFocus] = await Promise.all([
       buildAIContext(teamId, admin),
       fetchObsSummary(teamId, admin),
+      // Ticket 0031 — best-effort program weekly focus, threaded as a soft hint;
+      // null off the Organization tier or when unset, never blocks generation.
+      readProgramFocus(teamId, admin),
     ]);
 
     const effectiveFocus = focusArea?.trim()
@@ -111,6 +115,7 @@ export async function POST(request: Request) {
       topStrengths: obsSummary.topStrengths,
       totalObs: obsSummary.totalObs,
       recentSessions: obsSummary.recentSessions,
+      programFocus: programFocus ?? undefined,
     });
 
     const result = await callAIWithJSON<PracticeArc>(

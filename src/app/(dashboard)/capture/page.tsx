@@ -13,6 +13,7 @@ import { AIUsageMeter, type AIUsageStatus } from '@/components/capture/ai-usage-
 import { CarryoverStrip } from '@/components/capture/carryover-strip';
 import { ArcContinuityLine } from '@/components/capture/arc-continuity-line';
 import { PlayerMemoryLine } from '@/components/capture/player-memory-line';
+import { ProgramFocusLine } from '@/components/capture/program-focus-line';
 import type { ActiveArcResponse } from '@/app/api/ai/practice-arc/active/route';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Send, Keyboard, Mic, AlertCircle, Sparkles, Upload, FileAudio, Camera, Lock } from 'lucide-react';
@@ -160,6 +161,32 @@ export default function CapturePage() {
       }
     },
     enabled: !!activeTeam?.id,
+    retry: false,
+    staleTime: 5 * 60_000,
+  });
+
+  // Best-effort program weekly-focus read (ticket 0031): the program director's
+  // org-scoped weekly focus, surfaced as a single passive LABEL line at the top of
+  // Capture — "Program focus this week: spacing & off-ball movement". It is never a
+  // gate: on failure/timeout it resolves undefined and the line renders nothing,
+  // and the record button's `disabled` state does not depend on it. The route
+  // scopes the read to the coach's OWN org server-side (no cross-org leak); the
+  // line is absent for coaches whose org set nothing. NOT a direct Supabase call
+  // (AGENTS.md rule 3) — it goes through the server-backed /api/org/weekly-focus.
+  const { data: programFocus } = useQuery<string | null | undefined>({
+    queryKey: ['capture-program-focus', activeTeam?.org_id],
+    queryFn: async () => {
+      if (!activeTeam?.org_id) return undefined;
+      try {
+        const res = await fetch(`/api/org/weekly-focus?orgId=${activeTeam.org_id}`);
+        if (!res.ok) return undefined;
+        const json = (await res.json()) as { focus: string | null };
+        return json.focus ?? null;
+      } catch {
+        return undefined; // degrade silently — capture must never be blocked by this read
+      }
+    },
+    enabled: !!activeTeam?.org_id,
     retry: false,
     staleTime: 5 * 60_000,
   });
@@ -1029,6 +1056,14 @@ export default function CapturePage() {
         {/* Recording Area */}
         {captureState !== 'processing' && (
           <div className="flex flex-col items-center gap-3">
+            {/* Program weekly-focus line — the director's org-scoped focus for the
+                week (ticket 0031): "Program focus this week: <focus>". A passive
+                LABEL, never a gate — absent when no focus is set, off the
+                Organization tier, or the read fails; never blocks capture. */}
+            {captureState !== 'recording' && (
+              <ProgramFocusLine focus={programFocus} />
+            )}
+
             {/* Carryover strip — last session's focus areas (ticket 0014).
                 Best-effort: absent when no prior debrief or fetch fails; never gates. */}
             {captureState !== 'recording' && (

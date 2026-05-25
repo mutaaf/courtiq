@@ -205,6 +205,22 @@ const FEATURE_CONFIG: Record<string, FeatureConfig> = {
     accentBg: 'bg-orange-500/15',
     accentBorder: 'border-orange-500/30',
   },
+  feature_program_focus: {
+    icon: Target,
+    headline: 'Unlock the Program Weekly Focus',
+    tagline: 'Set one focus for the week and it shows up for every coach in your program.',
+    benefits: [
+      'One weekly focus you set once, for the whole program',
+      'It shows up at the top of every coach\'s Capture screen',
+      'It leans the AI practice plans your coaches make toward that focus',
+      'Replace it any week — no schedule to manage, no extra taps for coaches',
+      'A quiet label for coaches, never a popup they have to dismiss',
+    ],
+    requiredTier: 'organization',
+    accentColor: 'text-orange-400',
+    accentBg: 'bg-orange-500/15',
+    accentBorder: 'border-orange-500/30',
+  },
   long_session_audio: {
     icon: FileAudio,
     headline: 'Unlock Long-Session Recording Upload',
