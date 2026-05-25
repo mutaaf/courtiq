@@ -167,6 +167,17 @@ describe('canAccess', () => {
       expect(canAccess('organization', feature)).toBe(true);
     }
   });
+
+  // ── Ticket 0028 — program pulse (Organization tier ONLY) ───────────────────
+  it('allows organization to access the program pulse', () => {
+    expect(canAccess('organization', 'feature_program_pulse')).toBe(true);
+  });
+
+  it('blocks free, coach, and pro_coach from the program pulse (org roll-up surface)', () => {
+    expect(canAccess('free', 'feature_program_pulse')).toBe(false);
+    expect(canAccess('coach', 'feature_program_pulse')).toBe(false);
+    expect(canAccess('pro_coach', 'feature_program_pulse')).toBe(false);
+  });
 });
 
 // ─── getTierLimit ─────────────────────────────────────────────────────────────

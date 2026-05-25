@@ -459,4 +459,108 @@ values (
 )
 on conflict (token) do nothing;
 
+-- ════════════════════════════════════════════════════════════════════════
+-- Ticket 0028 — program pulse fixture (Organization-tier org)
+-- ════════════════════════════════════════════════════════════════════════
+-- The program-pulse card is Organization-tier + admin only. The default E2E org
+-- (org-e2e-test-001) is intentionally pro_coach (other specs depend on that), so
+-- this block seeds a SEPARATE Organization-tier program with an admin director,
+-- a couple of coaches (one quiet), two teams, and a week of sessions/observations
+-- so the server-backed POST /api/ai/program-pulse resolves a real pulse
+-- deterministically. The program-pulse e2e mocks /api/me + the endpoint (the
+-- authed path skips in CI without E2E creds); this seed backs the un-mocked
+-- endpoint for whenever creds point at this org's admin.
+
+-- Director auth user (FK target for the admin coach below).
+insert into auth.users (id, instance_id, aud, role, email,
+                        email_confirmed_at, created_at, updated_at)
+values (
+  '00000000-0000-4000-a000-000000000101',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated', 'authenticated',
+  'director-e2e@test.com',
+  now(), now(), now()
+)
+on conflict (id) do nothing;
+
+-- Organization-tier program.
+insert into organizations (id, name, slug, tier)
+values ('00000000-0000-4000-a000-000000000110', 'E2E Program Org', 'e2e-program-org', 'organization')
+on conflict (id) do nothing;
+
+-- Director (admin) + two coaches. coach-quiet logs NO activity this week.
+insert into coaches (id, org_id, full_name, email, role, onboarding_complete)
+values
+  ('00000000-0000-4000-a000-000000000101',
+   '00000000-0000-4000-a000-000000000110',
+   'E2E Program Director', 'director-e2e@test.com', 'admin', true),
+  ('00000000-0000-4000-a000-000000000102',
+   '00000000-0000-4000-a000-000000000110',
+   'Coach Active', 'coach-active-e2e@test.com', 'coach', true),
+  ('00000000-0000-4000-a000-000000000103',
+   '00000000-0000-4000-a000-000000000110',
+   'Coach Quiet', 'coach-quiet-e2e@test.com', 'coach', true)
+on conflict (id) do nothing;
+
+-- Two teams in the program (asserted by name as 'Program U10s' / 'Program U12s').
+insert into teams (id, org_id, sport_id, name, age_group, season, season_weeks, current_week, is_active)
+select
+  '00000000-0000-4000-a000-000000000120',
+  '00000000-0000-4000-a000-000000000110',
+  (select id from sports where slug = 'basketball' limit 1),
+  'Program U10s', '9-10', 'Spring 2026', 10, 3, true
+on conflict (id) do nothing;
+insert into teams (id, org_id, sport_id, name, age_group, season, season_weeks, current_week, is_active)
+select
+  '00000000-0000-4000-a000-000000000121',
+  '00000000-0000-4000-a000-000000000110',
+  (select id from sports where slug = 'basketball' limit 1),
+  'Program U12s', '11-13', 'Spring 2026', 10, 3, true
+on conflict (id) do nothing;
+
+-- A week of sessions: the director + the active coach logged practices; the quiet
+-- coach logged nothing → active_coaches = 2 of 3 in the resolved pulse.
+insert into sessions (id, team_id, coach_id, type, date, location, notes)
+values
+  ('00000000-0000-4000-a000-000000000130',
+   '00000000-0000-4000-a000-000000000120',
+   '00000000-0000-4000-a000-000000000101',
+   'practice', current_date - 4, 'Program Gym', 'Program U10s practice'),
+  ('00000000-0000-4000-a000-000000000131',
+   '00000000-0000-4000-a000-000000000120',
+   '00000000-0000-4000-a000-000000000101',
+   'practice', current_date - 2, 'Program Gym', 'Program U10s practice'),
+  ('00000000-0000-4000-a000-000000000132',
+   '00000000-0000-4000-a000-000000000121',
+   '00000000-0000-4000-a000-000000000102',
+   'practice', current_date - 1, 'Program Gym', 'Program U12s practice')
+on conflict (id) do nothing;
+
+-- A week of team-level observations (NO player_id — the pulse is coach/team
+-- aggregate only and never reads player rows). U12s carries the needs-work
+-- cluster so it becomes the team-to-watch.
+insert into observations (id, player_id, team_id, coach_id, session_id, category, sentiment, text, source, ai_parsed)
+values
+  ('00000000-0000-4000-a000-000000000140',
+   null, '00000000-0000-4000-a000-000000000120',
+   '00000000-0000-4000-a000-000000000101',
+   '00000000-0000-4000-a000-000000000130',
+   'Defense', 'positive', 'Strong defensive rotations from the group', 'typed', false),
+  ('00000000-0000-4000-a000-000000000141',
+   null, '00000000-0000-4000-a000-000000000120',
+   '00000000-0000-4000-a000-000000000101',
+   '00000000-0000-4000-a000-000000000131',
+   'Effort', 'positive', 'Whole team hustled in transition', 'typed', false),
+  ('00000000-0000-4000-a000-000000000142',
+   null, '00000000-0000-4000-a000-000000000121',
+   '00000000-0000-4000-a000-000000000102',
+   '00000000-0000-4000-a000-000000000132',
+   'Offense', 'needs-work', 'Spacing broke down in the half court', 'typed', false),
+  ('00000000-0000-4000-a000-000000000143',
+   null, '00000000-0000-4000-a000-000000000121',
+   '00000000-0000-4000-a000-000000000102',
+   '00000000-0000-4000-a000-000000000132',
+   'IQ', 'positive', 'Read the press well as a unit', 'typed', false)
+on conflict (id) do nothing;
+
 commit;

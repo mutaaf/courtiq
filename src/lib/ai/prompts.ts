@@ -1266,4 +1266,64 @@ export const PROMPT_REGISTRY = {
       '{ "week_summary": "one glanceable line", "top_players": [{ "player_name": "first name", "note": "one line on why they stood out" }], "next_action": { "label": "button text", "kind": "one of the candidate kinds", "rationale": "one line grounded in the week" } }',
     ].filter(Boolean).join('\n'),
   }),
+
+  // ── Program Pulse (ticket 0028) ───────────────────────────────────────────
+  // A director-private weekly recap across the whole program. Built ONLY from
+  // org-level aggregates (active/total coach counts, per-team activity, the
+  // quiet-coach candidates) — never per-minor data. The model picks exactly ONE
+  // next action from the provided closed-enum candidates so the admin card can
+  // deep-link it to a known route.
+  programPulse: (params: PromptParams & {
+    orgName?: string;
+    activeCoaches: number;
+    totalCoaches: number;
+    totalSessions: number;
+    totalObservations: number;
+    teams: Array<{
+      team_name: string;
+      sessions: number;
+      observations: number;
+      needsWork: number;
+      quiet: boolean;
+    }>;
+    quietCoaches: Array<{ coach_name: string; daysSinceActive: number }>;
+    candidateActions: Array<{ kind: string; label: string; reason: string }>;
+  }) => ({
+    system: [
+      'You are an AI assistant for SportsIQ, writing for a program director who oversees a league of volunteer coaches.',
+      'You write a short, director-private "program pulse" the director reads the moment they open the app.',
+      '',
+      'Rules:',
+      '- This is for the DIRECTOR only — it is a factual weekly recap of the WHOLE program, not a celebration card.',
+      '- Work ONLY from program-level aggregates: coach and team counts, per-team activity, and the quiet-coach candidates provided. Never reference an individual player or any single observation — you are not given any, and you must not invent any.',
+      '- week_summary: ONE glanceable line. State the facts (how many coaches were active, how many practices) and one honest read of the program week. Plain clipboard tone.',
+      '- active_coaches / total_coaches: copy the counts provided exactly.',
+      '- teams_to_watch: 1–2 teams worth the director\'s attention this week (a team that went quiet, or one with a cluster of needs-work notes). Each note is one short line. Use the team name exactly as given.',
+      '- next_action: pick EXACTLY ONE action from the candidate actions provided — the single highest-value thing for the director to do next. Copy its `kind` verbatim (it must be one of the candidate kinds). Write a short label and a one-line rationale grounded in the week\'s data.',
+      '- Do NOT invent coaches, teams, or actions beyond what is provided.',
+      '- Write like a program director\'s clipboard, not a marketing landing page. Be encouraging and factual; avoid breathless hype words. No emoji. No guilt-tripping about a quiet week.',
+    ].join('\n'),
+    user: [
+      `Program: ${params.orgName || 'your program'}`,
+      `Last 7 days: ${params.activeCoaches} of ${params.totalCoaches} coaches active, ${params.totalSessions} practice(s), ${params.totalObservations} note(s).`,
+      '',
+      'Teams (activity this week):',
+      params.teams
+        .map((t) => `- ${t.team_name}: ${t.sessions} session(s), ${t.observations} note(s), ${t.needsWork} needs-work${t.quiet ? ' (QUIET — no activity)' : ''}`)
+        .join('\n') || '(none)',
+      '',
+      'Coaches who have gone quiet:',
+      params.quietCoaches
+        .map((c) => `- ${c.coach_name}: no activity in ${c.daysSinceActive} day(s)`)
+        .join('\n') || '(none)',
+      '',
+      'Candidate next actions (pick exactly ONE; copy its kind verbatim):',
+      params.candidateActions
+        .map((a) => `- kind="${a.kind}": ${a.label} — ${a.reason}`)
+        .join('\n'),
+      '',
+      'Write the program pulse as JSON:',
+      '{ "week_summary": "one glanceable line", "active_coaches": 0, "total_coaches": 0, "teams_to_watch": [{ "team_name": "team", "note": "one line on why to watch" }], "next_action": { "label": "button text", "kind": "one of the candidate kinds", "rationale": "one line grounded in the week" } }',
+    ].filter(Boolean).join('\n'),
+  }),
 } as const;

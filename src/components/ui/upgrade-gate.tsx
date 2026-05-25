@@ -1,7 +1,7 @@
 'use client';
 import { useTier } from '@/hooks/use-tier';
 import { Button } from './button';
-import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye, FileAudio, CalendarDays } from 'lucide-react';
+import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye, FileAudio, CalendarDays, Gauge } from 'lucide-react';
 import Link from 'next/link';
 import type { Tier } from '@/lib/tier';
 
@@ -185,6 +185,22 @@ const FEATURE_CONFIG: Record<string, FeatureConfig> = {
       'Appears on your home screen; gone on a quiet week, no nagging',
     ],
     requiredTier: 'coach',
+    accentColor: 'text-orange-400',
+    accentBg: 'bg-orange-500/15',
+    accentBorder: 'border-orange-500/30',
+  },
+  feature_program_pulse: {
+    icon: Gauge,
+    headline: 'Unlock the Program Pulse',
+    tagline: 'Open the app and see your whole program in one glance — who is active and who needs a nudge.',
+    benefits: [
+      'A one-line weekly recap across every team in your program',
+      'How many of your coaches were active this week',
+      'The one or two teams worth a closer look',
+      'One concrete next action — nudge a coach or check a team',
+      'Built from activity your coaches already log; nothing extra to set up',
+    ],
+    requiredTier: 'organization',
     accentColor: 'text-orange-400',
     accentBg: 'bg-orange-500/15',
     accentBorder: 'border-orange-500/30',

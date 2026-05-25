@@ -527,3 +527,38 @@ export const weeklyDigestSchema = z.object({
 });
 
 export type WeeklyDigest = z.infer<typeof weeklyDigestSchema>;
+
+// ── Program Pulse (ticket 0028) ─────────────────────────────────────────────
+//
+// A director-private weekly "program pulse" built from the org's last 7 days of
+// COACH activity (sessions + observations). The pulse is coach/team aggregate
+// only — never per-minor. `next_action.kind` is a CLOSED enum so the admin card
+// maps it to a known in-app route (the 0024 staff-invite or the org-analytics
+// detail). COPPA: no player names, jerseys, or observation text — the prompt is
+// fed only aggregate counts + team/coach names, and nothing is collected on
+// `players`.
+
+export const PROGRAM_PULSE_ACTION_KINDS = [
+  'nudge_coach',
+  'invite_staff',
+  'view_analytics',
+] as const;
+
+export type ProgramPulseActionKind = (typeof PROGRAM_PULSE_ACTION_KINDS)[number];
+
+export const programPulseSchema = z.object({
+  week_summary: z.string().min(1),               // One glanceable line about the program's week
+  active_coaches: z.number().int(),              // Coaches with ≥1 obs/session in the last 7 days
+  total_coaches: z.number().int(),               // All coaches in the org
+  teams_to_watch: z.array(z.object({
+    team_name: z.string().min(1),                // Team-level aggregate only — never a player
+    note: z.string().min(1),                     // One line on why this team is worth attention
+  })),
+  next_action: z.object({
+    label: z.string().min(1),                    // The button text, e.g. "Nudge Coach Rivera"
+    kind: z.enum(PROGRAM_PULSE_ACTION_KINDS),    // Closed set → mapped to a route client-side
+    rationale: z.string().min(1),                // Why this is the one thing worth doing
+  }),
+});
+
+export type ProgramPulse = z.infer<typeof programPulseSchema>;
