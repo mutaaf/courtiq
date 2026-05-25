@@ -1,7 +1,7 @@
 ---
 id: 0032
 title: Show the coach where they are in the season so the arc itself pulls them back
-status: in-progress
+status: shipped
 priority: P2
 area: analytics
 created: 2026-05-25
@@ -193,3 +193,9 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 - 2026-05-25 [implementation-dev] Recent-observation window for `trend`: the most recent 30
   observations for the team (ordered created_at desc, limit 30) — deterministic and documented,
   mirroring the `since`/`order`/`limit` pattern from the weekly-star + carryover routes.
+- 2026-05-25 [implementation-dev] Shipped via PR #296. All three gating checks green (lint 1m21s,
+  unit-tests 1m41s, e2e-tests 3m40s); auto-merge squashed it onto main. Shipped-flip done on a
+  separate `chore/0032-mark-shipped` branch off freshly-pulled main (the feature branch was gone),
+  flipping both this file's frontmatter and the README index row. The only full-suite vitest
+  failure was the pre-existing TZ-environmental `player-of-match` date test (LESSONS 2026-05-20
+  #36), green on CI's UTC Node 20.
