@@ -74,6 +74,55 @@ export async function POST(request: Request) {
       // Degrade silently — snapshot report is still valuable without continuity
     }
 
+    // Cross-season continuity (ticket 0034). If the coach has confirmed that this
+    // player is the SAME player as a prior season (player.prior_player_id), thread
+    // that prior player's most recent parent report as a "since last season" note.
+    // Verify the prior player belongs to a team in the SAME org before reading
+    // anything — a forged/cross-org link reads nothing. Wrapped in try/catch so a
+    // read failure degrades to the single-season snapshot and never 500s, mirroring
+    // the 0016 degrade-to-snapshot behavior above.
+    let priorSeasonReport: import('@/lib/ai/schemas').ParentReport | null = null;
+    const priorPlayerId = (player as { prior_player_id?: string | null }).prior_player_id;
+    if (priorPlayerId) {
+      try {
+        // Resolve the prior player → its team → org_id, and only proceed if the
+        // org matches the caller's org. Reading nothing cross-org is the security
+        // boundary for the cross-season link.
+        const { data: priorPlayer } = await admin
+          .from('players')
+          .select('id, team_id')
+          .eq('id', priorPlayerId)
+          .single();
+
+        const priorTeamId = (priorPlayer as { team_id?: string | null } | null)?.team_id;
+        if (priorTeamId) {
+          const { data: priorTeam } = await admin
+            .from('teams')
+            .select('org_id')
+            .eq('id', priorTeamId)
+            .single();
+          const priorOrgId = (priorTeam as { org_id?: string | null } | null)?.org_id;
+
+          if (priorOrgId && priorOrgId === coach?.org_id) {
+            const { data: priorSeasonPlans } = await admin
+              .from('plans')
+              .select('content_structured')
+              .eq('player_id', priorPlayerId)
+              .eq('type', 'parent_report')
+              .order('created_at', { ascending: false })
+              .limit(1);
+            if (priorSeasonPlans?.[0]?.content_structured) {
+              priorSeasonReport = priorSeasonPlans[0]
+                .content_structured as import('@/lib/ai/schemas').ParentReport;
+            }
+          }
+        }
+      } catch {
+        // Degrade silently to single-season — the cross-season note is best-effort.
+        priorSeasonReport = null;
+      }
+    }
+
     const reportData = {
       observations: observations || [],
       proficiency: proficiency || [],
@@ -85,6 +134,16 @@ export async function POST(request: Request) {
       playerName: player.name,
       reportData,
       priorReport,
+      // Only the prior-season report's coach-authored narrative is threaded; the
+      // prompt builder serializes just highlights / skill_progress / coach_note, so
+      // no raw DB minor field reaches the model (ticket 0034 COPPA boundary).
+      priorSeasonReport: priorSeasonReport
+        ? {
+            highlights: priorSeasonReport.highlights,
+            skill_progress: priorSeasonReport.skill_progress,
+            coach_note: priorSeasonReport.coach_note,
+          }
+        : null,
     });
 
     const result = await callAIWithJSON<ParentReport>(

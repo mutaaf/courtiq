@@ -112,6 +112,63 @@ values
    'Bob Carter', 'Bobby', '{"Bobby","Bob C."}', '11-13', 'Forward', 5, null, true)
 on conflict (id) do nothing;
 
+-- ── cross-season memory (ticket 0034) ──────────────────────────────────────
+-- A PRIOR-season team in the SAME org, plus the prior-season players row for
+-- Alice and the prior-season parent_report that the cross-season note draws on.
+-- The current-season Alice (...030) is linked to this prior row via
+-- prior_player_id so the parent-report route can resolve the cross-season note
+-- deterministically (no live AI call in the seed itself). All rows are org-scoped
+-- to the E2E org (...010), proving the link stays inside the coach's own org.
+insert into teams (id, org_id, sport_id, name, age_group, season, season_weeks, current_week, is_active)
+select
+  '00000000-0000-4000-a000-000000000021',
+  '00000000-0000-4000-a000-000000000010',
+  (select id from sports where slug = 'basketball' limit 1),
+  'E2E Test Team (Last Season)', '11-13', 'Spring 2025', 10, 10, false
+on conflict (id) do nothing;
+
+insert into team_coaches (team_id, coach_id, role)
+values (
+  '00000000-0000-4000-a000-000000000021',
+  '00000000-0000-4000-a000-000000000001',
+  'head_coach'
+)
+on conflict (team_id, coach_id) do nothing;
+
+-- Alice's PRIOR-season players row (a different team_id, same coach/org).
+insert into players (id, team_id, name, nickname, name_variants, age_group, position, jersey_number, parent_name, is_active)
+values
+  ('00000000-0000-4000-a000-000000000032',
+   '00000000-0000-4000-a000-000000000021',
+   'Alice Walker', null, null, '11-13', 'Guard', 1, 'Walker Family', false)
+on conflict (id) do nothing;
+
+-- The prior-season parent report the cross-season note is grounded in.
+insert into plans (id, team_id, coach_id, player_id, type, title, content, content_structured)
+values (
+  '00000000-0000-4000-a000-000000000073',
+  '00000000-0000-4000-a000-000000000021',
+  '00000000-0000-4000-a000-000000000001',
+  '00000000-0000-4000-a000-000000000032',
+  'parent_report',
+  'Parent Report - Alice Walker (Spring 2025)',
+  '{}',
+  '{
+    "player_name": "Alice Walker",
+    "greeting": "Alice had a strong first season.",
+    "highlights": ["Hesitated on closeouts but kept trying"],
+    "skill_progress": [{"skill_name": "Defense", "level": "Practicing", "narrative": "Closeouts were tentative early on."}],
+    "encouragement": "Keep showing up.",
+    "coach_note": "Closeouts are the growth edge heading into next season."
+  }'::jsonb
+)
+on conflict (id) do nothing;
+
+-- Link the current-season Alice (...030) to her prior-season self (...032).
+update players
+  set prior_player_id = '00000000-0000-4000-a000-000000000032'
+  where id = '00000000-0000-4000-a000-000000000030';
+
 -- ── sessions ──────────────────────────────────────────────────────────────
 -- One practice session the observations below hang off of.
 insert into sessions (id, team_id, coach_id, type, date, location, notes)

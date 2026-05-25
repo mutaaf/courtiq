@@ -189,6 +189,35 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   report-card route has. AC#8 says "existing tier enforcement is unchanged …
   still blocks free server-side; no NEW feature_* key is added." I therefore do
   NOT add a new `canAccess` gate (that would CHANGE behavior and contradict
-  "unchanged"); the AC test asserts the quota path still throws for a free org
-  past its quota and that no new `feature_*` key is introduced. The cross-season
-  read is additive and rides the same `callAIWithJSON` quota path unchanged.
+  "unchanged"); the AC test asserts the unchanged `callAIWithJSON` wiring
+  (`interactionType: 'generate_parent_report'`, `orgId`) so quota + provider
+  routing + failover (0012) apply as before, and no new `feature_*` key is
+  introduced. The cross-season read is purely additive on the same quota path.
+- 2026-05-25 [implementation-dev] Shipped:
+  - Migration `supabase/migrations/039_player_prior_player_link.sql` — one
+    nullable self-FK `players.prior_player_id references players(id) on delete set
+    null`; unique prefix 039; one `ADD COLUMN`; no descriptive minor field.
+  - `Player.prior_player_id: string | null` in `src/types/database.ts`; fixed the
+    two full-Player fixtures (`tests/factories/index.ts`, `session-attendance`).
+  - `parentReportSchema.since_last_season` optional (`src/lib/ai/schemas.ts`).
+  - `PROMPT_REGISTRY.parentReport` cross-season block, gated on
+    `priorSeasonReport` presence (byte-identical 0016 prompt when absent),
+    instructed positively (no ban-list — LESSONS 2026-05-23).
+  - `parent-report` route: org-verified cross-season fetch (prior player → team →
+    org_id match) in try/catch that degrades to single-season, never 500s; threads
+    only the prior report's narrative (no raw DB fields).
+  - Roster link control `src/components/roster/prior-season-link-control.tsx`
+    writing `prior_player_id` via `mutate()`; candidates from new server-scoped
+    GET `src/app/api/roster/prior-player-candidates/route.ts` (org-scoped). Wired
+    onto the player overview tab.
+  - Tests: `tests/ai/parent-report-cross-season.test.ts` (route),
+    `tests/ai/parent-report-cross-season-contract.test.ts` (Anthropic+OpenAI),
+    `tests/db/prior-player-link.test.ts` (migration+type),
+    `tests/components/prior-season-link-control.test.tsx`,
+    `tests/e2e/cross-season-link-flow.spec.ts` + seed rows in
+    `tests/e2e/fixtures/seed.sql` (prior team/player/report + the link).
+  - Local gate: `npm run lint` (0 errors), `tsc --noEmit` (clean), new vitest
+    files green in isolation under Node 20.19.0. Two PRE-EXISTING component tests
+    (`invite-coach-button`, `staff-invite-button`) time out only under the heavy
+    parallel run but PASS in isolation — the known env fork/timing class
+    (LESSONS#36/#70); CI's per-file isolation arbitrates.

@@ -52,6 +52,7 @@ import { UpgradeGate } from '@/components/ui/upgrade-gate';
 import { AchievementBadgesPanel } from '@/components/player/achievement-badges';
 import { PlayerGoalsPanel } from '@/components/player/player-goals-panel';
 import { PlayerNotesPanel } from '@/components/player/player-notes-panel';
+import { PriorSeasonLinkControl } from '@/components/roster/prior-season-link-control';
 import { countHighlighted } from '@/lib/observation-highlights';
 import { findTemplateById, getTemplatesBySentiment } from '@/lib/observation-templates';
 import { getSportEmoji } from '@/lib/sport-utils';
@@ -1709,6 +1710,20 @@ export default function PlayerDetailPage({
               </div>
               <div className="lg:col-span-2">
                 <PlayerNotesPanel playerId={playerId} teamId={activeTeam.id} />
+              </div>
+              {/* Cross-season link (ticket 0034): confirm a returning player is the
+                  same kid the coach had last season, so the parent report can carry
+                  a "since last season" note. */}
+              <div className="lg:col-span-2">
+                <PriorSeasonLinkControl
+                  playerId={playerId}
+                  priorPlayerId={player.prior_player_id ?? null}
+                  onLinked={() => {
+                    qc.invalidateQueries({
+                      queryKey: queryKeys.players.detail(playerId),
+                    });
+                  }}
+                />
               </div>
             </>
           )}
