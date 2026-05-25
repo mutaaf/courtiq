@@ -18,6 +18,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import type { CoachRole } from '@/types/database';
+import { ProgramPulseSection } from '@/components/admin/program-pulse-card';
 
 interface OrgCoach {
   id: string;
@@ -171,6 +172,10 @@ export default function AdminPage() {
           Manage coaches, teams, and organization settings
         </p>
       </div>
+
+      {/* Ticket 0028 — the director-private weekly program pulse. Best-effort:
+          renders nothing while loading, on failure, or on a quiet program week. */}
+      <ProgramPulseSection orgId={coach?.org_id} isAdmin={isAdminUser} />
 
       {/* Org Tier */}
       <Card>

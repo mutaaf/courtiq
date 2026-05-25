@@ -31,7 +31,8 @@ interface OrgAISettings {
 
 interface AICallOptions {
   coachId: string;
-  teamId: string;
+  /** Optional: org-scoped artifacts (e.g. the program pulse) have no single team. */
+  teamId?: string;
   interactionType: AIInteractionType;
   systemPrompt: string;
   userPrompt: string;

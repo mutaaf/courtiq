@@ -1,7 +1,7 @@
 ---
 id: 0028
 title: Give the program director a weekly "program pulse" they actually read instead of a dashboard they don't
-status: groomed
+status: in-progress
 priority: P2
 area: analytics
 created: 2026-05-23
@@ -173,7 +173,30 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0028-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-25 — branch `feat/0028-program-pulse-digest` opened; status → in-progress.
+- 2026-05-25 — Reconciliation (per LESSONS 2026-05-20 #0002 — assert the REAL schema):
+  the ticket says "reuse the org-analytics aggregation", but the existing
+  `/api/admin/org-analytics` route selects `observations.created_by` /
+  `observations.skill` and `sessions.created_by`, which DO NOT exist — the real
+  columns are `observations.coach_id` / `observations.skill_id` / `observations.category`
+  and `sessions.coach_id` (`supabase/migrations/001_schema.sql`). Program-pulse
+  aggregates by the REAL `coach_id` column (active = a coach with ≥1 obs or session
+  in the last 7 days). The org-analytics aggregation SHAPE (per-team / per-coach
+  counts in the last N days) is reused; the wrong column names are not.
+- 2026-05-25 — `<UpgradeGate feature="feature_program_pulse">` uses the exact tier
+  key (LESSONS 2026-05-23 #0023); the key is registered in `TIER_LIMITS.organization`
+  ONLY and in `FEATURE_CONFIG` for the benefit copy.
+- 2026-05-25 — failing tests added: `tests/ai/program-pulse.test.ts` (route),
+  `tests/ai/program-pulse-contract.test.ts` (provider-agnostic JSON),
+  `src/lib/tier.test.ts` (tier key), `tests/components/program-pulse-card.test.tsx`
+  (best-effort card states), `tests/e2e/program-pulse-flow.spec.ts` (authed, skips
+  without E2E creds; seed adds an Organization-tier org + admin + coaches + a week
+  of activity).
+- 2026-05-25 — local gate green under Node 20.19.0: lint 0 errors, `tsc --noEmit`
+  0 errors, vitest 4502/4503 (the lone fail is the documented TZ artifact in
+  `player-of-match-utils.test.ts`, passes under `TZ=UTC` as CI runs — LESSONS
+  2026-05-20).
+- 2026-05-25 — PR #287 opened with auto-merge (squash) armed. First CI run: lint +
+  unit-tests green; e2e-tests RED at the `Seed test data` step (psql exit 3,
+  `coaches_id_fkey` — the two added program coaches lacked `auth.users` rows).
+  Fixed by seeding their `auth.users` rows (new LESSONS entry 2026-05-25 [ship/0028]).
