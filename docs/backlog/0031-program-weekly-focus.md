@@ -1,7 +1,7 @@
 ---
 id: 0031
 title: Let a program director set one weekly focus that shows up in every coach's Capture and practice plan
-status: groomed
+status: in-progress
 priority: P2
 area: plans
 created: 2026-05-25
@@ -153,7 +153,25 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0031-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-25 — branch `feat/0031-program-weekly-focus` opened; ticket → in-progress.
+- 2026-05-25 — failing tests added FIRST: `tests/org/weekly-focus.test.ts` (new route),
+  `tests/ai/contracts.test.ts` (program-focus prompt-thread extension), and
+  `tests/e2e/program-focus-flow.spec.ts` (new Playwright spec).
+- 2026-05-25 — Reconciliation notes (asserting the REAL contract, per LESSONS#0002/#0023):
+  - Storage reuses the EXISTING System→Org→Team config cascade. The focus is one
+    `config_overrides` row at org scope, domain `program` / key `focus` (value is the
+    free-text string). `config_overrides` is already in the `/api/data` allow-list and
+    already typed for the cascade read path (`resolveConfig`).
+  - The cascade's `value` column is jsonb and `resolveConfig` returns it verbatim, so the
+    focus string is stored as a JSON string and read back through `resolveConfig` as an
+    org override (NOT a bespoke store) — exactly what the AC requires.
+  - New dedicated route `src/app/api/org/weekly-focus/route.ts` (`GET` read for any org
+    coach; `POST` set for an org admin on the Organization tier) mirroring the 0028
+    program-pulse auth gate: resolve caller `coaches.org_id` + `role` + org `tier`;
+    cross-org `orgId` → 404 (matches program-pulse), non-admin → 403, non-org tier → 403.
+    `createServerSupabase().auth.getUser()` → 401, then `createServiceSupabase()`.
+  - Tier key `feature_program_focus` added to `organization` ONLY in `src/lib/tier.ts`,
+    registered in `<UpgradeGate>` FEATURE_CONFIG; the `<UpgradeGate feature=…>` prop is the
+    exact tier-feature lookup key `feature_program_focus` (LESSONS#0023), never a shorthand.
+  - Plan/arc prompt threads an OPTIONAL `programFocus?: string` param as a SOFT hint;
+    the plan/arc Zod schema is unchanged (no migration, no required field).
