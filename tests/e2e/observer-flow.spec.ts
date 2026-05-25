@@ -62,8 +62,9 @@ test.describe('Observer conversion footer (/observe/[token]) — helper-to-coach
     await page.goto(`/observe/${token}`);
 
     // The capture UI has loaded (the sentiment toggle is present) but nothing
-    // is saved yet, so the footer CTA must NOT be on the page.
+    // is saved yet, so the conversion footer must NOT be on the page.
     await expect(page.getByRole('button', { name: /positive/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('observer-conversion-footer')).toHaveCount(0);
     await expect(
       page.getByRole('link', { name: /start your own team/i })
     ).toHaveCount(0);
@@ -83,17 +84,25 @@ test.describe('Observer conversion footer (/observe/[token]) — helper-to-coach
     // A save succeeded — the saved-count strip confirms it.
     await expect(page.getByText(/1 observation saved/i)).toBeVisible({ timeout: 10000 });
 
-    // The conversion footer now names the count + the host coach FIRST name…
-    const footer = page.getByRole('link', { name: /start your own team/i });
-    await expect(footer).toBeVisible();
-    await expect(page.getByText(new RegExp(COACH_FIRST))).toBeVisible();
+    // The conversion footer container appears only after a save. Scope every
+    // assertion to it — "E2E" also appears in the page header (team name +
+    // helping-coach line), so a page-wide getByText(/E2E/) is a strict-mode
+    // violation (LESSONS.md 2026-05-21 ship/0022 — tighten the locator, don't
+    // weaken the assertion).
+    const footerContainer = page.getByTestId('observer-conversion-footer');
+    await expect(footerContainer).toBeVisible({ timeout: 10000 });
+
+    // …it names the count + the host coach FIRST name…
+    await expect(footerContainer).toContainText(/1 observation/i);
+    await expect(footerContainer).toContainText(new RegExp(COACH_FIRST));
 
     // …and the CTA deep-links to /signup?ref=<host code>.
-    const href = await footer.getAttribute('href');
+    const cta = footerContainer.getByRole('link', { name: /start your own team/i });
+    await expect(cta).toBeVisible();
+    const href = await cta.getAttribute('href');
     expect(href).toContain(`/signup?ref=${COACH_REF}`);
 
     // COPPA: the footer carries no player name.
-    const footerContainer = page.getByTestId('observer-conversion-footer');
     await expect(footerContainer).not.toContainText('Alice');
     await expect(footerContainer).not.toContainText('Walker');
   });
