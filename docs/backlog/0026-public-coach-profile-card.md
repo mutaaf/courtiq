@@ -1,7 +1,7 @@
 ---
 id: 0026
 title: Give the coach a public, shareable coaching profile a parent or rival coach can land on
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-05-23
@@ -159,7 +159,8 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0026-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-23 — branch `feat/0026-public-coach-profile-card` opened off fresh `origin/main` (`d2cd876`); ticket flipped to `in-progress` (file + README index).
+- 2026-05-23 — failing tests added FIRST: `tests/coach-card/create.test.ts` (401 no-auth / 200 token+`/coach/<token>` url / reuse-or-create idempotency) and `tests/coach-card/token.test.ts` (404 unknown token / exact allow-list keys / lazy referral code / COPPA no-minor-data), plus Playwright `tests/e2e/coach-card-flow.spec.ts`. Confirmed they failed for the right reason (route files absent).
+- 2026-05-23 — implemented: migration `037_coach_card_shares.sql` (unique prefix, balanced cols; coach-scoped — references coaches only, no plan, no player), `CoachCardShare` type in `src/types/database.ts`, `POST /api/coach-card/create` (authed, NO planId, reuse-or-create), `GET /api/coach-card/[token]` (public, service-role, `PUBLIC_COACH_CARD_FIELDS` allow-list — sports/age-groups DERIVED from the coach's teams, aggregate integer counts only), public page `src/app/coach/[token]/page.tsx` (dark zinc/orange, no banned words, no emoji headings), `publicPaths` += `/coach/` + `/api/coach-card/`, and `CoachProfileShareButton` wired into `/settings/referrals` with a stable `data-share-url`.
+- Reconciliations to the REAL contract (cf. LESSONS#39/#0002): coach display name comes from `coaches.full_name` (no `display_name` column exists — the allow-list KEY is `display_name`, sourced from `full_name`). `weeks_coaching` is derived from `coaches.created_at` → now (aggregate, no per-row data). `players_observed` de-dupes `observations.player_id` in JS reading ONLY `player_id` (never a name/jersey). `practices_logged` counts `sessions` where `type='practice'`. The create route reads NO `planId` (this card is coach-scoped, unlike team-card/season-recap which are plan-scoped). `/api/coach-card/create` is left out of the public-bypass intent: it self-enforces auth in the handler (`auth.getUser()` → 401) exactly like the team-card/season-recap create routes, so the blanket `/api/coach-card/` middleware prefix never bypasses that 401 (documented inline in middleware). `coach_card_shares` was NOT added to the `/api/data` allow-lists because the dashboard control POSTs the dedicated create route, not the generic `query()`/`mutate()` endpoint, and the public GET uses service-role directly.
+- 2026-05-23 — local gate green under pinned Node 20.19.0: `npm run lint` (0 errors), `npx tsc --noEmit` (0 errors), `npx vitest run` (4455 pass + the 1 known local-TZ `player-of-match` artifact, which passes under `TZ=UTC` = CI). 7 new coach-card vitest tests pass; team-card + season-recap regression specs untouched and green.

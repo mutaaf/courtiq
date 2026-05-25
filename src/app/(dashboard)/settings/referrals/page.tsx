@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { InviteCoachButton } from '@/components/growth/invite-coach-button';
 import { StaffInviteButton } from '@/components/growth/staff-invite-button';
+import { CoachProfileShareButton } from '@/components/growth/coach-profile-share-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -193,6 +194,26 @@ export default function ReferralsPage() {
             joins your program — no separate sign-ups to chase down.
           </p>
           <StaffInviteButton />
+        </CardContent>
+      </Card>
+
+      {/* Coach profile card (ticket 0026) — one public link that shows the kind of
+          coach you are (sports/age groups + honest activity counts), carrying your
+          referral code to the highest-intent acquisition audience: another coach. */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-orange-400" />
+            Your coaching profile
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-zinc-400">
+            One link that shows the kind of coach you are — your sports and age
+            groups, plus the practices and players you have logged. Send it when a
+            parent or another coach asks what you use.
+          </p>
+          <CoachProfileShareButton />
         </CardContent>
       </Card>
 

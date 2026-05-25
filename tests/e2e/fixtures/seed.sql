@@ -370,4 +370,22 @@ values (
 )
 on conflict (token) do nothing;
 
+-- ── coach_card_shares: the public coach-profile token (ticket 0026) ─────────
+-- token 'test-coach-card-token-e2e-001' matches COACH_CARD_TOKEN in
+-- coach-card-flow.spec.ts. is_active=true so the public /api/coach-card/<token>
+-- route returns 200. The card is scoped to the COACH (not a plan): the route
+-- derives the sports ('Basketball') + age group ('11-13') from the coach's
+-- seeded basketball team, counts the seeded practice sessions + observed players,
+-- and resolves the coach's referral_code 'AAAAAA' (set on the coaches row), which
+-- the page CTA deep-links to as /signup?ref=AAAAAA. No minor data is exposed —
+-- only aggregate integers + coach-level fields.
+insert into coach_card_shares (id, token, coach_id, is_active)
+values (
+  '00000000-0000-4000-a000-0000000000a1',
+  'test-coach-card-token-e2e-001',
+  '00000000-0000-4000-a000-000000000001',
+  true
+)
+on conflict (token) do nothing;
+
 commit;
