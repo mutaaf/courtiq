@@ -77,7 +77,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
 | 0029 | Turn the helper who used the observer link into a coach with their own free team | P1 | shipped | growth |
-| 0030 | Walk the brand-new coach to their first shareable AI artifact the moment they have enough notes | P2 | in-progress | onboarding |
+| 0030 | Walk the brand-new coach to their first shareable AI artifact the moment they have enough notes | P2 | shipped | onboarding |
 | 0031 | Let a program director set one weekly focus that shows up in every coach's Capture and practice plan | P2 | groomed | plans |
 | 0001 | Stripe webhook signature verification on the live endpoint | P0 | shipped | billing |
 | 0002 | End-to-end checkout flow test — upgrade → pay → tier unlocks features | P0 | shipped | billing |
