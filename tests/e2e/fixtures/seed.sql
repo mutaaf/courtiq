@@ -471,16 +471,21 @@ on conflict (token) do nothing;
 -- authed path skips in CI without E2E creds); this seed backs the un-mocked
 -- endpoint for whenever creds point at this org's admin.
 
--- Director auth user (FK target for the admin coach below).
+-- Auth users for the director + both coaches. coaches.id references
+-- auth.users(id), so each coach's auth user must exist first (FK
+-- coaches_id_fkey). No passwords are set: no CI spec authenticates as these.
 insert into auth.users (id, instance_id, aud, role, email,
                         email_confirmed_at, created_at, updated_at)
-values (
-  '00000000-0000-4000-a000-000000000101',
-  '00000000-0000-0000-0000-000000000000',
-  'authenticated', 'authenticated',
-  'director-e2e@test.com',
-  now(), now(), now()
-)
+values
+  ('00000000-0000-4000-a000-000000000101',
+   '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated', 'director-e2e@test.com', now(), now(), now()),
+  ('00000000-0000-4000-a000-000000000102',
+   '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated', 'coach-active-e2e@test.com', now(), now(), now()),
+  ('00000000-0000-4000-a000-000000000103',
+   '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated', 'coach-quiet-e2e@test.com', now(), now(), now())
 on conflict (id) do nothing;
 
 -- Organization-tier program.
