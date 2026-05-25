@@ -77,7 +77,6 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
 | 0029 | Turn the helper who used the observer link into a coach with their own free team | P1 | shipped | growth |
-| 0028 | Give the program director a weekly "program pulse" they actually read instead of a dashboard they don't | P2 | in-progress | analytics |
 | 0030 | Walk the brand-new coach to their first shareable AI artifact the moment they have enough notes | P2 | groomed | onboarding |
 | 0031 | Let a program director set one weekly focus that shows up in every coach's Capture and practice plan | P2 | groomed | plans |
 | 0001 | Stripe webhook signature verification on the live endpoint | P0 | shipped | billing |
@@ -107,6 +106,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | 0019 | Let the parent who is also a coach start their own free team from the report they're reading | P2 | shipped | growth |
 | 0022 | Turn the parent-reaction thank-you screen into the moment the parent acts on the app | P2 | shipped | parent-portal |
 | 0025 | When the coach starts observing a player, remind them what that player was working on | P2 | shipped | capture |
+| 0028 | Give the program director a weekly "program pulse" they actually read instead of a dashboard they don't | P2 | shipped | analytics |
 
 ## Hand-off discipline
 

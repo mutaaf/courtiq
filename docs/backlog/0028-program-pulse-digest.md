@@ -1,7 +1,7 @@
 ---
 id: 0028
 title: Give the program director a weekly "program pulse" they actually read instead of a dashboard they don't
-status: in-progress
+status: shipped
 priority: P2
 area: analytics
 created: 2026-05-23
@@ -200,3 +200,6 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   unit-tests green; e2e-tests RED at the `Seed test data` step (psql exit 3,
   `coaches_id_fkey` — the two added program coaches lacked `auth.users` rows).
   Fixed by seeding their `auth.users` rows (new LESSONS entry 2026-05-25 [ship/0028]).
+- 2026-05-25 — second CI run all green (lint, unit-tests, e2e-tests 3m36s); PR #287
+  auto-merged to main. Status flipped to `shipped` (file + README index) on
+  `chore/0028-mark-shipped` per LESSONS 2026-05-22 [ship/0020].
