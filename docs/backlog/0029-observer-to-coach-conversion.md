@@ -1,7 +1,7 @@
 ---
 id: 0029
 title: Turn the helper who used the observer link into a coach with their own free team
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-05-25
@@ -130,7 +130,24 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0029-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
+- 2026-05-25 — branch `feat/0029-observer-conversion-footer` opened off fresh `main`; ticket flipped to `in-progress`.
+- 2026-05-25 — failing tests added first: `tests/observe/token.test.ts` (GET payload
+  now carries `referralCode == makeReferralCode(coach_id)`, added field set is exactly
+  `{ referralCode }`, invalid-token still 401 with no leak, player rows unchanged; POST
+  still 201 + 429 regression), `tests/observer/conversion-message.test.ts` (pure copy
+  helper), and `tests/e2e/observer-flow.spec.ts` (no footer before a save; after one save
+  the footer shows count + coach first name + `/signup?ref=AAAAAA` CTA; footer has no
+  player name). Then implemented: `referralCode` added to the GET payload only (no auth
+  change, POST untouched), a pure `buildObserverConversionMessage()` helper, and the
+  dark zinc-950 / #F97316 footer rendered only when `savedCount > 0`.
+- Filename note: the actual ticket file is `0029-observer-to-coach-conversion.md`; the
+  vitest file is `*.test.ts` not `*.spec.ts` (LESSONS.md 2026-05-20). The e2e mints a
+  valid HMAC observer token inline with the server's secret-resolution order and skips
+  when `SUPABASE_SERVICE_ROLE_KEY` is unset (CI supplies it via `$GITHUB_ENV`); it reuses
+  the seeded coach (`AAAAAA`) so the code matches without a new seed row.
+- Local gate green under Node 20.19.0: `lint` 0 errors, `tsc --noEmit` clean,
+  `check-backlog.mjs` in sync, `vitest` 4480/4481 (the lone fail is the documented
+  TZ/jsdom `player-of-match-utils` "Apr 27 vs Apr 28" environmental artifact, LESSONS.md
+  2026-05-20 — not a regression, untouched by this change, green on CI's UTC Node 20).
 - YYYY-MM-DD — PR #N opened, CI [state]
 - YYYY-MM-DD — merged to main

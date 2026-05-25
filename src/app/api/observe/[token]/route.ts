@@ -7,6 +7,7 @@ import {
   getTemplateById,
   buildObservationPayload,
 } from '@/lib/observer-utils';
+import { makeReferralCode } from '@/lib/referral-code';
 
 type Params = { params: Promise<{ token: string }> };
 
@@ -67,6 +68,11 @@ export async function GET(_req: Request, { params }: Params) {
     players: players ?? [],
     teamId: session.team_id,
     coachId: session.coach_id,
+    // Host coach's deterministic referral code so the observer page can deep-link
+    // a helper to /signup?ref=CODE after they save an observation (ticket 0029).
+    // Same algorithm every other referral surface uses (team-card / season-recap
+    // / coach-card) so attribution + the referral reward compound, not fork.
+    referralCode: makeReferralCode(session.coach_id),
   });
 }
 

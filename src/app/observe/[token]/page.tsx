@@ -8,6 +8,7 @@ import {
   getNeedsWorkTemplates,
   formatObserverCount,
   getSessionTypeLabel,
+  buildObserverConversionMessage,
 } from '@/lib/observer-utils';
 import type { ObservationTemplate } from '@/lib/observation-templates';
 
@@ -33,6 +34,7 @@ interface ObserveData {
   players: PlayerInfo[];
   teamId: string;
   coachId: string;
+  referralCode: string;
 }
 
 type Step = 'sentiment' | 'template' | 'player';
@@ -156,7 +158,8 @@ export default function ObservePage() {
     );
   }
 
-  const { session, team, coachName, players } = data!;
+  const { session, team, coachName, players, referralCode } = data!;
+  const coachFirstName = coachName ? coachName.split(' ')[0] : '';
   const positiveTemplates = getPositiveTemplates();
   const needsWorkTemplates = getNeedsWorkTemplates();
   const templates = sentiment === 'positive' ? positiveTemplates : needsWorkTemplates;
@@ -325,6 +328,26 @@ export default function ObservePage() {
           </button>
         )}
       </div>
+
+      {/* Conversion footer — shown only once the helper has saved at least one
+          observation, so it reads as a reward, not an upsell wall (ticket 0029).
+          Carries the host coach's referral code to the standard /signup flow. */}
+      {savedCount > 0 && (
+        <div
+          data-testid="observer-conversion-footer"
+          className="bg-zinc-900 border-t border-orange-500/30 px-4 py-5 text-center"
+        >
+          <p className="text-sm text-zinc-200 mb-3 leading-snug">
+            {buildObserverConversionMessage({ savedCount, coachFirstName })}
+          </p>
+          <a
+            href={`/signup?ref=${referralCode}`}
+            className="inline-flex items-center justify-center rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold text-sm px-6 py-3 transition-colors touch-manipulation active:scale-[0.97]"
+          >
+            Start your own team — free
+          </a>
+        </div>
+      )}
 
       {/* Footer */}
       <div className="bg-zinc-900 border-t border-zinc-800 px-4 py-3 text-center">
