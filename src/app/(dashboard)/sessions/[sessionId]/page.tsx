@@ -110,6 +110,7 @@ import {
 import { findTemplateById, getTemplatesBySentiment } from '@/lib/observation-templates';
 import { getSportEmoji } from '@/lib/sport-utils';
 import { getWeeklyFocus, getFocusCategoryConfig } from '@/lib/weekly-focus-utils';
+import { RecapShareButton } from '@/components/growth/recap-share-button';
 
 const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   practice: 'Practice',
@@ -452,6 +453,9 @@ function GameRecapCard({
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recap, setRecap] = useState<GameRecapResult | null>(null);
+  // The persisted game_recap plan id, so the public recap-card share control can
+  // mint a /recap/<token> link off this exact plan (ticket 0027).
+  const [planId, setPlanId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -470,7 +474,10 @@ function GameRecapCard({
     if (savedRecapRows?.length && !recap) {
       try {
         const d = savedRecapRows[0].content_structured ?? JSON.parse(savedRecapRows[0].content);
-        if (d?.title) setRecap(d as GameRecapResult);
+        if (d?.title) {
+          setRecap(d as GameRecapResult);
+          if (savedRecapRows[0].id) setPlanId(savedRecapRows[0].id as string);
+        }
       } catch { /* ignore */ }
     }
   }, [savedRecapRows, recap]);
@@ -490,6 +497,7 @@ function GameRecapCard({
       }
       const data = await res.json();
       setRecap(data.recap);
+      if (data.plan?.id) setPlanId(data.plan.id as string);
       setExpanded(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -548,6 +556,9 @@ function GameRecapCard({
                   {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
                   {copied ? 'Copied!' : 'Copy'}
                 </button>
+                {/* Public, no-auth share link the coach pastes in the team group
+                    chat — only once the recap is persisted (we have its planId). */}
+                {planId && <RecapShareButton planId={planId} />}
                 <button
                   onClick={handleGenerate}
                   disabled={isGenerating}

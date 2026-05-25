@@ -471,6 +471,19 @@ export interface CoachCardShare {
   created_at: string;
 }
 
+// Public game-recap card mapping (ticket 0027). Maps a public token to ONE
+// game_recap plan + the creating coach: /recap/[token] renders the team-level
+// recap a coach drops in the team group chat. No minor data — the public read
+// renders team-level content only and strips player_highlights (per-minor names).
+export interface GameRecapShare {
+  id: string;
+  token: string;
+  plan_id: string;
+  coach_id: string;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface ConfigOverride {
   id: string;
   org_id: string | null;

@@ -47,6 +47,11 @@ export async function updateSession(request: NextRequest) {
     // create routes do, so a blanket prefix here never bypasses that 401 guard.
     '/coach/',
     '/api/coach-card/',
+    // Public game-recap card (ticket 0027) — the page + its public token GET.
+    // /api/recap-card/create is NOT a public surface: it self-enforces auth in the
+    // handler (auth.getUser() → 401), so the blanket prefix never bypasses that.
+    '/recap/',
+    '/api/recap-card/',
     // Public referral lookup (ticket 0021) — names the inviting coach on the
     // warm signup landing. Returns the referrer's first name only, no auth.
     '/api/referrals/lookup',

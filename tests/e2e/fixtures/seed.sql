@@ -388,4 +388,75 @@ values (
 )
 on conflict (token) do nothing;
 
+-- ── a game session (ticket 0027) ────────────────────────────────────────────
+-- GameRecapCard renders only for game/scrimmage/tournament sessions, and the
+-- authenticated in-app share-control spec navigates to this session id. The
+-- game_recap plan below is scoped to it so the card auto-loads the saved recap
+-- (and thus the "Share this recap" control) without a live AI call.
+insert into sessions (id, team_id, coach_id, type, date, location, opponent, result, notes)
+values (
+  '00000000-0000-4000-a000-000000000042',
+  '00000000-0000-4000-a000-000000000020',
+  '00000000-0000-4000-a000-000000000001',
+  'game', current_date - 1, 'Away Gym', 'Eagles', 'W 42-30', 'E2E seed game session'
+)
+on conflict (id) do nothing;
+
+-- ── plans: a game_recap artifact for the team (ticket 0027) ─────────────────
+-- The public recap surface renders ONLY the team-level fields named in
+-- PUBLIC_RECAP_FIELDS (title / result_headline / intro / key_moments /
+-- team_performance / coach_message / looking_ahead). content_structured
+-- deliberately INCLUDES player_highlights (with per-minor names + stat lines) so
+-- the COPPA strip is exercised end-to-end: the public /api/recap-card/<token>
+-- route must NOT expose those. type='game_recap' is allowed by plans_type_check
+-- (migration 034). The result_headline / coach_message below are asserted by
+-- recap-card-flow.spec.ts; the player_highlights names/stats are asserted ABSENT.
+insert into plans (id, team_id, coach_id, player_id, session_id, type, title, content, content_structured)
+values (
+  '00000000-0000-4000-a000-000000000092',
+  '00000000-0000-4000-a000-000000000020',
+  '00000000-0000-4000-a000-000000000001',
+  null,
+  '00000000-0000-4000-a000-000000000042',
+  'game_recap',
+  'Game Recap vs Eagles — May 24',
+  '{}',
+  '{
+    "title": "Game Recap vs Eagles — May 24",
+    "result_headline": "Victory Over the Eagles",
+    "intro": "The team controlled the game from the opening tip and never let the Eagles back in, closing it out with poise down the stretch.",
+    "key_moments": [
+      {"headline": "Defensive stand", "description": "A late stop sealed the win."},
+      {"headline": "Fast-break flurry", "description": "Three straight transition buckets."}
+    ],
+    "player_highlights": [
+      {"player_name": "Alice Walker", "highlight": "Locked down the other team best scorer.", "stat_line": "12 pts, 6 reb"},
+      {"player_name": "Bob Carter", "highlight": "Ran the offense with poise.", "stat_line": "8 ast"}
+    ],
+    "team_performance": {
+      "offensive_note": "Moved the ball well and found the open shooter.",
+      "defensive_note": "Switched everything and contested every shot.",
+      "effort_note": "Sprinted back on defense all game."
+    },
+    "coach_message": "Proud of how this team plays for each other. That was a team win.",
+    "looking_ahead": "We carry this momentum into next week."
+  }'::jsonb
+)
+on conflict (id) do nothing;
+
+-- ── game_recap_shares: the public referral token resolving to that plan (0027) ──
+-- token 'test-game-recap-token-e2e-001' matches GAME_RECAP_TOKEN in
+-- recap-card-flow.spec.ts. is_active=true so the public /api/recap-card/<token>
+-- route returns 200. The seeded coach's referral_code 'AAAAAA' (set on the
+-- coaches row) is what the page CTA deep-links to as /signup?ref=AAAAAA.
+insert into game_recap_shares (id, token, plan_id, coach_id, is_active)
+values (
+  '00000000-0000-4000-a000-000000000093',
+  'test-game-recap-token-e2e-001',
+  '00000000-0000-4000-a000-000000000092',
+  '00000000-0000-4000-a000-000000000001',
+  true
+)
+on conflict (token) do nothing;
+
 commit;
