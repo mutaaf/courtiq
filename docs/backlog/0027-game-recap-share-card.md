@@ -2,7 +2,7 @@
 id: 0027
 title: Turn the game recap into a public card the coach drops in the team group chat on the drive home
 status: groomed
-priority: P2
+priority: P1
 area: parent-portal
 created: 2026-05-23
 owner: product-groomer
@@ -16,6 +16,13 @@ key moments, and a short coach message — so that every parent gets the same pr
 the chat they already read, instead of me retyping "good game today" twelve times.
 
 ## Why now (four lenses)
+
+> Groom 2026-05-25: raised P2 → P1. With all the dependency-heavy billing / infra / referral
+> work shipped, this is the next compounding lever: the highest-frequency, highest-reach viral
+> surface in the product (game day recurs weekly in front of every family group chat), built
+> entirely on public-card machinery that already exists. It outranks 0028 (program pulse, P2),
+> which reaches only the org-tier director audience — the smallest segment — while this reaches
+> every family of every coach who plays a game.
 
 ### Product Owner
 We already generate a rich game recap (`/api/ai/game-recap`, `gameRecapSchema`: result
