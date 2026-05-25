@@ -1,7 +1,7 @@
 ---
 id: 0031
 title: Let a program director set one weekly focus that shows up in every coach's Capture and practice plan
-status: in-progress
+status: shipped
 priority: P2
 area: plans
 created: 2026-05-25
