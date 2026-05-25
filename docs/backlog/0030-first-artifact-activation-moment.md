@@ -129,7 +129,33 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0030-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
+- 2026-05-25 — branch `feat/0030-first-artifact-activation-moment` opened; ticket flipped to in-progress.
+- 2026-05-25 — failing tests added FIRST: `tests/first-artifact/utils.test.ts` (threshold
+  boundary + already-generated short-circuit + CTA-is-existing-route), the component test
+  `tests/first-artifact/first-artifact-card.test.tsx` (eligible-shows / already-generated-absent /
+  below-threshold-absent / no-per-minor-data / dismiss-stays-hidden), and the Playwright spec
+  `tests/e2e/first-artifact-flow.spec.ts` (eligible coach sees card+CTA; coach with an artifact
+  doesn't; home renders when stats read fails). Confirmed they failed for the right reason
+  (missing modules) before implementing.
+- 2026-05-25 — implemented `src/lib/first-artifact-utils.ts` (pure `shouldShowFirstArtifactNudge`
+  + `FIRST_ARTIFACT_OBS_THRESHOLD = 3` + `FIRST_ARTIFACT_CTA_HREF = '/plans'`) and
+  `src/components/home/first-artifact-card.tsx` (presentational + localStorage dismiss mirroring
+  GettingStartedCard's 30-day window). Mounted in the home activation stack right after
+  `GettingStartedCard`.
+- Reconciliation notes / decisions:
+  - CTA destination: chose `/plans` (the existing in-app artifact hub where parent reports /
+    report cards are generated) as the cleanest existing first-artifact route — it is reachable
+    ungated for any coach and needs no session id, while the per-player report-card route is
+    itself tier-gated. The nudge is ungated; the generator keeps its own tier/quota rules.
+  - `artifactsGenerated` signal: derived from a count of the team's existing `plans` rows added
+    to the home page's EXISTING `home-stats` `query()` (`plans` is already on the data-route
+    allow-list). No Supabase client call, no migration, no new field — and definitely none on
+    `players`. The home-stats query is already invalidated after a debrief/artifact generation,
+    so the card self-dismisses once the first artifact exists.
+  - Vitest files are `*.test.ts(x)` not `*.spec.ts` (LESSONS 2026-05-20).
+- 2026-05-25 — local gate green: `npm run lint` 0 errors, `tsc --noEmit` clean, new tests 17/17.
+  Full `vitest run --no-file-parallelism` = 4519 passed; the single fail
+  (`player-of-match-utils` `Apr 27` vs `Apr 28`) is the documented non-UTC-TZ env artifact
+  (LESSONS 2026-05-20), reproduces identically in isolation, and is untouched by this change.
 - YYYY-MM-DD — PR #N opened, CI [state]
 - YYYY-MM-DD — merged to main
