@@ -1,7 +1,7 @@
 ---
 id: 0029
 title: Turn the helper who used the observer link into a coach with their own free team
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-05-25
@@ -130,7 +130,7 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0029-...` opened
+- 2026-05-25 — branch `feat/0029-observer-conversion-footer` opened off fresh `main`; ticket flipped to `in-progress`.
 - YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
 - YYYY-MM-DD — PR #N opened, CI [state]
 - YYYY-MM-DD — merged to main
