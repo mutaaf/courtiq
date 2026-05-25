@@ -1,7 +1,7 @@
 ---
 id: 0034
 title: Let the parent report remember a returning player across seasons, not just within one
-status: in-progress
+status: shipped
 priority: P2
 area: ai
 created: 2026-05-25
@@ -221,3 +221,8 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
     (`invite-coach-button`, `staff-invite-button`) time out only under the heavy
     parallel run but PASS in isolation — the known env fork/timing class
     (LESSONS#36/#70); CI's per-file isolation arbitrates.
+- 2026-05-25 [implementation-dev] Shipped via PR #298 (squash `dcb5ff1`). All
+  three gating checks green: lint 1m28s, unit-tests 2m6s, e2e-tests 3m45s (the
+  fresh-DB seed with migration 039 + cross-season rows applied cleanly). PR
+  auto-merged while watching CI (LESSONS#0020), so the shipped-flip (file +
+  README index) was done on a separate `chore/0034-mark-shipped` branch.
