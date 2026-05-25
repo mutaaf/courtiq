@@ -1,7 +1,7 @@
 ---
 id: 0034
 title: Let the parent report remember a returning player across seasons, not just within one
-status: groomed
+status: in-progress
 priority: P2
 area: ai
 created: 2026-05-25
@@ -180,4 +180,15 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-05-25 [implementation-dev] Picked up 0034 (top groomed P2). Branched
+  `feat/0034-cross-season-player-development-memory`, marked in-progress.
+- 2026-05-25 [implementation-dev] Reconciliation note (per AGENTS.md "push back
+  through the ticket body, not by improvising"): the parent-report route's
+  CURRENT server-side tier enforcement is the `maxAICallsPerMonth` quota in
+  `callAIWithJSON` (free=5/mo), NOT a `canAccess('report_cards')` 403 like the
+  report-card route has. AC#8 says "existing tier enforcement is unchanged …
+  still blocks free server-side; no NEW feature_* key is added." I therefore do
+  NOT add a new `canAccess` gate (that would CHANGE behavior and contradict
+  "unchanged"); the AC test asserts the quota path still throws for a free org
+  past its quota and that no new `feature_*` key is introduced. The cross-season
+  read is additive and rides the same `callAIWithJSON` quota path unchanged.
