@@ -76,7 +76,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0045 | Carry the drills the coach didn't get to last practice into next week's plan | P1 | groomed | plans |
+| 0045 | Carry the drills the coach didn't get to last practice into next week's plan | P1 | in-progress | plans |
 | 0046 | Give the coach a one-tap sideline cheat sheet — one line per kid to say to that kid's parent | P1 | groomed | ai |
 | 0043 | Turn the season's middle into a one-tap parent newsletter that tells the team's whole arc, not just last week | P2 | groomed | ai |
 | 0044 | When a coach thumbs-up a drill, suggest the next drill other coaches in the same sport ran after it | P2 | groomed | plans |

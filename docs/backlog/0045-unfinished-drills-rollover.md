@@ -1,7 +1,7 @@
 ---
 id: 0045
 title: Carry the drills the coach didn't get to last practice into next week's plan
-status: groomed
+status: in-progress
 priority: P1
 area: plans
 created: 2026-05-26
@@ -243,9 +243,16 @@ re-discover the architecture.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
-
-- YYYY-MM-DD — branch `feat/0045-…` opened
-- YYYY-MM-DD — failing test added in `tests/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-26 — branch `feat/0045-unfinished-drills-rollover` opened, status flipped
+  groomed → in-progress on a tiny first commit for a durable base (LESSONS#93).
+  Migration prefix: 043_ — chosen as the next free integer after the last shipped
+  migration prefix on main (`042_coaches_paused_until.sql`); the supabase CLI keys
+  applied migrations on the leading `<version>_` token, so a unique prefix avoids
+  the schema_migrations duplicate-key class of failure (LESSONS#6).
+  Drill identity: the practicePlanSchema's `drills[]` array has only `name` (no
+  `id`), so this ticket uses normalised name-SLUGS as the rollover key everywhere
+  — `completed_drill_ids` stores slugs, the timer stamps slugs, and the
+  `diffPracticeForRollover` helper compares slug-against-slug. This matches the
+  engineering-notes hint ("drill IDs OR drill name slugs"). Slugs survive
+  capitalisation/whitespace drift; the alternative (raw display name) would let
+  trivial casing changes leak rollovers across plans.
