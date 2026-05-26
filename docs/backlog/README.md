@@ -76,8 +76,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0040 | Turn an opponent scouting profile and this team's last 4 weeks into a one-tap pre-game brief | P2 | in-progress | ai |
-| 0041 | Roll up the week's parent reactions into a Monday "here's what they said" the coach actually opens | P1 | groomed | parent-portal |
+| 0041 | Roll up the week's parent reactions into a Monday "here's what they said" the coach actually opens | P1 | in-progress | parent-portal |
 | 0042 | Send one honest "still coaching this season?" check-in to a coach who's been quiet 14 days, with a one-tap pause | P1 | groomed | onboarding |
 | 0043 | Turn the season's middle into a one-tap parent newsletter that tells the team's whole arc, not just last week | P2 | groomed | ai |
 | 0044 | When a coach thumbs-up a drill, suggest the next drill other coaches in the same sport ran after it | P2 | groomed | plans |
@@ -120,6 +119,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | 0032 | Show the coach where they are in the season so the arc itself pulls them back | P2 | shipped | analytics |
 | 0034 | Let the parent report remember a returning player across seasons, not just within one | P2 | shipped | ai |
 | 0037 | Make practice plans learn the coach's own style across every team they've run | P2 | shipped | ai |
+| 0040 | Turn an opponent scouting profile and this team's last 4 weeks into a one-tap pre-game brief | P2 | shipped | ai |
 
 ## Hand-off discipline
 

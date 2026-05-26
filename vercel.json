@@ -16,6 +16,10 @@
       "schedule": "0 8 * * 1"
     },
     {
+      "path": "/api/cron/weekly-parent-rollup",
+      "schedule": "5 8 * * 1"
+    },
+    {
       "path": "/api/cron/parent-digest",
       "schedule": "0 18 * * 0"
     }

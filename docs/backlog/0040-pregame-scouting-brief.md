@@ -1,7 +1,7 @@
 ---
 id: 0040
 title: Turn an opponent scouting profile and this team's last 4 weeks into a one-tap pre-game brief
-status: in-progress
+status: shipped
 priority: P2
 area: ai
 created: 2026-05-26

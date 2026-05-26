@@ -1,7 +1,7 @@
 ---
 id: 0041
 title: Roll up the week's parent reactions into a Monday "here's what they said" the coach actually opens
-status: groomed
+status: in-progress
 priority: P1
 area: parent-portal
 created: 2026-05-26
@@ -189,7 +189,10 @@ re-discover the architecture.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0041-…` opened
-- YYYY-MM-DD — failing test added in `tests/...`
+- 2026-05-26 — branch `feat/0041-weekly-parent-rollup-email` opened; flipped to in-progress.
+  Also reconciled drift on 0040 (file + index → shipped) per LESSONS#75: PR #314 auto-merged
+  before the mark-shipped chore could run.
+- YYYY-MM-DD — failing tests added under `tests/api/cron/weekly-parent-rollup.test.ts` and
+  `tests/lib/weekly-parent-rollup-utils.test.ts`
 - YYYY-MM-DD — PR #N opened, CI [state]
 - YYYY-MM-DD — merged to main
