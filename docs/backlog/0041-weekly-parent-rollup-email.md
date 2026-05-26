@@ -1,7 +1,7 @@
 ---
 id: 0041
 title: Roll up the week's parent reactions into a Monday "here's what they said" the coach actually opens
-status: in-progress
+status: shipped
 priority: P1
 area: parent-portal
 created: 2026-05-26
@@ -192,7 +192,12 @@ re-discover the architecture.
 - 2026-05-26 — branch `feat/0041-weekly-parent-rollup-email` opened; flipped to in-progress.
   Also reconciled drift on 0040 (file + index → shipped) per LESSONS#75: PR #314 auto-merged
   before the mark-shipped chore could run.
-- YYYY-MM-DD — failing tests added under `tests/api/cron/weekly-parent-rollup.test.ts` and
-  `tests/lib/weekly-parent-rollup-utils.test.ts`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-26 — failing tests added under `tests/api/cron/weekly-parent-rollup.test.ts` and
+  `tests/lib/weekly-parent-rollup-utils.test.ts` (30 cases, 1:1 with ACs).
+- 2026-05-26 — implementation landed: `src/app/api/cron/weekly-parent-rollup/route.ts`,
+  `src/lib/weekly-parent-rollup-utils.ts`, plus a new `vercel.json` cron entry at
+  `5 8 * * 1`. All 30 new vitests green on Node 20.19.0, tsc + lint clean.
+- 2026-05-26 — PR #315 opened, all three gating checks (lint, unit-tests, e2e-tests) green;
+  auto-merge fired before this mark-shipped flip could ride the same branch (LESSONS#75).
+- 2026-05-26 — merged to main as `b05d904`; this chore flips both ticket file + README index
+  rows to `shipped`.
