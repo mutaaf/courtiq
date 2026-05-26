@@ -1,7 +1,7 @@
 ---
 id: 0045
 title: Carry the drills the coach didn't get to last practice into next week's plan
-status: in-progress
+status: shipped
 priority: P1
 area: plans
 created: 2026-05-26
