@@ -62,6 +62,7 @@ import { PrePracticeSnapshotCard } from '@/components/home/pre-practice-snapshot
 import { ContinueArcCard } from '@/components/home/continue-arc-card';
 import { WeeklyDigestSection } from '@/components/home/weekly-digest-card';
 import { SeasonMomentumSection } from '@/components/home/season-momentum-card';
+import { SeasonWrapSection } from '@/components/home/season-wrap-card';
 import { ArcCompleteCard } from '@/components/home/arc-complete-card';
 import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
 import { InviteCoachCard } from '@/components/home/invite-coach-card';
@@ -1413,6 +1414,10 @@ export default function HomePage() {
 
       {!practiceActive && activeTeam && (
         <WeeklyDigestSection teamId={activeTeam.id} />
+      )}
+
+      {!practiceActive && activeTeam && (
+        <SeasonWrapSection teamId={activeTeam.id} />
       )}
 
       {!practiceActive && activeTeam && (

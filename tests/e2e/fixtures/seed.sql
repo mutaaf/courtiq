@@ -169,6 +169,64 @@ update players
   set prior_player_id = '00000000-0000-4000-a000-000000000032'
   where id = '00000000-0000-4000-a000-000000000030';
 
+-- ── completed-season team (ticket 0036 — season-wrap card) ─────────────────
+-- A team in the SAME org whose season is COMPLETE (current_week >= season_weeks)
+-- with at least one practice + positive observations, so /api/season/wrap returns
+-- phase 'complete' with factual totals + a growth highlight. The season-wrap home
+-- card renders for this team and is ABSENT for the in-progress main team (...020).
+-- season_weeks/current_week are INTEGER columns — no JSON quoting needed here
+-- (LESSONS.md 2026-05-25 #0031 only applies to jsonb config values).
+insert into teams (id, org_id, sport_id, name, age_group, season, season_weeks, current_week, is_active)
+select
+  '00000000-0000-4000-a000-000000000022',
+  '00000000-0000-4000-a000-000000000010',
+  (select id from sports where slug = 'basketball' limit 1),
+  'E2E Wrap Team', '11-13', 'Fall 2025', 10, 10, true
+on conflict (id) do nothing;
+
+insert into team_coaches (team_id, coach_id, role)
+values (
+  '00000000-0000-4000-a000-000000000022',
+  '00000000-0000-4000-a000-000000000001',
+  'head_coach'
+)
+on conflict (team_id, coach_id) do nothing;
+
+-- An active player on the completed-season team (carried forward by the rollover).
+insert into players (id, team_id, name, nickname, name_variants, age_group, position, jersey_number, parent_name, is_active)
+values
+  ('00000000-0000-4000-a000-000000000033',
+   '00000000-0000-4000-a000-000000000022',
+   'Devon Hayes', null, null, '11-13', 'Guard', 7, null, true)
+on conflict (id) do nothing;
+
+-- A practice session so the wrap phase reads 'complete' (zero practices → not_started).
+insert into sessions (id, team_id, coach_id, type, date, location, notes)
+values (
+  '00000000-0000-4000-a000-000000000042',
+  '00000000-0000-4000-a000-000000000022',
+  '00000000-0000-4000-a000-000000000001',
+  'practice', current_date - 20, 'Main Gym', 'E2E wrap-team practice'
+)
+on conflict (id) do nothing;
+
+-- Positive observations so the wrap builds a growth highlight for Devon.
+insert into observations (id, player_id, team_id, coach_id, session_id, category, sentiment, text, source, ai_parsed, is_highlighted)
+values
+  ('00000000-0000-4000-a000-000000000053',
+   '00000000-0000-4000-a000-000000000033',
+   '00000000-0000-4000-a000-000000000022',
+   '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000042',
+   'Defense', 'positive', 'Locked down the wing all game', 'typed', false, true),
+  ('00000000-0000-4000-a000-000000000054',
+   '00000000-0000-4000-a000-000000000033',
+   '00000000-0000-4000-a000-000000000022',
+   '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000042',
+   'Defense', 'positive', 'Great close-outs on shooters', 'typed', false, false)
+on conflict (id) do nothing;
+
 -- ── sessions ──────────────────────────────────────────────────────────────
 -- One practice session the observations below hang off of.
 insert into sessions (id, team_id, coach_id, type, date, location, notes)

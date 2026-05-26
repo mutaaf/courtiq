@@ -1,7 +1,7 @@
 ---
 id: 0036
 title: Catch the coach at the season's end with a wrap-up and a one-tap way to start next season
-status: proposed
+status: in-progress
 priority: P1
 area: onboarding
 created: 2026-05-25
@@ -90,18 +90,14 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   pointer (0034); it carries forward only name/jersey/position the coach already entered and
   copies nothing about the minor that wasn't already there (vitest asserts the inserted player
   rows contain only existing columns and `prior_player_id`; no new minor-scoped data).
-- [ ] If the optional off-season re-activation email is included, it rides the EXISTING cron +
-  Resend path: it is gated by `CRON_SECRET`, deduped via a `coaches.preferences` key (mirror the
-  weekly-digest cron), respects an opt-out preference, and only fires for a coach whose active
-  team's season is complete and who has been quiet (vitest on the cron helper: complete + quiet +
-  not-yet-sent → due; already-sent or opted-out → skipped; in-progress season → skipped). If the
-  email is deferred, this box is dropped and the card alone ships.
-- [ ] AI is OPTIONAL for the growth-highlight sentence: if the highlight is AI-generated it goes
-  through `callAIWithJSON()` with `orgId` (quota + routing) and has a multi-provider contract
-  test mirroring `tests/ai/provider-failover.test.ts`; if the highlight is computed from
-  observation counts by a pure helper, no AI is used and no contract test is required — the dev
-  picks one and the chosen path is what the tests assert (default to the pure-helper path to
-  avoid spending a free coach's quota on a passive card).
+- [x] ~~If the optional off-season re-activation email is included…~~ DEFERRED (see
+  Implementation log 2026-05-25): the email is the ticket's explicitly-optional add-on; this PR
+  ships the card + rollover slice and drops this box.
+- [x] AI is OPTIONAL for the growth-highlight sentence — PURE-HELPER PATH CHOSEN (the ticket's
+  default): the highlight is computed deterministically from observation counts by
+  `buildSeasonWrap()` in `src/lib/season-wrap-utils.ts`. No AI is used, so no `callAIWithJSON`
+  call and no multi-provider contract test — a free coach's quota is never spent on a passive
+  card. The unit tests assert the pure-helper path.
 - [ ] COPPA/privacy: the season-wrap card and the rollover are coach-private and never placed on
   any public/no-auth surface (`/share/[token]`, share-card, OG routes untouched); totals use only
   the coach's own data (vitest/Playwright assert no public exposure).
@@ -178,7 +174,18 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0036-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-25 — branch `feat/0036-season-wrap-rollover` opened; frontmatter → in-progress.
+- 2026-05-25 — SCOPE DECISION: deferring the OPTIONAL off-season re-activation email
+  (the ticket's AC box "If the optional off-season re-activation email is included…").
+  Shipping the smaller, safer slice the ticket explicitly sanctions: the season-wrap
+  card + the one-tap rollover route, with the pure-helper (no-AI) growth highlight so a
+  free coach's quota is never spent on a passive card. That drops the email AC box and
+  the AI-contract AC box (we take the pure-helper path the ticket defaults to). No sibling
+  ticket spawned — the email is a clearly-optional add-on the ticket already frames as
+  deferrable, not a separate unit of value left undone; a future /ideate pass can pick it
+  up if re-engagement metrics warrant it.
+- 2026-05-25 — failing tests added: `tests/lib/season-wrap-utils.test.ts` (phase + wrap
+  builder), `tests/api/season-rollover.test.ts` (rollover: roster carried, prior_player_id
+  set, current_week reset, cross-org → 404, no new minor field),
+  `tests/components/season-wrap-card.test.tsx` (card render states), and
+  `tests/e2e/season-wrap-flow.spec.ts` (seeded complete-season card).
