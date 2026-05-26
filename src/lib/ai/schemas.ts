@@ -579,6 +579,38 @@ export const programPulseSchema = z.object({
 
 export type ProgramPulse = z.infer<typeof programPulseSchema>;
 
+// ── Sideline Talking Points (ticket 0046) ──────────────────────────────────
+//
+// A coach-private one-tap sideline cheat sheet: one row per active player on
+// the team, two lines per row — a positive specific thing the coach can lead
+// with, and a "we're working on" pivot for when the parent asks for more.
+//
+// The schema is STRICT (`.strict()` at both top-level AND per-entry) so any
+// extra key — including any descriptive minor field — is rejected. The COPPA
+// pin is that the artifact carries `player_first_name` ONLY, never a full
+// surname / DOB / parent field. The artifact NEVER reaches a public surface
+// (no token route, no sitemap entry); it lives only in `plans.content_structured`
+// alongside every other coach-private artifact.
+
+export const sidelineTalkingPointEntrySchema = z
+  .object({
+    player_id: z.string().min(1),
+    player_first_name: z.string().min(1),
+    lead_line: z.string().min(1),         // one sentence, the positive specific thing
+    working_on_line: z.string().min(1),    // one sentence, the "we're working on" pivot
+  })
+  .strict();
+
+export const sidelineTalkingPointsSchema = z
+  .object({
+    team_id: z.string().min(1),
+    entries: z.array(sidelineTalkingPointEntrySchema).min(1),
+  })
+  .strict();
+
+export type SidelineTalkingPointEntry = z.infer<typeof sidelineTalkingPointEntrySchema>;
+export type SidelineTalkingPoints = z.infer<typeof sidelineTalkingPointsSchema>;
+
 // ── Pre-game Brief (ticket 0040) ────────────────────────────────────────────
 //
 // A coach-private one-tap brief synthesised from an existing opponent scouting

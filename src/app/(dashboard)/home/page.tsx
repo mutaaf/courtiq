@@ -70,6 +70,7 @@ import { GameDayCard } from '@/components/home/game-day-card';
 import { GoalDeadlineCard } from '@/components/home/goal-deadline-card';
 import { QuickWinsCard } from '@/components/home/quick-wins-card';
 import { HomeQuickObserveSheet } from '@/components/home/home-quick-observe-sheet';
+import { SidelineCheatSheetCard } from '@/components/home/sideline-cheat-sheet-card';
 
 // ─── Live capture feed helper ──────────────────────────────────────────────────
 
@@ -1414,6 +1415,13 @@ export default function HomePage() {
 
       {!practiceActive && activeTeam && (
         <WeeklyDigestSection teamId={activeTeam.id} />
+      )}
+
+      {/* Ticket 0046 — coach-private sideline cheat sheet. One-tap on demand, */}
+      {/* never auto-generated (pre-game artifact, quota-aware). Coach+ via the */}
+      {/* existing report_cards key (server + surface gate matched verbatim). */}
+      {!practiceActive && activeTeam && (
+        <SidelineCheatSheetCard teamId={activeTeam.id} />
       )}
 
       {!practiceActive && activeTeam && (
