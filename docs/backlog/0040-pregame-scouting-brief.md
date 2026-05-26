@@ -1,7 +1,7 @@
 ---
 id: 0040
 title: Turn an opponent scouting profile and this team's last 4 weeks into a one-tap pre-game brief
-status: groomed
+status: in-progress
 priority: P2
 area: ai
 created: 2026-05-26
@@ -238,7 +238,4 @@ re-discover the architecture.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0040-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-26 — branch `feat/0040-pregame-scouting-brief` opened off `origin/main`; status flipped to `in-progress`.

@@ -1,5 +1,6 @@
 import type { Player, CurriculumSkill, Team } from '@/types/database';
 import type { CoachingSignature } from '@/lib/coaching-signature-utils';
+import type { OpponentProfileData } from '@/lib/opponent-profile-utils';
 
 /**
  * Ticket 0037 — render a coach's "coaching signature" as a SOFT preference block.
@@ -1305,6 +1306,97 @@ export const PROMPT_REGISTRY = {
       '{ "team_talk": "full 3-4 sentence script under 70 words", "focus_words": ["Word1", "Word2"], "energy_level": "high|focused|calm", "chant": "1-2-3 TEAMNAME!" }',
     ].filter(Boolean).join('\n'),
   }),
+
+  // ── Pre-game Brief (ticket 0040) ───────────────────────────────────────────
+  // A coach-private one-tap brief that fuses an existing opponent_profile plan
+  // (`OpponentProfileData`) + the team's last 4 weeks of observations + the
+  // coach's signature into a four-section read the coach drops in the team
+  // group chat. Strictly LIGHTER than the dormant `gamedaySheet` — the schema
+  // is four keys only (opponent_read / our_edge / huddle_points / coach_note),
+  // and the prompt forbids per-player blocks so the brief carries no minor
+  // data by construction (COPPA). Voice: clipboard, not landing page; we
+  // instruct positively so the rendered prompt never trips its own banned-word
+  // contract (LESSONS#0023).
+  pregameBrief: (params: PromptParams & {
+    opponent: OpponentProfileData;
+    observationInsights?: ObservationInsightsParam;
+    arcContext?: {
+      arcTitle?: string;
+      sessionNumber?: number;
+      totalSessions?: number;
+      carriesForward?: string;
+      keyCoachingPoint?: string;
+    };
+    coachingSignature?: CoachingSignature | null;
+  }) => {
+    const opp = params.opponent;
+    const insights = params.observationInsights;
+    const hasInsights = insights && insights.totalObs > 0;
+
+    const insightsBlock = hasInsights
+      ? [
+          '',
+          `What our team has been working on (last ${insights.daysOfData} days, ${insights.totalObs} observation${insights.totalObs === 1 ? '' : 's'}):`,
+          insights.topNeedsWork.length > 0
+            ? `Areas the team is still working through:\n${insights.topNeedsWork
+                .map((c) => `  - ${c.category}: ${c.count} needs-work note${c.count !== 1 ? 's' : ''}`)
+                .join('\n')}`
+            : '',
+          insights.topStrengths.length > 0
+            ? `Areas the team has shown well:\n${insights.topStrengths
+                .map((c) => `  - ${c.category}: ${c.count} positive note${c.count !== 1 ? 's' : ''}`)
+                .join('\n')}`
+            : '',
+        ]
+        .filter(Boolean)
+        .join('\n')
+      : '';
+
+    const arc = params.arcContext;
+    const arcBlock = arc?.arcTitle
+      ? [
+          '',
+          `ARC CONTEXT — this team is in session ${arc.sessionNumber ?? '?'} of ${arc.totalSessions ?? '?'} of the "${arc.arcTitle}" arc.`,
+          arc.keyCoachingPoint ? `Key coaching point we have been on: ${arc.keyCoachingPoint}` : '',
+          arc.carriesForward ? `What carries forward this week: ${arc.carriesForward}` : '',
+          'Lean our_edge on this arc where it honestly fits the opponent — do not force it.',
+        ]
+        .filter(Boolean)
+        .join('\n')
+      : '';
+
+    const signatureBlock = coachingSignatureBlock(params.coachingSignature);
+
+    return {
+      system: [
+        buildSystemPreamble(params),
+        'You write a short, coach-private pre-game brief — a four-section read the coach drops in the team group chat the night before a game.',
+        '',
+        'Rules:',
+        '- This is for the COACH only. Plain clipboard tone — write like a coach\'s notebook, not a landing page.',
+        '- Lead with what is honest and specific. Do not invent matchups the data does not support.',
+        '- opponent_read: 2 sentences on what THIS opponent does well, drawn from the scouting profile only.',
+        '- our_edge: 2 sentences on what THIS team has been working on that fits, drawn from the team\'s observation insights (and the arc context if any).',
+        '- huddle_points: exactly 3 short reminders the coach reads aloud Saturday morning. Each is one specific, plain phrase about the TEAM as a whole or the OPPONENT — never a child by name, never a per-player coaching call.',
+        '- coach_note: ONE coach-private reminder for the coach themselves. Short, factual, plain.',
+        '- The output JSON has EXACTLY four keys: opponent_read, our_edge, huddle_points, coach_note. No pregame_message. No substitution_plan. No lineup. No per-player fields of any kind.',
+      ].join('\n'),
+      user: [
+        `Team: ${params.teamName || 'the team'} (${params.sportName || 'basketball'}, ${params.ageGroup || 'youth'})`,
+        `Opponent: ${opp.name}`,
+        opp.strengths.length > 0 ? `What the opponent does well: ${opp.strengths.join('; ')}` : '',
+        opp.weaknesses.length > 0 ? `Where the opponent struggles: ${opp.weaknesses.join('; ')}` : '',
+        opp.key_players.length > 0 ? `Their key players to watch: ${opp.key_players.join('; ')}` : '',
+        opp.notes ? `Coach scouting notes: ${opp.notes}` : '',
+        insightsBlock,
+        arcBlock,
+        signatureBlock,
+        '',
+        'Write the pre-game brief JSON with EXACTLY these four keys and nothing else:',
+        '{ "opponent_read": "2 sentences", "our_edge": "2 sentences", "huddle_points": ["point 1", "point 2", "point 3"], "coach_note": "one short coach-private line" }',
+      ].filter(Boolean).join('\n'),
+    };
+  },
 
   // ── Weekly Coaching Digest (ticket 0023) ──────────────────────────────────
   // A coach-private "your week in coaching" recap of the last 7 days. Three

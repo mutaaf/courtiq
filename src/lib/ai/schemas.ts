@@ -567,3 +567,22 @@ export const programPulseSchema = z.object({
 });
 
 export type ProgramPulse = z.infer<typeof programPulseSchema>;
+
+// ── Pre-game Brief (ticket 0040) ────────────────────────────────────────────
+//
+// A coach-private one-tap brief synthesised from an existing opponent scouting
+// profile + this team's last 4 weeks of observations + the coach's signature.
+// The schema is STRICT (`.strict()`) so any extra key — including any per-player
+// field — is rejected; this is the COPPA pin for the artifact's shape (the
+// brief is about the OPPONENT and the TEAM by construction; never per-minor).
+// LIGHTER than the dormant gamedaySheet on purpose: four blocks, four keys,
+// readable in 90 seconds.
+
+export const pregameBriefSchema = z.object({
+  opponent_read: z.string().min(20),       // 2 sentences on what the opponent does well
+  our_edge: z.string().min(20),            // 2 sentences on what we have been working on that fits
+  huddle_points: z.array(z.string().min(5)).min(2).max(5), // 3-ish points the coach reads in the huddle
+  coach_note: z.string().min(5),           // a single coach-private reminder line
+}).strict();
+
+export type PregameBrief = z.infer<typeof pregameBriefSchema>;
