@@ -61,6 +61,7 @@ import {
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { PrintButton } from '@/components/ui/print-button';
 import { useTier } from '@/hooks/use-tier';
+import { UpgradeGate } from '@/components/ui/upgrade-gate';
 import type { Plan, Player, PlanType, Session } from '@/types/database';
 import type { ObservationInsights } from '@/app/api/ai/plan/route';
 import { getCategoryLabel, getCategoryColor } from '@/lib/coach-reflection-utils';
@@ -582,6 +583,18 @@ export default function PlansPage() {
   const [arcEvent, setArcEvent] = useState('');
   const [arcFocus, setArcFocus] = useState('');
 
+  // Pre-game Brief state (ticket 0040). Local to the selected-plan view — when
+  // the coach opens an opponent_profile and taps "Generate pre-game brief", the
+  // four-key result renders inline below the scouting card without a navigation.
+  const [generatingPregameBrief, setGeneratingPregameBrief] = useState(false);
+  const [pregameBriefError, setPregameBriefError] = useState<string | null>(null);
+  const [pregameBrief, setPregameBrief] = useState<{
+    opponent_read: string;
+    our_edge: string;
+    huddle_points: string[];
+    coach_note: string;
+  } | null>(null);
+
   // Plan type filter
   const [planTypeFilter, setPlanTypeFilter] = useState<string | null>(null);
 
@@ -624,6 +637,14 @@ export default function PlansPage() {
     setArcSessionForRun(isNaN(sessionIdx) ? null : sessionIdx);
     setShowRunModal(true);
   }, [plans, searchParams]);
+
+  // Ticket 0040 — reset the inline pre-game-brief surface whenever the coach
+  // switches to a different selected plan so the previous opponent's brief does
+  // not leak into the next one.
+  useEffect(() => {
+    setPregameBrief(null);
+    setPregameBriefError(null);
+  }, [selectedPlan?.id]);
 
   const { data: players } = useQuery({
     queryKey: queryKeys.players.all(activeTeam?.id || ''),
@@ -1092,6 +1113,51 @@ export default function PlansPage() {
     setGamedayNotes(cs.notes || '');
     setShowProfilePicker(false);
     setShowGamedayForm(true);
+  };
+
+  /**
+   * Ticket 0040 — POST /api/ai/pregame-brief for the selected opponent_profile.
+   * The route gates server-side on `feature_pregame_brief`, so the surface gate
+   * (<UpgradeGate>) is paired but never load-bearing. On 402 we drop the coach
+   * into the existing upgrade path; otherwise the four-key brief renders inline.
+   */
+  const generatePregameBrief = async (opponentProfilePlanId: string) => {
+    if (!activeTeam) return;
+    setGeneratingPregameBrief(true);
+    setPregameBriefError(null);
+    setPregameBrief(null);
+    try {
+      const res = await fetch('/api/ai/pregame-brief', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id, opponentProfilePlanId }),
+      });
+      if (res.status === 402) {
+        router.push('/settings/upgrade');
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setPregameBriefError(body?.error || 'Could not generate the pre-game brief.');
+        return;
+      }
+      const body = (await res.json()) as {
+        brief?: {
+          opponent_read: string;
+          our_edge: string;
+          huddle_points: string[];
+          coach_note: string;
+        };
+      };
+      if (body.brief) {
+        setPregameBrief(body.brief);
+        qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+      }
+    } catch (e) {
+      setPregameBriefError(e instanceof Error ? e.message : 'Could not reach the pre-game brief service.');
+    } finally {
+      setGeneratingPregameBrief(false);
+    }
   };
 
   const handleChipClick = (chip: string) => {
@@ -1810,6 +1876,82 @@ export default function PlansPage() {
             <Zap className="h-4 w-4" />
             Load into Game Day Prep Form
           </button>
+
+          {/* Action: Generate pre-game brief (ticket 0040). */}
+          {/* The <UpgradeGate> swaps in the gate card for free / coach tiers; */}
+          {/* the route also enforces canAccess(feature_pregame_brief) server-side. */}
+          <UpgradeGate feature="feature_pregame_brief" featureLabel="the Pre-Game Brief">
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedPlan) generatePregameBrief(selectedPlan.id);
+              }}
+              disabled={generatingPregameBrief || !selectedPlan}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm font-semibold text-orange-300 hover:bg-orange-500/20 transition-colors touch-manipulation active:scale-[0.98] disabled:opacity-50 min-h-[44px]"
+            >
+              {generatingPregameBrief ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              {generatingPregameBrief ? 'Generating pre-game brief…' : 'Generate pre-game brief'}
+            </button>
+          </UpgradeGate>
+
+          {pregameBriefError && (
+            <p className="text-xs text-red-400 flex items-center gap-1.5">
+              <AlertCircle className="h-3 w-3" />
+              {pregameBriefError}
+            </p>
+          )}
+
+          {pregameBrief && (
+            <div
+              data-testid="pregame-brief-card"
+              className="space-y-3 rounded-xl border border-orange-500/30 bg-zinc-900/60 p-4 select-text"
+            >
+              <p className="text-xs font-semibold uppercase tracking-widest text-orange-400">
+                Pre-Game Brief
+              </p>
+              <div>
+                <p className="mb-1 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                  Opponent read
+                </p>
+                <p className="text-sm leading-relaxed text-zinc-200">
+                  {pregameBrief.opponent_read}
+                </p>
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                  Our edge
+                </p>
+                <p className="text-sm leading-relaxed text-zinc-200">
+                  {pregameBrief.our_edge}
+                </p>
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                  Huddle points
+                </p>
+                <ul className="space-y-1.5">
+                  {pregameBrief.huddle_points.map((p, i) => (
+                    <li key={i} className="text-sm text-zinc-200 flex gap-2 items-start">
+                      <span className="text-orange-500 shrink-0 mt-0.5">•</span>
+                      <span>{p}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                  Coach note
+                </p>
+                <p className="text-sm leading-relaxed text-zinc-300 italic">
+                  {pregameBrief.coach_note}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       );
     }

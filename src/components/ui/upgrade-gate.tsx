@@ -1,7 +1,7 @@
 'use client';
 import { useTier } from '@/hooks/use-tier';
 import { Button } from './button';
-import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye, FileAudio, CalendarDays, Gauge, CalendarRange } from 'lucide-react';
+import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye, FileAudio, CalendarDays, Gauge, CalendarRange, Swords } from 'lucide-react';
 import Link from 'next/link';
 import type { Tier } from '@/lib/tier';
 
@@ -233,6 +233,22 @@ const FEATURE_CONFIG: Record<string, FeatureConfig> = {
       'A quiet label for coaches, never a popup they have to dismiss',
     ],
     requiredTier: 'organization',
+    accentColor: 'text-orange-400',
+    accentBg: 'bg-orange-500/15',
+    accentBorder: 'border-orange-500/30',
+  },
+  feature_pregame_brief: {
+    icon: Swords,
+    headline: 'Unlock the Pre-Game Brief',
+    tagline: 'Turn an opponent scouting note and your last 4 weeks into a one-tap brief the night before the game.',
+    benefits: [
+      'A 2-sentence read on what the opponent does well',
+      'A 2-sentence read on what your team has been working on that fits',
+      'Three huddle points the coach reads Saturday morning',
+      'A short coach-private note for the sideline',
+      'Generated from notes you already have — nothing extra to fill in',
+    ],
+    requiredTier: 'pro_coach',
     accentColor: 'text-orange-400',
     accentBg: 'bg-orange-500/15',
     accentBorder: 'border-orange-500/30',
