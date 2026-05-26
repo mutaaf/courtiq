@@ -1,7 +1,7 @@
 ---
 id: 0046
 title: Give the coach a one-tap sideline cheat sheet — one line per kid to say to that kid's parent
-status: groomed
+status: in-progress
 priority: P1
 area: ai
 created: 2026-05-26
@@ -256,7 +256,4 @@ re-discover the architecture.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0046-…` opened
-- YYYY-MM-DD — failing test added in `tests/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-26 — branch `feat/0046-sideline-talking-points` opened; ticket flipped to in-progress.
