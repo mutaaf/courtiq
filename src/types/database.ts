@@ -729,6 +729,12 @@ export interface ParentReaction {
  * phones, teams, and seasons. NO `team_id`, no player reference, no observation
  * text — only who, which drill, the rating, when, and a best-effort run count
  * sourced from the existing local drill-run-history.
+ *
+ * Ticket 0044 extends this with a `signal_type` column (default 'rating') so
+ * the same table can also persist a coach's "hide these suggestions"
+ * dismissal. Existing rows from 0039 default to 'rating' on the column-add;
+ * the new 'dismiss_suggestion' value is reserved for the dismiss POST. The
+ * v1 CHECK allow-list is exactly those two values.
  */
 export interface CoachDrillSignal {
   coach_id: string;
@@ -736,4 +742,21 @@ export interface CoachDrillSignal {
   rating: 'up' | 'down';
   run_count: number;
   last_rated_at: string;
+  signal_type: 'rating' | 'dismiss_suggestion';
+}
+
+/**
+ * Ticket 0044 — per-(sport, drill, next_drill) aggregate of how many distinct
+ * coaches in the same sport rated `drill_id` and then rated `next_drill_id`
+ * within 14 days. NO coach reference anywhere on this row — the integer
+ * `coach_count` is the only quantification — so the table itself is
+ * privacy-safe even ignoring the route's >=5 k-anonymity floor. Refreshed
+ * nightly by the `/api/cron/refresh-drill-sequences` route.
+ */
+export interface DrillSequenceAggregate {
+  sport: string;
+  drill_id: string;
+  next_drill_id: string;
+  coach_count: number;
+  last_refreshed_at: string;
 }
