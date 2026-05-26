@@ -1,7 +1,7 @@
 ---
 id: 0039
 title: Keep the coach's drill thumbs-up across phones, teams, and seasons
-status: groomed
+status: in-progress
 priority: P1
 area: plans
 created: 2026-05-26
@@ -225,7 +225,4 @@ re-discover the architecture.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0039-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-26 — branch `feat/0039-coach-drill-signals` opened, status flipped to in-progress
