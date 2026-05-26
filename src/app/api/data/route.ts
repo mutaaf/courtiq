@@ -50,7 +50,7 @@ const ALLOWED_TABLES = [
   'config_overrides', 'feature_flags', 'org_feature_flags', 'org_branding',
   'ai_interactions', 'organizations', 'season_archives', 'session_attendance',
   'player_availability', 'player_achievements', 'player_goals', 'player_notes',
-  'team_announcements',
+  'team_announcements', 'coach_drill_signals',
 ];
 
 // ─── GET handler (query params) ──────────────────────────────────────────────

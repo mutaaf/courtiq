@@ -709,3 +709,18 @@ export interface ParentReaction {
   is_read: boolean;
   created_at: string;
 }
+
+/**
+ * Ticket 0039 — one rating fact per (coach, drill). COACH-private, cross-team:
+ * the structured-coach-artifact moat that lets a coach's thumbs-up travel across
+ * phones, teams, and seasons. NO `team_id`, no player reference, no observation
+ * text — only who, which drill, the rating, when, and a best-effort run count
+ * sourced from the existing local drill-run-history.
+ */
+export interface CoachDrillSignal {
+  coach_id: string;
+  drill_id: string;
+  rating: 'up' | 'down';
+  run_count: number;
+  last_rated_at: string;
+}
