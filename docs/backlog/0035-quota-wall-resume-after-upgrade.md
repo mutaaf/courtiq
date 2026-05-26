@@ -142,3 +142,35 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 (Appended by the implementation-dev agent during execution.)
 
 - 2026-05-25 — branch `feat/0035-quota-wall-resume-after-upgrade` opened off main; ticket flipped to `in-progress`.
+- 2026-05-25 — tests-first: `tests/lib/resume-target.test.ts` (pure parser: allow-list
+  kinds, UUID id validation, cross-org rejection, malformed → null, path builder),
+  `tests/stripe/create-checkout-resume.test.ts` (success_url contains a validated
+  resume; absent → byte-identical to today; invalid/cross-org → default),
+  `tests/ai/quota-wall-resume.test.ts` (the 402 contract + 402-then-200-when-entitled
+  guard through the REAL `callAI` quota enforcement + `handleAIError`),
+  `tests/components/ai-upgrade-prompt.test.tsx` (resume link threading + named-artifact
+  copy + banned-words), and the e2e `tests/e2e/quota-wall-resume-flow.spec.ts`
+  (happy/cross-org/cancel/no-resume landing paths, skips when E2E creds unset).
+- 2026-05-25 — implemented `src/lib/resume-target.ts` (pure `parseResumeTarget` +
+  `buildResumePath`, closed enum, UUID + ownership validation, root-relative paths
+  only — open-redirect guard); threaded `resume` through the create-checkout route
+  (validated server-side against the org's own teams/players before stamping onto
+  `success_url`, never trusts the raw value; absent/invalid → today's default URL);
+  added the post-checkout landing effect on `/settings/upgrade` (reads `success` +
+  `resume` off the URL, re-validates ownership via the authed `query()` helper, then
+  `router.replace()`s to the resolved path or `/home`); and threaded an optional
+  `resume`/`resumeLabel` through `AIUpgradePrompt` (copy names the blocked artifact
+  when supplied, generic otherwise). NO change to the 402 contract in
+  `src/lib/ai/error.ts`, no new tier feature key, no migration, no env var, no AI prompt.
+- 2026-05-25 — Reconciliations (cf. AGENTS.md hand-off discipline): (1) the only live
+  caller of `AIUpgradePrompt` today is `src/app/(dashboard)/capture/review/page.tsx`,
+  whose 402 wall is observation-segmentation — NOT one of the five artifact kinds —
+  so per the ticket ("surfaces that can't form a clean resume target simply omit it")
+  that caller is left unchanged rather than wired to a dishonest target; the resume
+  capability is fully built + tested through the component/route/parser/landing, and
+  the e2e exercises the landing with a real `parent_report` resume. The named callers
+  `roster/[playerId]` and `plans` gate via `<UpgradeGate>` (tier-feature), not the
+  runtime 402 prompt, so they need no change here. (2) The existing route's
+  `success_url` uses `?success=true` (not `?status=success` the upgrade page's toast
+  effect reads); kept byte-identical for the no-resume case and added a separate
+  success+resume effect, so today's toast behavior is untouched.

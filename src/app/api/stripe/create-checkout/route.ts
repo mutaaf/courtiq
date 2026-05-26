@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { getStripe, getPriceId, type PaidTier, type BillingInterval } from '@/lib/stripe';
+import { parseResumeTarget } from '@/lib/resume-target';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
@@ -12,9 +13,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { tier, interval } = (await request.json()) as {
+    const { tier, interval, resume } = (await request.json()) as {
       tier: PaidTier;
       interval: BillingInterval;
+      /** Optional opaque resume token describing the blocked action (ticket 0035). */
+      resume?: string;
     };
 
     if (!tier || !interval) {
@@ -64,6 +67,35 @@ export async function POST(request: Request) {
       );
     }
 
+    // Quota-wall resume round-trip (ticket 0035): if the coach was blocked mid-task,
+    // the client passes an opaque `resume` token describing the blocked action. We
+    // VALIDATE it server-side against the org's own teams/players before stamping it
+    // onto the success_url so it survives the Stripe redirect — never trust the raw
+    // value. A malformed, unknown-action, or cross-org token is dropped and the
+    // success URL falls back to today's default. The validated value rides the
+    // redirect URL (not session metadata) because the post-checkout landing reads it
+    // off the URL to route the coach back to the exact artifact.
+    let successUrl = `${APP_URL}/settings/upgrade?success=true`;
+    if (typeof resume === 'string' && resume.trim()) {
+      const { data: ownedTeams } = await admin
+        .from('teams')
+        .select('id')
+        .eq('org_id', coach.org_id);
+      const ownedTeamIds = (ownedTeams ?? []).map((t: { id: string }) => t.id);
+      let ownedPlayerIds: string[] = [];
+      if (ownedTeamIds.length > 0) {
+        const { data: ownedPlayers } = await admin
+          .from('players')
+          .select('id, team_id')
+          .in('team_id', ownedTeamIds);
+        ownedPlayerIds = (ownedPlayers ?? []).map((p: { id: string }) => p.id);
+      }
+      const target = parseResumeTarget(resume, ownedTeamIds, ownedPlayerIds);
+      if (target) {
+        successUrl = `${APP_URL}/settings/upgrade?success=true&resume=${encodeURIComponent(resume)}`;
+      }
+    }
+
     // Reuse the existing Stripe customer when the org already has one (the common
     // resubscription path — the customer id survives cancellation, so we never mint a
     // duplicate that would orphan billing history). When the org has no customer yet,
@@ -77,7 +109,7 @@ export async function POST(request: Request) {
         ? { customer: stripeCustomerId }
         : { customer_email: user.email }),
       line_items: [{ price: getPriceId(tier, interval), quantity: 1 }],
-      success_url: `${APP_URL}/settings/upgrade?success=true`,
+      success_url: successUrl,
       cancel_url: `${APP_URL}/settings/upgrade?canceled=true`,
       allow_promotion_codes: true,
       metadata: { org_id: org.id, tier },
