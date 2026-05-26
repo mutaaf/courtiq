@@ -19,24 +19,59 @@ import {
 
 /**
  * Ticket 0037 — fetch the requesting coach's OWN recent plans (all their teams,
- * scoped `eq('coach_id', coachId)`) and derive a coaching signature to thread into
- * the arc prompt as a soft preference alongside the 0031 program focus. Best-effort:
- * any read failure or a cold-start coach (too few plans) resolves to null, leaving
- * the arc unchanged. Reads only plan-derived fields — no minor data (COPPA).
+ * scoped `eq('coach_id', coachId)`) and derive a coaching signature. Ticket
+ * 0039 added the second argument: the coach's `coach_drill_signals` rows (their
+ * thumbs-up / thumbs-down on individual drills) re-rank the signature's
+ * recurring drills. Best-effort: any read failure or a cold-start coach resolves
+ * to null, leaving the arc unchanged. Reads only plan-derived fields and the
+ * coach-private drill signals — no minor data (COPPA).
  */
 async function fetchCoachingSignature(
   coachId: string,
   admin: Awaited<ReturnType<typeof createServiceSupabase>>,
 ): Promise<CoachingSignature | null> {
   try {
-    const { data } = await admin
-      .from('plans')
-      .select('type, skills_targeted, content_structured')
-      .eq('coach_id', coachId)
-      .in('type', ['practice', 'practice_arc'])
-      .order('created_at', { ascending: false })
-      .limit(40);
-    return buildCoachingSignature((data ?? []) as CoachPlanRow[]);
+    const [plansRes, signalsRes] = await Promise.all([
+      admin
+        .from('plans')
+        .select('type, skills_targeted, content_structured')
+        .eq('coach_id', coachId)
+        .in('type', ['practice', 'practice_arc'])
+        .order('created_at', { ascending: false })
+        .limit(40),
+      admin
+        .from('coach_drill_signals')
+        .select('drill_id, rating, run_count')
+        .eq('coach_id', coachId),
+    ]);
+
+    const plans = (plansRes.data ?? []) as CoachPlanRow[];
+    const signals = (signalsRes.data ?? []) as Array<{
+      drill_id: string;
+      rating: 'up' | 'down';
+      run_count: number;
+    }>;
+
+    let drillIdByName: Record<string, string> | undefined = undefined;
+    if (signals.length > 0) {
+      const { data: drills } = await admin
+        .from('drills')
+        .select('id, name')
+        .in(
+          'id',
+          signals.map((s) => s.drill_id),
+        );
+      const rows = (drills ?? []) as Array<{ id: string; name: string }>;
+      if (rows.length > 0) {
+        drillIdByName = {};
+        for (const r of rows) drillIdByName[r.name] = r.id;
+      }
+    }
+
+    return buildCoachingSignature(plans, {
+      drillSignals: signals.length > 0 ? signals : undefined,
+      drill_id_by_name: drillIdByName,
+    });
   } catch {
     return null;
   }

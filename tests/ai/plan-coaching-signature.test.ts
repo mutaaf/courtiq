@@ -183,6 +183,11 @@ function arcRequest(extra: Record<string, unknown> = {}) {
 describe('POST /api/ai/plan — coaching signature (ticket 0037)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset queued mockReturnValueOnce values; vi.clearAllMocks clears call
+    // history but the .mockReturnValueOnce queue is per-mock and persists
+    // unless we explicitly mockReset (ticket 0039 added a `coach_drill_signals`
+    // fetch — if a previous test left a queued chain, it leaks into this one).
+    mockFromFn.mockReset();
     mockBuildAIContext.mockResolvedValue(CONTEXT);
     mockReadProgramFocus.mockResolvedValue(null);
     mockCallAIWithJSON.mockResolvedValue({ parsed: AI_PLAN_RESULT, interactionId: 'interaction-1' });
@@ -196,6 +201,7 @@ describe('POST /api/ai/plan — coaching signature (ticket 0037)', () => {
       .mockReturnValueOnce(buildChain({ org_id: ORG_ID }))   // coaches (org_id)
       .mockReturnValueOnce(buildChain([]))                   // observations (insights)
       .mockReturnValueOnce(sigChain)                         // coach-scoped plans for signature
+      .mockReturnValueOnce(buildChain([]))                   // coach_drill_signals (ticket 0039 — empty)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));          // plans insert
 
     const res = await PLAN_POST(planRequest());
@@ -217,6 +223,7 @@ describe('POST /api/ai/plan — coaching signature (ticket 0037)', () => {
       .mockReturnValueOnce(buildChain({ org_id: ORG_ID }))   // coaches
       .mockReturnValueOnce(buildChain([]))                   // observations
       .mockReturnValueOnce(buildChain([]))                   // coach plans: NONE → null signature
+      .mockReturnValueOnce(buildChain([]))                   // coach_drill_signals (ticket 0039 — empty)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));          // insert
 
     const res = await PLAN_POST(planRequest());
@@ -236,7 +243,8 @@ describe('POST /api/ai/plan — coaching signature (ticket 0037)', () => {
     mockFromFn
       .mockReturnValueOnce(buildChain({ org_id: ORG_ID }))
       .mockReturnValueOnce(buildChain([]))
-      .mockReturnValueOnce(buildChain(coachPlans()));
+      .mockReturnValueOnce(buildChain(coachPlans()))
+      .mockReturnValueOnce(buildChain([])); // coach_drill_signals (ticket 0039 — empty)
 
     const res = await PLAN_POST(planRequest());
     expect(res.status).toBe(402);
@@ -251,6 +259,7 @@ describe('POST /api/ai/plan — coaching signature (ticket 0037)', () => {
       .mockReturnValueOnce(buildChain({ org_id: ORG_ID }))
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain(coachPlans()))
+      .mockReturnValueOnce(buildChain([])) // coach_drill_signals (ticket 0039 — empty)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     await PLAN_POST(planRequest());
@@ -275,6 +284,7 @@ describe('POST /api/ai/plan — coaching signature (ticket 0037)', () => {
       .mockReturnValueOnce(buildChain({ org_id: ORG_ID }))
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain(poisoned))
+      .mockReturnValueOnce(buildChain([])) // coach_drill_signals (ticket 0039 — empty)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     await PLAN_POST(planRequest());
@@ -298,6 +308,7 @@ describe('POST /api/ai/plan — coaching signature (ticket 0037)', () => {
       .mockReturnValueOnce(buildChain({ org_id: ORG_ID }))
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(throwingPlans)
+      .mockReturnValueOnce(buildChain([])) // coach_drill_signals (ticket 0039 — parallel fetch)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     const res = await PLAN_POST(planRequest());
@@ -310,6 +321,9 @@ describe('POST /api/ai/plan — coaching signature (ticket 0037)', () => {
 describe('POST /api/ai/practice-arc — coaching signature (ticket 0037)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset queued mockReturnValueOnce values; vi.clearAllMocks clears call
+    // history but not the mockReturnValueOnce queue (see ticket 0039 note above).
+    mockFromFn.mockReset();
     mockBuildAIContext.mockResolvedValue(CONTEXT);
     mockReadProgramFocus.mockResolvedValue(null);
     mockCallAIWithJSON.mockResolvedValue({ parsed: AI_ARC_RESULT, interactionId: 'interaction-2' });
@@ -324,6 +338,7 @@ describe('POST /api/ai/practice-arc — coaching signature (ticket 0037)', () =>
       .mockReturnValueOnce(buildChain([]))                                // observations (fetchObsSummary)
       .mockReturnValueOnce(buildChain([]))                                // sessions (fetchObsSummary)
       .mockReturnValueOnce(sigChain)                                      // coach plans for signature
+      .mockReturnValueOnce(buildChain([]))                                // coach_drill_signals (ticket 0039 — empty)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));                       // insert
 
     const res = await ARC_POST(arcRequest());
@@ -343,6 +358,7 @@ describe('POST /api/ai/practice-arc — coaching signature (ticket 0037)', () =>
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))   // no coach plans → null signature
+      .mockReturnValueOnce(buildChain([]))   // coach_drill_signals (ticket 0039 — empty)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     const res = await ARC_POST(arcRequest());
@@ -359,7 +375,8 @@ describe('POST /api/ai/practice-arc — coaching signature (ticket 0037)', () =>
       .mockReturnValueOnce(buildChain({ org_id: ORG_ID, name: 'Coach' }))
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))
-      .mockReturnValueOnce(buildChain(coachPlans()));
+      .mockReturnValueOnce(buildChain(coachPlans()))
+      .mockReturnValueOnce(buildChain([])); // coach_drill_signals (ticket 0039 — empty)
 
     const res = await ARC_POST(arcRequest());
     expect(res.status).toBe(402);

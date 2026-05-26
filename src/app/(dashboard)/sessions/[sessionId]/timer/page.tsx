@@ -95,6 +95,7 @@ import { isFavorited, sortWithFavoritesFirst } from '@/lib/drill-favorites-utils
 import {
   getDrillRating,
   toggleDrillRating,
+  mirrorDrillRatingToServer,
   sortDrillsByRating,
   getRatingIcon,
   formatRatingPrompt,
@@ -254,6 +255,11 @@ function BreakScreen({
     if (!teamId || !drillId) return;
     const next = toggleDrillRating(teamId, drillId, rating);
     setDrillRatingState(next);
+    // Ticket 0039 — fire the server mirror after the local write so the UI
+    // stays instant; the rating travels across phones, teams, and seasons via
+    // `coach_drill_signals`. Best-effort: on a flaky network the local entry
+    // is still the source of truth and the next dashboard mount reconciles.
+    mirrorDrillRatingToServer(drillId, next);
   };
 
   // ── Auto-advance countdown ────────────────────────────────────────────────

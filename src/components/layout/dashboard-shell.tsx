@@ -13,6 +13,7 @@ import { PageTransition } from '@/components/layout/page-transition';
 import { useTheme } from '@/hooks/use-theme';
 
 import { useSyncEngine } from '@/hooks/use-sync-engine';
+import { useDrillRatingsMigration } from '@/hooks/use-drill-ratings-migration';
 import { usePrefetchAdjacentPages, usePrefetchOnIntent } from '@/hooks/use-prefetch-navigation';
 import { useArrowKeyNav } from '@/hooks/use-arrow-key-nav';
 import { PwaInstallPrompt } from '@/components/ui/pwa-install-prompt';
@@ -141,6 +142,17 @@ export function DashboardShell({ coach, children }: Props) {
     });
     return () => { cancelled = true; };
   }, [coach?.id, coach?.organizations]);
+
+  // Ticket 0039 — one-time first-sign-in merge of any localStorage drill
+  // ratings into the new server-side `coach_drill_signals` table. Runs at
+  // most once per coach (guarded by the `migrated_drill_ratings_at` marker
+  // on `coaches.preferences`); a network failure leaves the marker unset so
+  // a future session retries. The hook is a no-op when the coach has no
+  // local entries (other than stamping the marker).
+  useDrillRatingsMigration({
+    coachId: coach?.id ?? null,
+    preferences: (coach?.preferences as Record<string, unknown> | null) ?? null,
+  });
 
   // Auto-expire stale practice sessions (>4 hours old) so coaches aren't
   // stuck on "End Practice" mode the next morning if they forgot to end it.

@@ -1,7 +1,7 @@
 ---
 id: 0039
 title: Keep the coach's drill thumbs-up across phones, teams, and seasons
-status: groomed
+status: in-progress
 priority: P1
 area: plans
 created: 2026-05-26
@@ -225,7 +225,32 @@ re-discover the architecture.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0039-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-26 — branch `feat/0039-coach-drill-signals` opened, status flipped to in-progress
+- 2026-05-26 — migration `040_coach_drill_signals.sql` + `CoachDrillSignal` type + allow-list
+  entries in `/api/data` and `/api/data/mutate`
+- 2026-05-26 — `GET` + `PATCH /api/coach-drill-signals` (auth-scoped, ignores any forged
+  `coach_id` in the body), with `tests/api/coach-drill-signals.test.ts`
+- 2026-05-26 — pure `mergeLocalDrillRatings(local, server)` added to
+  `src/lib/drill-rating-utils.ts` (newer-wins / left-alone / local-only), with
+  `tests/lib/coach-drill-signals.test.ts`
+- 2026-05-26 — `buildCoachingSignature` extended with optional `{ drillSignals,
+  drill_id_by_name }` arg; cold callers byte-identical (pinned in
+  `tests/lib/coaching-signature-with-signals.test.ts`); plan + arc routes both fetch
+  signals in the same `Promise.all` and pass them in
+- 2026-05-26 — `useDrillRatingsMigration` hook handles the one-time first-sign-in
+  merge from the DashboardShell; idempotent on `coaches.preferences.migrated_drill_ratings_at`;
+  local entries LEFT IN PLACE on success (AC8 regression)
+- 2026-05-26 — break-screen `handleRateDrill` mirrors the toggle to the server via the
+  new `mirrorDrillRatingToServer` helper (best-effort, never blocks the UI)
+- Reconciliation: the ticket prose said "writes the row" for PATCH; the route uses a
+  PostgreSQL UPSERT on the composite PK so the same coach voting on the same drill
+  flips the rating in place. The test asserts both the upsert payload AND that a
+  forged `coach_id` is ignored (the route always uses `auth.getUser().id`). The
+  ticket prose said "`PATCH` accepts `{drill_id, rating}`"; the route also accepts
+  an optional `run_count` for the one-time merge to bring lifetime counts forward.
+  Documented per LESSONS#39 (assert the REAL contract).
+- 2026-05-26 — local gate: lint clean (0 errors), `tsc --noEmit` clean, full vitest
+  `--no-file-parallelism` = 4737/4738 pass; the remaining `player-of-match-utils`
+  `Apr 27 vs Apr 28` failure reproduces on origin/main under Node 20.19.0
+  identically and is the documented LESSONS#36 TZ env artifact (CI Node 20 UTC
+  passes it).
