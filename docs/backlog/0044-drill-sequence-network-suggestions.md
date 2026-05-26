@@ -1,7 +1,7 @@
 ---
 id: 0044
 title: When a coach thumbs-up a drill, suggest the next drill other coaches in the same sport ran after it
-status: groomed
+status: in-progress
 priority: P1
 area: plans
 created: 2026-05-26
@@ -241,7 +241,16 @@ re-discover the architecture.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0044-…` opened
-- YYYY-MM-DD — failing test added in `tests/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-26 — branch `feat/0044-drill-sequence-network-suggestions` opened.
+- 2026-05-26 — Migration prefix decision: the next free prefix is `045_`
+  (existing tip is `044_plans_type_sideline_talking_points.sql` from ticket
+  0046). The migration is named `045_drill_sequence_aggregates.sql` — kept the
+  `drill-sequence-aggregates` slug intact so the COPPA scan finds it. The
+  signal_type column on `coach_drill_signals` ships in the SAME migration as
+  an additive `text not null default 'rating'` adjacent to the existing
+  `rating` column (per AC) so existing 'up'/'down' rows continue to work
+  byte-identically and `buildCoachingSignature` is unchanged.
+- 2026-05-26 — `sport` TEXT on the aggregates table stores the sport's
+  `slug` (e.g. 'basketball'); the cron joins `drills → sports.slug` and the
+  drill detail page already has the drill's `sport_id`, so the suggestions
+  component looks up the slug via a single `query()` on `sports`.
