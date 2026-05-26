@@ -16,6 +16,7 @@
 
 import { createServiceSupabase } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/email';
+import { isCoachPaused } from '@/lib/coach-pause-utils';
 import {
   getTodayKey,
   hasAlreadySentReminder,
@@ -73,11 +74,19 @@ export async function POST(request: Request) {
         // ── Load coach ────────────────────────────────────────────────────
         const { data: coach, error: coachError } = await admin
           .from('coaches')
-          .select('id, email, full_name, preferences')
+          .select('id, email, full_name, preferences, paused_until')
           .eq('id', session.coach_id)
           .single();
 
         if (coachError || !coach) {
+          totalSkipped++;
+          continue;
+        }
+
+        // ── Paused coaches are silent (ticket 0042) ───────────────────────
+        // Short-circuit BEFORE the opt-out + dedup gates so no preferences
+        // write is earned.
+        if (isCoachPaused(coach as { paused_until: string | null | undefined })) {
           totalSkipped++;
           continue;
         }

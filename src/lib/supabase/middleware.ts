@@ -87,6 +87,13 @@ export async function updateSession(request: NextRequest) {
     // robots:noindex at the page level.
     '/sitemap.xml',
     '/robots.txt',
+    // Public pause-confirmation landing (ticket 0042) — the polite "Still
+    // coaching this season?" email's "Pause for 30 days" link drops the coach
+    // here with a signed `?token=…`. The page itself self-verifies the token
+    // (no DB lookup on a bad token) and only writes paused_until on success.
+    // `/account` (no `/pause` suffix) is NOT in this list — the unpause
+    // surface stays behind auth.
+    '/account/pause',
   ];
   if (pathname === '/' || publicPaths.some((p) => pathname.startsWith(p))) {
     return supabaseResponse;

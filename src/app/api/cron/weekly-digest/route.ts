@@ -21,6 +21,7 @@
 
 import { createServiceSupabase } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/email';
+import { isCoachPaused } from '@/lib/coach-pause-utils';
 import {
   getPriorWeekMonday,
   getWeekWindow,
@@ -76,7 +77,7 @@ export async function POST(request: Request) {
   while (true) {
     const { data: coaches, error: coachesErr } = await admin
       .from('coaches')
-      .select('id, email, full_name, preferences')
+      .select('id, email, full_name, preferences, paused_until')
       .order('created_at', { ascending: true })
       .range(offset, offset + BATCH_SIZE - 1);
 
@@ -89,6 +90,13 @@ export async function POST(request: Request) {
 
     for (const coach of coaches) {
       try {
+        // ── Paused coaches are silent (ticket 0042) ────────────────────────
+        // The pause short-circuit runs FIRST so no preferences write is
+        // earned for a paused coach (dedup keys are for sends, not skips).
+        if (isCoachPaused(coach as { paused_until: string | null | undefined })) {
+          totalSkipped++;
+          continue;
+        }
         // ── Opt-out + dedup ───────────────────────────────────────────────
         if (isDigestDisabled(coach.preferences)) {
           totalSkipped++;

@@ -83,6 +83,12 @@ export interface Coach {
   role: CoachRole;
   preferences: Json;
   onboarding_complete: boolean;
+  // Coach-quiet-hours primitive (ticket 0042). When in the future, every
+  // outbound cron short-circuits before any send work for this coach.
+  paused_until: string | null;
+  // Most recent meaningful activity timestamp; the check-in cron uses it to
+  // find quiet coaches. Nullable for existing rows that pre-date this column.
+  last_active_at: string | null;
   created_at: string;
   updated_at: string;
 }

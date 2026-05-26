@@ -1,7 +1,7 @@
 ---
 id: 0042
 title: Send one honest "still coaching this season?" check-in to a coach who's been quiet 14 days, with a one-tap pause
-status: groomed
+status: in-progress
 priority: P1
 area: onboarding
 created: 2026-05-26
@@ -212,7 +212,22 @@ re-discover the architecture.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0042-…` opened
-- YYYY-MM-DD — failing test added in `tests/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-26 — branch `feat/0042-coach-quiet-checkin-pause` opened off `main` at `4c18ef4`.
+- 2026-05-26 — migration prefix chosen: 0040's `041_plans_type_pregame_brief.sql` has
+  already merged to main, so the next free integer is `042` (LESSONS#0006). No rebase
+  needed — the prefix is final.
+- 2026-05-26 — `coaches.last_active_at` does NOT exist in any prior migration
+  (grep across `supabase/migrations/`), so the 042 migration ADDS both columns —
+  `paused_until TIMESTAMPTZ NULL` and `last_active_at TIMESTAMPTZ NULL`. No
+  default on either, no NOT NULL.
+- 2026-05-26 — the ticket prose says unpause "via the existing `mutate()` path,"
+  but `mutate()` filters are client-supplied — a forged `coach_id` would ride
+  through. To satisfy LESSONS#0039 ("route validates the caller owns the row")
+  without inventing a new client API, the `coaches` branch of `/api/data/mutate`
+  now refuses any `filters.id !== user.id` (a 403). Documented as a reconciliation
+  with the ticket prose, the way LESSONS#0002 / #0023 reconciled shorthand-vs-real.
+- 2026-05-26 — `/account` (authed) doesn't exist as a route; the closest authed
+  surface for paused/unpause is `/settings/profile` (the existing communication
+  preferences live there). The indicator + unpause control live there in v1.
+  The TICKET-named PUBLIC `/account/pause?token=…` page is new and goes in
+  `src/app/account/pause/page.tsx` as the ticket asks.
