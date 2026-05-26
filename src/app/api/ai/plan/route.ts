@@ -6,6 +6,37 @@ import { buildAIContext } from '@/lib/ai/context-builder';
 import { practicePlanSchema, gamedaySheetSchema } from '@/lib/ai/schemas';
 import { handleAIError } from '@/lib/ai/error';
 import { readProgramFocus } from '@/lib/ai/program-focus';
+import {
+  buildCoachingSignature,
+  type CoachPlanRow,
+  type CoachingSignature,
+} from '@/lib/coaching-signature-utils';
+
+/**
+ * Ticket 0037 — fetch the requesting coach's OWN recent plans (across all their
+ * teams, scoped `eq('coach_id', coachId)`) and derive a compact coaching
+ * signature to thread into the prompt as a soft preference. Best-effort: any read
+ * failure resolves to null so generation is never blocked, and a cold-start coach
+ * (too few plans) returns null → the prompt is byte-identical to today. Reads only
+ * plan-derived fields — no `players`/observation data (COPPA).
+ */
+async function fetchCoachingSignature(
+  coachId: string,
+  admin: Awaited<ReturnType<typeof createServiceSupabase>>,
+): Promise<CoachingSignature | null> {
+  try {
+    const { data } = await admin
+      .from('plans')
+      .select('type, skills_targeted, content_structured')
+      .eq('coach_id', coachId)
+      .in('type', ['practice', 'practice_arc'])
+      .order('created_at', { ascending: false })
+      .limit(40);
+    return buildCoachingSignature((data ?? []) as CoachPlanRow[]);
+  } catch {
+    return null;
+  }
+}
 
 export interface TrendEntry {
   category: string;
@@ -182,7 +213,10 @@ export async function POST(request: Request) {
     // parallel. The program focus (ticket 0031) is a best-effort org-config read
     // that resolves to null off the Organization tier or when unset; it is woven
     // into the practice-plan prompt as a SOFT hint and never blocks generation.
-    const [context, observationInsights, programFocus] = await Promise.all([
+    // The coaching signature (ticket 0037) is a best-effort coach-scoped read,
+    // relevant only to practice plans; gameday sheets don't use it. It resolves to
+    // null for a cold-start coach and degrades the plan to today's behavior.
+    const [context, observationInsights, programFocus, coachingSignature] = await Promise.all([
       buildAIContext(teamId, admin),
       type === 'practice'
         ? fetchObservationInsights(teamId, admin).catch((): ObservationInsights => ({
@@ -194,6 +228,7 @@ export async function POST(request: Request) {
           }))
         : Promise.resolve(null),
       type === 'practice' ? readProgramFocus(teamId, admin) : Promise.resolve(null),
+      type === 'practice' ? fetchCoachingSignature(user.id, admin) : Promise.resolve(null),
     ]);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -217,6 +252,7 @@ export async function POST(request: Request) {
         observationInsights: observationInsights ?? undefined,
         arcContext: arcContext ?? undefined,
         programFocus: programFocus ?? undefined,
+        coachingSignature: coachingSignature ?? undefined,
       });
       schema = practicePlanSchema;
       interactionType = 'generate_practice_plan';
