@@ -56,6 +56,17 @@ export const practicePlanSchema = z.object({
     duration_minutes: z.number(),
     notes: z.string(),
   }).optional(),
+  // Ticket 0045 — optional rollover annotation. The route copies the diff'd
+  // rollover drills into this array so the plans page can render the quiet
+  // "Carrying from last week: …" line above the drills section. Empty by
+  // default; a plan without it (today's cold-start) still validates.
+  rollover_from_last_week: z.array(
+    z.object({
+      drill_id: z.string().min(1),
+      drill_name: z.string().min(1),
+      source_plan_id: z.string().min(1),
+    })
+  ).optional(),
 });
 
 export const gamedaySheetSchema = z.object({

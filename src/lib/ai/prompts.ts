@@ -149,6 +149,15 @@ export const PROMPT_REGISTRY = {
      * today's behavior. Schema UNCHANGED — the signature only nudges content.
      */
     coachingSignature?: CoachingSignature | null;
+    /**
+     * Ticket 0045 — drills the coach DID NOT get to on the prior practice
+     * (diffed by the route from the prior plan's `completed_drill_ids` stamp).
+     * Threaded into the prompt as a SOFT carry-forward hint; when omitted /
+     * empty, the carry-forward block is left out CLEANLY so the rendered
+     * prompt is byte-identical to today's cold-start shape. Per LESSONS#0023
+     * the instruction is POSITIVE — never enumerates AGENTS.md banned words.
+     */
+    rolloverDrills?: Array<{ name: string; focus?: string; duration_minutes?: number }>;
   }) => {
     const programFocus = params.programFocus?.trim();
     const coachingSig = coachingSignatureBlock(params.coachingSignature);
@@ -240,6 +249,25 @@ export const PROMPT_REGISTRY = {
         .join('\n')
       : '';
 
+    // Ticket 0045 — "you didn't get to these last time" carry-forward hint.
+    // Phrased positively per LESSONS#0023 so the prompt itself never enumerates
+    // banned tokens (which would trip the AGENTS.md voice scan that lints the
+    // rendered prompt). Empty/absent rolloverDrills → block omitted CLEANLY so
+    // the rendered prompt is byte-identical to today's cold-start.
+    const rollover = params.rolloverDrills;
+    const rolloverBlock = rollover && rollover.length > 0
+      ? [
+          '',
+          'LAST PRACTICE LEFT THESE DRILLS UNFINISHED — prefer carrying them forward so the work this team already chose to do is not lost between sessions:',
+          ...rollover.map((d) => {
+            const dur = typeof d.duration_minutes === 'number' ? ` (~${d.duration_minutes} min)` : '';
+            const focus = d.focus ? ` — ${d.focus}` : '';
+            return `  - ${d.name}${dur}${focus}`;
+          }),
+          'Fold these into the new plan where they fit the team\'s real needs — keep, swap, or merge with the regular drill list as the data justifies. Annotate the chosen rollovers in `rollover_from_last_week` on the JSON output so the coach can see what was carried.',
+        ].join('\n')
+      : '';
+
     return {
       system: [
         buildSystemPreamble(params),
@@ -256,6 +284,7 @@ export const PROMPT_REGISTRY = {
         coachingSig,
         insightsBlock,
         arcBlock,
+        rolloverBlock,
         params.proficiencyData ? `Additional proficiency data: ${JSON.stringify(params.proficiencyData)}` : '',
         'Respond with JSON: { "title", "duration_minutes", "warmup": { "name", "duration_minutes", "description" }, "drills": [{ "name", "skill_id", "duration_minutes", "description", "coaching_cues" }], "scrimmage": { "duration_minutes", "focus" }, "cooldown": { "duration_minutes", "notes" } }',
       ].filter(Boolean).join('\n'),

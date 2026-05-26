@@ -202,6 +202,7 @@ describe('POST /api/ai/plan — coaching signature (ticket 0037)', () => {
       .mockReturnValueOnce(buildChain([]))                   // observations (insights)
       .mockReturnValueOnce(sigChain)                         // coach-scoped plans for signature
       .mockReturnValueOnce(buildChain([]))                   // coach_drill_signals (ticket 0039 — empty)
+      .mockReturnValueOnce(buildChain([]))                   // prior plan for rollover (ticket 0045 — none)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));          // plans insert
 
     const res = await PLAN_POST(planRequest());
@@ -224,6 +225,7 @@ describe('POST /api/ai/plan — coaching signature (ticket 0037)', () => {
       .mockReturnValueOnce(buildChain([]))                   // observations
       .mockReturnValueOnce(buildChain([]))                   // coach plans: NONE → null signature
       .mockReturnValueOnce(buildChain([]))                   // coach_drill_signals (ticket 0039 — empty)
+      .mockReturnValueOnce(buildChain([]))                   // prior plan for rollover (ticket 0045 — none)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));          // insert
 
     const res = await PLAN_POST(planRequest());
@@ -244,7 +246,8 @@ describe('POST /api/ai/plan — coaching signature (ticket 0037)', () => {
       .mockReturnValueOnce(buildChain({ org_id: ORG_ID }))
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain(coachPlans()))
-      .mockReturnValueOnce(buildChain([])); // coach_drill_signals (ticket 0039 — empty)
+      .mockReturnValueOnce(buildChain([]))   // coach_drill_signals (ticket 0039 — empty)
+      .mockReturnValueOnce(buildChain([]));  // prior plan for rollover (ticket 0045 — none)
 
     const res = await PLAN_POST(planRequest());
     expect(res.status).toBe(402);
@@ -260,6 +263,7 @@ describe('POST /api/ai/plan — coaching signature (ticket 0037)', () => {
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain(coachPlans()))
       .mockReturnValueOnce(buildChain([])) // coach_drill_signals (ticket 0039 — empty)
+      .mockReturnValueOnce(buildChain([])) // prior plan for rollover (ticket 0045 — none)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     await PLAN_POST(planRequest());
@@ -285,6 +289,7 @@ describe('POST /api/ai/plan — coaching signature (ticket 0037)', () => {
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain(poisoned))
       .mockReturnValueOnce(buildChain([])) // coach_drill_signals (ticket 0039 — empty)
+      .mockReturnValueOnce(buildChain([])) // prior plan for rollover (ticket 0045 — none)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     await PLAN_POST(planRequest());
@@ -309,6 +314,7 @@ describe('POST /api/ai/plan — coaching signature (ticket 0037)', () => {
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(throwingPlans)
       .mockReturnValueOnce(buildChain([])) // coach_drill_signals (ticket 0039 — parallel fetch)
+      .mockReturnValueOnce(buildChain([])) // prior plan for rollover (ticket 0045 — none)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     const res = await PLAN_POST(planRequest());
