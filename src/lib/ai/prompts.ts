@@ -1,4 +1,32 @@
 import type { Player, CurriculumSkill, Team } from '@/types/database';
+import type { CoachingSignature } from '@/lib/coaching-signature-utils';
+
+/**
+ * Ticket 0037 — render a coach's "coaching signature" as a SOFT preference block.
+ * Threaded into the practice-plan and practice-arc prompts so the generated plan
+ * sounds like the practices this coach actually runs across all their teams. It is
+ * a nudge, never an override (same soft-priority semantics as the 0031 program
+ * focus). Returns '' when there is no signature (cold-start coach) so the prompt
+ * is byte-identical to today's behavior. The block carries only the aggregate
+ * coach-plan-derived fields — no player/observation data (COPPA).
+ */
+function coachingSignatureBlock(signature: CoachingSignature | null | undefined): string {
+  if (!signature) return '';
+  const lines = ['', 'This coach tends to run practice a certain way (learned from the plans they have run before):'];
+  if (signature.top_skills.length > 0) {
+    lines.push(`- Focus areas they lean on: ${signature.top_skills.join(', ')}.`);
+  }
+  if (signature.recurring_drills.length > 0) {
+    lines.push(`- Drills they come back to: ${signature.recurring_drills.join(', ')}.`);
+  }
+  if (signature.typical_session_minutes > 0) {
+    lines.push(`- Session length they usually run: about ${signature.typical_session_minutes} minutes.`);
+  }
+  lines.push(
+    'Prefer these focus areas and drills where they fit the team\'s real current needs — this is a soft preference, not a requirement. Do not force them if the team\'s observation data clearly points elsewhere.',
+  );
+  return lines.join('\n');
+}
 
 export interface ObservationInsightsParam {
   totalObs: number;
@@ -113,8 +141,16 @@ export const PROMPT_REGISTRY = {
      * response JSON schema — it only shapes the prompt.
      */
     programFocus?: string;
+    /**
+     * Ticket 0037 — the coach's cross-team coaching signature, threaded as a SOFT
+     * preference (same soft-priority semantics as programFocus). When null/absent
+     * (cold-start coach) the block is omitted and the prompt is byte-identical to
+     * today's behavior. Schema UNCHANGED — the signature only nudges content.
+     */
+    coachingSignature?: CoachingSignature | null;
   }) => {
     const programFocus = params.programFocus?.trim();
+    const coachingSig = coachingSignatureBlock(params.coachingSignature);
     const programFocusBlock = programFocus
       ? [
           '',
@@ -216,6 +252,7 @@ export const PROMPT_REGISTRY = {
         `Generate a practice plan for ${params.teamName || 'the team'}.`,
         params.focusSkills?.length ? `Requested focus skills: ${params.focusSkills.join(', ')}` : '',
         programFocusBlock,
+        coachingSig,
         insightsBlock,
         arcBlock,
         params.proficiencyData ? `Additional proficiency data: ${JSON.stringify(params.proficiencyData)}` : '',
@@ -1101,6 +1138,12 @@ export const PROMPT_REGISTRY = {
     recentSessions: number;
     /** Ticket 0031 — org-scoped program weekly focus, threaded as a SOFT hint. */
     programFocus?: string;
+    /**
+     * Ticket 0037 — the coach's cross-team coaching signature, threaded as a SOFT
+     * preference alongside programFocus (same soft-priority semantics). Null/absent
+     * → the block is omitted and the arc prompt is unchanged.
+     */
+    coachingSignature?: CoachingSignature | null;
   }) => ({
     system: [
       buildSystemPreamble(params),
@@ -1130,6 +1173,7 @@ export const PROMPT_REGISTRY = {
       params.programFocus?.trim()
         ? `PROGRAM FOCUS (set by the program director for every team this week): "${params.programFocus.trim()}". Lean the arc toward it as a soft priority where it fits the team's real needs — do not force it if the data points elsewhere.`
         : '',
+      coachingSignatureBlock(params.coachingSignature),
       '',
       `Team skill data (${params.totalObs} total observations, ${params.recentSessions} recent sessions):`,
       `- Top needs-work areas: ${params.topNeedsWork.join(', ') || 'general fundamentals'}`,

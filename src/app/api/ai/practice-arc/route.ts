@@ -11,6 +11,36 @@ import {
   buildArcTitle,
 } from '@/lib/practice-arc-utils';
 import { readProgramFocus } from '@/lib/ai/program-focus';
+import {
+  buildCoachingSignature,
+  type CoachPlanRow,
+  type CoachingSignature,
+} from '@/lib/coaching-signature-utils';
+
+/**
+ * Ticket 0037 — fetch the requesting coach's OWN recent plans (all their teams,
+ * scoped `eq('coach_id', coachId)`) and derive a coaching signature to thread into
+ * the arc prompt as a soft preference alongside the 0031 program focus. Best-effort:
+ * any read failure or a cold-start coach (too few plans) resolves to null, leaving
+ * the arc unchanged. Reads only plan-derived fields — no minor data (COPPA).
+ */
+async function fetchCoachingSignature(
+  coachId: string,
+  admin: Awaited<ReturnType<typeof createServiceSupabase>>,
+): Promise<CoachingSignature | null> {
+  try {
+    const { data } = await admin
+      .from('plans')
+      .select('type, skills_targeted, content_structured')
+      .eq('coach_id', coachId)
+      .in('type', ['practice', 'practice_arc'])
+      .order('created_at', { ascending: false })
+      .limit(40);
+    return buildCoachingSignature((data ?? []) as CoachPlanRow[]);
+  } catch {
+    return null;
+  }
+}
 
 /** Fetch top needs-work and strength categories from recent observations */
 async function fetchObsSummary(
@@ -93,12 +123,15 @@ export async function POST(request: Request) {
       .eq('id', user.id)
       .single();
 
-    const [context, obsSummary, programFocus] = await Promise.all([
+    const [context, obsSummary, programFocus, coachingSignature] = await Promise.all([
       buildAIContext(teamId, admin),
       fetchObsSummary(teamId, admin),
       // Ticket 0031 — best-effort program weekly focus, threaded as a soft hint;
       // null off the Organization tier or when unset, never blocks generation.
       readProgramFocus(teamId, admin),
+      // Ticket 0037 — best-effort coach-scoped coaching signature, threaded as a
+      // soft preference; null for a cold-start coach, never blocks generation.
+      fetchCoachingSignature(user.id, admin),
     ]);
 
     const effectiveFocus = focusArea?.trim()
@@ -116,6 +149,7 @@ export async function POST(request: Request) {
       totalObs: obsSummary.totalObs,
       recentSessions: obsSummary.recentSessions,
       programFocus: programFocus ?? undefined,
+      coachingSignature: coachingSignature ?? undefined,
     });
 
     const result = await callAIWithJSON<PracticeArc>(
