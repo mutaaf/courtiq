@@ -1,7 +1,7 @@
 ---
 id: 0037
 title: Make practice plans learn the coach's own style across every team they've run
-status: in-progress
+status: shipped
 priority: P2
 area: ai
 created: 2026-05-25
@@ -170,3 +170,6 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   wired the coach-scoped fetch (`eq('coach_id', coachId)`, all teams) + signature build into
   `/api/ai/plan` and `/api/ai/practice-arc`, null-safe so a cold-start coach is byte-identical
   to today's behavior. Quota + `callAIWithJSON(orgId)` path untouched.
+- 2026-05-25 — PR #305 opened, three gating checks green (lint / unit-tests / e2e-tests),
+  squash-merged to main as `ee8f152`. Status → shipped via separate `chore/0037-mark-shipped`
+  branch off freshly-pulled main (per LESSONS#0020).
