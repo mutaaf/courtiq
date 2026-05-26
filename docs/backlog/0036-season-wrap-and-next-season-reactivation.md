@@ -1,7 +1,7 @@
 ---
 id: 0036
 title: Catch the coach at the season's end with a wrap-up and a one-tap way to start next season
-status: in-progress
+status: shipped
 priority: P1
 area: onboarding
 created: 2026-05-25
@@ -189,3 +189,5 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
   set, current_week reset, cross-org → 404, no new minor field),
   `tests/components/season-wrap-card.test.tsx` (card render states), and
   `tests/e2e/season-wrap-flow.spec.ts` (seeded complete-season card).
+- 2026-05-25 — PR #303 opened; lint + unit-tests + e2e-tests all green (e2e 3m51s); auto-merged
+  to main. Shipped-flip (frontmatter + README index) landed via `chore/0036-mark-shipped`.
