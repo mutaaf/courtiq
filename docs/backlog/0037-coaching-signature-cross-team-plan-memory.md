@@ -1,7 +1,7 @@
 ---
 id: 0037
 title: Make practice plans learn the coach's own style across every team they've run
-status: proposed
+status: in-progress
 priority: P2
 area: ai
 created: 2026-05-25
@@ -161,7 +161,12 @@ Each box maps 1:1 to a vitest or Playwright test scenario.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0037-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-25 — branch `feat/0037-coaching-signature-cross-team-plan-memory` opened; status → in-progress.
+- 2026-05-25 — failing tests added: `tests/lib/coaching-signature-utils.test.ts`,
+  `tests/ai/plan-coaching-signature.test.ts`, `tests/ai/plan-coaching-signature-contract.test.ts`.
+- 2026-05-25 — implemented pure `src/lib/coaching-signature-utils.ts`
+  (`buildCoachingSignature`); threaded an optional SOFT `coachingSignature` block into
+  `practicePlan` + `practiceArc` in `src/lib/ai/prompts.ts` (output JSON schema UNCHANGED);
+  wired the coach-scoped fetch (`eq('coach_id', coachId)`, all teams) + signature build into
+  `/api/ai/plan` and `/api/ai/practice-arc`, null-safe so a cold-start coach is byte-identical
+  to today's behavior. Quota + `callAIWithJSON(orgId)` path untouched.
