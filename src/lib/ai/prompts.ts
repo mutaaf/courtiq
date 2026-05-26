@@ -1427,6 +1427,67 @@ export const PROMPT_REGISTRY = {
     };
   },
 
+  // ── Sideline Talking Points (ticket 0046) ─────────────────────────────────
+  // A coach-private one-tap sideline cheat sheet — one row per rostered player,
+  // two lines per row, that the coach can GLANCE at and say to that kid's
+  // parent at half-time. The artifact's value is in the coach's hands, never
+  // in front of the parent: the prompt instructs the model that the lines are
+  // PRIVATE coach notes the coach will SAY, not write, so first names are fine
+  // but no surname / DOB / parent / medical detail goes near the output. Per
+  // LESSONS#0023 the voice instruction is POSITIVE — it never enumerates the
+  // AGENTS.md banned tokens verbatim (which would trip the banned-words scan
+  // that lints the rendered prompt).
+  sidelineTalkingPoints: (params: PromptParams & {
+    team: { id: string; name?: string };
+    players: Array<{ id: string; first_name: string }>;
+    observationInsightsByPlayer: Record<string, ObservationInsightsParam>;
+  }) => {
+    const { team, players, observationInsightsByPlayer } = params;
+
+    const playerLines = players.map((p) => {
+      const ins = observationInsightsByPlayer[p.id];
+      if (!ins || ins.totalObs === 0) {
+        return `- ${p.first_name} (id: ${p.id}) — light data this stretch; keep the line modest and honest.`;
+      }
+      const strengths = ins.topStrengths.slice(0, 2).map((s) => `${s.category} (${s.count} positive)`).join(', ');
+      const needs = ins.topNeedsWork.slice(0, 2).map((s) => `${s.category} (${s.count} needs-work)`).join(', ');
+      const parts = [
+        `${p.first_name} (id: ${p.id})`,
+        strengths ? `strengths: ${strengths}` : '',
+        needs ? `working on: ${needs}` : '',
+      ].filter(Boolean);
+      return `- ${parts.join(' — ')}`;
+    }).join('\n');
+
+    return {
+      system: [
+        buildSystemPreamble(params),
+        'You write a coach-private sideline cheat sheet — one row per rostered player, two short lines per row, that the coach GLANCES at and SAYS to that player\'s parent at half-time.',
+        '',
+        'Rules:',
+        '- This is for the COACH only. The lines are private notes the coach will SAY, not write — never shown to a parent or shared on any public surface.',
+        '- Tone is clipboard-plain — write like a coach\'s sideline note to themselves. One sentence each, specific to that player. Avoid breathless hype words.',
+        '- Use first names ONLY. Never echo a surname, jersey number sprawl, date of birth, parent or medical detail in either line.',
+        '- For each player, produce TWO lines:',
+        '   • lead_line: ONE sentence the coach can lead with — a positive, specific thing grounded in the recent observations. If the player has light data, write something modest and honest, not invented.',
+        '   • working_on_line: ONE sentence the coach can pivot to if the parent asks for more — phrased as "we are working on …" (one growth edge, the data\'s top need-work category if there is one).',
+        '- The JSON schema has EXACTLY two top-level keys (team_id, entries) and EXACTLY four per-entry keys (player_id, player_first_name, lead_line, working_on_line). Any extra key is rejected.',
+        '- The entries array length must equal the active roster size — write one entry per player listed below.',
+        '- No markdown, no bullet lists in the lines, no emoji.',
+      ].join('\n'),
+      user: [
+        `Team: ${team.name || params.teamName || 'the team'} (${params.sportName || 'basketball'}, ${params.ageGroup || 'youth'})`,
+        `Team id (copy verbatim into team_id): ${team.id}`,
+        '',
+        'Active roster — write one entry per player. The id in parentheses is the player_id to copy verbatim:',
+        playerLines || '(no players)',
+        '',
+        'Write the sideline cheat sheet JSON with EXACTLY this shape:',
+        '{ "team_id": "string", "entries": [{ "player_id": "string", "player_first_name": "first name only", "lead_line": "one sentence", "working_on_line": "one sentence" }] }',
+      ].filter(Boolean).join('\n'),
+    };
+  },
+
   // ── Weekly Coaching Digest (ticket 0023) ──────────────────────────────────
   // A coach-private "your week in coaching" recap of the last 7 days. Three
   // things: a one-line week_summary, the top_players who showed up most in the
