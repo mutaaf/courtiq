@@ -25,6 +25,7 @@ import { NextResponse } from 'next/server';
 import { createServiceSupabase } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/email';
 import { randomBytes } from 'crypto';
+import { isCoachPaused } from '@/lib/coach-pause-utils';
 import {
   getWeekStartSunday,
   isParentDigestEnabled,
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
   while (true) {
     const { data: coaches, error: coachesErr } = await admin
       .from('coaches')
-      .select('id, email, full_name, preferences, org_id')
+      .select('id, email, full_name, preferences, org_id, paused_until')
       .order('created_at', { ascending: true })
       .range(offset, offset + BATCH_SIZE - 1);
 
@@ -81,6 +82,12 @@ export async function POST(request: Request) {
     if (!coaches || coaches.length === 0) break;
 
     for (const coach of coaches) {
+      // Paused coaches are silent (ticket 0042) — short-circuit before any
+      // opt-in or per-team read so no work is done for a paused coach.
+      if (isCoachPaused(coach as { paused_until: string | null | undefined })) {
+        totalSkipped++;
+        continue;
+      }
       if (!isParentDigestEnabled(coach.preferences)) continue;
       if (hasAlreadySentParentDigest(coach.preferences, weekStr)) {
         totalSkipped++;

@@ -26,6 +26,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `Table '${table}' not allowed for mutations` }, { status: 400 });
   }
 
+  // Coaches table ownership guard (ticket 0042). The mutate route accepts
+  // client-supplied `filters.id`, so a forged body could otherwise clear ANY
+  // coach's paused_until (or rewrite their preferences / full_name / etc.).
+  // LESSONS#39 family — the route never trusts a client-supplied identifier.
+  // `coaches.id === auth.users.id` is the shared invariant; we refuse any
+  // update whose filter doesn't match the caller.
+  if (table === 'coaches' && operation === 'update') {
+    const filterId = (filters as Record<string, unknown>)?.id;
+    if (typeof filterId !== 'string' || filterId !== user.id) {
+      return NextResponse.json(
+        { error: 'Forbidden: can only update your own coach row' },
+        { status: 403 },
+      );
+    }
+  }
+
   try {
     // Tier check for player inserts
     if (operation === 'insert' && table === 'players') {

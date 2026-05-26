@@ -27,6 +27,7 @@
 import { NextResponse } from 'next/server';
 import { createServiceSupabase } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/email';
+import { isCoachPaused } from '@/lib/coach-pause-utils';
 import {
   getPriorWeekMonday,
   getWeekWindow,
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
   while (true) {
     const { data: coaches, error: coachesErr } = await admin
       .from('coaches')
-      .select('id, email, full_name, preferences')
+      .select('id, email, full_name, preferences, paused_until')
       .order('created_at', { ascending: true })
       .range(offset, offset + BATCH_SIZE - 1);
 
@@ -93,6 +94,13 @@ export async function POST(request: Request) {
 
     for (const coach of coaches) {
       try {
+        // ── Paused coaches are silent (ticket 0042) ─────────────────────────
+        // Short-circuit BEFORE the opt-out / dedup gates so no preferences
+        // write is earned for a paused coach.
+        if (isCoachPaused(coach as { paused_until: string | null | undefined })) {
+          totalSkipped++;
+          continue;
+        }
         // ── Opt-out + dedup ──────────────────────────────────────────────────
         if (isParentRollupDisabled(coach.preferences)) {
           totalSkipped++;

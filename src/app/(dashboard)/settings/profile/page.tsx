@@ -14,6 +14,7 @@ import { ArrowLeft, Save, Loader2, LogOut, User, Mail } from 'lucide-react';
 import { isParentDigestEnabled, enableParentDigest, disableParentDigest } from '@/lib/parent-digest-utils';
 import { isDigestDisabled } from '@/lib/weekly-digest-utils';
 import { isReminderDisabled } from '@/lib/practice-reminder-utils';
+import { isCoachPaused } from '@/lib/coach-pause-utils';
 import Link from 'next/link';
 
 export default function ProfileSettingsPage() {
@@ -33,6 +34,7 @@ export default function ProfileSettingsPage() {
   const [practiceReminderEnabled, setPracticeReminderEnabled] = useState(true);
   const [practiceReminderSaving, setPracticeReminderSaving] = useState(false);
   const [practiceReminderSaved, setPracticeReminderSaved] = useState(false);
+  const [unpauseSaving, setUnpauseSaving] = useState(false);
 
   const { data: meData, isLoading } = useQuery({
     queryKey: queryKeys.coach.current(),
@@ -101,6 +103,25 @@ export default function ProfileSettingsPage() {
       setTimeout(() => setWeeklyDigestSaved(false), 2500);
     } finally {
       setWeeklyDigestSaving(false);
+    }
+  }
+
+  async function handleUnpause() {
+    if (!coach) return;
+    setUnpauseSaving(true);
+    try {
+      // Goes through `mutate()` per AGENTS.md rule 3. The /api/data/mutate
+      // route enforces `filters.id === user.id` for the coaches table
+      // (ticket 0042) so a forged coach_id cannot ride through.
+      await mutate({
+        table: 'coaches',
+        operation: 'update',
+        data: { paused_until: null },
+        filters: { id: coach.id },
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.coach.current() });
+    } finally {
+      setUnpauseSaving(false);
     }
   }
 
@@ -261,6 +282,38 @@ export default function ProfileSettingsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Paused state — ticket 0042. Renders only when paused_until is
+                  a real future timestamp. The unpause button POSTs through the
+                  generic mutate() helper; the API route enforces ownership. */}
+              {coach && isCoachPaused({ paused_until: coach.paused_until ?? null }) && (
+                <div
+                  className="rounded-lg border border-orange-500/40 bg-orange-500/5 p-3 flex items-start justify-between gap-4"
+                  data-testid="coach-paused-banner"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-zinc-100">
+                      Paused until {new Date(coach.paused_until as string).toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </p>
+                    <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                      We&#39;ve stopped the digest emails. Tap unpause when you&#39;re back.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={handleUnpause}
+                    disabled={unpauseSaving}
+                    aria-label="Unpause my account"
+                  >
+                    {unpauseSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Unpause'}
+                  </Button>
+                </div>
+              )}
+
               {/* Auto parent progress emails */}
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
