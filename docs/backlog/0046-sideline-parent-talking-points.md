@@ -1,7 +1,7 @@
 ---
 id: 0046
 title: Give the coach a one-tap sideline cheat sheet — one line per kid to say to that kid's parent
-status: in-progress
+status: shipped
 priority: P1
 area: ai
 created: 2026-05-26
@@ -257,3 +257,6 @@ re-discover the architecture.
 (Appended by the implementation-dev agent during execution.)
 
 - 2026-05-26 — branch `feat/0046-sideline-talking-points` opened; ticket flipped to in-progress.
+- 2026-05-26 — failing tests added across `tests/ai/`, `tests/migrations/`, `tests/components/`, and `tests/e2e/`; backend (prompt + schema + route + migration + types) + UI (`/home` card + `<UpgradeGate feature="report_cards">`) landed under the test-first loop.
+- 2026-05-26 — PR #324 opened with auto-merge armed; all three gating checks green (lint 1m21s, unit-tests 2m07s, e2e-tests 3m53s) and the squash merged at 22:55Z. Backlog index + ticket flipped to `shipped` via a separate `chore/0046-mark-shipped` branch (LESSONS#0020/#42/#74).
+- 2026-05-26 — Deviation noted: the ticket's prose said "team page", but no `/team/[teamId]/page.tsx` exists in the current app. The sideline cheat sheet card was surfaced on `/home` instead (the canonical landing surface where the coach lands with `activeTeam` resolved). The button is one-tap, never auto-fired, so a coach who never taps it never burns quota.
