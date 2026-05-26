@@ -122,7 +122,7 @@ describe('hasAlreadySentRollup / markRollupSent', () => {
   it('returns false on null / non-object prefs', () => {
     expect(hasAlreadySentRollup(null, MONDAY)).toBe(false);
     // arrays / non-object prefs are ignored
-    expect(hasAlreadySentRollup([] as unknown as Record<string, unknown>, MONDAY)).toBe(false);
+    expect(hasAlreadySentRollup([] as unknown as Parameters<typeof hasAlreadySentRollup>[0], MONDAY)).toBe(false);
   });
 
   it('returns true after markRollupSent for that week', () => {
@@ -131,14 +131,14 @@ describe('hasAlreadySentRollup / markRollupSent', () => {
   });
 
   it('preserves existing keys, including the weekly-digest dedup key', () => {
-    const existing: Record<string, unknown> = {
+    const existing = {
       'digest_week_2026-04-20': true,
       disable_weekly_digest: true,
-    };
+    } as Parameters<typeof markRollupSent>[0];
     const next = markRollupSent(existing, MONDAY);
     expect((next as Record<string, unknown>)['digest_week_2026-04-20']).toBe(true);
     expect((next as Record<string, unknown>)['disable_weekly_digest']).toBe(true);
-    expect(hasAlreadySentRollup(next, MONDAY)).toBe(true);
+    expect(hasAlreadySentRollup(next as Parameters<typeof hasAlreadySentRollup>[0], MONDAY)).toBe(true);
   });
 
   it('different weeks are independent', () => {
