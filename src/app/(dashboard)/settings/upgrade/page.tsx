@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery } from '@tanstack/react-query';
 import { query } from '@/lib/api';
+import { parseResumeTarget, buildResumePath } from '@/lib/resume-target';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +24,7 @@ const INTENT_CONFIG: Record<string, { label: string; tagline: string }> = {
 export default function UpgradePage() {
   const { coach } = useActiveTeam();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [annual, setAnnual] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'canceled'; message: string } | null>(null);
@@ -47,6 +49,56 @@ export default function UpgradePage() {
       return () => clearTimeout(timer);
     }
   }, [searchParams]);
+
+  // Quota-wall resume after upgrade (ticket 0035). After a successful checkout,
+  // Stripe redirects to ?success=true&resume=<token>. If the token is present and
+  // resolves to an artifact the coach actually OWNS, drop them back on the exact
+  // surface they were blocked on (e.g. Maya's parent report). The token is
+  // re-validated client-side against the coach's owned teams/players via the authed
+  // query() helper (NOT a direct Supabase client — AGENTS.md rule 3); a malformed
+  // or cross-org token falls to /home, never another org's player. The cancel path
+  // (?canceled=true) carries no success marker, so this effect never fires there —
+  // the coach stays put with nothing lost.
+  useEffect(() => {
+    const success = searchParams.get('success') === 'true';
+    const resume = searchParams.get('resume');
+    if (!success || !resume || !orgId) return;
+
+    let cancelled = false;
+    (async () => {
+      // Resolve the coach's owned teams, then the players on those teams. The
+      // resume target may only point at ids in these sets.
+      const teams = await query<{ id: string }[]>({
+        table: 'teams',
+        select: 'id',
+        filters: { org_id: orgId },
+      });
+      const ownedTeamIds = (teams ?? []).map((t) => t.id);
+      let ownedPlayerIds: string[] = [];
+      if (ownedTeamIds.length > 0) {
+        // query() filters are equality-only; fetch players per owned team and flatten.
+        const playerLists = await Promise.all(
+          ownedTeamIds.map((teamId) =>
+            query<{ id: string }[]>({
+              table: 'players',
+              select: 'id',
+              filters: { team_id: teamId },
+            })
+          )
+        );
+        ownedPlayerIds = playerLists.flat().map((p) => p.id);
+      }
+      if (cancelled) return;
+
+      const target = parseResumeTarget(resume, ownedTeamIds, ownedPlayerIds);
+      // Valid + owned → the exact artifact surface; otherwise /home (never foreign).
+      router.replace(target ? buildResumePath(target) : '/home');
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, orgId, router]);
 
   // Fetch subscription status
   const { data: billing } = useQuery({

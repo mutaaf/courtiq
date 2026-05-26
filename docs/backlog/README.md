@@ -76,7 +76,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0035 | Turn the AI-quota wall into a one-tap upgrade that finishes the exact artifact the coach was making | P1 | proposed | tier |
+| 0035 | Turn the AI-quota wall into a one-tap upgrade that finishes the exact artifact the coach was making | P1 | in-progress | tier |
 | 0036 | Catch the coach at the season's end with a wrap-up and a one-tap way to start next season | P1 | proposed | onboarding |
 | 0037 | Make practice plans learn the coach's own style across every team they've run | P2 | proposed | ai |
 | 0032 | Show the coach where they are in the season so the arc itself pulls them back | P2 | shipped | analytics |
