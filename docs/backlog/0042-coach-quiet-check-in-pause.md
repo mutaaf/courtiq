@@ -1,7 +1,7 @@
 ---
 id: 0042
 title: Send one honest "still coaching this season?" check-in to a coach who's been quiet 14 days, with a one-tap pause
-status: in-progress
+status: shipped
 priority: P1
 area: onboarding
 created: 2026-05-26
