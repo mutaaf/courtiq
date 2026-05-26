@@ -1,7 +1,7 @@
 ---
 id: 0038
 title: Put every public coach surface in the sitemap so cold searchers can find them
-status: in-progress
+status: shipped
 priority: P1
 area: growth
 created: 2026-05-26
@@ -197,3 +197,6 @@ re-discover the architecture.
 (Appended by the implementation-dev agent during execution.)
 
 - 2026-05-26 — branch `feat/0038-public-surfaces-sitemap-and-structured-data` opened, status flipped to in-progress.
+- 2026-05-26 — failing tests added: `tests/app/sitemap.test.ts` (8 vitest), `tests/app/public-canonicals.test.ts` (14 vitest), `tests/e2e/sitemap-and-noindex.spec.ts` (Playwright). Implemented dynamic `src/app/sitemap.ts`, extended `generateMetadata` on `/programs`, `/org/[slug]`, `/team-card/[token]`, `/season-recap/[token]`, `/coach/[token]`, `/recap/[token]` with canonicals, and on the parent portal `/share/[token]` with `robots: noindex`. The visual layout of every page is unchanged.
+- 2026-05-26 — PR #308 opened against main; auto-merge armed.
+- 2026-05-26 — first run e2e red because `/sitemap.xml` was redirected to `/login` (Supabase auth proxy didn't allow-list it). Fixed by adding `/sitemap.xml` + `/robots.txt` to `publicPaths` in `src/lib/supabase/middleware.ts`; second run all three gating checks (lint, unit-tests, e2e-tests) green and PR auto-merged as commit 3cc9c32.
