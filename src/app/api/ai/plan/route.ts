@@ -11,6 +11,10 @@ import {
   type CoachPlanRow,
   type CoachingSignature,
 } from '@/lib/coaching-signature-utils';
+import {
+  diffPracticeForRollover,
+  type RolloverDrill,
+} from '@/lib/practice-rollover-utils';
 
 /**
  * Ticket 0037 — fetch the requesting coach's OWN recent plans (across all their
@@ -77,6 +81,56 @@ async function fetchCoachingSignature(
       drillSignals: signals.length > 0 ? signals : undefined,
       drill_id_by_name: drillIdByName,
     });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Ticket 0045 — fetch the most recent prior `type='practice'` plan for the
+ * (coach, team) pair and diff its drills against its `completed_drill_ids`
+ * stamp. Returns the rolled-over drills (the ones the coach did NOT get to)
+ * AND the prior plan's id, or null on any read failure / cold start. The
+ * route then threads the result into the practicePlan prompt as a soft hint
+ * and stamps the SAME entries into `content_structured.rollover_from_last_week`
+ * on the new plan so the plan view can render the "Carrying from last week"
+ * line. Server-side scope: `eq('coach_id', coachId).eq('team_id', teamId)` —
+ * a cross-coach or cross-team plan is unreachable (AC scope).
+ */
+interface PriorPlanRollover {
+  rolloverDrills: RolloverDrill[];
+  sourcePlanId: string;
+}
+
+async function fetchPriorPlanRollover(
+  coachId: string,
+  teamId: string,
+  admin: Awaited<ReturnType<typeof createServiceSupabase>>,
+): Promise<PriorPlanRollover | null> {
+  try {
+    const { data } = await admin
+      .from('plans')
+      .select('id, content_structured, completed_drill_ids')
+      .eq('coach_id', coachId)
+      .eq('team_id', teamId)
+      .eq('type', 'practice')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    const rows = (data ?? []) as Array<{
+      id: string;
+      content_structured: { drills?: Array<{ name?: string; duration_minutes?: number; description?: string }> } | null;
+      completed_drill_ids: string[] | null;
+    }>;
+    const prior = rows[0];
+    if (!prior) return null;
+
+    const diff = diffPracticeForRollover(
+      { content_structured: prior.content_structured },
+      prior.completed_drill_ids ?? [],
+    );
+    if (diff.rolloverDrills.length === 0) return null;
+    return { rolloverDrills: diff.rolloverDrills, sourcePlanId: prior.id };
   } catch {
     return null;
   }
@@ -260,7 +314,7 @@ export async function POST(request: Request) {
     // The coaching signature (ticket 0037) is a best-effort coach-scoped read,
     // relevant only to practice plans; gameday sheets don't use it. It resolves to
     // null for a cold-start coach and degrades the plan to today's behavior.
-    const [context, observationInsights, programFocus, coachingSignature] = await Promise.all([
+    const [context, observationInsights, programFocus, coachingSignature, priorPlanRollover] = await Promise.all([
       buildAIContext(teamId, admin),
       type === 'practice'
         ? fetchObservationInsights(teamId, admin).catch((): ObservationInsights => ({
@@ -273,6 +327,11 @@ export async function POST(request: Request) {
         : Promise.resolve(null),
       type === 'practice' ? readProgramFocus(teamId, admin) : Promise.resolve(null),
       type === 'practice' ? fetchCoachingSignature(user.id, admin) : Promise.resolve(null),
+      // Ticket 0045 — best-effort prior-plan rollover diff. A throwing read
+      // resolves to null so the plan generation degrades to today's behavior;
+      // a coach with no prior plan / a fully-completed prior plan also
+      // resolves to null and the prompt's carry-forward block is omitted.
+      type === 'practice' ? fetchPriorPlanRollover(user.id, teamId, admin) : Promise.resolve(null),
     ]);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -297,6 +356,11 @@ export async function POST(request: Request) {
         arcContext: arcContext ?? undefined,
         programFocus: programFocus ?? undefined,
         coachingSignature: coachingSignature ?? undefined,
+        rolloverDrills: priorPlanRollover?.rolloverDrills.map((d) => ({
+          name: d.name,
+          focus: d.focus,
+          duration_minutes: d.duration_minutes,
+        })),
       });
       schema = practicePlanSchema;
       interactionType = 'generate_practice_plan';
@@ -322,6 +386,22 @@ export async function POST(request: Request) {
     } catch (zodError) {
       console.warn('Zod validation relaxed:', zodError);
       validated = result.parsed;
+    }
+
+    // Ticket 0045 — stamp the rolled-over drills back into the saved plan's
+    // content_structured so the plan view's "Carrying from last week" line
+    // renders regardless of whether the model echoed the field back. We trust
+    // the diff (the deterministic source of truth) over the model's free-form
+    // reconciliation; if the model swapped a rollover out, the plan view's
+    // hint still names what the rollover was sourced from. (The plan body itself
+    // — the warmup, drills, scrimmage, cooldown — is the model's reconciliation
+    // and is unchanged here.)
+    if (priorPlanRollover && type === 'practice' && validated && typeof validated === 'object') {
+      validated.rollover_from_last_week = priorPlanRollover.rolloverDrills.map((d) => ({
+        drill_id: d.drill_id,
+        drill_name: d.name,
+        source_plan_id: priorPlanRollover.sourcePlanId,
+      }));
     }
 
     // Derive skills_targeted: prefer explicit focusSkills, otherwise use top needs-work categories

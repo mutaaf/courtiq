@@ -67,6 +67,10 @@ import type { ObservationInsights } from '@/app/api/ai/plan/route';
 import { getCategoryLabel, getCategoryColor } from '@/lib/coach-reflection-utils';
 import { trackEvent } from '@/lib/analytics';
 import { getSportEmoji } from '@/lib/sport-utils';
+import {
+  PracticePlanRolloverLine,
+  type RolloverFromLastWeekEntry,
+} from '@/components/plans/practice-plan-rollover-line';
 
 const PLAN_TYPE_CONFIG: Record<
   string,
@@ -1957,6 +1961,20 @@ export default function PlansPage() {
     }
 
     if (structured.warmup || structured.drills || structured.scrimmage || structured.cooldown) {
+      // Ticket 0045 — quiet "Carrying from last week: …" line above the drills
+      // section, ONLY when the freshly-generated plan was diffed against a
+      // prior plan that had un-run drills. Empty/absent → renders nothing
+      // (no upsell, no nag).
+      const rolloverEntries: RolloverFromLastWeekEntry[] = Array.isArray(structured.rollover_from_last_week)
+        ? structured.rollover_from_last_week.filter(
+            (r: unknown): r is RolloverFromLastWeekEntry =>
+              !!r && typeof r === 'object'
+              && typeof (r as RolloverFromLastWeekEntry).drill_id === 'string'
+              && typeof (r as RolloverFromLastWeekEntry).drill_name === 'string'
+              && typeof (r as RolloverFromLastWeekEntry).source_plan_id === 'string',
+          )
+        : [];
+
       return (
         <div className="space-y-6">
           {structured.title && (
@@ -1965,6 +1983,8 @@ export default function PlansPage() {
           {structured.overview && (
             <p className="text-sm text-zinc-400">{structured.overview}</p>
           )}
+
+          <PracticePlanRolloverLine rollover={rolloverEntries} />
 
           {structured.warmup && (
             <div className="space-y-2">

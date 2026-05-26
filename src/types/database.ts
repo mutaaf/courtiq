@@ -393,6 +393,13 @@ export interface Plan {
   is_shared: boolean;
   share_token: string | null;
   share_expires_at: string | null;
+  /**
+   * Ticket 0045 — slugged drill names the coach ACTUALLY ran on this plan
+   * (stamped by the timer's "end practice" flow). Empty array by default; the
+   * unfinished-drills rollover diff treats `[]` as "everything skipped" so a
+   * force-closed timer is generous to the next plan generation.
+   */
+  completed_drill_ids: string[];
   created_at: string;
 }
 

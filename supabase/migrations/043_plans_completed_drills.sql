@@ -1,0 +1,38 @@
+-- Migration 043: plans.completed_drill_ids (ticket 0045)
+--
+-- Adds a single nullable-but-defaulted jsonb column to `plans` so the in-
+-- practice timer can stamp which drills the coach ACTUALLY ran on this plan
+-- when they tap "end practice." Next week's /api/ai/plan run diffs the saved
+-- drill list against this stamp and threads any un-run drills into the
+-- generated plan as a soft "carry forward" hint (the "Carrying from last
+-- week: …" line above the drills section on the plans page).
+--
+-- The column stores DRILL NAME SLUGS, not UUIDs: the practicePlanSchema's
+-- drills[] array carries only a `name` (no stable `id`), so the rollover
+-- diff is name-slug-against-name-slug everywhere. Documented in the ticket's
+-- Implementation log; the alternative (raw display name) would let trivial
+-- capitalisation drift leak rollovers across plans.
+--
+-- COPPA / data-minimization (AGENTS.md non-negotiable 2): the new column lives
+-- on the PLAN row. There is no minor-scoped column, no widening of `players`,
+-- no observation-id link, no parent contact field, no biometric / dob-match
+-- / similarity / photo-match data here -- only drill identity slugs the coach
+-- has already chosen to keep in their own plans. This migration deliberately
+-- documents what it is NOT adding so the privacy boundary is recorded in the
+-- migration trail; the plans-completed-drills.test.ts banned-token scan strips
+-- `--` comment lines before assertions so this explanatory header is not
+-- mis-flagged (LESSONS#88).
+--
+-- Migration prefix 043 was chosen DELIBERATELY: the last shipped migration on
+-- main at this branch's open was 042 (042_coaches_paused_until.sql, ticket
+-- 0042), so the next free integer is 043. The supabase CLI keys applied
+-- migrations on the leading `<version>_` token, so a unique prefix avoids the
+-- schema_migrations duplicate-key class of failure (LESSONS#6).
+--
+-- Defaulted NOT NULL is safe here: the default is an empty jsonb array, which
+-- the rollover helper treats as "nothing completed" -- a force-closed timer
+-- (or a plan generated before this migration shipped) gets a generous rollover
+-- on its next regeneration. No backfill needed.
+
+ALTER TABLE plans
+  ADD COLUMN IF NOT EXISTS completed_drill_ids jsonb NOT NULL DEFAULT '[]'::jsonb;

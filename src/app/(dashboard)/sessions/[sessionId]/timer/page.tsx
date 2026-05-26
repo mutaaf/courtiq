@@ -121,6 +121,7 @@ import {
   formatLastRun,
   buildRunCountLabel,
 } from '@/lib/drill-run-history-utils';
+import { deriveCompletedDrillIds } from '@/lib/practice-rollover-utils';
 import {
   buildCategoryChips,
   matchesCategoryFilter,
@@ -1469,6 +1470,24 @@ export default function PracticeTimerPage({
           : null;
         const src = sessionData ?? s;
 
+        // Ticket 0045 — when the practice plan was generated with a rollover
+        // hint (the prior plan had un-run drills), prepend the rollover drills
+        // to the TOP of the timer queue so the work the coach already chose
+        // to do isn't lost in the gap between sessions.
+        const rollover = Array.isArray((s as any).rollover_from_last_week)
+          ? ((s as any).rollover_from_last_week as Array<{ drill_id?: string; drill_name?: string }>)
+          : [];
+        for (const r of rollover) {
+          if (!r?.drill_name) continue;
+          items.push({
+            id: `rollover-${r.drill_id ?? r.drill_name}-${Date.now()}`,
+            name: r.drill_name,
+            durationSecs: 8 * 60,
+            cues: [],
+            description: 'Carried from last week.',
+          });
+        }
+
         if (src.warmup?.name) {
           items.push({
             id: `warmup-${Date.now()}`,
@@ -1662,6 +1681,27 @@ export default function PracticeTimerPage({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, currentIdx]);
+
+  // Ticket 0045 — when the timer reaches `done` (every queued drill was
+  // advanced through), stamp the active plan's `completed_drill_ids` with the
+  // slugs of the drills the coach actually ran. Best-effort: a failure leaves
+  // the column at its default `[]` and the next rollover treats it as
+  // "nothing completed." A force-closed timer never reaches this branch, so
+  // the column stays at `[]` — also the generous-rollover default.
+  useEffect(() => {
+    if (mode !== 'done' || !planId) return;
+    const completedIds = deriveCompletedDrillIds(queueRef.current, queueRef.current.length);
+    if (completedIds.length === 0) return;
+    mutate({
+      table: 'plans',
+      operation: 'update',
+      filters: { id: planId },
+      data: { completed_drill_ids: completedIds },
+    }).catch(() => {
+      // Best-effort: a write failure is non-fatal — the rollover is a hint.
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   // Keep timeLeftRef in sync so the visibility handler can read it synchronously.
   useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
