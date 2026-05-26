@@ -1,7 +1,7 @@
 ---
 id: 0035
 title: Turn the AI-quota wall into a one-tap upgrade that finishes the exact artifact the coach was making
-status: in-progress
+status: shipped
 priority: P1
 area: tier
 created: 2026-05-25
