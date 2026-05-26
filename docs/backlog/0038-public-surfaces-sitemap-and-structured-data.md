@@ -1,7 +1,7 @@
 ---
 id: 0038
 title: Put every public coach surface in the sitemap so cold searchers can find them
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-05-26
@@ -196,7 +196,4 @@ re-discover the architecture.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0038-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-26 — branch `feat/0038-public-surfaces-sitemap-and-structured-data` opened, status flipped to in-progress.

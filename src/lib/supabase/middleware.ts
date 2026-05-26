@@ -79,6 +79,14 @@ export async function updateSession(request: NextRequest) {
     '/offline',
     '/terms',
     '/privacy',
+    // The dynamic sitemap (ticket 0038) and the static robots.txt are public
+    // by definition — every search-engine crawler hits them without auth, so
+    // they must NOT redirect to /login. The sitemap itself only emits public
+    // org slugs + opaque share tokens (no per-coach / per-minor data); the
+    // /share/<token> portal is excluded by the sitemap and marked
+    // robots:noindex at the page level.
+    '/sitemap.xml',
+    '/robots.txt',
   ];
   if (pathname === '/' || publicPaths.some((p) => pathname.startsWith(p))) {
     return supabaseResponse;

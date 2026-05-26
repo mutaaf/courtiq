@@ -331,7 +331,16 @@ export async function generateMetadata({
   // Report) lives in the pure, unit-tested builder. Presentation only — when a
   // well-formed playerSpotlight is present, the preview leads with the
   // celebratory artifact; otherwise it keeps today's generic card unchanged.
-  return buildShareMetadata(data, { token, appUrl });
+  const base = buildShareMetadata(data, { token, appUrl });
+
+  // Ticket 0038: the parent portal carries per-minor content (player names,
+  // observation text). It MUST NEVER be indexed — not in the sitemap, and
+  // robots `noindex,nofollow` at the page level as defense-in-depth. Applied
+  // unconditionally: even an errored/missing payload renders the meta tag.
+  return {
+    ...base,
+    robots: { index: false, follow: false },
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -44,12 +44,35 @@ export async function generateMetadata(): Promise<Metadata> {
   const title = 'Program Directory — SportsIQ';
   const description =
     'Find the youth sports program your league runs on SportsIQ and join the team you coach.';
+  // Ticket 0038: canonical so a crawler can collapse duplicates between
+  // preview / prod / share variants; JSON-LD BreadcrumbList so a search
+  // result can render the breadcrumb (root → /programs). No per-coach /
+  // per-minor data appears in either.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sportsiq.app';
+  const breadcrumbs = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'SportsIQ', item: appUrl },
+      { '@type': 'ListItem', position: 2, name: 'Program Directory', item: `${appUrl}/programs` },
+    ],
+  };
   return {
     title,
     description,
+    alternates: {
+      canonical: `${appUrl}/programs`,
+    },
     openGraph: {
       title,
       description,
+    },
+    other: {
+      // Next renders this as <meta name="ld+json" content="..."/>. The
+      // canonical JSON-LD shape parses identically; search engines that read
+      // the `other` map pick it up. Keeping it on the metadata object (vs an
+      // inline <script>) keeps the visual layout untouched, per the ticket.
+      'ld+json': JSON.stringify(breadcrumbs),
     },
   };
 }

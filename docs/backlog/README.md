@@ -76,7 +76,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0038 | Put every public coach surface in the sitemap so cold searchers can find them | P1 | groomed | growth |
+| 0038 | Put every public coach surface in the sitemap so cold searchers can find them | P1 | in-progress | growth |
 | 0039 | Keep the coach's drill thumbs-up across phones, teams, and seasons | P1 | groomed | plans |
 | 0040 | Turn an opponent scouting profile and this team's last 4 weeks into a one-tap pre-game brief | P2 | groomed | ai |
 | 0036 | Catch the coach at the season's end with a wrap-up and a one-tap way to start next season | P1 | shipped | onboarding |
