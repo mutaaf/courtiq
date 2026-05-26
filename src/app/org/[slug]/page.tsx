@@ -47,10 +47,30 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const data = await getOrgData(slug);
-  if (!data) return { title: 'Program Not Found — SportsIQ' };
+  // Ticket 0038: canonical + JSON-LD Organization (name + url ONLY — never an
+  // email, phone, contactPoint, or any per-coach data; the allow-list is
+  // asserted by tests/app/public-canonicals.test.ts).
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sportsiq.app';
+  const canonical = `${appUrl}/org/${slug}`;
+  if (!data) {
+    return {
+      title: 'Program Not Found — SportsIQ',
+      alternates: { canonical },
+    };
+  }
+  const organization = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: data.org.name,
+    url: canonical,
+  };
   return {
     title: `${data.org.name} — SportsIQ`,
     description: `${data.org.name} coaches use SportsIQ to track player development and deliver smarter coaching.`,
+    alternates: { canonical },
+    other: {
+      'ld+json': JSON.stringify(organization),
+    },
   };
 }
 

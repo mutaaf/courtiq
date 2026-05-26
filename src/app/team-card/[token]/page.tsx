@@ -68,6 +68,9 @@ export async function generateMetadata({
   if (!data || data.error || !data.personality?.team_type) {
     return {
       title: 'Team Card — SportsIQ',
+      // Ticket 0038: canonical so a crawler collapses duplicates (preview /
+      // prod / share variants) onto the same indexable URL.
+      alternates: { canonical: cardUrl },
       openGraph: {
         title: 'Team Card — SportsIQ',
         description: 'Coaching intelligence for youth sports.',
@@ -85,6 +88,8 @@ export async function generateMetadata({
   return {
     title,
     description,
+    // Ticket 0038: canonical points at this token's public URL.
+    alternates: { canonical: cardUrl },
     openGraph: {
       title,
       description,
