@@ -1,7 +1,7 @@
 ---
 id: 0039
 title: Keep the coach's drill thumbs-up across phones, teams, and seasons
-status: in-progress
+status: shipped
 priority: P1
 area: plans
 created: 2026-05-26
