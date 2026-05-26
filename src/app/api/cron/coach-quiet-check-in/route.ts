@@ -32,6 +32,7 @@ import {
   markQuietCheckInSent,
 } from '@/lib/coach-quiet-check-in-utils';
 import { isCoachPaused } from '@/lib/coach-pause-utils';
+import type { Json } from '@/types/database';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.youthsportsiq.com';
 const BATCH_SIZE = 50;
@@ -42,7 +43,7 @@ interface CoachRow {
   id: string;
   email: string | null;
   full_name: string | null;
-  preferences: Record<string, unknown> | null;
+  preferences: Json;
   paused_until: string | null;
   last_active_at: string | null;
 }

@@ -30,6 +30,9 @@ export const coachFactory = buildFactory<Omit<Coach, 'created_at' | 'updated_at'
   role: 'coach',
   preferences: {},
   onboarding_complete: true,
+  // Ticket 0042 — both new columns are nullable; factory default is null.
+  paused_until: null,
+  last_active_at: null,
 });
 
 export const teamFactory = buildFactory<Omit<Team, 'created_at' | 'updated_at'>>({
