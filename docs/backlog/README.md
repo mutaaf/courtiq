@@ -76,7 +76,6 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0052 | Let the coach start the next season with an edited roster without losing player history | P0 | in-progress | onboarding |
 | 0048 | Give the coach one short text per kid to paste into Messages after a game — the post-game complement to the sideline cheat sheet | P1 | groomed | ai |
 | 0049 | Let a coach publish a great practice plan as a one-tap clone link another coach saves to their team in 10 seconds | P1 | groomed | plans |
 | 0043 | Turn the season's middle into a one-tap parent newsletter that tells the team's whole arc, not just last week | P2 | groomed | ai |
@@ -89,6 +88,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | 0005 | Resubscription flow — free user re-upgrades after cancellation | P0 | shipped | billing |
 | 0006 | Harden e2e-tests for PR-gating (seed Supabase, restore as required check) | P0 | shipped | infra |
 | 0051 | Let the coach delete a practice that shouldn't be on the team's record | P0 | shipped | capture |
+| 0052 | Let the coach start the next season with an edited roster without losing player history | P0 | shipped | onboarding |
 | 0053 | Let an org admin delete a team that shouldn't be on the organization's roster | P0 | shipped | tier |
 | 0007 | Restore onboarding E2E coverage against the combined /onboarding/setup page | P1 | shipped | infra |
 | 0008 | Show free coaches their AI usage so the monthly wall stops being a surprise | P1 | shipped | tier |
