@@ -99,12 +99,17 @@ describe('coach_drill_signals migration (ticket 0039)', () => {
 describe('CoachDrillSignal type — exported from @/types/database', () => {
   it('declares the four data fields the table persists (compile-time check)', () => {
     // tsc --noEmit fails this file if the type is missing or differently shaped.
+    // Ticket 0044 added the `signal_type` column (default 'rating'); existing
+    // 0039 rating rows roundtrip with `signal_type: 'rating'` (the table
+    // default makes the column nullable in practice but the TS type pins it
+    // to the two v1 values so any consumer is forced to pick one).
     const row: CoachDrillSignal = {
       coach_id: '00000000-0000-4000-a000-000000000001',
       drill_id: '00000000-0000-4000-a000-000000000099',
       rating: 'up',
       run_count: 4,
       last_rated_at: '2026-05-26T00:00:00.000Z',
+      signal_type: 'rating',
     };
     expect(row.rating).toBe('up');
     const down: CoachDrillSignal = { ...row, rating: 'down' };
