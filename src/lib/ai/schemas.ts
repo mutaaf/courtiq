@@ -611,6 +611,42 @@ export const sidelineTalkingPointsSchema = z
 export type SidelineTalkingPointEntry = z.infer<typeof sidelineTalkingPointEntrySchema>;
 export type SidelineTalkingPoints = z.infer<typeof sidelineTalkingPointsSchema>;
 
+// ── Post-game Parent Texts (ticket 0048) ───────────────────────────────────
+//
+// The post-game complement to the 0046 sideline cheat sheet. Same coach-private
+// shape, but session-scoped (game only) and the per-entry payload is a single
+// 220-char text message — written to the PARENT, in second person, sized for
+// the Messages app.
+//
+// The schema is STRICT (`.strict()` at both top-level AND per-entry) so any
+// extra key — including a `subject` (this is a text, not an email), a full
+// surname, or any descriptive minor field — is rejected. The COPPA pin is
+// that the artifact carries `player_first_name` ONLY, never a full surname /
+// DOB / parent field. The artifact NEVER reaches a public surface (no token
+// route, no sitemap entry); it lives only in `plans.content_structured`
+// alongside every other coach-private artifact.
+
+export const postgameParentTextEntrySchema = z
+  .object({
+    player_id: z.string().min(1),
+    player_first_name: z.string().min(1),
+    // 220 characters fits comfortably in a single SMS without segmenting; one
+    // sentence; addresses the parent in second person, not the player in
+    // first.
+    text_message: z.string().min(1).max(220),
+  })
+  .strict();
+
+export const postgameParentTextsSchema = z
+  .object({
+    session_id: z.string().min(1),
+    entries: z.array(postgameParentTextEntrySchema).min(1),
+  })
+  .strict();
+
+export type PostgameParentTextEntry = z.infer<typeof postgameParentTextEntrySchema>;
+export type PostgameParentTexts = z.infer<typeof postgameParentTextsSchema>;
+
 // ── Pre-game Brief (ticket 0040) ────────────────────────────────────────────
 //
 // A coach-private one-tap brief synthesised from an existing opponent scouting

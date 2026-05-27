@@ -114,6 +114,7 @@ import { findTemplateById, getTemplatesBySentiment } from '@/lib/observation-tem
 import { getSportEmoji } from '@/lib/sport-utils';
 import { getWeeklyFocus, getFocusCategoryConfig } from '@/lib/weekly-focus-utils';
 import { RecapShareButton } from '@/components/growth/recap-share-button';
+import { PostgameParentTextsCard } from '@/components/sessions/postgame-parent-texts-card';
 
 const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   practice: 'Practice',
@@ -4215,6 +4216,20 @@ export default function SessionDetailPage() {
       {activeTeam && (session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
         <div id="game-recap-section">
           <GameRecapCard
+            sessionId={sessionId}
+            teamId={activeTeam.id}
+          />
+        </div>
+      )}
+
+      {/* Post-game parent texts (ticket 0048) — strictly game-only by design.
+          The practice/training analog is the 0046 sideline cheat sheet on
+          /home; on a scrimmage/tournament the GameRecapCard above is the
+          shareable artifact, but the per-parent text the coach pastes into
+          Messages only makes sense for a real game. */}
+      {activeTeam && session.type === 'game' && (
+        <div id="postgame-parent-texts-section">
+          <PostgameParentTextsCard
             sessionId={sessionId}
             teamId={activeTeam.id}
           />

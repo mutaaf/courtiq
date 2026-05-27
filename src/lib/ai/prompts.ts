@@ -1488,6 +1488,73 @@ export const PROMPT_REGISTRY = {
     };
   },
 
+  // ── Post-game Parent Texts (ticket 0048) ──────────────────────────────────
+  // The post-game complement to the 0046 sideline cheat sheet. One row per
+  // rostered player, ONE short text per row that the coach can long-press,
+  // copy, and paste into the parent's Messages thread on the drive home from
+  // a just-finished game. The text addresses the PARENT in second person,
+  // refers to the player by first name, is one sentence specific to today's
+  // game, and is sized for a single SMS (220-char cap). Per LESSONS#0023 the
+  // voice instruction is POSITIVE — it never enumerates the AGENTS.md banned
+  // tokens verbatim (which would trip the banned-words scan that lints the
+  // rendered prompt).
+  postgameParentTexts: (params: PromptParams & {
+    team: { id: string; name?: string };
+    players: Array<{ id: string; first_name: string }>;
+    sessionMeta: { id: string; started_at?: string | null; opponent_name?: string | null };
+    observationInsightsByPlayer: Record<string, ObservationInsightsParam>;
+  }) => {
+    const { team, players, sessionMeta, observationInsightsByPlayer } = params;
+    // Date in YYYY-MM-DD form lifted from started_at (the prompt frames the
+    // text as "today's game" so the parent reading it hears something
+    // specific, not generic).
+    const sessionDate = sessionMeta.started_at
+      ? sessionMeta.started_at.slice(0, 10)
+      : 'today';
+
+    const playerLines = players.map((p) => {
+      const ins = observationInsightsByPlayer[p.id];
+      if (!ins || ins.totalObs === 0) {
+        return `- ${p.first_name} (id: ${p.id}) — light data this stretch; keep the line modest and honest.`;
+      }
+      const strengths = ins.topStrengths.slice(0, 2).map((s) => `${s.category} (${s.count} positive)`).join(', ');
+      const needs = ins.topNeedsWork.slice(0, 2).map((s) => `${s.category} (${s.count} needs-work)`).join(', ');
+      const parts = [
+        `${p.first_name} (id: ${p.id})`,
+        strengths ? `strengths: ${strengths}` : '',
+        needs ? `working on: ${needs}` : '',
+      ].filter(Boolean);
+      return `- ${parts.join(' — ')}`;
+    }).join('\n');
+
+    return {
+      system: [
+        buildSystemPreamble(params),
+        'You write one short text per player that the coach can long-press, copy, and paste into that player\'s parent\'s Messages thread on the drive home from a just-finished game.',
+        '',
+        'Rules:',
+        '- This is a TEXT MESSAGE the coach will SEND from their own phone to one parent. Write like a coach texting one specific parent — one sentence, specific to today\'s game, in the coach\'s own voice, not a marketing newsletter.',
+        '- Address the PARENT in second person; refer to the PLAYER by first name (e.g. "Maya\'s defense …" / "Devon was first to …"). Never echo a surname, jersey number sprawl, date of birth, parent or medical detail.',
+        '- One sentence. Maximum 220 characters so it fits comfortably in a single SMS without segmenting.',
+        '- Be specific to today\'s game and grounded in the recent observations. If a player has light data, write something modest and honest, not invented.',
+        '- The JSON schema has EXACTLY two top-level keys (session_id, entries) and EXACTLY three per-entry keys (player_id, player_first_name, text_message). Any extra key — including subject, lead_line, working_on_line — is rejected. This is a TEXT, not an email; there is no subject line.',
+        '- The entries array length must equal the active roster size — write one entry per player listed below.',
+        '- No markdown, no bullet lists, no emoji, no greeting like "Hi there!" — write the message itself so the coach pastes it raw.',
+      ].join('\n'),
+      user: [
+        `Team: ${team.name || params.teamName || 'the team'} (${params.sportName || 'basketball'}, ${params.ageGroup || 'youth'})`,
+        `Game date: ${sessionDate}${sessionMeta.opponent_name ? ` vs ${sessionMeta.opponent_name}` : ''}`,
+        `Session id (copy verbatim into session_id): ${sessionMeta.id}`,
+        '',
+        'Active roster — write one entry per player. The id in parentheses is the player_id to copy verbatim:',
+        playerLines || '(no players)',
+        '',
+        'Write the post-game parent texts JSON with EXACTLY this shape:',
+        '{ "session_id": "string", "entries": [{ "player_id": "string", "player_first_name": "first name only", "text_message": "one sentence to the parent, max 220 characters" }] }',
+      ].filter(Boolean).join('\n'),
+    };
+  },
+
   // ── Weekly Coaching Digest (ticket 0023) ──────────────────────────────────
   // A coach-private "your week in coaching" recap of the last 7 days. Three
   // things: a one-line week_summary, the top_players who showed up most in the
