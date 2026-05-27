@@ -85,9 +85,11 @@ export async function POST(request: Request) {
   }
 
   const drillToSport = new Map<string, string>();
-  for (const row of (drillRows ?? []) as DrillJoinRow[]) {
-    // PostgREST may return `sports` as an object OR an array depending on
-    // the FK; both shapes are tolerated here.
+  // PostgREST may type the `sports` join as an array OR a singleton object
+  // depending on the FK; cast through unknown so both shapes are tolerated
+  // at runtime without picking a fight with the generated type.
+  for (const raw of (drillRows ?? []) as unknown[]) {
+    const row = raw as DrillJoinRow;
     const sportsField = (row as { sports?: unknown }).sports;
     let slug: string | null = null;
     if (Array.isArray(sportsField)) {
