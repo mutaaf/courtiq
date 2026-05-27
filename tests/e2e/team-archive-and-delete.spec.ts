@@ -67,7 +67,7 @@ test.describe('Archive + delete a team (authenticated)', () => {
     await expect(submit).toBeDisabled();
 
     // Wrong text keeps the button disabled.
-    const input = modal.getByLabelText(/type the team name to confirm/i);
+    const input = modal.getByLabel(/type the team name to confirm/i);
     await input.fill('Wrong Name');
     await expect(submit).toBeDisabled();
 

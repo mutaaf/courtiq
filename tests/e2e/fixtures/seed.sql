@@ -769,6 +769,31 @@ select
   'U10 Hawks', '9-10', 'Spring 2026', 10, 3, true
 on conflict (id) do nothing;
 
+-- ── archive + delete a team (ticket 0053) ──────────────────────────────────
+-- A disposable second team in the SAME org as the default E2E coach, so the
+-- archive→hard-delete flow can act on it WITHOUT touching the rows the
+-- existing specs depend on (...020 / ...021 / ...022). Live (archived_at
+-- null) on seed; the e2e spec archives it then deletes it.
+--
+-- The spec test.skip()s without E2E_TEST_EMAIL/E2E_TEST_PASSWORD (no CI run
+-- has those creds), so the always-green proof here is the vitest matrix.
+-- This row exists so a local authenticated run can exercise the page.
+insert into teams (id, org_id, sport_id, name, age_group, season, season_weeks, current_week, is_active, archived_at)
+select
+  '00000000-0000-4000-a000-0000000000E1',
+  '00000000-0000-4000-a000-000000000010',
+  (select id from sports where slug = 'basketball' limit 1),
+  'E2E Disposable Team', '11-13', 'Spring 2026', 10, 1, true, null
+on conflict (id) do nothing;
+
+insert into team_coaches (team_id, coach_id, role)
+values (
+  '00000000-0000-4000-a000-0000000000E1',
+  '00000000-0000-4000-a000-000000000001',
+  'head_coach'
+)
+on conflict (team_id, coach_id) do nothing;
+
 -- ── delete-a-practice (ticket 0051) ─────────────────────────────────────────
 -- TWO disposable practice sessions on the E2E Test Team that exist ONLY for
 -- delete-practice-flow.spec.ts to delete. We don't reuse session ...040 because

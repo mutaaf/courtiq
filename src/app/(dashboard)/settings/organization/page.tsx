@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { mutate } from '@/lib/api';
+import { mutate, query } from '@/lib/api';
 import { queryKeys } from '@/lib/query/keys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,8 +11,29 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTier } from '@/hooks/use-tier';
 import { UpgradeGate } from '@/components/ui/upgrade-gate';
-import { ArrowLeft, Save, Loader2, Building2, Shield, Palette, Eye, Lock, Target } from 'lucide-react';
+import { DeleteTeamModal } from '@/components/teams/delete-team-modal';
+import {
+  ArrowLeft,
+  Save,
+  Loader2,
+  Building2,
+  Shield,
+  Palette,
+  Eye,
+  Lock,
+  Target,
+  Archive,
+  ArchiveRestore,
+  Trash2,
+  Users,
+} from 'lucide-react';
 import Link from 'next/link';
+
+interface TeamListRow {
+  id: string;
+  name: string;
+  archived_at: string | null;
+}
 
 interface OrgBranding {
   primary_color: string;
@@ -96,6 +117,130 @@ export default function OrganizationSettingsPage() {
   const coach = coachWithOrg;
   const org = coachWithOrg?.organizations;
   const isAdmin = coach?.role === 'admin' || coach?.role === 'head_coach';
+
+  // Ticket 0053 — Teams management. Two parallel queries scoped to the org:
+  // live teams (archived_at IS NULL) for the Teams panel, archived teams for
+  // the Archived panel. The data-route's POST filter syntax supports the IS
+  // NULL gate via `archived_at: null` and the inverse via
+  // `archived_at: { op: 'neq', value: null }`.
+  const {
+    data: liveTeams = [],
+    isLoading: liveTeamsLoading,
+  } = useQuery<TeamListRow[]>({
+    queryKey: ['org-teams-live', org?.id],
+    queryFn: async () => {
+      if (!org?.id) return [];
+      return query<TeamListRow[]>({
+        table: 'teams',
+        select: 'id, name, archived_at',
+        filters: { org_id: org.id, archived_at: null },
+        order: { column: 'created_at', ascending: false },
+      });
+    },
+    enabled: Boolean(org?.id) && isAdmin,
+  });
+
+  const {
+    data: archivedTeams = [],
+    isLoading: archivedTeamsLoading,
+  } = useQuery<TeamListRow[]>({
+    queryKey: ['org-teams-archived', org?.id],
+    queryFn: async () => {
+      if (!org?.id) return [];
+      return query<TeamListRow[]>({
+        table: 'teams',
+        select: 'id, name, archived_at',
+        filters: { org_id: org.id, archived_at: { op: 'neq', value: null } },
+        order: { column: 'created_at', ascending: false },
+      });
+    },
+    enabled: Boolean(org?.id) && isAdmin,
+  });
+
+  const refreshTeamPanels = () => {
+    queryClient.invalidateQueries({ queryKey: ['org-teams-live', org?.id] });
+    queryClient.invalidateQueries({ queryKey: ['org-teams-archived', org?.id] });
+  };
+
+  // POST /api/teams/[teamId]/archive — admin OR head_coach.
+  const archiveTeamMutation = useMutation({
+    mutationFn: async (teamId: string) => {
+      const res = await fetch(`/api/teams/${teamId}/archive`, { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to archive the team');
+      }
+      return res.json();
+    },
+    onSuccess: refreshTeamPanels,
+  });
+
+  const unarchiveTeamMutation = useMutation({
+    mutationFn: async (teamId: string) => {
+      const res = await fetch(`/api/teams/${teamId}/unarchive`, { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to restore the team');
+      }
+      return res.json();
+    },
+    onSuccess: refreshTeamPanels,
+  });
+
+  // DELETE /api/teams/[teamId] — admin only, archived-only, typed-name confirm.
+  // The page manages modal state per archived row so each archived team's
+  // delete modal is independent.
+  const [deleteTarget, setDeleteTarget] = useState<TeamListRow | null>(null);
+  const [deleteCounts, setDeleteCounts] = useState<{
+    players: number; sessions: number; observations: number; plans: number; parent_shares: number;
+  }>({ players: 0, sessions: 0, observations: 0, plans: 0, parent_shares: 0 });
+
+  // Pull head counts for the cascade summary the moment the admin opens the
+  // modal. Cheap: 5 head-count selects. We don't pre-fetch for every archived
+  // team because most admins never look at most rows.
+  async function openDeleteModal(team: TeamListRow) {
+    setDeleteTarget(team);
+    try {
+      const tables = ['players', 'sessions', 'observations', 'plans', 'parent_shares'] as const;
+      const results = await Promise.all(
+        tables.map((t) =>
+          query<unknown[]>({
+            table: t,
+            select: 'id',
+            filters: { team_id: team.id },
+          }),
+        ),
+      );
+      setDeleteCounts({
+        players: results[0]?.length ?? 0,
+        sessions: results[1]?.length ?? 0,
+        observations: results[2]?.length ?? 0,
+        plans: results[3]?.length ?? 0,
+        parent_shares: results[4]?.length ?? 0,
+      });
+    } catch {
+      // Best-effort counts; modal still works on zeros.
+    }
+  }
+
+  const deleteTeamMutation = useMutation({
+    mutationFn: async (args: { teamId: string; confirm: string }) => {
+      const res = await fetch(`/api/teams/${args.teamId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: args.confirm }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to delete the team');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setDeleteTarget(null);
+      refreshTeamPanels();
+    },
+  });
 
   useEffect(() => {
     if (org && !initialized) {
@@ -291,6 +436,142 @@ export default function OrganizationSettingsPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Teams panel (ticket 0053) — live teams the org admin manages.
+              "Archive" hides the team from active surfaces and frees its
+              tier-roster slot; an org admin OR a head_coach of the team may
+              archive (the team_coaches role check is enforced server-side
+              alongside the org-admin check). */}
+          <Card data-testid="org-teams-panel">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Users className="h-5 w-5 text-orange-500" />
+                Teams
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {liveTeamsLoading ? (
+                <Skeleton className="h-24 w-full rounded-xl" />
+              ) : liveTeams.length === 0 ? (
+                <p className="text-sm text-zinc-500">
+                  No active teams. Create one from the dashboard to get started.
+                </p>
+              ) : (
+                <ul className="divide-y divide-zinc-800/70">
+                  {liveTeams.map((team) => (
+                    <li
+                      key={team.id}
+                      aria-label={team.name}
+                      className="flex items-center justify-between gap-3 py-2"
+                    >
+                      <span className="text-sm text-zinc-200 truncate">{team.name}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => archiveTeamMutation.mutate(team.id)}
+                        disabled={archiveTeamMutation.isPending}
+                        className="shrink-0"
+                      >
+                        <Archive className="h-3.5 w-3.5" />
+                        Archive
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {archiveTeamMutation.isError && (
+                <p className="text-xs text-red-400">
+                  {(archiveTeamMutation.error as Error)?.message || 'Failed to archive.'}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Archived teams panel (ticket 0053) — only renders when there's at
+              least one archived team OR the admin just unarchived their last
+              one (keeps an empty-state visible briefly). "Restore" puts the
+              team back; "Delete permanently" opens the typed-name confirm
+              modal (admin-only; the server's 403 still fires for a head_coach
+              who's not an org admin, but we hide the control too). */}
+          {(archivedTeamsLoading || archivedTeams.length > 0) && (
+            <Card data-testid="org-archived-teams-panel" className="border-zinc-800/70">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Archive className="h-5 w-5 text-zinc-400" />
+                  Archived teams
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {archivedTeamsLoading ? (
+                  <Skeleton className="h-24 w-full rounded-xl" />
+                ) : (
+                  <ul className="divide-y divide-zinc-800/70">
+                    {archivedTeams.map((team) => (
+                      <li
+                        key={team.id}
+                        aria-label={team.name}
+                        className="flex items-center justify-between gap-2 py-2"
+                      >
+                        <span className="text-sm text-zinc-300 truncate">{team.name}</span>
+                        <div className="flex gap-1 shrink-0">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => unarchiveTeamMutation.mutate(team.id)}
+                            disabled={unarchiveTeamMutation.isPending}
+                          >
+                            <ArchiveRestore className="h-3.5 w-3.5" />
+                            Restore
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => openDeleteModal(team)}
+                            disabled={deleteTeamMutation.isPending}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete permanently
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="text-xs text-zinc-500 pt-1">
+                  Archived teams are hidden from your dashboards and roster math, and stay
+                  reversible. &ldquo;Delete permanently&rdquo; removes the team and every
+                  practice, observation, and parent share link tied to it.
+                </p>
+                {unarchiveTeamMutation.isError && (
+                  <p className="text-xs text-red-400">
+                    {(unarchiveTeamMutation.error as Error)?.message || 'Failed to restore.'}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* The destructive delete modal renders once and reads its current
+              target from state. Closing it cancels the in-flight delete. */}
+          <DeleteTeamModal
+            open={deleteTarget !== null}
+            teamName={deleteTarget?.name ?? ''}
+            counts={deleteCounts}
+            isDeleting={deleteTeamMutation.isPending}
+            error={
+              deleteTeamMutation.isError
+                ? (deleteTeamMutation.error as Error)?.message || 'Failed to delete.'
+                : null
+            }
+            onConfirm={({ confirm }) => {
+              if (!deleteTarget) return;
+              deleteTeamMutation.mutate({ teamId: deleteTarget.id, confirm });
+            }}
+            onCancel={() => {
+              setDeleteTarget(null);
+              deleteTeamMutation.reset();
+            }}
+          />
 
           {/* Program weekly focus (ticket 0031) — one director-set focus that
               shows up on every coach's Capture and in the AI practice plans.

@@ -38,7 +38,14 @@ export type WebhookEvent =
   | 'session.created'
   | 'session.updated'
   | 'plan.created'
-  | 'player.created';
+  | 'player.created'
+  // Team archive + hard-delete events (ticket 0053). The bus fires these
+  // exactly once per archive / unarchive / delete; payload shape is
+  // { team_id, org_id } for archive/unarchive and adds { removed_counts }
+  // for delete.
+  | 'team.archived'
+  | 'team.unarchived'
+  | 'team.deleted';
 
 export type AIInteractionType =
   | 'segment_transcript'
@@ -182,6 +189,10 @@ export interface Team {
   current_week: number;
   is_active: boolean;
   settings: Json;
+  // Team archive state (migration 029 + ticket 0053). Null when the team is
+  // live; a timestamp once the admin (or the auto-downgrade webhook) sets it.
+  // Default reads on /api/me + the team switcher filter rows on this column.
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 }

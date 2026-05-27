@@ -47,6 +47,9 @@ export const teamFactory = buildFactory<Omit<Team, 'created_at' | 'updated_at'>>
   current_week: 1,
   is_active: true,
   settings: {},
+  // Ticket 0053 — archive state. Default-live in the factory; tests that
+  // want an archived row override this with a timestamp.
+  archived_at: null,
 });
 
 export const playerFactory = buildFactory<Omit<Player, 'created_at' | 'updated_at'>>({

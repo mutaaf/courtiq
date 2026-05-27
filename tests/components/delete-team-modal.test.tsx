@@ -82,7 +82,10 @@ describe('DeleteTeamModal (ticket 0053)', () => {
     const body = document.body.textContent || '';
     expect(body).toMatch(/12\s*players/i);
     expect(body).toMatch(/47\s*practices?/i);
-    expect(body).toMatch(/312\s*observations?/i);
+    // The observation line is phrased "312 coach observations" so the admin
+    // knows the count is coach-authored notes, not raw events; tolerate the
+    // qualifier in the assertion.
+    expect(body).toMatch(/312[^\d]*observations?/i);
   });
 
   it('keeps the destructive submit DISABLED until the typed team name matches', () => {

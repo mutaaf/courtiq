@@ -22,10 +22,16 @@ export async function POST(request: Request) {
   const orgTier = ((org as any)?.tier || 'free') as Tier;
   const tierLimits = TIER_LIMITS[orgTier];
 
+  // Ticket 0053: the maxTeams pre-check counts ACTIVE teams only. An archived
+  // team (the soft-delete primitive admins use to take a mistake-team off the
+  // dashboard) does not consume a roster slot — without this filter, an org
+  // that cleaned up one bad row could still hit the tier ceiling on the next
+  // create-team attempt.
   const { count: existingTeamCount } = await admin
     .from('teams')
     .select('id', { count: 'exact', head: true })
-    .eq('org_id', coach.org_id);
+    .eq('org_id', coach.org_id)
+    .is('archived_at', null);
 
   if ((existingTeamCount || 0) >= tierLimits.maxTeams) {
     return NextResponse.json({

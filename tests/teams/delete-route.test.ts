@@ -340,12 +340,11 @@ describe('DELETE /api/teams/[teamId] (ticket 0053)', () => {
     seedTeamWithChildren();
     await callDelete('team-1', { confirm: 'Wildcats' });
     expect(fireWebhooksMock).toHaveBeenCalledTimes(1);
-    const args = fireWebhooksMock.mock.calls[0];
+    const args = fireWebhooksMock.mock.calls[0] as unknown as [string, string, Row];
     expect(args[0]).toBe('org-1');
     expect(args[1]).toBe('team.deleted');
-    const payload = args[2] as Row;
-    expect(payload.team_id).toBe('team-1');
-    expect(payload.removed_counts).toBeDefined();
+    expect(args[2].team_id).toBe('team-1');
+    expect(args[2].removed_counts).toBeDefined();
   });
 
   it('busts the /api/me cache for every coach who was on the team', async () => {

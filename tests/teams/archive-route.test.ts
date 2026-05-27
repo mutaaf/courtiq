@@ -267,10 +267,10 @@ describe('POST /api/teams/[teamId]/archive (ticket 0053)', () => {
     seedBaseline();
     await callArchive('team-1');
     expect(fireWebhooksMock).toHaveBeenCalledTimes(1);
-    const args = fireWebhooksMock.mock.calls[0];
+    const args = fireWebhooksMock.mock.calls[0] as unknown as [string, string, Row];
     expect(args[0]).toBe('org-1');
     expect(args[1]).toBe('team.archived');
-    expect((args[2] as Row).team_id).toBe('team-1');
+    expect(args[2].team_id).toBe('team-1');
   });
 });
 
