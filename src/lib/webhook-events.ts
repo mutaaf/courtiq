@@ -7,4 +7,7 @@ export const WEBHOOK_EVENTS: { value: WebhookEvent; label: string; description: 
   { value: 'session.updated', label: 'Session Updated', description: 'A session is modified (e.g. ended)' },
   { value: 'plan.created', label: 'Plan Created', description: 'An AI plan is generated' },
   { value: 'player.created', label: 'Player Created', description: 'A new player is added to the roster' },
+  { value: 'team.archived', label: 'Team Archived', description: 'A team was archived (read-only) by an admin' },
+  { value: 'team.unarchived', label: 'Team Unarchived', description: 'A previously archived team was restored' },
+  { value: 'team.deleted', label: 'Team Deleted', description: 'A team and its records were permanently deleted' },
 ];

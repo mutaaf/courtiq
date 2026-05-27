@@ -1,7 +1,7 @@
 ---
 id: 0053
 title: Let an org admin delete a team that shouldn't be on the organization's roster
-status: proposed
+status: in-progress
 priority: P0
 area: tier
 created: 2026-05-25
@@ -312,7 +312,46 @@ Files / patterns the dev should touch.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0031-...` opened
-- YYYY-MM-DD — failing test added in `tests/teams/delete-route.test.ts`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-25 — branch `feat/0053-delete-team-from-organization` opened
+  off fresh main (0051 merged in PR #327). The mutate-route delete-denial
+  primitive already covers `teams` from 0051, so this ticket only asserts
+  the existing rejection in its own vitest and adds the typed endpoints.
+- 2026-05-25 — schema reconciliation pass before writing tests:
+  - Team archive column already exists: `teams.archived_at TIMESTAMPTZ`
+    nullable, migration 029. No migration needed for the column.
+  - `archived_at` is currently NOT being set anywhere in src/ — the
+    auto-downgrade path migration 029 named is unimplemented. This ticket
+    is therefore the FIRST writer/reader of `archived_at`; the column is
+    additive on existing reads (defaults to NULL = live team).
+  - The Coach `role` enum is `'coach' | 'head_coach' | 'admin' | 'assistant'
+    | 'coordinator'` (src/types/database.ts:5). Org-admin === role in
+    `('admin', 'head_coach')` per the precedent in
+    `src/app/api/config/[domain]/route.ts` — used unchanged.
+  - team_id FKs that cascade from `teams(id) ON DELETE CASCADE` (verified
+    via grep of supabase/migrations/): players, sessions, recordings,
+    observations, media, plans, team_coaches, team_announcements,
+    team_custom_skills, player_availability, player_achievements,
+    player_goals, player_notes, season_archives, recurring_sessions,
+    config_overrides (team-scoped), parent_reactions (via 023 — though
+    referenced through plans).
+  - team_id FKs that DO NOT cascade (`references teams(id)` only): the
+    only relevant runtime one is `ai_interactions.team_id` (001:162). It
+    must be NULL-ed explicitly before the team delete; the ticket calls
+    this out. `parent_shares.team_id` reads as no-cascade in 001:346 BUT
+    `parent_shares.player_id references players(id) on delete cascade`,
+    and players go first via the teams→players cascade, so the parent
+    share rows get cleaned up by THAT route. We still null-out
+    parent_shares.team_id defensively in case any rows exist without
+    `player_id` (the column is nullable in 001:345).
+  - The new share-token tables (035 team_card_shares, 036 season_recap_shares,
+    037 coach_card_shares, 038 game_recap_shares) DO NOT have team_id —
+    they're plan-scoped via `plan_id references plans(id) ON DELETE CASCADE`,
+    so they go through the teams→plans→shares cascade automatically.
+- 2026-05-25 — `WebhookEvent` union does NOT yet include `team.archived` /
+  `team.deleted`; this PR adds them per the AC's "added in this PR if
+  absent" clause. The expansion is backward-compatible: the
+  `WEBHOOK_EVENTS` array is the only consumer of the literal list, and
+  adding members never removes existing ones from coverage.
+- 2026-05-25 — failing tests added FIRST in tests/teams/.
+- 2026-05-25 — implementation + cache-bust + tier maxTeams active-only.
+- 2026-05-25 — local gate green; PR opened.

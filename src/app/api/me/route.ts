@@ -24,10 +24,14 @@ export async function GET() {
 
     if (!coach) return null;
 
-    const teams = (teamCoaches || []).map((tc: any) => ({
-      ...tc.teams,
-      coachRole: tc.role,
-    }));
+    // Ticket 0053: default active-team list excludes archived rows so the
+    // dashboard, team switcher, capture screens, and billing roster math
+    // all see the same live-team count. Archived rows remain queryable
+    // through dedicated surfaces (e.g. /settings/organization's archived
+    // panel) that opt in explicitly.
+    const teams = (teamCoaches || [])
+      .map((tc: any) => ({ ...tc.teams, coachRole: tc.role }))
+      .filter((t: any) => t && t.archived_at == null);
 
     return { coach, teams };
   });
