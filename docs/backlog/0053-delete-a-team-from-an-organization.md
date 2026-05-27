@@ -1,7 +1,7 @@
 ---
 id: 0053
 title: Let an org admin delete a team that shouldn't be on the organization's roster
-status: in-progress
+status: shipped
 priority: P0
 area: tier
 created: 2026-05-25
