@@ -71,6 +71,7 @@ import {
   PracticePlanRolloverLine,
   type RolloverFromLastWeekEntry,
 } from '@/components/plans/practice-plan-rollover-line';
+import { PublishPlanButton } from '@/components/plans/publish-plan-button';
 
 const PLAN_TYPE_CONFIG: Record<
   string,
@@ -3247,6 +3248,10 @@ export default function PlansPage() {
                 <Play className="h-4 w-4" />
                 Run Practice
               </Button>
+            )}
+            {/* Ticket 0049 — one-tap publish to a public /plan/<token> URL */}
+            {selectedPlan.type === 'practice' && (
+              <PublishPlanButton planId={selectedPlan.id} />
             )}
             <PrintButton label="Print / PDF" />
             <Button

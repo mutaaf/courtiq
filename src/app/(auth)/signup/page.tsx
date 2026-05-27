@@ -42,6 +42,13 @@ function SignupForm() {
   // new coach lands associated with the exact team they coach (the route only
   // honors a team that belongs to the resolved org). Independent of `ref`/`org`.
   const teamId = searchParams.get('team') ?? '';
+  // Practice-plan clone path (ticket 0049): the public /plan/<token> page's
+  // "Save to my team" CTA deep-links unauthed visitors here as
+  // /signup?clone_token=<token>. We stash the token in sessionStorage so the
+  // post-onboarding /home consumer can pick it up and POST the dedicated clone
+  // route once the new coach has their first team. NEVER trusted as a source
+  // plan id — the clone route recomputes from the token (LESSONS#0039).
+  const cloneToken = searchParams.get('clone_token') ?? '';
   const planParam = searchParams.get('plan') ?? '';
   const planConfig = PLAN_CONFIG[planParam] ?? null;
 
@@ -90,6 +97,13 @@ function SignupForm() {
     // Persist plan intent so the tutorial page can redirect to upgrade after onboarding
     if (planParam && PLAN_CONFIG[planParam]) {
       try { sessionStorage.setItem('sportsiq_plan_intent', planParam); } catch {}
+    }
+    // Ticket 0049 — stash a pending practice-plan clone token so /home can
+    // consume it after first-team-setup and auto-clone the plan onto the new
+    // coach's first team. SessionStorage (not localStorage) so it never
+    // persists across browser sessions.
+    if (cloneToken) {
+      try { sessionStorage.setItem('sportsiq_pending_clone_token', cloneToken); } catch {}
     }
 
     const supabase = createClient();
