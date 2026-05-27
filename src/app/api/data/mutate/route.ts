@@ -120,6 +120,21 @@ export async function POST(request: Request) {
     }
 
     if (operation === 'delete') {
+      // Delete-denial primitive (ticket 0051): the generic mutate endpoint is
+      // "I'm logged in, ergo I can delete" — too permissive for tables with
+      // non-trivial cascade behavior (orphans, child rows) or minors' data.
+      // These three tables MUST be deleted through typed, role-gated routes:
+      //   - sessions → DELETE /api/sessions/[sessionId]   (ticket 0051)
+      //   - teams    → DELETE /api/teams/[teamId]         (ticket 0053, pending)
+      //   - players  → roster soft-delete via operation:'update' is_active=false
+      // Update on these tables stays allowed; only `delete` is denied.
+      const RESTRICTED_DELETE = new Set(['sessions', 'teams', 'players']);
+      if (RESTRICTED_DELETE.has(table)) {
+        return NextResponse.json(
+          { error: 'use the typed endpoint' },
+          { status: 403 }
+        );
+      }
       let query = admin.from(table).delete();
       for (const [key, value] of Object.entries(filters)) {
         query = query.eq(key, value);

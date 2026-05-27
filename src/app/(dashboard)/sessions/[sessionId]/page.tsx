@@ -61,7 +61,10 @@ import {
   Mail,
   Award,
   Volume2,
+  Trash2,
 } from 'lucide-react';
+import { DeletePracticeSheet } from '@/components/sessions/delete-practice-sheet';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
 import type { SessionDebriefResult } from '@/app/api/ai/session-debrief/route';
@@ -3169,6 +3172,12 @@ export default function SessionDetailPage() {
   // Quick Update — zero-AI instant session summary share
   const [quickShareState, setQuickShareState] = useState<'idle' | 'shared' | 'copied'>('idle');
 
+  // Delete-practice sheet (ticket 0051)
+  const router = useRouter();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   // Session notes / focus — editable inline
   const [sessionNotes, setSessionNotes] = useState('');
   const [sessionNotesInitialized, setSessionNotesInitialized] = useState(false);
@@ -3470,6 +3479,43 @@ export default function SessionDetailPage() {
       } catch { /* ignore */ }
     }
     setTimeout(() => setQuickShareState('idle'), 2500);
+  }
+
+  // Delete-practice handler (ticket 0051). Fires the typed, role-gated route;
+  // the server enforces the actual gate — the UI gate below is just for
+  // affordance hygiene, not security.
+  async function handleDeletePractice(args: { mode: 'preserve' | 'cascade'; confirm?: string }) {
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const url = new URL(
+        `/api/sessions/${sessionId}`,
+        typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
+      );
+      if (args.mode === 'cascade') url.searchParams.set('mode', 'cascade');
+      const res = await fetch(url.toString().replace(window.location.origin, ''), {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: args.mode === 'cascade' ? JSON.stringify({ confirm: args.confirm ?? '' }) : undefined,
+      });
+      if (!res.ok) {
+        let msg = "Couldn't delete — try again";
+        try {
+          const j = await res.json();
+          if (j?.error && typeof j.error === 'string') msg = j.error;
+        } catch { /* ignore */ }
+        setDeleteError(msg);
+        setIsDeleting(false);
+        return;
+      }
+      // Success: bust caches and bounce back to the session list.
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.observations.session(sessionId) });
+      router.push('/sessions');
+    } catch {
+      setDeleteError("Couldn't delete — try again");
+      setIsDeleting(false);
+    }
   }
 
   function formatDate(dateStr: string) {
@@ -4457,7 +4503,52 @@ export default function SessionDetailPage() {
           <p className="text-xs text-zinc-500">Auto-saves as you type.</p>
         </CardContent>
       </Card>
+
+      {/* ─── Delete this practice (ticket 0051) ────────────────────────────
+          Tidy-up tool, not a coaching action — quiet footer link, ghost
+          styling, only visible to the session creator or a head_coach on the
+          team. Server enforces the actual gate; this is just affordance
+          hygiene. */}
+      {(() => {
+        const isCreator = !!coach && coach.id === session.coach_id;
+        const isHead =
+          !!activeTeam &&
+          (activeTeam as any)?.coachRole === 'head_coach' &&
+          activeTeam.id === session.team_id;
+        if (!isCreator && !isHead) return null;
+        return (
+          <div className="border-t border-zinc-800 pt-4 mt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteError(null);
+                setDeleteOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-zinc-500 hover:text-red-400 hover:bg-red-500/5 transition-colors"
+              aria-label="Delete this practice"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete this practice
+            </button>
+          </div>
+        );
+      })()}
     </div>
+
+    <DeletePracticeSheet
+      open={deleteOpen}
+      teamName={activeTeam?.name ?? 'this team'}
+      observationCount={(observations ?? []).length}
+      isDeleting={isDeleting}
+      error={deleteError}
+      onConfirm={handleDeletePractice}
+      onCancel={() => {
+        if (!isDeleting) {
+          setDeleteOpen(false);
+          setDeleteError(null);
+        }
+      }}
+    />
 
     {/* ─── Quick Observe Bottom Sheet ──────────────────────────────────────── */}
     {qoPlayer && (
