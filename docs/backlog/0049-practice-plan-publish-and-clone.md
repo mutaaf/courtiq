@@ -1,7 +1,7 @@
 ---
 id: 0049
 title: Let a coach publish a great practice plan as a one-tap clone link another coach saves to their team in 10 seconds
-status: in-progress
+status: shipped
 priority: P1
 area: plans
 created: 2026-05-26
