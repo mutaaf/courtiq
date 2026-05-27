@@ -769,4 +769,46 @@ select
   'U10 Hawks', '9-10', 'Spring 2026', 10, 3, true
 on conflict (id) do nothing;
 
+-- ── delete-a-practice (ticket 0051) ─────────────────────────────────────────
+-- TWO disposable practice sessions on the E2E Test Team that exist ONLY for
+-- delete-practice-flow.spec.ts to delete. We don't reuse session ...040 because
+-- other specs (share-flow / weekly-digest / capture-arc-continuity) read its
+-- observations; deleting it cross-contaminates the suite.
+--   - session ...0F0: an EMPTY practice → exercises preserve-mode (no notes).
+--   - session ...0F1: a populated practice with 2 observations attached →
+--     exercises cascade-mode confirm flow without touching ...040's rows.
+insert into sessions (id, team_id, coach_id, type, date, location, notes)
+values
+  ('00000000-0000-4000-a000-0000000000F0',
+   '00000000-0000-4000-a000-000000000020',
+   '00000000-0000-4000-a000-000000000001',
+   'practice', current_date - 1, 'Disposable Gym',
+   'E2E seed: empty session for delete-a-practice (ticket 0051)'),
+  ('00000000-0000-4000-a000-0000000000F1',
+   '00000000-0000-4000-a000-000000000020',
+   '00000000-0000-4000-a000-000000000001',
+   'practice', current_date - 2, 'Disposable Gym',
+   'E2E seed: populated session for delete-a-practice cascade-mode (ticket 0051)')
+on conflict (id) do nothing;
+
+insert into observations (id, player_id, team_id, coach_id, session_id, category, sentiment, text, source, ai_parsed, is_highlighted)
+values
+  ('00000000-0000-4000-a000-0000000000F2',
+   '00000000-0000-4000-a000-000000000030',
+   '00000000-0000-4000-a000-000000000020',
+   '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-0000000000F1',
+   'Effort', 'positive',
+   'E2E seed: disposable observation for delete cascade (ticket 0051)',
+   'typed', false, false),
+  ('00000000-0000-4000-a000-0000000000F3',
+   '00000000-0000-4000-a000-000000000031',
+   '00000000-0000-4000-a000-000000000020',
+   '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-0000000000F1',
+   'Effort', 'positive',
+   'E2E seed: second disposable observation for delete cascade (ticket 0051)',
+   'typed', false, false)
+on conflict (id) do nothing;
+
 commit;
