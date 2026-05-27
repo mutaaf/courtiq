@@ -77,8 +77,17 @@ export async function GET(request: Request) {
     const order = orderRaw ? JSON.parse(orderRaw) : null;
     const limit = limitRaw ? parseInt(limitRaw, 10) : null;
     const single = singleRaw === 'true';
+    const includeReleased = url.searchParams.get('includeReleased') === 'true';
 
     let query = admin.from(table).select(select);
+
+    // Ticket 0052 — released_at IS NULL by default on `players`. See the POST
+    // handler below for the full reasoning; the GET handler mirrors the
+    // filter so server-rendered surfaces that hit /api/data via fetch with
+    // query params get the same default.
+    if (table === 'players' && !includeReleased) {
+      query = query.is('released_at', null);
+    }
 
     for (const [key, value] of Object.entries(filters)) {
       if (value === null) {
@@ -155,13 +164,26 @@ export async function POST(request: Request) {
 
     const admin = await createServiceSupabase();
     const body = await request.json();
-    const { table, select = '*', filters = {}, order, limit, single } = body;
+    const { table, select = '*', filters = {}, order, limit, single, includeReleased } = body;
 
     if (!ALLOWED_TABLES.includes(table)) {
       return NextResponse.json({ error: `Table '${table}' not allowed` }, { status: 400 });
     }
 
     let query = admin.from(table).select(select);
+
+    // Ticket 0052 — released_at IS NULL by default on `players`. A coach who
+    // ran the next-season turnover flow marks released players with a
+    // released_at timestamp; those rows stay JOINABLE for cross-season
+    // reads (observations / parent-report continuity) by id but are EXCLUDED
+    // from every active-roster surface (capture / roster / observe / parent
+    // contact). Surfaces that legitimately need to see released players
+    // (season-archive viewer, per-player history) opt back in with
+    // `includeReleased: true`. The filter is players-only; no other table
+    // has a `released_at` column.
+    if (table === 'players' && !includeReleased) {
+      query = query.is('released_at', null);
+    }
 
     // Apply filters
     for (const [key, value] of Object.entries(filters)) {

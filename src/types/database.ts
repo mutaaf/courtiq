@@ -225,6 +225,13 @@ export interface Player {
   // is only a pointer used to thread the coach's own prior-season parent report as
   // continuity context. Null for every existing player (behaves as today).
   prior_player_id: string | null;
+  // Ticket 0052 — soft-state marker the next-season turnover flow flips when a
+  // player aged up / left the program. Released != deleted: the row stays and
+  // cross-season observation history stays attached by id (so the parent-report
+  // "since last report" narrative and the AI prompts' multi-season memory keep
+  // working), but every active-roster read filters released_at IS NULL so the
+  // released kid stops appearing on capture / roster / parent contact.
+  released_at: string | null;
   created_at: string;
   updated_at: string;
 }

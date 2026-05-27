@@ -23,6 +23,7 @@ function makePlayer(id: string, name: string): Player {
     notes: null,
     is_active: true,
     prior_player_id: null,
+    released_at: null,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
   };

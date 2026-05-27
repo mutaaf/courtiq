@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlayerCard } from '@/components/roster/player-card';
 import { BulkActionsBar } from '@/components/roster/bulk-actions-bar';
-import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareArrows, CheckSquare, ShieldAlert, Radio, Share2, Check, Zap } from 'lucide-react';
+import { Plus, Upload, Search, Users, UserPlus, ArrowRight, Camera, GitCompareArrows, CheckSquare, ShieldAlert, Radio, Share2, Check, Zap, CalendarPlus } from 'lucide-react';
 import { PlayerFocusEntry } from '@/components/observations/PlayerFocusEntry';
 import Link from 'next/link';
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
@@ -286,6 +286,29 @@ export default function RosterPage() {
           </div>
         </div>
       </div>
+
+      {/* Start next season — ticket 0052. Head-coach-only operation; the
+          link is visible to any team member but the server route 403s
+          assistants/coaches. Surfaces here on the roster header so the
+          end-of-season-to-next-season transition is a one-tap reach from
+          where the coach already manages the roster. */}
+      {activeTeam && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm">
+          <div className="min-w-0">
+            <p className="font-medium text-zinc-200">Season ending?</p>
+            <p className="text-xs text-zinc-500">
+              Start the next season with an edited roster — releases stay attached as history.
+            </p>
+          </div>
+          <Link
+            href={`/teams/${activeTeam.id}/new-season`}
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-orange-500/40 bg-orange-500/10 px-3 text-sm font-medium text-orange-300 hover:bg-orange-500/15"
+          >
+            <CalendarPlus className="h-4 w-4" />
+            Start next season
+          </Link>
+        </div>
+      )}
 
       {/* Practice Mode Banner — shown when a session is live */}
       {practiceActive && !selectMode && (
