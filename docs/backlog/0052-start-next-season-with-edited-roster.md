@@ -1,7 +1,7 @@
 ---
 id: 0052
 title: Let the coach start the next season with an edited roster without losing player history
-status: in-progress
+status: shipped
 priority: P0
 area: onboarding
 created: 2026-05-25
@@ -323,3 +323,7 @@ Files / patterns the dev should touch.
   index. Resolve any DIRTY catch-up merges on the index table as a union
   per LESSONS, no need to rerun the full vitest suite for an index-only
   merge.
+- 2026-05-26 — PR #333 opened, all three gating checks (lint 1m25s,
+  unit-tests 2m21s, e2e-tests 3m52s) green; auto-merge fired and the PR
+  squash-merged. Mark-shipped flip moved to this separate
+  `chore/0052-mark-shipped` branch per LESSONS#75.
