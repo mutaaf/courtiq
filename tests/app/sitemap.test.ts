@@ -58,19 +58,22 @@ function buildChain(data: unknown = null) {
 //   3) season_recap_shares
 //   4) coach_card_shares
 //   5) game_recap_shares
+//   6) practice_plan_shares  (ticket 0049 — read AFTER the prior four)
 function wireTables(opts: {
   orgs?: Array<{ slug: string; name?: string }>;
   teamCards?: Array<{ token: string; created_at?: string }>;
   seasonRecaps?: Array<{ token: string; created_at?: string }>;
   coachCards?: Array<{ token: string; created_at?: string }>;
   gameRecaps?: Array<{ token: string; created_at?: string }>;
+  practicePlans?: Array<{ token: string; created_at?: string }>;
 }) {
   mockFromFn
     .mockReturnValueOnce(buildChain(opts.orgs ?? []))
     .mockReturnValueOnce(buildChain(opts.teamCards ?? []))
     .mockReturnValueOnce(buildChain(opts.seasonRecaps ?? []))
     .mockReturnValueOnce(buildChain(opts.coachCards ?? []))
-    .mockReturnValueOnce(buildChain(opts.gameRecaps ?? []));
+    .mockReturnValueOnce(buildChain(opts.gameRecaps ?? []))
+    .mockReturnValueOnce(buildChain(opts.practicePlans ?? []));
 }
 
 const BASE = 'https://youthsportsiq.test';
@@ -129,6 +132,8 @@ describe('sitemap() — dynamic public-surface index (ticket 0038)', () => {
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))
+      .mockReturnValueOnce(buildChain([]))
+      // practice_plan_shares (ticket 0049) — read AFTER the prior four.
       .mockReturnValueOnce(buildChain([]));
 
     const { default: sitemap } = await import('@/app/sitemap');
@@ -172,7 +177,9 @@ describe('sitemap() — dynamic public-surface index (ticket 0038)', () => {
       .mockReturnValueOnce(tcChain)
       .mockReturnValueOnce(srChain)
       .mockReturnValueOnce(ccChain)
-      .mockReturnValueOnce(grChain);
+      .mockReturnValueOnce(grChain)
+      // practice_plan_shares (ticket 0049) — also filter is_active=true.
+      .mockReturnValueOnce(buildChain([]));
 
     const { default: sitemap } = await import('@/app/sitemap');
     await sitemap();
@@ -262,7 +269,9 @@ describe('sitemap() — dynamic public-surface index (ticket 0038)', () => {
       .mockReturnValueOnce(teamCardsChain)
       .mockReturnValueOnce(seasonRecapsChain)
       .mockReturnValueOnce(coachCardsChain)
-      .mockReturnValueOnce(gameRecapsChain);
+      .mockReturnValueOnce(gameRecapsChain)
+      // practice_plan_shares (ticket 0049) — empty in this size-bound case.
+      .mockReturnValueOnce(buildChain([]));
 
     const { default: sitemap } = await import('@/app/sitemap');
     const entries = await sitemap();

@@ -52,6 +52,13 @@ export async function updateSession(request: NextRequest) {
     // handler (auth.getUser() → 401), so the blanket prefix never bypasses that.
     '/recap/',
     '/api/recap-card/',
+    // Public practice-plan share (ticket 0049) — page + its public token GET.
+    // /api/practice-plan-shares/create, /clone, /clone-count, /clone-count/seen
+    // are NOT public surfaces: each self-enforces auth in the handler
+    // (auth.getUser() → 401), so the blanket prefix here never bypasses that
+    // guard. The /plan/ page is the cold-search-reachable surface.
+    '/plan/',
+    '/api/practice-plan-shares/',
     // Public referral lookup (ticket 0021) — names the inviting coach on the
     // warm signup landing. Returns the referrer's first name only, no auth.
     '/api/referrals/lookup',

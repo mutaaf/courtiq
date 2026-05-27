@@ -66,6 +66,8 @@ import { SeasonWrapSection } from '@/components/home/season-wrap-card';
 import { ArcCompleteCard } from '@/components/home/arc-complete-card';
 import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
 import { InviteCoachCard } from '@/components/home/invite-coach-card';
+import { PlanClonesCard } from '@/components/home/plan-clones-card';
+import { PendingCloneConsumer } from '@/components/home/pending-clone-consumer';
 import { GameDayCard } from '@/components/home/game-day-card';
 import { GoalDeadlineCard } from '@/components/home/goal-deadline-card';
 import { QuickWinsCard } from '@/components/home/quick-wins-card';
@@ -1609,6 +1611,17 @@ export default function HomePage() {
           sessions={stats.sessions}
         />
       )}
+
+      {/* Ticket 0049 — clones-of-your-published-plans card. Renders nothing
+          when count is 0 OR <= lastSeenCount, so /home stays calm for coaches
+          who never published. The component is self-gating. */}
+      <PlanClonesCard />
+
+      {/* Ticket 0049 — consume a sessionStorage clone_token left by signup
+          (from /plan/<token>'s unauthed CTA) and auto-clone onto the active
+          team. Renders nothing; clears the bookmark whether the clone
+          succeeds or fails so a stale token never re-fires. */}
+      <PendingCloneConsumer activeTeamId={activeTeam?.id ?? null} />
 
       {/* Upcoming sessions this week */}
       {upcomingSessions.length > 0 && (

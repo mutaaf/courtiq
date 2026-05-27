@@ -1,7 +1,7 @@
 ---
 id: 0049
 title: Let a coach publish a great practice plan as a one-tap clone link another coach saves to their team in 10 seconds
-status: groomed
+status: in-progress
 priority: P1
 area: plans
 created: 2026-05-26
@@ -346,7 +346,11 @@ re-discover the architecture.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0049-…` opened
-- YYYY-MM-DD — failing test added in `tests/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-27 — branch `feat/0049-practice-plan-publish-and-clone` opened
+- 2026-05-27 — deviation: the ticket prose says migration `046_…` and plan
+  type `'practice_plan'`. The real schema has migration prefix `046_` already
+  taken (`046_player_released_at.sql` — ticket 0052) and the real `PlanType`
+  enum in `src/types/database.ts` uses `'practice'` (not `'practice_plan'`).
+  Schema wins over prose per LESSONS#39 / #51 / #6 → using prefix `048_…`
+  (next free after 0048's `047_…`) and `type = 'practice'` in every check.
+  Filename `048_practice_plan_shares.sql`.

@@ -28,6 +28,8 @@ const TEAM_CARD_TOKEN = 'test-team-card-token-e2e-001';
 const SEASON_RECAP_TOKEN = 'test-season-recap-token-e2e-001';
 const COACH_CARD_TOKEN = 'test-coach-card-token-e2e-001';
 const GAME_RECAP_TOKEN = 'test-game-recap-token-e2e-001';
+// Ticket 0049 — the seeded practice_plan_shares token.
+const PRACTICE_PLAN_TOKEN = 'test-practice-plan-token-e2e-001';
 const SHARE_TOKEN = 'test-share-token-e2e-001';
 
 test.describe('Public sitemap (/sitemap.xml) — cold-search discoverability', () => {
@@ -56,11 +58,13 @@ test.describe('Public sitemap (/sitemap.xml) — cold-search discoverability', (
     // The opted-in org from ticket 0033's seed block.
     expect(xml).toContain(`/org/${DISCOVERABLE_ORG_SLUG}`);
 
-    // The four shipped public-token surfaces with their seeded tokens.
+    // The five shipped public-token surfaces with their seeded tokens.
     expect(xml).toContain(`/team-card/${TEAM_CARD_TOKEN}`);
     expect(xml).toContain(`/season-recap/${SEASON_RECAP_TOKEN}`);
     expect(xml).toContain(`/coach/${COACH_CARD_TOKEN}`);
     expect(xml).toContain(`/recap/${GAME_RECAP_TOKEN}`);
+    // Ticket 0049 — fifth surface: published practice plans.
+    expect(xml).toContain(`/plan/${PRACTICE_PLAN_TOKEN}`);
   });
 
   test('NEVER includes a parent-portal /share/<token> URL (per-minor surface)', async ({

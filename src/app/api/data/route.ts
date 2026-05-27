@@ -51,6 +51,10 @@ const ALLOWED_TABLES = [
   'ai_interactions', 'organizations', 'season_archives', 'session_attendance',
   'player_availability', 'player_achievements', 'player_goals', 'player_notes',
   'team_announcements', 'coach_drill_signals', 'drill_sequence_aggregates',
+  // Ticket 0049 — READS only; direct inserts/updates are NOT allowed (a
+  // publisher mints tokens through /api/practice-plan-shares/create). The
+  // mutate allow-list intentionally OMITS this table.
+  'practice_plan_shares',
 ];
 
 // ─── GET handler (query params) ──────────────────────────────────────────────

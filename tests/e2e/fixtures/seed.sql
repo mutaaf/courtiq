@@ -794,6 +794,50 @@ values (
 )
 on conflict (team_id, coach_id) do nothing;
 
+-- ────────────────────────────────────────────────────────────────────────
+-- Ticket 0049 — publish + clone a practice plan
+-- ────────────────────────────────────────────────────────────────────────
+-- A type='practice' plan with three drills + a practice_plan_shares row so the
+-- public /plan/<token> page renders the drill list end-to-end. content_structured
+-- is a jsonb literal (LESSONS#0031) — every string in the JSON is quoted as a
+-- JSON string. The drill list keys (name / duration_minutes / focus) match the
+-- public page's expected shape. NO player data — practice plans are team-level
+-- by construction, which is the COPPA contract.
+insert into plans (id, team_id, coach_id, player_id, type, title, content, content_structured)
+values (
+  '00000000-0000-4000-a000-0000000000c0',
+  '00000000-0000-4000-a000-000000000020',
+  '00000000-0000-4000-a000-000000000001',
+  null,
+  'practice',
+  'Tuesday Practice — Closeouts + Scrimmage',
+  '{}',
+  '{
+    "drills": [
+      {"name": "Defensive Slides", "duration_minutes": 10, "focus": "Defense"},
+      {"name": "Closeout Drill",   "duration_minutes": 12, "focus": "Defense"},
+      {"name": "Scrimmage",        "duration_minutes": 15, "focus": "Effort"}
+    ],
+    "total_minutes": 37
+  }'::jsonb
+)
+on conflict (id) do nothing;
+
+-- The public share token for the practice plan above. Matches PRACTICE_PLAN_TOKEN
+-- in tests/e2e/practice-plan-share-and-clone-flow.spec.ts. is_active=true so the
+-- public /api/practice-plan-shares/<token> route returns 200 + the four-key
+-- payload. note rides through verbatim to the public page.
+insert into practice_plan_shares (id, token, plan_id, coach_id, note, is_active)
+values (
+  '00000000-0000-4000-a000-0000000000c1',
+  'test-practice-plan-token-e2e-001',
+  '00000000-0000-4000-a000-0000000000c0',
+  '00000000-0000-4000-a000-000000000001',
+  'Worked great with our U12s on Tuesday.',
+  true
+)
+on conflict (token) do nothing;
+
 -- ── delete-a-practice (ticket 0051) ─────────────────────────────────────────
 -- TWO disposable practice sessions on the E2E Test Team that exist ONLY for
 -- delete-practice-flow.spec.ts to delete. We don't reuse session ...040 because
