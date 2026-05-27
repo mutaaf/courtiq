@@ -1,7 +1,7 @@
 ---
 id: 0048
 title: Give the coach one short text per kid to paste into Messages after a game — the post-game complement to the sideline cheat sheet
-status: groomed
+status: in-progress
 priority: P1
 area: ai
 created: 2026-05-26
@@ -288,7 +288,4 @@ re-discover the architecture.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0048-…` opened
-- YYYY-MM-DD — failing test added in `tests/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-27 — branch `feat/0048-postgame-parent-texts` opened; ticket flipped to in-progress.
