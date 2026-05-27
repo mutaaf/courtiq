@@ -76,7 +76,6 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0051 | Let the coach delete a practice that shouldn't be on the team's record | P0 | in-progress | capture |
 | 0052 | Let the coach start the next season with an edited roster without losing player history | P0 | proposed | onboarding |
 | 0053 | Let an org admin delete a team that shouldn't be on the organization's roster | P0 | proposed | tier |
 | 0044 | When a coach thumbs-up a drill, suggest the next drill other coaches in the same sport ran after it | P1 | groomed | plans |
@@ -91,6 +90,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | 0004 | Payment-failure handling — failed payment → past_due → warning banner | P0 | shipped | billing |
 | 0005 | Resubscription flow — free user re-upgrades after cancellation | P0 | shipped | billing |
 | 0006 | Harden e2e-tests for PR-gating (seed Supabase, restore as required check) | P0 | shipped | infra |
+| 0051 | Let the coach delete a practice that shouldn't be on the team's record | P0 | shipped | capture |
 | 0007 | Restore onboarding E2E coverage against the combined /onboarding/setup page | P1 | shipped | infra |
 | 0008 | Show free coaches their AI usage so the monthly wall stops being a surprise | P1 | shipped | tier |
 | 0011 | Carry the coach's referral code through the parent portal's "share with your other coach" CTA | P1 | shipped | growth |
