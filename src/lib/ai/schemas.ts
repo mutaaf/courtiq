@@ -665,3 +665,29 @@ export const pregameBriefSchema = z.object({
 }).strict();
 
 export type PregameBrief = z.infer<typeof pregameBriefSchema>;
+
+// ── Mid-Season Team Newsletter (ticket 0043) ────────────────────────────────
+//
+// A TEAM-wide mid-season newsletter the coach taps once and sends to every
+// parent at once. Five short blocks: a one-line headline, a two-sentence arc
+// summary, exactly two team strengths, exactly two focus areas, and one short
+// coach-voice quote drawn from observation notes. The schema is STRICT
+// (`.strict()`) so any extra key — including any per-player field, a `lineup`,
+// or a `next_action` — is rejected. The COPPA pin is structural: the schema
+// has no place to put an individual player's name.
+//
+// The artifact lives on the existing `plans` table as
+// `type='mid_season_team_newsletter'` (migration 049 widens the CHECK). The
+// newsletter is shared via the EXISTING `team_card_shares` table extended in
+// the same migration with a nullable `type` column so the share rides on the
+// existing share-mapping table instead of needing a brand-new one.
+
+export const midSeasonTeamNewsletterSchema = z.object({
+  headline: z.string().min(1).max(80),
+  arc_summary: z.string().min(1),
+  team_strengths: z.array(z.string().min(1)).length(2),
+  focus_areas: z.array(z.string().min(1)).length(2),
+  coach_voice_quote: z.string().min(1),
+}).strict();
+
+export type MidSeasonTeamNewsletter = z.infer<typeof midSeasonTeamNewsletterSchema>;

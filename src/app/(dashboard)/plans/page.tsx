@@ -101,6 +101,8 @@ const PLAN_TYPE_CONFIG: Record<
   player_of_match: { label: 'Player of the Match', icon: Award, color: 'text-yellow-400' },
   team_talk: { label: 'Team Talk', icon: Mic, color: 'text-orange-400' },
   season_letter: { label: 'Season Letter', icon: Mail, color: 'text-pink-400' },
+  // Ticket 0043 — TEAM-wide mid-season parent newsletter (five short blocks).
+  mid_season_team_newsletter: { label: 'Mid-Season Newsletter', icon: Newspaper, color: 'text-orange-400' },
 };
 
 function getSuggestionChips(sportSlug: string): string[] {
@@ -535,6 +537,19 @@ export default function PlansPage() {
   const [generatedPreview, setGeneratedPreview] = useState<unknown>(null);
   const [lastInsights, setLastInsights] = useState<ObservationInsights | null>(null);
   const [generatingNewsletter, setGeneratingNewsletter] = useState(false);
+  // Ticket 0043 — mid-season team newsletter state. The five-block result
+  // renders inline below the button (mirrors the pregame-brief inline pattern
+  // from ticket 0040). 402 routes the coach to /settings/upgrade.
+  const [generatingMidSeasonNewsletter, setGeneratingMidSeasonNewsletter] = useState(false);
+  const [midSeasonNewsletterError, setMidSeasonNewsletterError] = useState<string | null>(null);
+  const [midSeasonNewsletter, setMidSeasonNewsletter] = useState<{
+    headline: string;
+    arc_summary: string;
+    team_strengths: string[];
+    focus_areas: string[];
+    coach_voice_quote: string;
+  } | null>(null);
+  const [midSeasonNewsletterEmpty, setMidSeasonNewsletterEmpty] = useState(false);
   const [newsletterStats, setNewsletterStats] = useState<{ sessionsIncluded: number; observationsIncluded: number; playerSpotlightsCount: number; dateRange: string } | null>(null);
   const [generatingStoryline, setGeneratingStoryline] = useState(false);
   const [storylinePlayerId, setStorylinePlayerId] = useState<string>('');
@@ -828,6 +843,68 @@ export default function PlansPage() {
       setError(err instanceof Error ? err.message : 'Newsletter generation failed');
     } finally {
       setGeneratingNewsletter(false);
+    }
+  };
+
+  /**
+   * Ticket 0043 — POST /api/ai/mid-season-team-newsletter for the active team.
+   * The route gates server-side on the existing `parent_sharing` feature key,
+   * so the surface gate (<UpgradeGate feature="parent_sharing">) is paired but
+   * never load-bearing. On 402 we drop the coach into /settings/upgrade;
+   * otherwise the five-block newsletter renders inline.
+   */
+  const generateMidSeasonNewsletter = async () => {
+    if (!activeTeam) return;
+    setGeneratingMidSeasonNewsletter(true);
+    setMidSeasonNewsletterError(null);
+    setMidSeasonNewsletter(null);
+    setMidSeasonNewsletterEmpty(false);
+    try {
+      const res = await fetch('/api/ai/mid-season-team-newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: activeTeam.id }),
+      });
+      if (res.status === 402) {
+        router.push('/settings/upgrade');
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setMidSeasonNewsletterError(body?.error || 'Could not generate the newsletter.');
+        return;
+      }
+      const body = (await res.json()) as {
+        newsletter?: {
+          headline: string;
+          arc_summary: string;
+          team_strengths: string[];
+          focus_areas: string[];
+          coach_voice_quote: string;
+        } | null;
+        content_structured?: {
+          headline: string;
+          arc_summary: string;
+          team_strengths: string[];
+          focus_areas: string[];
+          coach_voice_quote: string;
+        };
+      };
+      // Below-threshold short-circuit from the route → render a quiet
+      // empty state rather than an error toast.
+      const n = body.newsletter ?? body.content_structured ?? null;
+      if (!n) {
+        setMidSeasonNewsletterEmpty(true);
+        return;
+      }
+      setMidSeasonNewsletter(n);
+      qc.invalidateQueries({ queryKey: queryKeys.plans.all(activeTeam.id) });
+    } catch (e) {
+      setMidSeasonNewsletterError(
+        e instanceof Error ? e.message : 'Could not reach the newsletter service.',
+      );
+    } finally {
+      setGeneratingMidSeasonNewsletter(false);
     }
   };
 
@@ -3584,6 +3661,98 @@ export default function PlansPage() {
               </div>
               <Users className="h-4 w-4 text-violet-500/50 shrink-0" />
             </button>
+
+            {/* Mid-Season Team Newsletter (ticket 0043) — wrapped in
+                <UpgradeGate feature="parent_sharing">. The route also enforces
+                canAccess(tier, 'parent_sharing') server-side; the gate is
+                paired but never load-bearing. */}
+            <UpgradeGate feature="parent_sharing" featureLabel="Parent Sharing">
+              <button
+                onClick={generateMidSeasonNewsletter}
+                disabled={generatingMidSeasonNewsletter || generating || !activeTeam}
+                className="flex w-full items-center gap-2.5 rounded-xl border border-orange-500/40 bg-gradient-to-r from-orange-500/15 to-orange-500/5 px-3 py-2.5 text-left transition-all hover:border-orange-500/60 active:scale-[0.98] disabled:opacity-50 touch-manipulation min-h-[44px]"
+                aria-label="Generate mid-season newsletter"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/25">
+                  {generatingMidSeasonNewsletter ? (
+                    <Loader2 className="h-4 w-4 text-orange-400 animate-spin" />
+                  ) : (
+                    <Newspaper className="h-4 w-4 text-orange-400" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-orange-300">
+                    {generatingMidSeasonNewsletter
+                      ? 'Generating mid-season newsletter…'
+                      : 'Generate mid-season newsletter'}
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    One team-wide update you send to every parent — the season&apos;s middle, not just last week
+                  </p>
+                </div>
+                <Sparkles className="h-4 w-4 text-orange-500/50 shrink-0" />
+              </button>
+            </UpgradeGate>
+
+            {midSeasonNewsletterError && (
+              <p className="text-xs text-red-400 flex items-center gap-1.5">
+                <AlertCircle className="h-3 w-3" />
+                {midSeasonNewsletterError}
+              </p>
+            )}
+
+            {midSeasonNewsletterEmpty && (
+              <p className="text-xs text-zinc-500 leading-relaxed px-1">
+                Not enough notes in the last six weeks yet — capture a few more
+                observations and the newsletter will have something honest to say.
+              </p>
+            )}
+
+            {midSeasonNewsletter && (
+              <div
+                data-testid="mid-season-newsletter-card"
+                className="space-y-3 rounded-xl border border-orange-500/30 bg-zinc-900/60 p-4 select-text"
+              >
+                <p className="text-xs font-semibold uppercase tracking-widest text-orange-400">
+                  Mid-Season Newsletter
+                </p>
+                <h3 className="text-base font-bold text-zinc-100 leading-snug">
+                  {midSeasonNewsletter.headline}
+                </h3>
+                <p className="text-sm leading-relaxed text-zinc-200">
+                  {midSeasonNewsletter.arc_summary}
+                </p>
+                <div>
+                  <p className="mb-1 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                    What is clicking
+                  </p>
+                  <ul className="space-y-1.5">
+                    {midSeasonNewsletter.team_strengths.map((s, i) => (
+                      <li key={i} className="text-sm text-zinc-200 flex gap-2 items-start">
+                        <span className="text-orange-500 shrink-0 mt-0.5">•</span>
+                        <span>{s}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <p className="mb-1 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                    What we are focused on next
+                  </p>
+                  <ul className="space-y-1.5">
+                    {midSeasonNewsletter.focus_areas.map((s, i) => (
+                      <li key={i} className="text-sm text-zinc-200 flex gap-2 items-start">
+                        <span className="text-orange-500 shrink-0 mt-0.5">•</span>
+                        <span>{s}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <p className="text-sm italic leading-relaxed text-zinc-300 border-l-2 border-orange-500/40 pl-3">
+                  &ldquo;{midSeasonNewsletter.coach_voice_quote}&rdquo;
+                </p>
+              </div>
+            )}
 
             {/* Weekly Star — player spotlight for parent group chat */}
             <button

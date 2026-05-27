@@ -426,6 +426,58 @@ values (
 )
 on conflict (token) do nothing;
 
+-- ── plans: a mid_season_team_newsletter artifact for the team (ticket 0043) ─
+-- The public /share/team-newsletter/<token> page reads ONLY the team-level
+-- newsletter fields (headline / arc_summary / team_strengths / focus_areas /
+-- coach_voice_quote). player_id is NULL — the newsletter is TEAM-wide by
+-- construction (the AI schema has no per-player field). type=
+-- 'mid_season_team_newsletter' is allowed by plans_type_check after
+-- migration 049 widens the allow-list. The headline + an arc_summary
+-- substring + a focus_areas substring below are asserted by
+-- mid-season-newsletter-flow.spec.ts.
+insert into plans (id, team_id, coach_id, player_id, type, title, content, content_structured)
+values (
+  '00000000-0000-4000-a000-000000000090',
+  '00000000-0000-4000-a000-000000000020',
+  '00000000-0000-4000-a000-000000000001',
+  null,
+  'mid_season_team_newsletter',
+  'Mid-Season Newsletter — E2E Test Team',
+  '{}',
+  '{
+    "headline": "Six weeks in: ball movement is starting to land.",
+    "arc_summary": "We have built around moving the ball and crashing the boards. The last two practices have shown those reps starting to translate.",
+    "team_strengths": [
+      "The team is sharing the ball more on the second pass.",
+      "Effort on rebounds is showing up in the second half of practice."
+    ],
+    "focus_areas": [
+      "Closing out without fouling.",
+      "Talking on defense in transition."
+    ],
+    "coach_voice_quote": "When we move the ball, good things happen — that has been the through line of this stretch."
+  }'::jsonb
+)
+on conflict (id) do nothing;
+
+-- ── team_card_shares: the public newsletter token (ticket 0043) ─────────────
+-- token 'test-team-newsletter-token-e2e-001' matches NEWSLETTER_TOKEN in
+-- mid-season-newsletter-flow.spec.ts. The new `type` column (added in
+-- migration 049) is set to 'mid_season_team_newsletter' so the public
+-- /api/share/team-newsletter/<token> reader resolves it; existing
+-- team-card rows keep the default 'team_card' value so the 0010 referral
+-- flow is byte-identical.
+insert into team_card_shares (id, token, plan_id, coach_id, is_active, type)
+values (
+  '00000000-0000-4000-a000-000000000091',
+  'test-team-newsletter-token-e2e-001',
+  '00000000-0000-4000-a000-000000000090',
+  '00000000-0000-4000-a000-000000000001',
+  true,
+  'mid_season_team_newsletter'
+)
+on conflict (token) do nothing;
+
 -- ── plans: a season_summary artifact for the team (ticket 0017) ─────────────
 -- The public season-recap surface renders ONLY the team-level recap fields named
 -- in PUBLIC_RECAP_FIELDS (headline / season_period / overall_assessment /
