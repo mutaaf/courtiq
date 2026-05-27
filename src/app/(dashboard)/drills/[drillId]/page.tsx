@@ -27,7 +27,7 @@ import {
   ThumbsDown,
 } from 'lucide-react';
 import Link from 'next/link';
-import type { Drill, Observation, Player } from '@/types/database';
+import type { Drill, Observation, Player, Sport } from '@/types/database';
 import {
   buildDrillUsageSummary,
   buildUsageSummaryLabel,
@@ -38,6 +38,7 @@ import {
   resolvePlayerName,
   hasUsageData,
 } from '@/lib/drill-usage-utils';
+import { NextDrillSuggestions } from '@/components/drills/next-drill-suggestions';
 
 export default function DrillDetailPage({
   params,
@@ -89,6 +90,25 @@ export default function DrillDetailPage({
     },
     enabled: !!activeTeam,
     staleTime: 5 * 60 * 1000,
+  });
+
+  // Resolve the drill's sport slug for the network-effect suggestions
+  // block (ticket 0044). The drill row only carries `sport_id`; the
+  // suggestion API + the aggregates table key on the slug ('basketball',
+  // etc.). One small query() — cached for the session.
+  const { data: drillSport } = useQuery({
+    queryKey: ['sport', drill?.sport_id],
+    queryFn: async () => {
+      if (!drill?.sport_id) return null;
+      return query<Sport>({
+        table: 'sports',
+        select: 'id,slug',
+        filters: { id: drill.sport_id },
+        single: true,
+      });
+    },
+    enabled: !!drill?.sport_id,
+    staleTime: 60 * 60 * 1000,
   });
 
   if (isLoading) {
@@ -377,6 +397,15 @@ export default function DrillDetailPage({
           </Card>
         );
       })()}
+
+      {/* Next-drill network-effect suggestions (ticket 0044). The component
+          renders nothing when the route returns no rows (k-anonymity floor
+          unmet) or when this coach previously dismissed suggestions for
+          this drill — so the page is byte-identical between the two
+          empty states. */}
+      {drillSport?.slug && (
+        <NextDrillSuggestions drillId={drillId} sport={drillSport.slug} />
+      )}
 
       {/* CTA — generate a practice plan using this drill */}
       <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-0 right-0 lg:static lg:bottom-auto lg:pt-2 p-4 lg:p-0 bg-zinc-950/95 lg:bg-transparent backdrop-blur-sm lg:backdrop-blur-none border-t border-zinc-800 lg:border-0">
