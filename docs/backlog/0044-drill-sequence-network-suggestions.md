@@ -1,7 +1,7 @@
 ---
 id: 0044
 title: When a coach thumbs-up a drill, suggest the next drill other coaches in the same sport ran after it
-status: in-progress
+status: shipped
 priority: P1
 area: plans
 created: 2026-05-26
