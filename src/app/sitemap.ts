@@ -10,11 +10,12 @@ import { createServiceSupabase } from '@/lib/supabase/server';
 //   - /programs — the directory page (ticket 0033) — always indexed.
 //   - One /org/<slug> per organization that has explicitly opted into discovery
 //     (settings.discoverable = true), the same gate /api/programs filters on.
-//   - One entry per ACTIVE token across the four shipped public-token surfaces:
-//       team_card_shares    → /team-card/<token>      (0010)
-//       season_recap_shares → /season-recap/<token>   (0017)
-//       coach_card_shares   → /coach/<token>          (0026)
-//       game_recap_shares   → /recap/<token>          (0027)
+//   - One entry per ACTIVE token across the five shipped public-token surfaces:
+//       team_card_shares       → /team-card/<token>      (0010)
+//       season_recap_shares    → /season-recap/<token>   (0017)
+//       coach_card_shares      → /coach/<token>          (0026)
+//       game_recap_shares      → /recap/<token>          (0027)
+//       practice_plan_shares   → /plan/<token>           (0049)
 //
 // The parent portal at /share/<token> (parent_shares) is NEVER included — it
 // carries per-minor content and is marked `noindex` at the page level. The
@@ -146,16 +147,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.7,
       }));
 
-    // 2) Active tokens across the four shipped public-token surfaces. NOTE:
+    // 2) Active tokens across the FIVE shipped public-token surfaces. NOTE:
     //    parent_shares (the parent portal) is NEVER read here — it carries
     //    per-minor content. The dashboard and the /api/* routes are also
     //    structurally excluded — only public surfaces are enumerated.
+    //    The fifth surface (practice_plan_shares → /plan/<token>) is read
+    //    sequentially AFTER the prior four so the existing sitemap.test.ts
+    //    mock-ordering keeps matching byte-for-byte (LESSONS#0040 family).
     const [teamCards, seasonRecaps, coachCards, gameRecaps] = await Promise.all([
       fetchActiveTokens(supabase, 'team_card_shares'),
       fetchActiveTokens(supabase, 'season_recap_shares'),
       fetchActiveTokens(supabase, 'coach_card_shares'),
       fetchActiveTokens(supabase, 'game_recap_shares'),
     ]);
+    const practicePlans = await fetchActiveTokens(supabase, 'practice_plan_shares');
 
     // Map each token table to its public URL path. Token is the URL — no
     // human-readable name ever rides on a URL or a lastModified field.
@@ -175,6 +180,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...map(seasonRecaps, '/season-recap'),
       ...map(coachCards, '/coach'),
       ...map(gameRecaps, '/recap'),
+      ...map(practicePlans, '/plan'),
     ];
   } catch (error) {
     // Sitemap generation must never throw — a transient DB hiccup degrades to

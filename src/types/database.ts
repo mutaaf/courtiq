@@ -418,6 +418,13 @@ export interface Plan {
    * force-closed timer is generous to the next plan generation.
    */
   completed_drill_ids: string[];
+  /**
+   * Ticket 0049 — when this plan was created by cloning a published practice
+   * plan from another coach via /plan/<token>, this points at the SOURCE
+   * plan's id (attribution). Null on every plan that wasn't cloned. The
+   * source plan being deleted clears this to NULL (the clone keeps running).
+   */
+  source_plan_id: string | null;
   created_at: string;
 }
 
@@ -516,6 +523,23 @@ export interface GameRecapShare {
   token: string;
   plan_id: string;
   coach_id: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+// Public practice-plan share mapping (ticket 0049). Maps a public token to ONE
+// type='practice' plan + the publishing coach: /plan/[token] renders the
+// drill list and a "Save to my team" CTA other coaches tap to clone the plan
+// onto their own team. No minor data — practice plans are team-level (drill
+// names + durations + focus areas, never per-player); the public read pins
+// type='practice' so a future plan type that embedded a minor identifier
+// could not cross. The optional `note` is the publisher's one-line context.
+export interface PracticePlanShare {
+  id: string;
+  token: string;
+  plan_id: string;
+  coach_id: string;
+  note: string | null;
   is_active: boolean;
   created_at: string;
 }
