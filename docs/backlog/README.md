@@ -76,7 +76,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0052 | Let the coach start the next season with an edited roster without losing player history | P0 | proposed | onboarding |
+| 0052 | Let the coach start the next season with an edited roster without losing player history | P0 | in-progress | onboarding |
 | 0048 | Give the coach one short text per kid to paste into Messages after a game — the post-game complement to the sideline cheat sheet | P1 | groomed | ai |
 | 0049 | Let a coach publish a great practice plan as a one-tap clone link another coach saves to their team in 10 seconds | P1 | groomed | plans |
 | 0043 | Turn the season's middle into a one-tap parent newsletter that tells the team's whole arc, not just last week | P2 | groomed | ai |

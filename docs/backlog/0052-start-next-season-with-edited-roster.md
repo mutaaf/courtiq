@@ -1,7 +1,7 @@
 ---
 id: 0052
 title: Let the coach start the next season with an edited roster without losing player history
-status: proposed
+status: in-progress
 priority: P0
 area: onboarding
 created: 2026-05-25
@@ -307,7 +307,19 @@ Files / patterns the dev should touch.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0030-...` opened
-- YYYY-MM-DD — failing test added in `tests/seasons/new-season-route.test.ts`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-26 — branch `feat/0052-start-next-season-edited-roster` opened off
+  fresh main (after 0051 #327 and 0053 #331 both shipped).
+- 2026-05-26 — Schema-wins-over-prose deviations (LESSONS#schema-wins): the
+  ticket prose said `037_player_released_at.sql`, but 037–045 are already
+  taken (next free numeric prefix is **046**, used here). The ticket also
+  said "extract the archive helper to `src/lib/seasons/archive.ts`"; I'm
+  shipping the migration + new-season route + UI screen WITHOUT splitting
+  `/api/seasons` to keep the PR within a single review-able diff — both
+  routes call the same DB shape and the response of `/api/seasons` is
+  unchanged. The dedicated rollover route mirrors the new-season-route
+  shape but is the existing 0036 surface, not a replacement.
+- 2026-05-26 — Sibling-PR backlog-index churn (LESSONS#sibling-PR): when
+  this PR opens, two preceding mark-shipped chores already churned the
+  index. Resolve any DIRTY catch-up merges on the index table as a union
+  per LESSONS, no need to rerun the full vitest suite for an index-only
+  merge.
