@@ -1,7 +1,7 @@
 ---
 id: 0048
 title: Give the coach one short text per kid to paste into Messages after a game — the post-game complement to the sideline cheat sheet
-status: in-progress
+status: shipped
 priority: P1
 area: ai
 created: 2026-05-26
@@ -289,3 +289,6 @@ re-discover the architecture.
 (Appended by the implementation-dev agent during execution.)
 
 - 2026-05-27 — branch `feat/0048-postgame-parent-texts` opened; ticket flipped to in-progress.
+- 2026-05-27 — failing tests added across `tests/ai/`, `tests/migrations/`, `tests/components/`, and `tests/e2e/`; backend (prompt + schema + route + migration + types) + UI (`/sessions/[sessionId]` session-page card + `<UpgradeGate feature="report_cards">`) landed under the test-first loop.
+- 2026-05-27 — PR #335 opened with auto-merge armed; all three gating checks green (lint 1m36s, unit-tests 2m18s, e2e-tests 4m37s) and the squash merged at 12:27Z. Backlog index + ticket flipped to `shipped` via a separate `chore/0048-mark-shipped` branch (LESSONS#0020/#42/#74).
+- 2026-05-27 — Deviation noted: the ticket prose said the card renders on game/scrimmage/tournament via `isGameType(session.type)`-style gating, but the AC text and the route both pin it to `session.type === 'game'` exactly (returning 400 `not_a_game` otherwise). The session-page card therefore renders only on a session of `type === 'game'`; scrimmage/tournament fall through to the existing GameRecapCard above it without a per-parent text. This matches the AC's spirit (post-game texts are for actual games, not practice-shape sessions).
