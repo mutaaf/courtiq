@@ -83,8 +83,8 @@ test.describe('Post-game parent texts on the game session page (ticket 0048)', (
 
     // Game session — seeded as type='game' in tests/e2e/fixtures/seed.sql
     // (id ending in …042). The session page renders the postgame card only
-    // when session.type === 'game'/'scrimmage'/'tournament' (game-only by
-    // design — the practice analog is the sideline sheet on /home).
+    // when session.type === 'game' (game-only by design — the practice
+    // analog is the 0046 sideline sheet on /home).
     await page.goto(`/sessions/${GAME_SESSION_ID}`);
 
     const card = page.getByTestId('postgame-parent-texts');
@@ -106,5 +106,29 @@ test.describe('Post-game parent texts on the game session page (ticket 0048)', (
     await expect(card).toContainText(/defense in the second half/i);
     await expect(card).toContainText(/Bob/);
     await expect(card).toContainText(/loose ball/i);
+  });
+
+  test('on a PRACTICE session, the card is ABSENT (the analog is the 0046 sideline sheet on /home)', async ({ page }) => {
+    if (!authenticated) {
+      test.skip(
+        true,
+        'Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD to run authenticated tests',
+      );
+    }
+
+    // Practice session — seeded as type='practice' (id ending in …040).
+    // The page must NOT render the postgame card. We give the page a few
+    // seconds to mount before asserting absence so we are not racing the
+    // initial render.
+    const PRACTICE_SESSION_ID = '00000000-0000-4000-a000-000000000040';
+    await page.goto(`/sessions/${PRACTICE_SESSION_ID}`);
+
+    // Wait for some other persistent surface on the session page so we know
+    // the page mounted before asserting the postgame card is absent.
+    await expect(page.locator('body')).toBeVisible();
+    await page.waitForTimeout(500);
+
+    await expect(page.getByTestId('postgame-parent-texts')).toHaveCount(0);
+    await expect(page.getByTestId('postgame-parent-texts-button')).toHaveCount(0);
   });
 });
