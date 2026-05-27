@@ -1,7 +1,7 @@
 ---
 id: 0051
 title: Let the coach delete a practice that shouldn't be on the team's record
-status: in-progress
+status: shipped
 priority: P0
 area: capture
 created: 2026-05-25
