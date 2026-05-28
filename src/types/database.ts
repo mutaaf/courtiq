@@ -96,6 +96,10 @@ export interface Coach {
   // Most recent meaningful activity timestamp; the check-in cron uses it to
   // find quiet coaches. Nullable for existing rows that pre-date this column.
   last_active_at: string | null;
+  // Referral-conversion celebration card bookmark (ticket 0047). The home card
+  // fires when the live referralCount > last_seen_referral_count and advances
+  // this value on view. NOT NULL DEFAULT 0 in the DB; existing rows start at 0.
+  last_seen_referral_count: number;
   created_at: string;
   updated_at: string;
 }

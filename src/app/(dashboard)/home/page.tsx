@@ -66,6 +66,7 @@ import { SeasonWrapSection } from '@/components/home/season-wrap-card';
 import { ArcCompleteCard } from '@/components/home/arc-complete-card';
 import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
 import { InviteCoachCard } from '@/components/home/invite-coach-card';
+import { ReferralCelebrationCard } from '@/components/home/referral-celebration-card';
 import { PlanClonesCard } from '@/components/home/plan-clones-card';
 import { PendingCloneConsumer } from '@/components/home/pending-clone-consumer';
 import { GameDayCard } from '@/components/home/game-day-card';
@@ -1418,6 +1419,11 @@ export default function HomePage() {
       {!practiceActive && activeTeam && (
         <WeeklyDigestSection teamId={activeTeam.id} />
       )}
+
+      {/* Ticket 0047 — referral-conversion celebration. Self-gating: renders
+          nothing unless the live referralCount > last_seen_referral_count, so
+          /home is byte-identical for coaches with no new conversions. */}
+      <ReferralCelebrationCard />
 
       {/* Ticket 0046 — coach-private sideline cheat sheet. One-tap on demand, */}
       {/* never auto-generated (pre-game artifact, quota-aware). Coach+ via the */}
