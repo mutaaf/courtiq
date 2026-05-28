@@ -435,9 +435,17 @@ on conflict (token) do nothing;
 -- migration 049 widens the allow-list. The headline + an arc_summary
 -- substring + a focus_areas substring below are asserted by
 -- mid-season-newsletter-flow.spec.ts.
+--
+-- IMPORTANT: the plan id uses the unused 0...e0 range so it does NOT collide
+-- with the existing season_summary plan id (0...090) below — an earlier draft
+-- of this seed reused 090 and the on-conflict-do-nothing on the LATER
+-- season_summary insert silently skipped that row, breaking
+-- season-recap-flow.spec.ts on a fresh-CI DB (same hard-to-spot family as
+-- LESSONS#84 / #85 / #86: a seed bug only the fresh DB under ON_ERROR_STOP=1
+-- surfaces).
 insert into plans (id, team_id, coach_id, player_id, type, title, content, content_structured)
 values (
-  '00000000-0000-4000-a000-000000000090',
+  '00000000-0000-4000-a000-0000000000e0',
   '00000000-0000-4000-a000-000000000020',
   '00000000-0000-4000-a000-000000000001',
   null,
@@ -469,9 +477,9 @@ on conflict (id) do nothing;
 -- flow is byte-identical.
 insert into team_card_shares (id, token, plan_id, coach_id, is_active, type)
 values (
-  '00000000-0000-4000-a000-000000000091',
+  '00000000-0000-4000-a000-0000000000e1',
   'test-team-newsletter-token-e2e-001',
-  '00000000-0000-4000-a000-000000000090',
+  '00000000-0000-4000-a000-0000000000e0',
   '00000000-0000-4000-a000-000000000001',
   true,
   'mid_season_team_newsletter'
