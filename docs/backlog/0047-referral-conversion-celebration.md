@@ -1,7 +1,7 @@
 ---
 id: 0047
 title: Show the coach the moment their invited coach signed up, with a one-tap "invite the next one"
-status: in-progress
+status: shipped
 priority: P1
 area: growth
 created: 2026-05-26
@@ -254,3 +254,4 @@ re-discover the architecture.
 
 - 2026-05-28 — branch `feat/0047-referral-conversion-celebration` opened; status flipped to `in-progress` in the ticket file AND `docs/backlog/README.md` index row.
 - 2026-05-28 — picked migration prefix `050_` (next free after `049_plans_type_mid_season_team_newsletter.sql`); the new column lives ONLY on `coaches`, never `players`.
+- 2026-05-28 — PR #342 opened with the full ACs as a checklist; CI green (lint 1m18s / unit-tests 2m26s / e2e-tests 3m44s); auto-merge fired during the poll (LESSONS#0075). Flipping status to `shipped` on `chore/0047-mark-shipped`.
