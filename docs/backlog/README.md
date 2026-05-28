@@ -76,8 +76,11 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0047 | Show the coach the moment their invited coach signed up, with a one-tap "invite the next one" | P2 | groomed | growth |
+| 0047 | Show the coach the moment their invited coach signed up, with a one-tap "invite the next one" | P1 | groomed | growth |
+| 0054 | Let the coach claim a vanity URL (/coach/sarah-rodriguez) so their profile fits in an email signature | P1 | groomed | growth |
+| 0055 | Show a coach the practice plans other coaches in their league have published, before generic AI suggestions | P1 | groomed | plans |
 | 0050 | When a parent loves the report, let them forward it to their program's director with one tap to bring the whole league onto SportsIQ | P2 | groomed | growth |
+| 0056 | Let the coach send a one-line thank-you back to a parent who left a reaction, in one tap | P2 | groomed | parent-portal |
 | 0001 | Stripe webhook signature verification on the live endpoint | P0 | shipped | billing |
 | 0002 | End-to-end checkout flow test — upgrade → pay → tier unlocks features | P0 | shipped | billing |
 | 0003 | Cancellation flow test — cancel → webhook → downgrade at period end | P0 | shipped | billing |
