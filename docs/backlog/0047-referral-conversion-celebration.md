@@ -2,7 +2,7 @@
 id: 0047
 title: Show the coach the moment their invited coach signed up, with a one-tap "invite the next one"
 status: groomed
-priority: P2
+priority: P1
 area: growth
 created: 2026-05-26
 owner: product-groomer
