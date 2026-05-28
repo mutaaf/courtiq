@@ -100,6 +100,11 @@ export interface Coach {
   // fires when the live referralCount > last_seen_referral_count and advances
   // this value on view. NOT NULL DEFAULT 0 in the DB; existing rows start at 0.
   last_seen_referral_count: number;
+  // Vanity handle for the public coach profile (ticket 0054). One-time-claim
+  // (v1 has no rename flow). Lowercase alphanumeric + hyphens, 2–32 chars,
+  // no leading/trailing hyphen — same shape the DB CHECK enforces and the
+  // /api/coach-handle/{available,claim} routes validate. Null until claimed.
+  handle: string | null;
   created_at: string;
   updated_at: string;
 }

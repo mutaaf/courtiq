@@ -6,6 +6,7 @@ import { InviteCoachButton } from '@/components/growth/invite-coach-button';
 import { StaffInviteButton } from '@/components/growth/staff-invite-button';
 import { ProgramDiscoveryToggle } from '@/components/growth/program-discovery-toggle';
 import { CoachProfileShareButton } from '@/components/growth/coach-profile-share-button';
+import { ClaimHandleSection } from '@/components/growth/claim-handle-section';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +29,14 @@ interface ReferralData {
   code: string;
   referralCount: number;
   rewardEarned: boolean;
+}
+
+// Shape of the /api/me coach payload subset this surface reads (ticket 0054).
+// The route returns the whole coach row + organizations, but we only need
+// these two fields for the claim-handle section.
+interface MeCoach {
+  full_name: string | null;
+  handle: string | null;
 }
 
 // ─── Step card ────────────────────────────────────────────────────────────────
@@ -67,6 +76,22 @@ export default function ReferralsPage() {
       return res.json();
     },
     staleTime: 5 * 60 * 1000, // 5 min
+  });
+
+  // Ticket 0054 — read the coach's display name + current handle (if any) so
+  // the claim-handle section can pre-fill the input and render the read-only
+  // line for coaches who have already claimed one.
+  const { data: meCoach } = useQuery<MeCoach | null>({
+    queryKey: ['me', 'coach-handle'],
+    queryFn: async () => {
+      const res = await fetch('/api/me');
+      if (!res.ok) return null;
+      const body = await res.json().catch(() => null);
+      const coach = body?.coach as { full_name?: string | null; handle?: string | null } | undefined;
+      if (!coach) return null;
+      return { full_name: coach.full_name ?? null, handle: coach.handle ?? null };
+    },
+    staleTime: 5 * 60 * 1000,
   });
 
   const referralUrl = data?.code
@@ -224,6 +249,13 @@ export default function ReferralsPage() {
             parent or another coach asks what you use.
           </p>
           <CoachProfileShareButton />
+
+          {/* Vanity handle claim (ticket 0054) — opt-in cleaner URL the coach
+              can put on an email signature. The token URL keeps working. */}
+          <ClaimHandleSection
+            initialHandle={meCoach?.handle ?? null}
+            displayName={meCoach?.full_name ?? null}
+          />
         </CardContent>
       </Card>
 

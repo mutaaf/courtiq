@@ -1,7 +1,7 @@
 ---
 id: 0054
 title: Let the coach claim a vanity URL (/coach/sarah-rodriguez) so their profile fits in an email signature
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-05-28
@@ -299,7 +299,7 @@ re-discover the architecture.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0054-...` opened
-- YYYY-MM-DD — failing test added in `tests/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-28 — branch `feat/0054-vanity-coach-handle` opened; status flipped to in-progress.
+- 2026-05-28 — Deviation from ticket prose: migration prefix `050_` was already taken by 0047's `050_coaches_last_seen_referral_count.sql`, so this migration is `051_coaches_handle.sql` (LESSONS#6 — unique version prefix wins over the ticket's literal "050").
+- 2026-05-28 — Deviation: `/coach/<token>` does not actually have an `opengraph-image.tsx` (ticket prose was speculative). The route page's `generateMetadata` is the only shared metadata helper; the same dispatch picks up handle vs token there.
+- 2026-05-28 — Token shape: the existing share-token is 32-char hex (16 bytes hex-encoded, see `coach-card/create/route.ts`), not 16 chars. The handle-vs-token dispatcher matches the handle regex first; tokens that fail the handle regex fall through to the token lookup.

@@ -30,6 +30,7 @@ function buildChain(data: unknown = null) {
     order: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
     is: vi.fn().mockReturnThis(),
+    not: vi.fn().mockReturnThis(),
     then: (onFulfilled: (v: typeof resolved) => unknown) =>
       Promise.resolve(resolved).then(onFulfilled),
   };
@@ -56,7 +57,8 @@ describe('sitemap() — includes active practice_plan_shares tokens (ticket 0049
     // calls. The order they're consumed by mockFromFn is the route's internal
     // ordering; the assertion below proves a 'plan' URL appears with the token
     // regardless of order, and the existing sitemap.test.ts keeps the prior four
-    // in place.
+    // in place. Ticket 0054 added a 7th read (coaches WHERE handle IS NOT NULL)
+    // which is mocked empty here.
     const orgsChain = buildChain([]);
     const tcChain = buildChain([]);
     const srChain = buildChain([]);
@@ -66,13 +68,15 @@ describe('sitemap() — includes active practice_plan_shares tokens (ticket 0049
       { token: 'pp-active-1', created_at: new Date().toISOString() },
       { token: 'pp-active-2', created_at: new Date().toISOString() },
     ]);
+    const coachesChain = buildChain([]);
     mockFromFn
       .mockReturnValueOnce(orgsChain)
       .mockReturnValueOnce(tcChain)
       .mockReturnValueOnce(srChain)
       .mockReturnValueOnce(ccChain)
       .mockReturnValueOnce(grChain)
-      .mockReturnValueOnce(ppChain);
+      .mockReturnValueOnce(ppChain)
+      .mockReturnValueOnce(coachesChain);
 
     const { default: sitemap } = await import('@/app/sitemap');
     const entries = await sitemap();
@@ -89,13 +93,15 @@ describe('sitemap() — includes active practice_plan_shares tokens (ticket 0049
     const ccChain = buildChain([]);
     const grChain = buildChain([]);
     const ppChain = buildChain([]);
+    const coachesChain = buildChain([]);
     mockFromFn
       .mockReturnValueOnce(orgsChain)
       .mockReturnValueOnce(tcChain)
       .mockReturnValueOnce(srChain)
       .mockReturnValueOnce(ccChain)
       .mockReturnValueOnce(grChain)
-      .mockReturnValueOnce(ppChain);
+      .mockReturnValueOnce(ppChain)
+      .mockReturnValueOnce(coachesChain);
 
     const { default: sitemap } = await import('@/app/sitemap');
     await sitemap();

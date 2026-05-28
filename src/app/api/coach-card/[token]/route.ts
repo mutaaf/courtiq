@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServiceSupabase } from '@/lib/supabase/server';
 import { makeReferralCode } from '@/lib/referral-code';
+import { isValidHandleShape } from '@/lib/coach-handle-utils';
 
 // The EXACT set of keys the public coach-card payload exposes. This is an
 // allow-list, not a deny-list: the response object is BUILT from these keys only,
@@ -35,19 +36,62 @@ export async function GET(
   const supabase = await createServiceSupabase();
 
   try {
-    // Resolve the active share token.
-    const { data: share } = await supabase
+    // ── Handle-vs-token dispatch (ticket 0054) ─────────────────────────────
+    // The [token] segment is now overloaded: it accepts EITHER an opaque
+    // share token (existing 0026 shape — 32-char hex by default) OR a
+    // `coaches.handle` (lowercase alphanumeric + hyphens, 2–32, no
+    // leading/trailing hyphen). The dispatch is "token first, handle as
+    // fallback":
+    //   1) Always try the existing coach_card_shares lookup by token —
+    //      this preserves byte-identical behavior for every existing 0026
+    //      share token (and is cheap; one indexed read).
+    //   2) Only on a token miss AND if the segment matches the handle
+    //      regex, fall back to a handle lookup. The handle resolves the
+    //      coach, then their most-recent active coach_card_shares row;
+    //      if the coach has no active card, return 404 (the handle is an
+    //      alternate URL to an existing profile, never a new surface).
+    type ShareRow = { id: string; coach_id: string; is_active: boolean };
+    let share: ShareRow | null = null;
+
+    const tokenLookup = await supabase
       .from('coach_card_shares')
       .select('id, coach_id, is_active')
       .eq('token', token)
       .eq('is_active', true)
       .maybeSingle();
+    if (tokenLookup.data) {
+      share = tokenLookup.data as ShareRow;
+    }
+
+    if (!share && isValidHandleShape(token)) {
+      // Handle fallback. Resolve coach by handle, then their active share row.
+      const coachByHandleLookup = await supabase
+        .from('coaches')
+        .select('id')
+        .eq('handle', token)
+        .maybeSingle();
+
+      const coachByHandle = coachByHandleLookup.data as { id: string } | null;
+      if (coachByHandle) {
+        const handleShareLookup = await supabase
+          .from('coach_card_shares')
+          .select('id, coach_id, is_active')
+          .eq('coach_id', coachByHandle.id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (handleShareLookup.data) {
+          share = handleShareLookup.data as ShareRow;
+        }
+      }
+    }
 
     if (!share) {
       return NextResponse.json({ error: 'Coach card not found or inactive' }, { status: 404 });
     }
 
-    // Resolve the coach this token points at.
+    // Resolve the coach this share points at.
     const { data: coach } = await supabase
       .from('coaches')
       .select('id, full_name, preferences, created_at')

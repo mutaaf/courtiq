@@ -54,10 +54,16 @@ function baseUrl(): string {
 interface TokenRow {
   token: string | null;
   created_at?: string | null;
+  coach_id?: string | null;
 }
 
 interface OrgRow {
   slug: string | null;
+}
+
+interface HandleRow {
+  id: string | null;
+  handle: string | null;
 }
 
 async function fetchActiveTokens(
@@ -69,6 +75,21 @@ async function fetchActiveTokens(
   const { data } = await supabase
     .from(table)
     .select('token, created_at')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
+    .limit(TOKEN_TABLE_LIMIT);
+  return ((data ?? []) as TokenRow[]).filter((r) => typeof r.token === 'string' && r.token.length > 0);
+}
+
+// Ticket 0054 — coach_card_shares with the coach_id so we can swap the URL to
+// /coach/<handle> when the coach has claimed a vanity handle. Same shape /
+// gating as fetchActiveTokens; only the SELECT changes.
+async function fetchActiveCoachCards(
+  supabase: { from: (t: string) => any },
+): Promise<TokenRow[]> {
+  const { data } = await supabase
+    .from('coach_card_shares')
+    .select('token, created_at, coach_id')
     .eq('is_active', true)
     .order('created_at', { ascending: false })
     .limit(TOKEN_TABLE_LIMIT);
@@ -154,13 +175,65 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     //    The fifth surface (practice_plan_shares → /plan/<token>) is read
     //    sequentially AFTER the prior four so the existing sitemap.test.ts
     //    mock-ordering keeps matching byte-for-byte (LESSONS#0040 family).
+    //
+    //    Ticket 0054 — coach_card_shares reads include coach_id so we can
+    //    swap the URL to /coach/<handle> when the coach has claimed a vanity
+    //    handle. A 7th read (`coaches` WHERE handle IS NOT NULL …) follows
+    //    so the mock-queue update is contained to one new step. Per
+    //    LESSONS#0099/#0100, every consumer mock of this route is updated in
+    //    the same PR.
     const [teamCards, seasonRecaps, coachCards, gameRecaps] = await Promise.all([
       fetchActiveTokens(supabase, 'team_card_shares'),
       fetchActiveTokens(supabase, 'season_recap_shares'),
-      fetchActiveTokens(supabase, 'coach_card_shares'),
+      fetchActiveCoachCards(supabase),
       fetchActiveTokens(supabase, 'game_recap_shares'),
     ]);
     const practicePlans = await fetchActiveTokens(supabase, 'practice_plan_shares');
+
+    // Ticket 0054 — resolve which coaches have a non-null handle so the
+    // /coach/<handle> URL replaces the /coach/<token> URL. Bounded by the
+    // current coach-card batch (we only join against coaches whose cards we
+    // are about to emit). An empty in() never throws — supabase returns [].
+    const coachIdsWithCards = Array.from(
+      new Set(
+        coachCards
+          .map((r) => r.coach_id)
+          .filter((id): id is string => typeof id === 'string' && id.length > 0),
+      ),
+    );
+    let handleByCoachId = new Map<string, string>();
+    if (coachIdsWithCards.length > 0) {
+      const { data: handleRows } = await supabase
+        .from('coaches')
+        .select('id, handle')
+        .in('id', coachIdsWithCards)
+        .not('handle', 'is', null);
+      handleByCoachId = new Map(
+        ((handleRows ?? []) as HandleRow[])
+          .filter(
+            (r): r is { id: string; handle: string } =>
+              typeof r.id === 'string' && typeof r.handle === 'string' && r.handle.length > 0,
+          )
+          .map((r) => [r.id, r.handle]),
+      );
+    } else {
+      // Even when the coach-card batch is empty we still read coaches so the
+      // sequential mock queue in tests is deterministic (one read per coach
+      // batch). The empty `in()` short-circuits to no rows.
+      const { data: handleRows } = await supabase
+        .from('coaches')
+        .select('id, handle')
+        .not('handle', 'is', null)
+        .limit(0);
+      handleByCoachId = new Map(
+        ((handleRows ?? []) as HandleRow[])
+          .filter(
+            (r): r is { id: string; handle: string } =>
+              typeof r.id === 'string' && typeof r.handle === 'string' && r.handle.length > 0,
+          )
+          .map((r) => [r.id, r.handle]),
+      );
+    }
 
     // Map each token table to its public URL path. Token is the URL — no
     // human-readable name ever rides on a URL or a lastModified field.
@@ -175,10 +248,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.6,
       }));
 
+    // Coach cards specifically: prefer /coach/<handle> when the coach has one,
+    // else fall back to /coach/<token>. Exactly ONE entry per coach-card row
+    // (the handle replaces the token URL; it never appears alongside it).
+    const coachCardEntries: MetadataRoute.Sitemap = coachCards.map((r) => {
+      const handle = r.coach_id ? handleByCoachId.get(r.coach_id) : undefined;
+      const path = handle ? `/coach/${handle}` : `/coach/${r.token}`;
+      return {
+        url: `${base}${path}`,
+        lastModified: r.created_at ? new Date(r.created_at) : now,
+        changeFrequency: 'monthly' as const,
+        priority: 0.6,
+      };
+    });
+
     tokenEntries = [
       ...map(teamCards, '/team-card'),
       ...map(seasonRecaps, '/season-recap'),
-      ...map(coachCards, '/coach'),
+      ...coachCardEntries,
       ...map(gameRecaps, '/recap'),
       ...map(practicePlans, '/plan'),
     ];
