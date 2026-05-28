@@ -131,10 +131,17 @@ describe('POST /api/practice-plan-shares/create (ticket 0049)', () => {
       coach_id: COACH_ID,
       is_active: true,
     });
+    // Ticket 0055: after a successful insert, the route looks up the
+    // publishing coach's org_id so it can bust the league-discovery cache
+    // for that org (LESSONS#41 family — bust the rare-write path). Add the
+    // chain that mock-queue draining demands (LESSONS#49/#92): missing it
+    // would let the next test's queue overflow into this one.
+    const coachOrgLookupChain = buildChain({ org_id: 'org-publisher' });
     mockFromFn
       .mockReturnValueOnce(planChain)             // plans (ownership lookup)
       .mockReturnValueOnce(existingShareChain)    // practice_plan_shares (idempotency)
-      .mockReturnValueOnce(insertedShareChain);   // practice_plan_shares insert
+      .mockReturnValueOnce(insertedShareChain)    // practice_plan_shares insert
+      .mockReturnValueOnce(coachOrgLookupChain);  // coaches.org_id for the bust
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);

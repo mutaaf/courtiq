@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { randomBytes } from 'crypto';
+import { bustLeagueCache } from '@/lib/cache/league-plans-cache';
 
 // POST /api/practice-plan-shares/create — turn ONE practice plan the caller
 // owns into a public, no-auth referral token (ticket 0049). The public page
@@ -95,6 +96,26 @@ export async function POST(request: Request) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Ticket 0055 — bust the league-discovery cache for the publishing
+    // coach's org. The hot read at GET /api/practice-plan-shares/league
+    // caches by `league:${org_id}:${sport}` for 5 minutes; without this
+    // bust, a peer coach opening /plans within the TTL would miss the new
+    // plan. Best-effort: a cache-bust failure must never break publish.
+    // Same pattern as ticket 0002's bustOrgMeCache after a Stripe webhook
+    // (LESSONS#41 — bust the rare-write path, don't tax the hot read).
+    try {
+      const { data: publisherCoach } = await supabase
+        .from('coaches')
+        .select('org_id')
+        .eq('id', user.id)
+        .single();
+      if (publisherCoach?.org_id) {
+        bustLeagueCache(publisherCoach.org_id);
+      }
+    } catch {
+      /* swallow — bust is best-effort */
     }
 
     return NextResponse.json({
