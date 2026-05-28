@@ -72,6 +72,7 @@ import {
   type RolloverFromLastWeekEntry,
 } from '@/components/plans/practice-plan-rollover-line';
 import { PublishPlanButton } from '@/components/plans/publish-plan-button';
+import { LeaguePlansSection } from '@/components/plan/league-plans-section';
 
 const PLAN_TYPE_CONFIG: Record<
   string,
@@ -3460,6 +3461,18 @@ export default function PlansPage() {
         <h1 className="text-2xl font-bold">Plans</h1>
         <p className="text-zinc-400 text-sm">Describe what you need and AI will generate it</p>
       </div>
+
+      {/*
+        Ticket 0055 — practice plans recently published by OTHER coaches in
+        the viewing coach's org, scoped to the active team's sport. The
+        section is universal across tiers (every coach with an org_id sees
+        their league's plans). It renders NOTHING when there is no active
+        team, when the caller is a solo coach (no org_id), or when no peer
+        has published yet — silence beats an empty-state nag. Sits ABOVE
+        the AI-generated plan card so the league's plans land before the
+        generic AI suggestion does.
+      */}
+      <LeaguePlansSection teamId={activeTeam?.id ?? null} />
 
       {/* Error message */}
       {error && (

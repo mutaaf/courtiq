@@ -951,4 +951,97 @@ values
    'typed', false, false)
 on conflict (id) do nothing;
 
+-- ────────────────────────────────────────────────────────────────────────
+-- Ticket 0055 — league-internal practice-plan discovery
+-- ────────────────────────────────────────────────────────────────────────
+-- Adds a SECOND coach (Coach James Stark) in the SAME org as the default
+-- E2E coach (...010), with their OWN basketball team and a published
+-- practice-plan share. The /plans page rendered for the default E2E coach
+-- must surface this peer coach's plan in the new <LeaguePlansSection /> at
+-- the top (eligible:true, plans:[1]).
+--
+-- LESSONS#84 — seed BOTH auth.users AND coaches with matching UUIDs (the
+-- coaches.id FK references auth.users(id) on delete cascade).
+-- LESSONS#101 — pick non-colliding UUID ranges. The 0...301 range is
+-- unused above.
+-- COPPA: NO new players or observations — the peer team's plan is
+-- team-level (practice plan, no player_id). The league-discovery surface
+-- never reads players / observations / parent_shares.
+
+-- Auth user for the peer coach (FK coaches_id_fkey).
+insert into auth.users (id, instance_id, aud, role, email,
+                        email_confirmed_at, created_at, updated_at)
+values (
+  '00000000-0000-4000-a000-000000000301',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated', 'authenticated',
+  'james-league-e2e@test.com',
+  now(), now(), now()
+)
+on conflict (id) do nothing;
+
+-- The peer coach in the SAME org as the E2E coach (...010). full_name
+-- 'James Stark' so the route's first-name extraction returns 'James'.
+insert into coaches (id, org_id, full_name, email, role, onboarding_complete)
+values (
+  '00000000-0000-4000-a000-000000000301',
+  '00000000-0000-4000-a000-000000000010',
+  'James Stark', 'james-league-e2e@test.com', 'coach', true
+)
+on conflict (id) do nothing;
+
+-- The peer coach's team — basketball (same sport as the E2E coach's
+-- ...020 team), age_group '11-13' (asserted by the e2e spec's row line).
+insert into teams (id, org_id, sport_id, name, age_group, season, season_weeks, current_week, is_active)
+select
+  '00000000-0000-4000-a000-000000000302',
+  '00000000-0000-4000-a000-000000000010',
+  (select id from sports where slug = 'basketball' limit 1),
+  'E2E League Peer Team', '11-13', 'Spring 2026', 10, 3, true
+on conflict (id) do nothing;
+
+insert into team_coaches (team_id, coach_id, role)
+values (
+  '00000000-0000-4000-a000-000000000302',
+  '00000000-0000-4000-a000-000000000301',
+  'head_coach'
+)
+on conflict (team_id, coach_id) do nothing;
+
+-- The peer coach's published practice plan. title 'Tuesday Closeouts
+-- Series' is asserted by tests/e2e/league-plans-discovery.spec.ts. No
+-- player_id — practice plans are team-level.
+insert into plans (id, team_id, coach_id, player_id, type, title, content, content_structured)
+values (
+  '00000000-0000-4000-a000-000000000303',
+  '00000000-0000-4000-a000-000000000302',
+  '00000000-0000-4000-a000-000000000301',
+  null,
+  'practice',
+  'Tuesday Closeouts Series',
+  '{}',
+  '{
+    "drills": [
+      {"name": "Closeout Drill", "duration_minutes": 12, "focus": "Defense"},
+      {"name": "Scrimmage",      "duration_minutes": 18, "focus": "Effort"}
+    ],
+    "total_minutes": 30
+  }'::jsonb
+)
+on conflict (id) do nothing;
+
+-- The active practice_plan_shares row pointing at the peer's plan. The
+-- token is unique to this ticket so it never collides with 0049's
+-- existing token.
+insert into practice_plan_shares (id, token, plan_id, coach_id, note, is_active)
+values (
+  '00000000-0000-4000-a000-000000000304',
+  'test-league-plan-token-e2e-001',
+  '00000000-0000-4000-a000-000000000303',
+  '00000000-0000-4000-a000-000000000301',
+  'Worked well on Tuesday with our U13s.',
+  true
+)
+on conflict (token) do nothing;
+
 commit;

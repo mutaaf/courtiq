@@ -1,7 +1,7 @@
 ---
 id: 0055
 title: Show a coach the practice plans other coaches in their league have published, before generic AI suggestions
-status: groomed
+status: in-progress
 priority: P1
 area: plans
 created: 2026-05-28
@@ -276,7 +276,4 @@ re-discover the architecture.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0055-...` opened
-- YYYY-MM-DD — failing test added in `tests/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-28 — branch `feat/0055-league-internal-practice-plan-discovery` opened; status flipped to `in-progress`.
