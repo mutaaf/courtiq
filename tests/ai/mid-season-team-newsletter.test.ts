@@ -297,14 +297,16 @@ describe('POST /api/ai/mid-season-team-newsletter — happy path', () => {
     ]);
 
     // ── COPPA: the persisted row introduces NO per-player / DOB / parent field.
-    const allKeys = Object.keys(insertedPayload!);
-    for (const banned of ['date_of_birth', 'parent_name', 'parent_phone', 'medical_notes', 'player_id']) {
-      // player_id may show up on existing plan types but the newsletter is TEAM-
-      // level; the insert must not set a player_id.
-      const val = (insertedPayload as Record<string, unknown>)[banned];
-      // Either the key is absent OR the value is null (Plan.player_id is nullable).
-      expect(val === undefined || val === null).toBe(true);
-    }
+    const payload = insertedPayload as unknown as Record<string, unknown>;
+    const allKeys = Object.keys(payload);
+    expect(allKeys).not.toContain('date_of_birth');
+    expect(allKeys).not.toContain('parent_name');
+    expect(allKeys).not.toContain('parent_phone');
+    expect(allKeys).not.toContain('medical_notes');
+    // player_id may show up on existing plan types but the newsletter is
+    // TEAM-level; the insert must not set a player_id (or it may be absent
+    // entirely, equivalent to nullable on the Plan type).
+    expect(payload.player_id === undefined || payload.player_id === null).toBe(true);
 
     // Response body shape — both the plan id and the structured content come back.
     const body = await res.json();
