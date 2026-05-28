@@ -1,7 +1,7 @@
 ---
 id: 0054
 title: Let the coach claim a vanity URL (/coach/sarah-rodriguez) so their profile fits in an email signature
-status: in-progress
+status: shipped
 priority: P1
 area: growth
 created: 2026-05-28

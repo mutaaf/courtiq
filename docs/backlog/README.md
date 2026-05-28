@@ -76,7 +76,6 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0054 | Let the coach claim a vanity URL (/coach/sarah-rodriguez) so their profile fits in an email signature | P1 | in-progress | growth |
 | 0055 | Show a coach the practice plans other coaches in their league have published, before generic AI suggestions | P1 | groomed | plans |
 | 0050 | When a parent loves the report, let them forward it to their program's director with one tap to bring the whole league onto SportsIQ | P2 | groomed | growth |
 | 0056 | Let the coach send a one-line thank-you back to a parent who left a reaction, in one tap | P2 | groomed | parent-portal |
@@ -118,6 +117,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | 0047 | Show the coach the moment their invited coach signed up, with a one-tap "invite the next one" | P1 | shipped | growth |
 | 0048 | Give the coach one short text per kid to paste into Messages after a game — the post-game complement to the sideline cheat sheet | P1 | shipped | ai |
 | 0049 | Let a coach publish a great practice plan as a one-tap clone link another coach saves to their team in 10 seconds | P1 | shipped | plans |
+| 0054 | Let the coach claim a vanity URL (/coach/sarah-rodriguez) so their profile fits in an email signature | P1 | shipped | growth |
 | 0009 | Put the Player of the Week / Player of the Match spotlight on the parent portal | P2 | shipped | parent-portal |
 | 0010 | Make the Team Personality card a public, coach-to-coach referral surface | P2 | shipped | growth |
 | 0013 | Give the Player-of-the-Week spotlight its own rich link preview when a parent forwards the portal | P2 | shipped | parent-portal |
