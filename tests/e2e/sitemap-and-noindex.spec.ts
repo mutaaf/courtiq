@@ -61,7 +61,13 @@ test.describe('Public sitemap (/sitemap.xml) — cold-search discoverability', (
     // The five shipped public-token surfaces with their seeded tokens.
     expect(xml).toContain(`/team-card/${TEAM_CARD_TOKEN}`);
     expect(xml).toContain(`/season-recap/${SEASON_RECAP_TOKEN}`);
-    expect(xml).toContain(`/coach/${COACH_CARD_TOKEN}`);
+    // Ticket 0054 — when the seeded coach has claimed a handle ('e2e-coach'
+    // in this seed), the sitemap emits /coach/<handle> INSTEAD of
+    // /coach/<token>; the handle URL is the canonical. The token URL still
+    // resolves at runtime (the API dispatches handle-then-token), but the
+    // sitemap emits exactly one entry per coach.
+    expect(xml).toContain(`/coach/e2e-coach`);
+    expect(xml).not.toContain(`/coach/${COACH_CARD_TOKEN}`);
     expect(xml).toContain(`/recap/${GAME_RECAP_TOKEN}`);
     // Ticket 0049 — fifth surface: published practice plans.
     expect(xml).toContain(`/plan/${PRACTICE_PLAN_TOKEN}`);
