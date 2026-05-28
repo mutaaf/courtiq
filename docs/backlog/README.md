@@ -76,7 +76,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0047 | Show the coach the moment their invited coach signed up, with a one-tap "invite the next one" | P1 | groomed | growth |
+| 0047 | Show the coach the moment their invited coach signed up, with a one-tap "invite the next one" | P1 | in-progress | growth |
 | 0054 | Let the coach claim a vanity URL (/coach/sarah-rodriguez) so their profile fits in an email signature | P1 | groomed | growth |
 | 0055 | Show a coach the practice plans other coaches in their league have published, before generic AI suggestions | P1 | groomed | plans |
 | 0050 | When a parent loves the report, let them forward it to their program's director with one tap to bring the whole league onto SportsIQ | P2 | groomed | growth |

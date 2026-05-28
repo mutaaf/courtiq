@@ -33,6 +33,8 @@ export const coachFactory = buildFactory<Omit<Coach, 'created_at' | 'updated_at'
   // Ticket 0042 — both new columns are nullable; factory default is null.
   paused_until: null,
   last_active_at: null,
+  // Ticket 0047 — referral-celebration bookmark, NOT NULL DEFAULT 0 in the DB.
+  last_seen_referral_count: 0,
 });
 
 export const teamFactory = buildFactory<Omit<Team, 'created_at' | 'updated_at'>>({

@@ -77,3 +77,25 @@ export function buildInviteMessage({
 export function buildReferralBadgeText(count: number): string {
   return `🎉 ${count} coach${count > 1 ? 'es' : ''} referred`;
 }
+
+// ─── Share-sheet primitive (shared 0015 / 0047) ───────────────────────────────
+//
+// Ticket 0047's celebration card reuses the SAME share path the
+// InviteCoachCard surfaces today. Extracting it here so both surfaces
+// dispatch the same navigator.share / WhatsApp fallback without
+// duplicating the logic. Best-effort: a Web Share rejection falls through
+// to wa.me/?text=… which works on every mobile browser.
+export async function openInviteShareSheet(message: string): Promise<'shared' | 'fallback'> {
+  if (typeof navigator !== 'undefined' && navigator.share) {
+    try {
+      await navigator.share({ text: message });
+      return 'shared';
+    } catch {
+      // user cancelled or Web Share unavailable — fall through
+    }
+  }
+  if (typeof window !== 'undefined') {
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
+  }
+  return 'fallback';
+}

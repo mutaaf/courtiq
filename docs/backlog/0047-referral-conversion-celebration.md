@@ -1,7 +1,7 @@
 ---
 id: 0047
 title: Show the coach the moment their invited coach signed up, with a one-tap "invite the next one"
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-05-26
@@ -252,7 +252,5 @@ re-discover the architecture.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0047-…` opened
-- YYYY-MM-DD — failing test added in `tests/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-28 — branch `feat/0047-referral-conversion-celebration` opened; status flipped to `in-progress` in the ticket file AND `docs/backlog/README.md` index row.
+- 2026-05-28 — picked migration prefix `050_` (next free after `049_plans_type_mid_season_team_newsletter.sql`); the new column lives ONLY on `coaches`, never `players`.
