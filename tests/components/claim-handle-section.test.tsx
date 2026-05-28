@@ -125,7 +125,12 @@ describe('ClaimHandleSection — unclaimed coach', () => {
       wrapper,
     });
 
+    // The Claim button is gated on the available-check resolving to true; wait
+    // for the debounced check + fetch round-trip to enable it.
     const claimBtn = screen.getByRole('button', { name: /claim/i });
+    await waitFor(() => expect((claimBtn as HTMLButtonElement).disabled).toBe(false), {
+      timeout: 2000,
+    });
     fireEvent.click(claimBtn);
 
     await waitFor(

@@ -44,6 +44,6 @@ begin
   ) then
     alter table coaches
       add constraint coaches_handle_shape_check
-      check (handle is null or handle ~ '^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$');
+      check (handle is null or handle ~ '^[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$');
   end if;
 end$$;

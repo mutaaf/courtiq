@@ -50,26 +50,30 @@ export async function GET(
     //      coach, then their most-recent active coach_card_shares row;
     //      if the coach has no active card, return 404 (the handle is an
     //      alternate URL to an existing profile, never a new surface).
-    let share: { id: string; coach_id: string; is_active: boolean } | null = null;
+    type ShareRow = { id: string; coach_id: string; is_active: boolean };
+    let share: ShareRow | null = null;
 
-    const { data: tokenShare } = await supabase
+    const tokenLookup = await supabase
       .from('coach_card_shares')
       .select('id, coach_id, is_active')
       .eq('token', token)
       .eq('is_active', true)
       .maybeSingle();
-    share = (tokenShare ?? null) as typeof share;
+    if (tokenLookup.data) {
+      share = tokenLookup.data as ShareRow;
+    }
 
     if (!share && isValidHandleShape(token)) {
       // Handle fallback. Resolve coach by handle, then their active share row.
-      const { data: coachByHandle } = await supabase
+      const coachByHandleLookup = await supabase
         .from('coaches')
         .select('id')
         .eq('handle', token)
         .maybeSingle();
 
+      const coachByHandle = coachByHandleLookup.data as { id: string } | null;
       if (coachByHandle) {
-        const { data: handleShare } = await supabase
+        const handleShareLookup = await supabase
           .from('coach_card_shares')
           .select('id, coach_id, is_active')
           .eq('coach_id', coachByHandle.id)
@@ -77,7 +81,9 @@ export async function GET(
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
-        share = (handleShare ?? null) as typeof share;
+        if (handleShareLookup.data) {
+          share = handleShareLookup.data as ShareRow;
+        }
       }
     }
 

@@ -42,6 +42,10 @@ function buildChain(data: unknown = null, error: unknown = null) {
     is: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue(resolved),
     single: vi.fn().mockResolvedValue(resolved),
+    // Allow awaiting the chain directly — `await supabase.from(t).update(...).eq(...)`
+    // resolves to { data, error } without an explicit .single() / .maybeSingle().
+    then: (onFulfilled: (v: typeof resolved) => unknown) =>
+      Promise.resolve(resolved).then(onFulfilled),
   };
   return chain;
 }

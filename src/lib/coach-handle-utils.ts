@@ -15,7 +15,7 @@
 //   - lowercase alphanumeric + hyphen
 //   - first and last char must be alphanumeric (no leading/trailing hyphen)
 // Anchored. The exact same shape lives in the migration CHECK regex.
-const HANDLE_SHAPE = /^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$/;
+const HANDLE_SHAPE = /^[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$/;
 
 export function isValidHandleShape(handle: string): boolean {
   if (typeof handle !== 'string') return false;
@@ -83,8 +83,12 @@ function normalize(input: string): string {
 
 function slugify(input: string): string {
   const lower = normalize(input).toLowerCase();
+  // Strip apostrophes and quote-like marks FIRST so "D'Angelo" → "DAngelo"
+  // → "dangelo", not "d-angelo" — a name with an apostrophe is a single
+  // token, not two words joined by punctuation.
+  const dequoted = lower.replace(/['’ʼ`"‘]/g, '');
   // Replace any non-alphanumeric run with a single hyphen.
-  const hyphenated = lower.replace(/[^a-z0-9]+/g, '-');
+  const hyphenated = dequoted.replace(/[^a-z0-9]+/g, '-');
   // Collapse repeated hyphens.
   const collapsed = hyphenated.replace(/-+/g, '-');
   // Trim leading/trailing hyphens.
