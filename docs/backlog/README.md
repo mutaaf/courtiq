@@ -76,7 +76,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0043 | Turn the season's middle into a one-tap parent newsletter that tells the team's whole arc, not just last week | P2 | groomed | ai |
+| 0043 | Turn the season's middle into a one-tap parent newsletter that tells the team's whole arc, not just last week | P2 | in-progress | ai |
 | 0047 | Show the coach the moment their invited coach signed up, with a one-tap "invite the next one" | P2 | groomed | growth |
 | 0050 | When a parent loves the report, let them forward it to their program's director with one tap to bring the whole league onto SportsIQ | P2 | groomed | growth |
 | 0001 | Stripe webhook signature verification on the live endpoint | P0 | shipped | billing |

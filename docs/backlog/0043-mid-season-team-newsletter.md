@@ -1,7 +1,7 @@
 ---
 id: 0043
 title: Turn the season's middle into a one-tap parent newsletter that tells the team's whole arc, not just last week
-status: groomed
+status: in-progress
 priority: P2
 area: ai
 created: 2026-05-26
@@ -247,7 +247,16 @@ re-discover the architecture.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0043-…` opened
-- YYYY-MM-DD — failing test added in `tests/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-27 — branch `feat/0043-mid-season-team-newsletter` opened off `main` (post-shipped-0049 tip).
+- 2026-05-27 — migration prefix chosen: `049_plans_type_mid_season_team_newsletter.sql`
+  (next-free after `048_practice_plan_shares.sql`; verified by `ls supabase/migrations/`,
+  LESSONS#0006). The same migration also adds `team_card_shares.type TEXT NULL DEFAULT
+  'team_card'` so the newsletter share rides on the existing share table (engineering note).
+- 2026-05-27 — parent-portal aesthetic adopted for `/share/team-newsletter/[token]`
+  (gray-50 + orange) rather than the dark zinc share-card siblings (`/team-card/`,
+  `/recap/`); explicitly per engineering note "NOT the dark zinc dashboard aesthetic".
+- 2026-05-27 — email dispatcher: the existing `parentShareEmail` in
+  `src/lib/email/templates.ts` is player-scoped; a new sibling
+  `midSeasonNewsletterEmail({ teamName, coachName, shareUrl })` lives next to it and
+  is dispatched by plan type. `parentShareEmail` body stays byte-identical (AC11
+  regression).

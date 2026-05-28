@@ -8,7 +8,7 @@ export type Sentiment = 'positive' | 'needs-work' | 'neutral';
 export type ObservationSource = 'voice' | 'typed' | 'photo' | 'video' | 'cv' | 'import' | 'debrief' | 'template' | 'observer';
 export type RecordingStatus = 'recorded' | 'uploading' | 'uploaded' | 'transcribing' | 'transcribed' | 'parsing' | 'parsed' | 'reviewed' | 'failed';
 export type MediaType = 'photo' | 'screenshot' | 'video' | 'game_film' | 'document';
-export type PlanType = 'practice' | 'gameday' | 'weekly' | 'development_card' | 'parent_report' | 'report_card' | 'custom' | 'newsletter' | 'skill_challenge' | 'season_storyline' | 'self_assessment' | 'opponent_profile' | 'game_recap' | 'weekly_star' | 'season_summary' | 'coach_reflection' | 'player_messages' | 'team_group_message' | 'season_awards' | 'huddle_script' | 'team_personality' | 'practice_arc' | 'player_of_match' | 'team_talk' | 'season_letter' | 'pregame_brief' | 'sideline_talking_points' | 'postgame_parent_texts';
+export type PlanType = 'practice' | 'gameday' | 'weekly' | 'development_card' | 'parent_report' | 'report_card' | 'custom' | 'newsletter' | 'skill_challenge' | 'season_storyline' | 'self_assessment' | 'opponent_profile' | 'game_recap' | 'weekly_star' | 'season_summary' | 'coach_reflection' | 'player_messages' | 'team_group_message' | 'season_awards' | 'huddle_script' | 'team_personality' | 'practice_arc' | 'player_of_match' | 'team_talk' | 'season_letter' | 'pregame_brief' | 'sideline_talking_points' | 'postgame_parent_texts' | 'mid_season_team_newsletter';
 export type ProficiencyLevel = 'insufficient_data' | 'exploring' | 'practicing' | 'got_it' | 'game_ready';
 export type Trend = 'improving' | 'plateau' | 'regressing' | 'new';
 export type SyncOperation = 'create' | 'update' | 'delete';
@@ -493,12 +493,19 @@ export interface ParentShare {
 // Public coach-to-coach referral card mapping (ticket 0010). Maps a public token
 // to ONE team_personality plan + the creating coach. No minor data — the public
 // read renders team-level content only.
+//
+// Ticket 0043 extends this with a nullable `type` column (default 'team_card')
+// so the mid-season team-newsletter share can ride on this same mapping table
+// (the value 'mid_season_team_newsletter' on a newsletter share row) instead
+// of needing a brand-new shares table. Existing rows default-fill to
+// 'team_card' so the team-card flow stays byte-identical.
 export interface TeamCardShare {
   id: string;
   token: string;
   plan_id: string;
   coach_id: string;
   is_active: boolean;
+  type: 'team_card' | 'mid_season_team_newsletter' | null;
   created_at: string;
 }
 

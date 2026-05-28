@@ -226,6 +226,41 @@ export function parentShareEmail(args: {
   return { subject, html };
 }
 
+// ── 6b. Mid-season team newsletter (sent when a coach shares the team-wide
+//        mid-season update; ticket 0043). Sibling of parentShareEmail (which
+//        is player-scoped); the team newsletter goes to every parent at
+//        once. parentShareEmail above is intentionally byte-identical — the
+//        dispatcher routes on plans.type so the parent_report path stays a
+//        regression-free no-op.
+export function midSeasonNewsletterEmail(args: {
+  parentName: string | null;
+  teamName: string;
+  coachName: string;
+  shareUrl: string;
+}): BuiltEmail {
+  const coachFirst = args.coachName.split(' ')[0];
+  const parentFirst = args.parentName ? args.parentName.split(' ')[0] : null;
+  const subject = `${args.teamName} — mid-season update`;
+  const html = renderEmail({
+    transactional: true,
+    preview: `A team-wide update on what ${args.teamName} has been working on.`,
+    body: [
+      parentFirst ? paragraph(`Hi ${parentFirst},`) : '',
+      heroSection(
+        `${args.teamName} — mid-season update`,
+        `${coachFirst} put together a short team-wide read on what the team has been working on, what is clicking, and what we are focused on next.`,
+      ),
+      ctaButton('Read the update', args.shareUrl),
+      divider(),
+      paragraph(
+        'No login required. Reply directly to this email to message the coach.',
+      ),
+      fineprint(`Sent by ${args.coachName} · ${args.teamName}`),
+    ].join(''),
+  });
+  return { subject, html };
+}
+
 // ── 7. Weekly digest (Sunday morning, paid coaches) ───────────────────────
 
 export function weeklyDigestEmail(args: {

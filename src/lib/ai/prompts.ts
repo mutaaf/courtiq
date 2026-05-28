@@ -1555,6 +1555,94 @@ export const PROMPT_REGISTRY = {
     };
   },
 
+  // ── Mid-Season Team Newsletter (ticket 0043) ──────────────────────────────
+  // A TEAM-wide mid-season parent newsletter — five short blocks (headline,
+  // arc summary, two strengths, two focus areas, one coach-voice quote) the
+  // coach taps once and sends to every parent at once. Sibling of the
+  // per-player parent report (0016/0034) but at TEAM scope: the prompt
+  // explicitly says "do not name individual players" so the artifact stays
+  // team-level (and the schema has no place to put a player name either).
+  // Per LESSONS#0023 the voice instruction is POSITIVE — it never enumerates
+  // the AGENTS.md banned tokens verbatim (which would trip the banned-words
+  // scan that lints the rendered prompt).
+  midSeasonTeamNewsletter: (params: PromptParams & {
+    team: { id: string; name?: string };
+    observationInsights?: ObservationInsightsParam;
+    arcContext?: {
+      arcTitle?: string;
+      sessionNumber?: number;
+      totalSessions?: number;
+      carriesForward?: string;
+      keyCoachingPoint?: string;
+    };
+    coachingSignature?: CoachingSignature | null;
+  }) => {
+    const { team } = params;
+    const insights = params.observationInsights;
+    const hasInsights = insights && insights.totalObs > 0;
+
+    const insightsBlock = hasInsights
+      ? [
+          '',
+          `What this team has been working on (last ${insights.daysOfData} days, ${insights.totalObs} observation${insights.totalObs === 1 ? '' : 's'}):`,
+          insights.topNeedsWork.length > 0
+            ? `Areas the team is still working through:\n${insights.topNeedsWork
+                .map((c) => `  - ${c.category}: ${c.count} needs-work note${c.count !== 1 ? 's' : ''}`)
+                .join('\n')}`
+            : '',
+          insights.topStrengths.length > 0
+            ? `Areas the team has shown well:\n${insights.topStrengths
+                .map((c) => `  - ${c.category}: ${c.count} positive note${c.count !== 1 ? 's' : ''}`)
+                .join('\n')}`
+            : '',
+        ]
+        .filter(Boolean)
+        .join('\n')
+      : '';
+
+    const arc = params.arcContext;
+    const arcBlock = arc?.arcTitle
+      ? [
+          '',
+          `ARC CONTEXT — this team is in session ${arc.sessionNumber ?? '?'} of ${arc.totalSessions ?? '?'} of the "${arc.arcTitle}" arc.`,
+          arc.keyCoachingPoint ? `Key coaching point this stretch: ${arc.keyCoachingPoint}` : '',
+          arc.carriesForward ? `What carries forward: ${arc.carriesForward}` : '',
+          'Lean the arc_summary on this arc where it honestly fits — do not force it.',
+        ]
+        .filter(Boolean)
+        .join('\n')
+      : '';
+
+    const signatureBlock = coachingSignatureBlock(params.coachingSignature);
+
+    return {
+      system: [
+        buildSystemPreamble(params),
+        'You write a short, TEAM-WIDE mid-season parent newsletter — five short blocks the coach sends to every parent at once, in the middle of a ten-week season.',
+        '',
+        'Rules:',
+        '- The newsletter is about the TEAM as a whole. Write like a coach\'s clipboard note to parents, not a marketing newsletter. Plain, specific, grounded in the team\'s real notes.',
+        '- DO NOT name individual players in any field. The artifact is the TEAM\'s arc, not a per-kid report. (Per-player reports are a separate artifact the coach already has.)',
+        '- headline: ONE short line, max 80 characters. State the through-line of the last six weeks in the coach\'s own voice.',
+        '- arc_summary: EXACTLY two sentences. Sentence one names what the team has been focused on; sentence two names what is starting to land. Ground both in the team\'s observation data.',
+        '- team_strengths: EXACTLY two short bullets, one sentence each, about what the team is doing well.',
+        '- focus_areas: EXACTLY two short bullets, one sentence each, about what the team is working on next.',
+        '- coach_voice_quote: ONE short line drawn from the team-level observations (paraphrase a real moment; do not invent quotes). Make it sound like the coach said it on the sideline.',
+        '- The output JSON has EXACTLY five keys: headline, arc_summary, team_strengths, focus_areas, coach_voice_quote. No lineup, no next_action, no per-player fields, no extra keys.',
+      ].join('\n'),
+      user: [
+        `Team: ${team.name || params.teamName || 'the team'} (${params.sportName || 'basketball'}, ${params.ageGroup || 'youth'})`,
+        params.seasonWeek ? `Season week: ${params.seasonWeek}` : '',
+        insightsBlock,
+        arcBlock,
+        signatureBlock,
+        '',
+        'Write the mid-season team newsletter JSON with EXACTLY these five keys and nothing else:',
+        '{ "headline": "one short line, max 80 chars", "arc_summary": "exactly two sentences", "team_strengths": ["bullet 1", "bullet 2"], "focus_areas": ["bullet 1", "bullet 2"], "coach_voice_quote": "one short line in the coach\'s voice" }',
+      ].filter(Boolean).join('\n'),
+    };
+  },
+
   // ── Weekly Coaching Digest (ticket 0023) ──────────────────────────────────
   // A coach-private "your week in coaching" recap of the last 7 days. Three
   // things: a one-line week_summary, the top_players who showed up most in the
