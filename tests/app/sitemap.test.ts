@@ -46,6 +46,7 @@ function buildChain(data: unknown = null) {
     order: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
     is: vi.fn().mockReturnThis(),
+    not: vi.fn().mockReturnThis(),
     then: (onFulfilled: (v: typeof resolved) => unknown) =>
       Promise.resolve(resolved).then(onFulfilled),
   };
@@ -59,13 +60,16 @@ function buildChain(data: unknown = null) {
 //   4) coach_card_shares
 //   5) game_recap_shares
 //   6) practice_plan_shares  (ticket 0049 — read AFTER the prior four)
+//   7) coaches WHERE handle IS NOT NULL (ticket 0054 — handle-vs-token URL
+//      swap for /coach/ entries; reads after the prior six)
 function wireTables(opts: {
   orgs?: Array<{ slug: string; name?: string }>;
   teamCards?: Array<{ token: string; created_at?: string }>;
   seasonRecaps?: Array<{ token: string; created_at?: string }>;
-  coachCards?: Array<{ token: string; created_at?: string }>;
+  coachCards?: Array<{ token: string; created_at?: string; coach_id?: string }>;
   gameRecaps?: Array<{ token: string; created_at?: string }>;
   practicePlans?: Array<{ token: string; created_at?: string }>;
+  coachesWithHandles?: Array<{ id: string; handle: string }>;
 }) {
   mockFromFn
     .mockReturnValueOnce(buildChain(opts.orgs ?? []))
@@ -73,7 +77,8 @@ function wireTables(opts: {
     .mockReturnValueOnce(buildChain(opts.seasonRecaps ?? []))
     .mockReturnValueOnce(buildChain(opts.coachCards ?? []))
     .mockReturnValueOnce(buildChain(opts.gameRecaps ?? []))
-    .mockReturnValueOnce(buildChain(opts.practicePlans ?? []));
+    .mockReturnValueOnce(buildChain(opts.practicePlans ?? []))
+    .mockReturnValueOnce(buildChain(opts.coachesWithHandles ?? []));
 }
 
 const BASE = 'https://youthsportsiq.test';
@@ -134,6 +139,8 @@ describe('sitemap() — dynamic public-surface index (ticket 0038)', () => {
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))
       // practice_plan_shares (ticket 0049) — read AFTER the prior four.
+      .mockReturnValueOnce(buildChain([]))
+      // coaches WHERE handle IS NOT NULL (ticket 0054) — 7th sequential read.
       .mockReturnValueOnce(buildChain([]));
 
     const { default: sitemap } = await import('@/app/sitemap');
@@ -179,6 +186,8 @@ describe('sitemap() — dynamic public-surface index (ticket 0038)', () => {
       .mockReturnValueOnce(ccChain)
       .mockReturnValueOnce(grChain)
       // practice_plan_shares (ticket 0049) — also filter is_active=true.
+      .mockReturnValueOnce(buildChain([]))
+      // coaches WHERE handle IS NOT NULL (ticket 0054) — 7th sequential read.
       .mockReturnValueOnce(buildChain([]));
 
     const { default: sitemap } = await import('@/app/sitemap');
@@ -271,6 +280,8 @@ describe('sitemap() — dynamic public-surface index (ticket 0038)', () => {
       .mockReturnValueOnce(coachCardsChain)
       .mockReturnValueOnce(gameRecapsChain)
       // practice_plan_shares (ticket 0049) — empty in this size-bound case.
+      .mockReturnValueOnce(buildChain([]))
+      // coaches WHERE handle IS NOT NULL (ticket 0054) — 7th sequential read.
       .mockReturnValueOnce(buildChain([]));
 
     const { default: sitemap } = await import('@/app/sitemap');

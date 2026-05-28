@@ -35,6 +35,8 @@ export const coachFactory = buildFactory<Omit<Coach, 'created_at' | 'updated_at'
   last_active_at: null,
   // Ticket 0047 — referral-celebration bookmark, NOT NULL DEFAULT 0 in the DB.
   last_seen_referral_count: 0,
+  // Ticket 0054 — vanity coach handle, nullable; default null until claimed.
+  handle: null,
 });
 
 export const teamFactory = buildFactory<Omit<Team, 'created_at' | 'updated_at'>>({

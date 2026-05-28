@@ -77,6 +77,17 @@ values (
 )
 on conflict (id) do nothing;
 
+-- ── coaches.handle for the vanity coach URL e2e (ticket 0054) ───────────────
+-- The handle column is added by migration 051_coaches_handle.sql. The e2e
+-- spec at tests/e2e/coach-handle-flow.spec.ts visits /coach/e2e-coach
+-- expecting the SAME coach card the existing
+-- /coach/test-coach-card-token-e2e-001 token renders.
+-- Idempotent: a re-applied seed UPDATEs to the same value (the ON CONFLICT
+-- on the prior insert short-circuits, so we set the handle explicitly).
+update coaches set handle = 'e2e-coach'
+  where id = '00000000-0000-4000-a000-000000000001'
+    and (handle is null or handle <> 'e2e-coach');
+
 -- ── teams ─────────────────────────────────────────────────────────────────
 -- name 'E2E Test Team' is asserted by share-flow.spec.ts:56 (and mirrors
 -- TEST_TEAM in helpers/auth.ts). sport_id resolves to the basketball row
