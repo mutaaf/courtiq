@@ -1,7 +1,7 @@
 ---
 id: 0043
 title: Turn the season's middle into a one-tap parent newsletter that tells the team's whole arc, not just last week
-status: in-progress
+status: shipped
 priority: P2
 area: ai
 created: 2026-05-26
