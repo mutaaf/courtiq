@@ -1,7 +1,7 @@
 ---
 id: 0055
 title: Show a coach the practice plans other coaches in their league have published, before generic AI suggestions
-status: in-progress
+status: shipped
 priority: P1
 area: plans
 created: 2026-05-28
@@ -277,3 +277,5 @@ re-discover the architecture.
 (Appended by the implementation-dev agent during execution.)
 
 - 2026-05-28 — branch `feat/0055-league-internal-practice-plan-discovery` opened; status flipped to `in-progress`.
+- 2026-05-28 — PR #346 opened with the new GET route, cache helpers, `<LeaguePlansSection />`, seed peer-coach row, and the five vitest suites. CI gating checks (lint / unit-tests / e2e-tests) green; auto-merge fired before the watch loop returned (LESSONS#75 family).
+- 2026-05-28 — shipped to main via PR #346. Status flipped to `shipped` on a separate `chore/0055-mark-shipped` branch (file + README index per LESSONS#42/#74).
