@@ -499,6 +499,27 @@ export interface ParentShare {
   created_at: string;
 }
 
+// Parent-to-program-director referral audit (ticket 0050). One row per submit
+// of the parent portal's "Send this to our program director" form. NO minor
+// data: no player_id, no observation excerpt, no DOB. The source coach is
+// resolved at read time via parent_shares -> teams -> coaches; never copied
+// here. claimed_at/claimed_org_id are stamped on the row when the director
+// completes the 0033 claim flow under a verified signed_director_id.
+export interface ProgramReferral {
+  id: string;
+  share_token: string;
+  parent_first_name: string;
+  parent_email: string | null;
+  director_first_name: string;
+  director_email: string;
+  director_email_hash: string;
+  note: string | null;
+  signed_director_id: string;
+  sent_at: string;
+  claimed_at: string | null;
+  claimed_org_id: string | null;
+}
+
 // Public coach-to-coach referral card mapping (ticket 0010). Maps a public token
 // to ONE team_personality plan + the creating coach. No minor data — the public
 // read renders team-level content only.

@@ -1,5 +1,6 @@
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { verifyDirectorId } from '@/lib/program-referral-utils';
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabase();
@@ -10,7 +11,13 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { fullName, referredByCode, org: orgSlug, team: teamId } = body;
+  const {
+    fullName,
+    referredByCode,
+    org: orgSlug,
+    team: teamId,
+    programReferralId,
+  } = body;
   const name = fullName || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Coach';
 
   const adminSupabase = await createServiceSupabase();
@@ -109,6 +116,41 @@ export async function POST(request: Request) {
         coach_id: user.id,
         role: 'coach',
       });
+    }
+  }
+
+  // Program-referral claim attribution (ticket 0050). When the new coach
+  // arrived via /share/<token>?pr=<signed_director_id> -> /org/<slug> ->
+  // /signup, we verify the HMAC server-side here (NEVER trust the client-
+  // supplied value, LESSONS#0039), look up the corresponding row by
+  // (share_token, director_email_hash), and stamp claimed_at + claimed_org_id.
+  // A bad/forged/missing programReferralId is silently ignored — the rest of
+  // the signup already succeeded; never block onboarding on a referral stamp.
+  if (programReferralId && typeof programReferralId === 'string') {
+    try {
+      const secret = process.env.CRON_SECRET || '';
+      if (secret) {
+        const v = verifyDirectorId(programReferralId, secret);
+        if (v.ok) {
+          // Stamp only the most recent UNclaimed row for this (share_token,
+          // director_email_hash). A re-claim attempt with a stale id against
+          // a row that already has claimed_at gets the same UPDATE filtered
+          // out (claimed_at is null) and never silently re-attributes a
+          // different org — same posture as the 0042 pause-token single-use
+          // convention.
+          await adminSupabase
+            .from('program_referrals')
+            .update({
+              claimed_at: new Date().toISOString(),
+              claimed_org_id: org.id,
+            })
+            .eq('share_token', v.shareToken)
+            .eq('director_email_hash', v.directorEmailHash)
+            .is('claimed_at', null);
+        }
+      }
+    } catch (err) {
+      console.error('[auth/setup] program_referral stamp failed (ignored):', err);
     }
   }
 

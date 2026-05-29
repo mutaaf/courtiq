@@ -79,15 +79,22 @@ export default async function OrgLandingPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ invite?: string }>;
+  searchParams: Promise<{ invite?: string; pr?: string }>;
 }) {
   const { slug } = await params;
   // Program staff-invite path (ticket 0024): the director broadcasts
   // /org/<slug>?invite=staff. The param only tunes the CTA copy ("Your program
   // invited you") — it does not change the page's auth-free, server-rendered
   // nature. The CTA still deep-links to /signup?org=<slug>.
-  const { invite } = await searchParams;
+  //
+  // Program-referral claim path (ticket 0050): the director-side `/share/<token>`
+  // banner deep-links here as /org/<slug>?invite=staff&pr=<signed_director_id>.
+  // The `pr` is forwarded UNINTERPRETED to the per-team signup link so the
+  // /api/auth/setup route can verify it on the server and stamp the
+  // program_referrals row. NEVER trusted as a coach id (LESSONS#0039).
+  const { invite, pr } = await searchParams;
   const isStaffInvite = invite === 'staff';
+  const prParam = typeof pr === 'string' && pr ? pr : null;
   const data = await getOrgData(slug);
 
   if (!data) {
@@ -225,7 +232,7 @@ export default async function OrgLandingPage({
                           claim key; /api/auth/setup validates it belongs to the
                           org server-side. Real link → directly assertable. */}
                       <Link
-                        href={`/signup?org=${org.slug}&team=${team.id}`}
+                        href={`/signup?org=${org.slug}&team=${team.id}${prParam ? `&pr=${encodeURIComponent(prParam)}` : ''}`}
                         data-testid="claim-team-cta"
                         className="mt-3 flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white active:scale-[0.98]"
                         style={{ backgroundColor: accentColor }}
@@ -294,7 +301,7 @@ export default async function OrgLandingPage({
               : 'Join your program on SportsIQ and start building smarter, data-driven practices today.'}
           </p>
           <Link
-            href={`/signup?org=${org.slug}`}
+            href={`/signup?org=${org.slug}${prParam ? `&pr=${encodeURIComponent(prParam)}` : ''}`}
             className="mt-5 inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white active:scale-[0.98]"
             style={{ backgroundColor: accentColor }}
           >

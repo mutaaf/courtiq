@@ -42,6 +42,12 @@ function SignupForm() {
   // new coach lands associated with the exact team they coach (the route only
   // honors a team that belongs to the resolved org). Independent of `ref`/`org`.
   const teamId = searchParams.get('team') ?? '';
+  // Program-referral claim path (ticket 0050): /share/<token>?pr=... → /org/<slug>?pr=...
+  // → /signup?org=...&team=...&pr=<signed_director_id>. Forwarded to
+  // /api/auth/setup so the route can verify the HMAC server-side and stamp
+  // claimed_at + claimed_org_id on the program_referrals row. NEVER trusted
+  // as a coach id (LESSONS#0039) — verified via HMAC in the setup route.
+  const programReferralId = searchParams.get('pr') ?? '';
   // Practice-plan clone path (ticket 0049): the public /plan/<token> page's
   // "Save to my team" CTA deep-links unauthed visitors here as
   // /signup?clone_token=<token>. We stash the token in sessionStorage so the
@@ -137,6 +143,7 @@ function SignupForm() {
           referredByCode: refCode || undefined,
           org: orgSlug || undefined,
           team: teamId || undefined,
+          programReferralId: programReferralId || undefined,
         }),
       });
       router.push('/onboarding/setup');
