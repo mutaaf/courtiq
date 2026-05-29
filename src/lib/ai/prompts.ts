@@ -1752,4 +1752,45 @@ export const PROMPT_REGISTRY = {
       '{ "week_summary": "one glanceable line", "active_coaches": 0, "total_coaches": 0, "teams_to_watch": [{ "team_name": "team", "note": "one line on why to watch" }], "next_action": { "label": "button text", "kind": "one of the candidate kinds", "rationale": "one line grounded in the week" } }',
     ].filter(Boolean).join('\n'),
   }),
+
+  // ── Ticket 0056 — one-line thank-you reply to a parent reaction ─────────────
+  //
+  // The coach has read a parent's note on the in-app inbox (or tapped the
+  // openReply link in the Monday rollup email). This prompt produces ONE
+  // short reply the coach previews + sends. Voice is POSITIVE per
+  // LESSONS#0023 — the system block never enumerates the AGENTS.md banned
+  // tokens (a verbatim ban-list defeats the banned-words scan that lints
+  // the prompt string).
+  //
+  // COPPA: only the four named slots (player first name, parent first
+  // name, the parent's freely-typed note, coach first name) are passed to
+  // the model. No last name, no email, no phone, no DOB, no observation
+  // data. The route enforces this — the prompt's user block formats the
+  // four slots and nothing else.
+  parentReactionReply: (params: {
+    playerFirstName: string;
+    parentFirstName: string;
+    reactionNote: string;
+    coachFirstName: string;
+  }) => ({
+    system: [
+      'You write a short reply from a youth-sports coach back to a parent who left a positive reaction on the parent portal.',
+      '',
+      'Rules:',
+      '- Write like a coach jotting on a clipboard between drills — plain English, two sentences max.',
+      '- Name the player by first name only. Never use a last name.',
+      '- Reference the parent\'s note in your OWN words; do not quote the note verbatim.',
+      '- Do not add hype or marketing voice. No exclamation marks unless the parent used one.',
+      '- End with the coach\'s first name as a sign-off (em-dash + first name).',
+      '- The reply is a one-shot text the parent will receive on their phone, not a paragraph and not a newsletter.',
+    ].join('\n'),
+    user: [
+      `Player first name: ${params.playerFirstName}`,
+      `Parent first name: ${params.parentFirstName}`,
+      `Coach first name: ${params.coachFirstName}`,
+      `Parent's note (verbatim, may be a quoted heart-only message): "${params.reactionNote}"`,
+      '',
+      'Write the reply as a single plain-text string. No JSON, no markdown, no quotation marks around the whole reply.',
+    ].join('\n'),
+  }),
 } as const;

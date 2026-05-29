@@ -1044,4 +1044,44 @@ values (
 )
 on conflict (token) do nothing;
 
+-- ── ticket 0056 — parent_reaction the Thank-Sarah e2e flow consumes ─────────
+-- A single reaction tied to Alice (...030, the E2E player) on the E2E coach's
+-- team. parent_name='Sarah' makes the rendered button read "Thank Sarah". The
+-- reaction's id is hardcoded so the openReply deep-link assertion in
+-- tests/e2e/thank-parent-flow.spec.ts can target this row directly.
+--
+-- Per LESSONS#0084: the player + the coach + the team already exist (Alice +
+-- the E2E coach + E2E Test Team are seeded above). Per LESSONS#0101: the new
+-- UUID family (0aa1) is non-colliding with any existing parent_reactions seed
+-- (there is none — this is the FIRST one added). The 0023/0041 fixtures only
+-- seed parent_reactions in vitest mocks, not in this SQL file.
+--
+-- COPPA: NO new descriptive minor data added; reaction.message is the
+-- parent's freely-typed note (treated as parent content). The two new columns
+-- from migration 053 (coach_reply_at / coach_reply_id) default to NULL, so
+-- the row starts unreplied — the spec's first test will flip them.
+insert into parent_reactions (id, share_token, player_id, team_id, coach_id, reaction, message, parent_name, is_read)
+values (
+  '00000000-0000-4000-a000-000000000aa1',
+  'test-share-token-e2e-001',
+  '00000000-0000-4000-a000-000000000030',
+  '00000000-0000-4000-a000-000000000020',
+  '00000000-0000-4000-a000-000000000001',
+  '❤️',
+  'thank you for sticking with him on his shooting',
+  'Sarah',
+  false
+)
+on conflict (id) do nothing;
+
+-- Alice needs a parent_email so the send-reply route can server-resolve the
+-- recipient from players.parent_contact (LESSONS#0039 — never trust a client-
+-- supplied recipient). This is an UPDATE because Alice's row is already
+-- inserted above and her ON CONFLICT (id) DO NOTHING would otherwise leave
+-- parent_email NULL forever.
+update players
+  set parent_email = 'sarah@walker-family.test'
+  where id = '00000000-0000-4000-a000-000000000030'
+    and (parent_email is null or parent_email = '');
+
 commit;

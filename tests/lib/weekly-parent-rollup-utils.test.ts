@@ -253,4 +253,51 @@ describe('buildRollupHtml', () => {
 
     expect(html).not.toMatch(/player_name|players\./i);
   });
+
+  // ── Ticket 0056 — per-reaction openReply deep-link ──────────────────────────
+  //
+  // The Monday rollup email is the entry point to the new in-app thank-you
+  // sheet. Each highlighted reaction now carries an `?openReply=<reaction_id>`
+  // link the inbox page consumes to auto-open the sheet. The email body itself
+  // does NOT contain an AI draft — only the link.
+  it('renders one openReply deep-link per highlighted reaction when ids are provided', () => {
+    const html = buildRollupHtml({
+      coachName: 'Marcus',
+      weekLabel: 'Apr 20–26',
+      totalCount: 3,
+      topReactions: [
+        { id: 'rxn-aaa', reaction: '❤️', message: 'thanks for sticking with Devon on his shooting.', parent_name: 'Sarah', created_at: '2026-04-21T09:00:00Z' },
+        { id: 'rxn-bbb', reaction: '❤️', message: 'pumped after Saturday.', parent_name: 'James', created_at: '2026-04-24T12:00:00Z' },
+        { id: 'rxn-ccc', reaction: '❤️', message: 'asked for the ball at school.', parent_name: 'Maria', created_at: '2026-04-23T15:00:00Z' },
+      ],
+      appUrl: APP_URL,
+    });
+
+    // Each reaction gets a "Thank <FirstName>" call-to-action with the
+    // ?openReply=<id> param the inbox page consumes on first render.
+    expect(html).toContain('?openReply=rxn-aaa');
+    expect(html).toContain('?openReply=rxn-bbb');
+    expect(html).toContain('?openReply=rxn-ccc');
+    // The visible CTA names the parent's first name.
+    expect(html).toMatch(/Thank Sarah/i);
+    expect(html).toMatch(/Thank James/i);
+    expect(html).toMatch(/Thank Maria/i);
+  });
+
+  it('omits openReply links cleanly when topReactions carry no ids (regression: byte-identical to 0041)', () => {
+    const html = buildRollupHtml({
+      coachName: 'Marcus',
+      weekLabel: 'Apr 20–26',
+      totalCount: 2,
+      topReactions: [
+        // No `id` field — the old 0041 shape.
+        { reaction: '❤️', message: 'thanks.', parent_name: 'Sarah', created_at: '2026-04-21T09:00:00Z' },
+      ],
+      appUrl: APP_URL,
+    });
+
+    // The old per-reaction lines stay identical; no `?openReply=` substring at
+    // all when the ids aren't there.
+    expect(html).not.toContain('?openReply');
+  });
 });

@@ -35,6 +35,11 @@ function makeReaction(overrides: Partial<ParentReaction> = {}): ParentReaction {
     parent_name: null,
     is_read: false,
     created_at: new Date().toISOString(),
+    // Ticket 0056 — coach-side reply bookmark; null defaults preserve the
+    // pre-0056 fixture shape (LESSONS#0099 — when widening a domain type, add
+    // the new fields with null defaults to every test constructor).
+    coach_reply_at: null,
+    coach_reply_id: null,
     ...overrides,
   };
 }
