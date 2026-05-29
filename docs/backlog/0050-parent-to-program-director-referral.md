@@ -1,7 +1,7 @@
 ---
 id: 0050
 title: When a parent loves the report, let them forward it to their program's director with one tap to bring the whole league onto SportsIQ
-status: in-progress
+status: shipped
 priority: P2
 area: growth
 created: 2026-05-26
