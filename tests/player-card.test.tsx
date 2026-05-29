@@ -261,18 +261,35 @@ describe('PlayerCard', () => {
       ['Flex', 'text-zinc-300'],
     ];
 
+    // The avatar renders the player's INITIALS, which can collide with a
+    // position abbreviation when the random factory name's first/last
+    // initials happen to match (e.g. "Sam Garcia" → "SG" vs position "SG").
+    // The flake only surfaces when the suite ordering shifts faker's
+    // counter to a colliding name. Pin a non-colliding name and find the
+    // badge by its non-avatar className shape so the assertion is stable
+    // regardless of suite order (LESSONS#0099 family — a new test file's
+    // existence rearranges the faker counter).
     it.each(positionCases)('position %s gets color class %s', (position, colorClass) => {
-      const player = buildPlayer({ position });
+      const player = buildPlayer({ position, name: 'Zelda Yancy' });
       const { container } = render(<PlayerCard player={player} />);
-      const badge = screen.getByText(position);
-      expect(badge.className).toContain(colorClass);
+      // The badge has rounded-full + inline-flex (vs the avatar's h-12 w-12).
+      const badge = container.querySelector(
+        '.inline-flex.rounded-full.border-transparent',
+      ) as HTMLElement | null;
+      expect(badge).not.toBeNull();
+      expect(badge!.textContent).toContain(position);
+      expect(badge!.className).toContain(colorClass);
     });
 
     it('uses fallback zinc color for unknown positions', () => {
-      const player = buildPlayer({ position: 'QB' });
+      const player = buildPlayer({ position: 'QB', name: 'Zelda Yancy' });
       const { container } = render(<PlayerCard player={player} />);
-      const badge = screen.getByText('QB');
-      expect(badge.className).toContain('text-zinc-300');
+      const badge = container.querySelector(
+        '.inline-flex.rounded-full.border-transparent',
+      ) as HTMLElement | null;
+      expect(badge).not.toBeNull();
+      expect(badge!.textContent).toContain('QB');
+      expect(badge!.className).toContain('text-zinc-300');
     });
   });
 });
