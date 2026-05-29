@@ -5,9 +5,12 @@ import { ParentViralCTA } from '@/components/share/parent-viral-cta';
 import { StartYourTeamCTA } from '@/components/share/start-your-team-cta';
 import { ParentReactionForm } from '@/components/share/parent-reaction-form';
 import { ParentContactForm } from '@/components/share/parent-contact-form';
+import { ProgramReferralForm } from '@/components/share/program-referral-form';
 import { ShareReportButton } from '@/components/share/share-report-button';
 import { ProgressTrendChart } from '@/components/share/progress-trend-chart';
 import { CalendarDays, Megaphone, MessageCircle } from 'lucide-react';
+import { createServiceSupabase } from '@/lib/supabase/server';
+import { verifyDirectorId } from '@/lib/program-referral-utils';
 import {
   SESSION_EMOJI,
   SESSION_LABEL,
@@ -347,9 +350,106 @@ export async function generateMetadata({
 // Main Page
 // ---------------------------------------------------------------------------
 
-export default async function SharePage({ params }: { params: Promise<{ token: string }> }) {
+// Director-side resolution (ticket 0050). A `?pr=<signed_director_id>` query
+// parameter on the share URL is the director's invitation link from the
+// parent-to-program-director email. We verify the HMAC server-side, then look
+// up the row + the source coach's org slug so the director-side banner can
+// render the parent's first name and the per-team claim CTA points at the
+// real org. An unverified, absent, or tampered `pr` returns null and the page
+// renders byte-identical to today. The page never trusts a client-supplied
+// id; the signed_director_id is server-signed in the POST route and verified
+// here (LESSONS#0039 / 0042 family).
+interface DirectorReferralContext {
+  parentFirstName: string;
+  programName: string | null;
+  programSlug: string | null;
+}
+
+async function resolveDirectorReferral(
+  token: string,
+  pr: string | undefined,
+): Promise<DirectorReferralContext | null> {
+  if (!pr || typeof pr !== 'string') return null;
+  const secret = process.env.CRON_SECRET || '';
+  if (!secret) return null;
+
+  const v = verifyDirectorId(pr, secret);
+  if (!v.ok) return null;
+  // The verified payload's shareToken MUST match the URL token; otherwise an
+  // attacker could replay a `pr` from one report onto another.
+  if (v.shareToken !== token) return null;
+
+  try {
+    const admin = await createServiceSupabase();
+
+    // Look up the referral row to surface the inviting parent's first name.
+    // We match on (share_token, director_email_hash) and take the most recent
+    // sent_at so a multi-direction sweep doesn't surface a stale row.
+    const { data: referral } = await admin
+      .from('program_referrals')
+      .select('parent_first_name, sent_at')
+      .eq('share_token', token)
+      .eq('director_email_hash', v.directorEmailHash)
+      .order('sent_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!referral) return null;
+
+    // Resolve the source coach's org slug so the director-side claim CTA
+    // can deep-link to /org/<slug> (the existing 0033 claim path). A coach
+    // with no org slug (rare — only newly-minted solo orgs) just renders the
+    // banner without the per-team claim CTA.
+    const { data: share } = await admin
+      .from('parent_shares')
+      .select('team_id')
+      .eq('share_token', token)
+      .eq('is_active', true)
+      .single();
+    if (!share) return null;
+
+    const { data: team } = await admin
+      .from('teams')
+      .select('org_id')
+      .eq('id', share.team_id)
+      .single();
+
+    let programName: string | null = null;
+    let programSlug: string | null = null;
+    if (team?.org_id) {
+      const { data: org } = await admin
+        .from('organizations')
+        .select('name, slug')
+        .eq('id', team.org_id)
+        .single();
+      programName = org?.name ?? null;
+      programSlug = org?.slug ?? null;
+    }
+
+    return {
+      parentFirstName: referral.parent_first_name,
+      programName,
+      programSlug,
+    };
+  } catch {
+    // A best-effort read; never break the byte-identical no-pr render.
+    return null;
+  }
+}
+
+export default async function SharePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<{ pr?: string; pin?: string }>;
+}) {
   const { token } = await params;
+  const { pr } = await searchParams;
   const data = await getShareData(token);
+
+  // Director-side context — null when no `pr` is present, or when the `pr`
+  // fails to verify. The banner / claim CTA render ONLY on a non-null context.
+  const directorContext = await resolveDirectorReferral(token, pr);
 
   if (!data || data.error) {
     return <ErrorPage isExpired={data?.status === 410} needsPin={!!data?.pinRequired} />;
@@ -472,6 +572,27 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-lg pb-10">
+        {/* ─── Director-side banner (ticket 0050) — renders ONLY when a verified
+            `?pr=...` is present. Unverified/absent renders no banner and the
+            page is byte-identical to today. ─── */}
+        {directorContext && (
+          <div
+            className="mx-4 mt-4 rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 p-4 shadow-sm"
+            data-testid="director-referral-banner"
+          >
+            <p className="text-sm leading-relaxed text-gray-800">
+              <span className="font-semibold">{directorContext.parentFirstName}</span>
+              {directorContext.programName ? (
+                <> in <span className="font-semibold">{directorContext.programName}</span> sent this to you.</>
+              ) : (
+                <> sent this to you.</>
+              )}
+            </p>
+            <p className="mt-1 text-xs text-gray-600">
+              This is the same update her son&apos;s coach delivered to her family.
+            </p>
+          </div>
+        )}
         {/* ─── Header with branding ─── */}
         <div className="px-6 pt-8 pb-6 text-center">
           {branding?.logo_light_url && (
@@ -1233,6 +1354,42 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         <div className="mx-4 mt-4">
           <StartYourTeamCTA referralCode={referralCode} />
         </div>
+
+        {/* ─── Program-referral section (ticket 0050) — upstream-to-director.
+            Sits BELOW the existing "share with your other coach" CTA and the
+            self-signup CTA so the parent has already reached the bottom of
+            the report when they consider forwarding to a league-level
+            decision-maker. Universal — no tier gate, every parent on every
+            report sees it. ─── */}
+        <ProgramReferralForm
+          shareToken={token}
+          parentFirstName={parentName || firstName}
+        />
+
+        {/* ─── Director-side claim CTA (ticket 0050) — renders ONLY when a
+            verified `?pr=...` is present AND the source coach's org has a
+            public slug. Links to the existing 0033 program landing
+            (/org/<slug>) where the director taps "Coach this team — free"
+            on a per-team card. The slug-less degraded case renders no CTA
+            (the banner above still names the parent). ─── */}
+        {directorContext && directorContext.programSlug && (
+          <div className="mx-4 mt-4">
+            <a
+              href={`/org/${directorContext.programSlug}?invite=staff&pr=${encodeURIComponent(pr || '')}`}
+              data-testid="director-claim-cta"
+              className="block rounded-2xl border border-orange-200 bg-orange-500 px-5 py-4 text-center shadow-sm transition-all hover:bg-orange-600 active:scale-[0.98]"
+            >
+              <p className="text-sm font-semibold text-white">
+                {directorContext.programName
+                  ? `If you run ${directorContext.programName}, claim it here`
+                  : 'If you run this program, claim it here'}
+              </p>
+              <p className="mt-1 text-xs text-orange-50">
+                Bring your other coaches onto SportsIQ in two taps.
+              </p>
+            </a>
+          </div>
+        )}
 
         {/* ─── Footer ─── */}
         <div className="mt-6 text-center">

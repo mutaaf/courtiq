@@ -1,7 +1,7 @@
 ---
 id: 0050
 title: When a parent loves the report, let them forward it to their program's director with one tap to bring the whole league onto SportsIQ
-status: groomed
+status: in-progress
 priority: P2
 area: growth
 created: 2026-05-26
@@ -325,7 +325,5 @@ re-discover the architecture.
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0050-…` opened
-- YYYY-MM-DD — failing test added in `tests/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-05-28 — branch `feat/0050-parent-to-program-director-referral` opened.
+- 2026-05-28 — schema reconciliation: the ticket says the migration should be `047_…`, but `047_…` is already taken (047_plans_type_postgame_parent_texts.sql shipped via 0048). Next free prefix is **052** (after 051_coaches_handle.sql from 0054). Using `052_program_referrals.sql`. LESSONS#0006 (verify with `ls supabase/migrations/`).
