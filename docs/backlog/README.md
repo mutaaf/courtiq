@@ -76,8 +76,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0050 | When a parent loves the report, let them forward it to their program's director with one tap to bring the whole league onto SportsIQ | P2 | shipped | growth |
-| 0056 | Let the coach send a one-line thank-you back to a parent who left a reaction, in one tap | P2 | groomed | parent-portal |
+| 0056 | Let the coach send a one-line thank-you back to a parent who left a reaction, in one tap | P2 | in-progress | parent-portal |
 | 0001 | Stripe webhook signature verification on the live endpoint | P0 | shipped | billing |
 | 0002 | End-to-end checkout flow test — upgrade → pay → tier unlocks features | P0 | shipped | billing |
 | 0003 | Cancellation flow test — cancel → webhook → downgrade at period end | P0 | shipped | billing |
@@ -132,6 +131,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | 0037 | Make practice plans learn the coach's own style across every team they've run | P2 | shipped | ai |
 | 0040 | Turn an opponent scouting profile and this team's last 4 weeks into a one-tap pre-game brief | P2 | shipped | ai |
 | 0043 | Turn the season's middle into a one-tap parent newsletter that tells the team's whole arc, not just last week | P2 | shipped | ai |
+| 0050 | When a parent loves the report, let them forward it to their program's director with one tap to bring the whole league onto SportsIQ | P2 | shipped | growth |
 
 ## Hand-off discipline
 
