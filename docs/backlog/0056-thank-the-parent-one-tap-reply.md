@@ -1,7 +1,7 @@
 ---
 id: 0056
 title: Let the coach send a one-line thank-you back to a parent who left a reaction, in one tap
-status: in-progress
+status: shipped
 priority: P2
 area: parent-portal
 created: 2026-05-28
@@ -326,3 +326,6 @@ re-discover the architecture.
 
 - 2026-05-29 — branch `feat/0056-thank-the-parent-one-tap-reply` opened; status flipped to `in-progress` in both the ticket file and the README index row (LESSONS#42/#74).
 - 2026-05-29 — migration prefix reconciled: ticket spec said `051`, but `051_coaches_handle.sql` (0054) and `052_program_referrals.sql` (0050) have shipped since the spec was written; using `053_parent_reactions_coach_reply.sql` (LESSONS#6/#9 — unique version prefixes; schema wins over prose, LESSONS#96).
+- 2026-05-29 — PR #350 opened with auto-merge armed.
+- 2026-05-29 — all three gating checks (lint / unit-tests / e2e-tests) passed; PR #350 auto-merged.
+- 2026-05-29 — mark-shipped chore on a fresh `chore/0056-mark-shipped` branch (LESSONS#75) — flips file frontmatter + README index row to `shipped`.
