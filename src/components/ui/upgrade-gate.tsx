@@ -1,7 +1,7 @@
 'use client';
 import { useTier } from '@/hooks/use-tier';
 import { Button } from './button';
-import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye, FileAudio, CalendarDays, Gauge, CalendarRange, Swords } from 'lucide-react';
+import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye, FileAudio, CalendarDays, Gauge, CalendarRange, Swords, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import type { Tier } from '@/lib/tier';
 
@@ -249,6 +249,22 @@ const FEATURE_CONFIG: Record<string, FeatureConfig> = {
       'Generated from notes you already have — nothing extra to fill in',
     ],
     requiredTier: 'pro_coach',
+    accentColor: 'text-orange-400',
+    accentBg: 'bg-orange-500/15',
+    accentBorder: 'border-orange-500/30',
+  },
+  feature_ai_reply_draft: {
+    icon: MessageCircle,
+    headline: 'Unlock AI Thank-You Drafts',
+    tagline: 'One tap drafts a short, specific reply to the parent who left you a note.',
+    benefits: [
+      'A two-sentence reply written in your voice, naming the player by first name',
+      'Anchored to the parent\'s own words — no generic flattery',
+      'Preview before you send; edit anything you want',
+      'The send goes out on the existing parent-message channel — no new app for the parent',
+      'Free coaches can still reply — paid coaches get the AI draft, free coaches get a clean static template',
+    ],
+    requiredTier: 'coach',
     accentColor: 'text-orange-400',
     accentBg: 'bg-orange-500/15',
     accentBorder: 'border-orange-500/30',

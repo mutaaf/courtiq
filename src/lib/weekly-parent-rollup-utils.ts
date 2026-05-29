@@ -29,8 +29,15 @@ export {
  * The four parent_reactions columns the rollup is allowed to read. Listed
  * explicitly so a future widening (e.g. adding a `players(name)` join) fails
  * the COPPA test rather than silently leaking.
+ *
+ * Ticket 0056 — `id` is OPTIONAL on the type: the rollup cron passes it so
+ * each rendered quote can carry an `?openReply=<id>` deep-link the in-app
+ * inbox consumes (auto-opens the thank-you sheet for that row). When `id`
+ * is omitted (legacy callers / direct buildRollupHtml() tests), the HTML
+ * is byte-identical to the 0041 shape — the deep-link block is omitted.
  */
 export interface RollupReaction {
+  id?: string;
   reaction: string;
   message: string | null;
   parent_name: string | null;
@@ -147,6 +154,8 @@ export function buildRollupHtml(data: RollupHtmlData): string {
       ? `${totalCount} parent reacted this week.`
       : `${totalCount} parents reacted this week.`;
 
+  const inboxBaseUrl = `${appUrl}/home`;
+
   let quoteBlock: string;
   if (topReactions.length === 0) {
     // Reactions came in this week but no notes — say so plainly. The instruction
@@ -159,7 +168,15 @@ export function buildRollupHtml(data: RollupHtmlData): string {
       .map((r) => {
         const who = labelForParent(r.parent_name);
         const body = esc((r.message ?? '').trim());
-        return `<li class="quote"><span class="who">${who}:</span> &ldquo;${body}&rdquo;</li>`;
+        // Ticket 0056 — each highlighted reaction carries a "Thank
+        // <parent>" deep-link the inbox page consumes via ?openReply=<id>.
+        // When the row carries no id (legacy callers / pre-0056 callers),
+        // the link is omitted cleanly so the HTML stays byte-identical.
+        const parentFirst = r.parent_name?.trim().split(/\s+/)[0] ?? '';
+        const replyLink = r.id && parentFirst
+          ? `<div class="reply-cta"><a href="${esc(`${inboxBaseUrl}?openReply=${r.id}`)}" class="reply-link">Thank ${esc(parentFirst)} &rarr;</a></div>`
+          : '';
+        return `<li class="quote"><span class="who">${who}:</span> &ldquo;${body}&rdquo;${replyLink}</li>`;
       })
       .join('');
     quoteBlock = `<ul class="quote-list">${items}</ul>`;
@@ -184,6 +201,8 @@ export function buildRollupHtml(data: RollupHtmlData): string {
     .quote-list{list-style:none;padding:0;margin:0}
     .quote{background:#27272a;border-left:3px solid #f97316;border-radius:6px;padding:14px 18px;margin-bottom:10px;color:#f4f4f5;font-size:15px;line-height:1.5}
     .who{color:#fb923c;font-weight:600;margin-right:6px}
+    .reply-cta{margin-top:8px}
+    .reply-link{color:#fb923c;font-size:13px;font-weight:600;text-decoration:none}
     .note{color:#a1a1aa;font-style:italic}
     .cta{display:inline-block;background:#f97316;color:#fff!important;font-weight:600;padding:14px 28px;border-radius:8px;text-decoration:none;font-size:15px;margin-top:8px}
     .footer{font-size:12px;color:#52525b;text-align:center;padding-top:24px;line-height:1.7}

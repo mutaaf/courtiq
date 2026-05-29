@@ -1,7 +1,9 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Heart } from 'lucide-react';
+import { Heart, Check } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,6 +12,7 @@ import {
   countUnread,
   getRecentReactions,
 } from '@/lib/parent-reaction-utils';
+import { ThankParentSheet } from '@/components/parent-reactions/thank-parent-sheet';
 import type { ParentReaction } from '@/types/database';
 
 interface ReactionWithPlayer extends ParentReaction {
@@ -20,8 +23,21 @@ interface ParentReactionsCardProps {
   teamId: string;
 }
 
+function firstNameOf(name: string | null | undefined): string {
+  return (name ?? '').trim().split(/\s+/)[0] ?? '';
+}
+
 export function ParentReactionsCard({ teamId }: ParentReactionsCardProps) {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const openReplyParam = searchParams?.get('openReply') ?? null;
+
+  // Ticket 0056 — one-tap thank-you sheet. The active reaction is the row
+  // whose Thank button was tapped (or the row named by ?openReply=).
+  const [activeReactionId, setActiveReactionId] = useState<string | null>(null);
+  // Optimistic reply bookmark — collapses the row to "Replied" without
+  // waiting for the next /api/parent-reactions refetch.
+  const [optimisticReplied, setOptimisticReplied] = useState<Record<string, string>>({});
 
   const { data } = useQuery<{ reactions: ReactionWithPlayer[] }>({
     queryKey: ['parent-reactions', teamId],
@@ -47,10 +63,25 @@ export function ParentReactionsCard({ teamId }: ParentReactionsCardProps) {
   });
 
   const reactions = data?.reactions ?? [];
+
+  // Ticket 0056 — Monday rollup email's openReply deep-link. When the inbox
+  // first renders for a reactionId present in `reactions`, auto-open the
+  // sheet for that row. Effect runs once per (openReplyParam, reactions.length)
+  // edge; never on every re-render.
+  useEffect(() => {
+    if (!openReplyParam) return;
+    if (activeReactionId === openReplyParam) return;
+    const found = reactions.find((r) => r.id === openReplyParam);
+    if (!found) return;
+    setActiveReactionId(openReplyParam);
+  }, [openReplyParam, reactions, activeReactionId]);
+
   if (reactions.length === 0) return null;
 
   const unreadCount = countUnread(reactions);
   const recent = getRecentReactions(reactions, 30).slice(0, 3);
+
+  const active = activeReactionId ? reactions.find((r) => r.id === activeReactionId) ?? null : null;
 
   return (
     <Card className="border-pink-500/20 bg-pink-500/5">
@@ -80,6 +111,8 @@ export function ParentReactionsCard({ teamId }: ParentReactionsCardProps) {
           const rWithPlayer = r as ReactionWithPlayer;
           const playerName = rWithPlayer.players?.nickname || rWithPlayer.players?.name || null;
           const senderName = buildDisplayName(r);
+          const parentFirst = firstNameOf(r.parent_name);
+          const replied = Boolean(r.coach_reply_at) || optimisticReplied[r.id];
           return (
             <div
               key={r.id}
@@ -100,6 +133,25 @@ export function ParentReactionsCard({ teamId }: ParentReactionsCardProps) {
                     &ldquo;{r.message}&rdquo;
                   </p>
                 )}
+                {/* Ticket 0056 — Thank <parent> CTA on each unreplied reaction
+                    with a message OR a parent_name we can address. */}
+                {!replied && parentFirst.length > 0 && r.message && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => setActiveReactionId(r.id)}
+                    className="mt-1.5 h-9 px-2.5 text-xs text-orange-400 hover:bg-orange-500/10 hover:text-orange-300"
+                  >
+                    Thank {parentFirst}
+                  </Button>
+                )}
+                {replied && (
+                  <span
+                    data-testid={`reaction-replied-pill-${r.id}`}
+                    className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400"
+                  >
+                    <Check className="h-3 w-3" /> Replied
+                  </span>
+                )}
               </div>
               <span className="shrink-0 text-[10px] text-zinc-600">
                 {formatReactionTime(r.created_at)}
@@ -108,6 +160,26 @@ export function ParentReactionsCard({ teamId }: ParentReactionsCardProps) {
           );
         })}
       </CardContent>
+      {active && (
+        <ThankParentSheet
+          open
+          reactionId={active.id}
+          parentFirstName={firstNameOf(active.parent_name) || 'there'}
+          playerFirstName={
+            firstNameOf(
+              (active as ReactionWithPlayer).players?.nickname ||
+                (active as ReactionWithPlayer).players?.name ||
+                null,
+            ) || 'your kid'
+          }
+          onClose={() => setActiveReactionId(null)}
+          onSent={({ coach_reply_id }) => {
+            setOptimisticReplied((prev) => ({ ...prev, [active.id]: coach_reply_id }));
+            setActiveReactionId(null);
+            queryClient.invalidateQueries({ queryKey: ['parent-reactions', teamId] });
+          }}
+        />
+      )}
     </Card>
   );
 }

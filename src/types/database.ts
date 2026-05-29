@@ -800,6 +800,11 @@ export interface ParentReaction {
   parent_name: string | null;
   is_read: boolean;
   created_at: string;
+  // Ticket 0056 — coach-side one-tap thank-you reply. Both NULL until the
+  // coach taps Send on the in-app sheet; coach_reply_id points at the
+  // team_announcements row that carries the actual reply (existing channel).
+  coach_reply_at: string | null;
+  coach_reply_id: string | null;
 }
 
 /**

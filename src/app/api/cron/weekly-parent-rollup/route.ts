@@ -120,9 +120,14 @@ export async function POST(request: Request) {
         // `players(name, nickname)` join here, even though the GET route does
         // for the in-app inbox. If a future change tries to widen the SELECT,
         // the route test's planted ZZ-CHILD-MARKER guard fails the gate.
+        //
+        // Ticket 0056 — `id` is added to the SELECT so each rendered quote
+        // can carry an ?openReply=<id> deep-link to the in-app thank-you
+        // sheet. `id` is the reaction's own primary key, not a child
+        // descriptor.
         const { data: reactions, error: reactionsErr } = await admin
           .from('parent_reactions')
-          .select('reaction, message, parent_name, created_at')
+          .select('id, reaction, message, parent_name, created_at')
           .eq('coach_id', coach.id)
           .gte('created_at', startIso)
           .lte('created_at', endIso)
@@ -135,6 +140,7 @@ export async function POST(request: Request) {
         }
 
         const rows: RollupReaction[] = (reactions ?? []).map((r) => ({
+          id: r.id ?? undefined,
           reaction: r.reaction ?? '❤️',
           message: r.message ?? null,
           parent_name: r.parent_name ?? null,
