@@ -1,7 +1,7 @@
 ---
 id: 0059
 title: When a kid ages up to next year's coach in the same program, hand the new coach what worked for the kid
-status: in-progress
+status: shipped
 priority: P1
 area: ai
 created: 2026-05-30
