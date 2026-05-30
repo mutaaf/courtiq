@@ -76,7 +76,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0058 | Catch the coach on Sunday night with the half-built plan they left on the kitchen table | P1 | groomed | onboarding |
+| 0058 | Catch the coach on Sunday night with the half-built plan they left on the kitchen table | P1 | in-progress | onboarding |
 | 0059 | When a kid ages up to next year's coach in the same program, hand the new coach what worked for the kid | P1 | groomed | ai |
 | 0001 | Stripe webhook signature verification on the live endpoint | P0 | shipped | billing |
 | 0002 | End-to-end checkout flow test — upgrade → pay → tier unlocks features | P0 | shipped | billing |

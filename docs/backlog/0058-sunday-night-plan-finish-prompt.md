@@ -1,12 +1,30 @@
 ---
 id: 0058
 title: Catch the coach on Sunday night with the half-built plan they left on the kitchen table
-status: groomed
+status: in-progress
 priority: P1
 area: onboarding
 created: 2026-05-30
 owner: product-groomer
 ---
+
+## Implementation log
+
+- 2026-05-30 [implementation-dev] Picked up; branched feat/0058-sunday-plan-finish-prompt.
+  - Schema reconciliation (LESSONS#0051 schema-wins-over-prose):
+    - `plans` has NO `is_draft` column (greps + migration scan). The plans page
+      has no existing "draft chip" — there is no UI helper to share. The cron
+      MUST derive draft-ness from the practice plan's `content_structured`
+      shape. The new `src/lib/plan-draft-utils.ts` is the single source of
+      truth for both surfaces (cron + future UI).
+    - The dashboard route is `/plans` (plural), not `/plan`. Deep-link
+      becomes `/plans?draftId=<id>`. The plans page already has a
+      `?arcPlanId=` precedent (`useSearchParams` effect) — mirror it.
+    - The settings page lives at `/settings/profile`, not `/account`. The new
+      "Sunday planning prompt" toggle goes there (mirroring the existing
+      practice-reminder toggle row).
+    - `teams` table has NO `coach_id` column (LESSONS#0057). Use
+      `team_coaches` join (team_id, coach_id) for coach→teams resolution.
 
 ## User story
 
