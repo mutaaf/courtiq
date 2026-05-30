@@ -1139,4 +1139,53 @@ values
    '2026-05-28T14:00:00Z')
 on conflict (id) do nothing;
 
+-- ────────────────────────────────────────────────────────────────────────
+-- Ticket 0058 — Sunday-evening plan-finish prompt
+-- ────────────────────────────────────────────────────────────────────────
+-- ONE draft `plans` row (type='practice' with `content_structured` missing
+-- scrimmage + cooldown — `isPlanDraft` returns true on this shape) tied to
+-- the existing E2E coach + E2E Test Team, plus ONE upcoming session in the
+-- next 7 days on the same team so the cron's eligibility check passes.
+--
+-- LESSONS#0101 — pick a non-colliding UUID range. The 0...00b0/b1 family is
+-- unused above (existing seeds occupy 0...00a*/c*/e* + 0...0F*). Verified
+-- via grep against the rest of this file before commit.
+-- LESSONS#0085 — content_structured is a jsonb literal; every JSON string
+-- key/value is double-quoted inside a single-quoted SQL string. created_at
+-- is set explicitly so the draft is < 7 days old at cron time and falls
+-- into the route's `gte('created_at', now - 7d)` window deterministically.
+-- LESSONS#0086 — no special chars in this block that the agent shell would
+-- mishandle on commit (we commit via -F /tmp/msg.txt anyway).
+-- COPPA: no player_id (practice plans are team-level), no player names in
+-- content_structured. The Sunday email surface reads only title + drills.
+insert into plans (id, team_id, coach_id, player_id, type, title, content, content_structured, created_at)
+values (
+  '00000000-0000-4000-a000-0000000000b0',
+  '00000000-0000-4000-a000-000000000020',
+  '00000000-0000-4000-a000-000000000001',
+  null,
+  'practice',
+  'Closeout & spacing — Tuesday',
+  '{}',
+  '{
+    "warmup": {"name": "Defensive Slides", "duration_minutes": 10, "description": "lateral slides"},
+    "drills": [
+      {"name": "Closeout Drill", "duration_minutes": 12, "description": "closeouts under control"}
+    ]
+  }'::jsonb,
+  now() - interval '2 days'
+)
+on conflict (id) do nothing;
+
+-- Upcoming session in the next 7 days on the same team. current_date + 2
+-- keeps it inside the route's [today, today+7] window every time CI runs.
+insert into sessions (id, team_id, coach_id, type, date, location, notes)
+values (
+  '00000000-0000-4000-a000-0000000000b1',
+  '00000000-0000-4000-a000-000000000020',
+  '00000000-0000-4000-a000-000000000001',
+  'practice', current_date + 2, 'Main Gym', 'E2E seed upcoming session for ticket 0058'
+)
+on conflict (id) do nothing;
+
 commit;

@@ -14,8 +14,22 @@ import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 
+interface MutateArgs {
+  table: string;
+  operation: string;
+  data: { preferences: Record<string, unknown> };
+  filters: { id: string };
+}
+
 const { mockMutate } = vi.hoisted(() => ({
-  mockMutate: vi.fn(async () => undefined),
+  // The hoisted factory needs an explicit any[] arg list so TS infers a
+  // standard `Mock<unknown[], any>` signature, not the deduced empty-tuple
+  // signature that makes `mock.calls[0]` of type `[]`.
+  mockMutate: (() => {
+    const fn = vi.fn();
+    fn.mockResolvedValue(undefined);
+    return fn;
+  })(),
 }));
 
 vi.mock('@/lib/api', () => ({
@@ -64,12 +78,7 @@ describe('SundayPlanPromptToggle (ticket 0058)', () => {
     fireEvent.click(switchEl);
 
     await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(1));
-    const call = mockMutate.mock.calls[0][0] as {
-      table: string;
-      operation: string;
-      data: { preferences: Record<string, unknown> };
-      filters: { id: string };
-    };
+    const call = (mockMutate.mock.calls as unknown as MutateArgs[][])[0][0];
     expect(call.table).toBe('coaches');
     expect(call.operation).toBe('update');
     expect(call.filters).toEqual({ id: 'coach-1' });
@@ -87,9 +96,7 @@ describe('SundayPlanPromptToggle (ticket 0058)', () => {
     fireEvent.click(switchEl);
 
     await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(1));
-    const call = mockMutate.mock.calls[0][0] as {
-      data: { preferences: Record<string, unknown> };
-    };
+    const call = (mockMutate.mock.calls as unknown as MutateArgs[][])[0][0];
     expect(call.data.preferences.disable_planning_prompts).toBeUndefined();
     expect(call.data.preferences.foo).toBe('bar');
   });

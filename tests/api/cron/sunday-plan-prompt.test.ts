@@ -129,18 +129,15 @@ function buildCoachesChain() {
 
 function buildTeamCoachesChain() {
   // Used as: from('team_coaches').select('team_id').eq('coach_id', id)
-  const chain: Record<string, unknown> = {
-    _filter: { coach_id: null as string | null },
+  const chain = {
     select: vi.fn(() => chain),
-    eq(this: any, col: string, val: string) {
-      if (col === 'coach_id') chain._filter.coach_id = val;
+    eq(_col: string, val: string) {
       return Promise.resolve({
         data: store.team_coaches.filter((tc) => tc.coach_id === val),
         error: null,
       });
     },
   };
-  // Allow async chaining via Promise return above. eq returns a real promise.
   return chain;
 }
 
