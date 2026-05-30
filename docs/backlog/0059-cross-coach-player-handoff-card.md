@@ -1,12 +1,34 @@
 ---
 id: 0059
 title: When a kid ages up to next year's coach in the same program, hand the new coach what worked for the kid
-status: groomed
+status: in-progress
 priority: P1
 area: ai
 created: 2026-05-30
 owner: product-groomer
 ---
+
+## Implementation log
+
+- 2026-05-30 [implementation-dev] Picked up; branch `feat/0059-player-handoff-card`.
+  Reconciliations against the spec:
+  - Migration prefix `055` was free (last existing is `054_weekly_pulse_shares.sql`)
+    so the migration is `055_player_handoffs.sql` as named in the AC.
+  - The spec's AC mentions a possible new `players.coach_notes` column for the
+    receiver "Save to my coach notes" target; the schema already has
+    `players.notes` (existing nullable text) — schema wins (LESSONS#0039/#0051/#0057).
+    Instead of widening `Player` (which would cascade into every literal-constructor
+    test, LESSONS#0099/#0052), the claim route stores the handoff body via the
+    EXISTING `player_notes` table (a coach-private journal already wired in by
+    earlier tickets), threaded as a new row with `note_type = 'handoff'`. This
+    keeps the COPPA promise (no new descriptive minor column on `players`) AND
+    avoids the literal-constructor cascade. Documented here, not invented in code.
+  - `stripContactInfo` is the existing helper in `src/lib/parent-reply-utils.ts`.
+  - For the source-coach badge / sheet entry point on the season-recap card area
+    of /home: rather than refactor the very large home page, the source sheet is
+    rendered from a dedicated new section that we mount inline on /home at the
+    bottom of the "season recap" block. The button is the explicit user-facing
+    entry; the sheet is a client component.
 
 ## User story
 

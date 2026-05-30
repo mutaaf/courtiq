@@ -19,21 +19,21 @@ export const TIER_LIMITS: Record<Tier, {
     maxSports: 1,
     maxPlayersPerTeam: 999,
     maxAICallsPerMonth: 999999,
-    features: ['capture', 'roster', 'plans', 'report_cards', 'parent_sharing', 'sessions', 'long_session_audio', 'feature_weekly_digest', 'feature_season_momentum', 'feature_ai_reply_draft'],
+    features: ['capture', 'roster', 'plans', 'report_cards', 'parent_sharing', 'sessions', 'long_session_audio', 'feature_weekly_digest', 'feature_season_momentum', 'feature_ai_reply_draft', 'feature_player_handoff'],
   },
   pro_coach: {
     maxTeams: 999,
     maxSports: 999,
     maxPlayersPerTeam: 999,
     maxAICallsPerMonth: 999999,
-    features: ['capture', 'roster', 'plans', 'report_cards', 'parent_sharing', 'sessions', 'assistant', 'analytics', 'media_upload', 'custom_prompts', 'tendencies', 'curriculum_publish', 'long_session_audio', 'feature_weekly_digest', 'feature_season_momentum', 'feature_pregame_brief', 'feature_ai_reply_draft'],
+    features: ['capture', 'roster', 'plans', 'report_cards', 'parent_sharing', 'sessions', 'assistant', 'analytics', 'media_upload', 'custom_prompts', 'tendencies', 'curriculum_publish', 'long_session_audio', 'feature_weekly_digest', 'feature_season_momentum', 'feature_pregame_brief', 'feature_ai_reply_draft', 'feature_player_handoff'],
   },
   organization: {
     maxTeams: 999,
     maxSports: 999,
     maxPlayersPerTeam: 999,
     maxAICallsPerMonth: 999999,
-    features: ['capture', 'roster', 'plans', 'report_cards', 'parent_sharing', 'sessions', 'assistant', 'analytics', 'media_upload', 'custom_prompts', 'tendencies', 'multi_coach', 'org_analytics', 'custom_branding', 'curriculum_publish', 'long_session_audio', 'feature_weekly_digest', 'feature_program_pulse', 'feature_program_focus', 'feature_season_momentum', 'feature_pregame_brief', 'feature_ai_reply_draft'],
+    features: ['capture', 'roster', 'plans', 'report_cards', 'parent_sharing', 'sessions', 'assistant', 'analytics', 'media_upload', 'custom_prompts', 'tendencies', 'multi_coach', 'org_analytics', 'custom_branding', 'curriculum_publish', 'long_session_audio', 'feature_weekly_digest', 'feature_program_pulse', 'feature_program_focus', 'feature_season_momentum', 'feature_pregame_brief', 'feature_ai_reply_draft', 'feature_player_handoff'],
   },
 };
 

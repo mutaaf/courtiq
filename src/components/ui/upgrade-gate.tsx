@@ -1,7 +1,7 @@
 'use client';
 import { useTier } from '@/hooks/use-tier';
 import { Button } from './button';
-import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye, FileAudio, CalendarDays, Gauge, CalendarRange, Swords, MessageCircle } from 'lucide-react';
+import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye, FileAudio, CalendarDays, Gauge, CalendarRange, Swords, MessageCircle, UserCheck } from 'lucide-react';
 import Link from 'next/link';
 import type { Tier } from '@/lib/tier';
 
@@ -263,6 +263,22 @@ const FEATURE_CONFIG: Record<string, FeatureConfig> = {
       'Preview before you send; edit anything you want',
       'The send goes out on the existing parent-message channel — no new app for the parent',
       'Free coaches can still reply — paid coaches get the AI draft, free coaches get a clean static template',
+    ],
+    requiredTier: 'coach',
+    accentColor: 'text-orange-400',
+    accentBg: 'bg-orange-500/15',
+    accentBorder: 'border-orange-500/30',
+  },
+  feature_player_handoff: {
+    icon: UserCheck,
+    headline: 'Unlock Player Handoff Cards',
+    tagline: 'Hand off your players to next season\'s coach with one tap — what worked for you, kid by kid.',
+    benefits: [
+      'One short coach-to-coach note per player, generated from notes you already captured',
+      'First name only — no parent contact, no DOB, no medical info ever rides on the card',
+      'Auto-attaches to the next coach\'s roster when she imports the matching player in your program',
+      'You uncheck the kids you want to think about more before sending — nothing leaves without your tap',
+      'The receiving coach saves the card to her own coach notes in one tap — no new app for her to learn',
     ],
     requiredTier: 'coach',
     accentColor: 'text-orange-400',

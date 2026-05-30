@@ -1188,4 +1188,88 @@ values (
 )
 on conflict (id) do nothing;
 
+-- ── ticket 0059: cross-coach player handoff card seed ──────────────────────
+-- One additional coach in the SAME org (the RECEIVING coach), plus a TARGET
+-- team for her with a player whose first name matches Alice (the SOURCE
+-- coach's player in the existing seed). The migration's UNIQUE on
+-- (source_coach_id, source_player_id, source_team_id) means the handoff row
+-- only inserts ONCE per re-seed (on conflict → do nothing).
+--
+-- UUID family: '00000000-0000-4000-a000-000000000002' for the second coach
+-- (LESSONS#0028 says EVERY new coach needs a matching auth.users row first;
+-- LESSONS#0043 says verify no collision — none in this range). Player /
+-- team rows in the 0...c1 / 0...c2 / 0...c3 / 0...c4 range (LESSONS#0101).
+
+-- Second coach's auth.users row (FK requirement, LESSONS#0028).
+insert into auth.users (id, instance_id, aud, role, email,
+                        email_confirmed_at, created_at, updated_at)
+values (
+  '00000000-0000-4000-a000-000000000002',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated', 'authenticated',
+  'e2e-receiver@test.com',
+  now(), now(), now()
+)
+on conflict (id) do nothing;
+
+-- The receiving coach in the SAME org as the source coach.
+insert into coaches (id, org_id, full_name, email, role, onboarding_complete, preferences)
+values (
+  '00000000-0000-4000-a000-000000000002',
+  '00000000-0000-4000-a000-000000000010',
+  'Receiver Coach', 'e2e-receiver@test.com', 'admin', true,
+  '{}'::jsonb
+)
+on conflict (id) do nothing;
+
+-- The TARGET team (the next-season team in the same program).
+insert into teams (id, org_id, sport_id, name, age_group, season, season_weeks, current_week, is_active)
+select
+  '00000000-0000-4000-a000-0000000000c2',
+  '00000000-0000-4000-a000-000000000010',
+  (select id from sports where slug = 'basketball' limit 1),
+  'Target Team 0059', '12-13', 'Fall 2026', 10, 1, true
+on conflict (id) do nothing;
+
+insert into team_coaches (team_id, coach_id, role)
+values (
+  '00000000-0000-4000-a000-0000000000c2',
+  '00000000-0000-4000-a000-000000000002',
+  'head_coach'
+)
+on conflict (team_id, coach_id) do nothing;
+
+-- The receiving coach's just-imported player whose first name matches Alice
+-- (the existing SOURCE coach's seeded player at ...030). age_group is
+-- '12-13', within ±1 of Alice's source age_group '11-13' so the matcher
+-- accepts it. Jersey number omitted on this side so the jersey check
+-- defaults to a non-blocking skip.
+insert into players (id, team_id, name, nickname, name_variants, age_group, position, is_active)
+values (
+  '00000000-0000-4000-a000-0000000000c3',
+  '00000000-0000-4000-a000-0000000000c2',
+  'Alice Henderson', null, null, '12-13', 'Guard', true
+)
+on conflict (id) do nothing;
+
+-- A handoff card already minted by the SOURCE coach (coach ...001) for
+-- the source player Alice Walker (...030), in the same org (...010). This
+-- gives the e2e a deterministic candidate the receiver lookup will find
+-- and surface as a "1 handoff note" badge on the target roster row.
+insert into player_handoffs
+  (id, source_coach_id, source_player_id, source_team_id, org_id, season_label,
+   card_body, ai_provider, is_archived)
+values (
+  '00000000-0000-4000-a000-0000000000c4',
+  '00000000-0000-4000-a000-000000000001',
+  '00000000-0000-4000-a000-000000000030',
+  '00000000-0000-4000-a000-000000000020',
+  '00000000-0000-4000-a000-000000000010',
+  'Spring 2026',
+  'Alice responds well to short specific cues during shooting drills. One drill that landed for me: stationary form-shoot. She is still working on left-hand finishing.',
+  'anthropic',
+  false
+)
+on conflict (source_coach_id, source_player_id, source_team_id) do nothing;
+
 commit;

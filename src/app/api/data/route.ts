@@ -60,6 +60,12 @@ const ALLOWED_TABLES = [
   // /api/weekly-pulse/create route (LESSONS#0039 — never trust a
   // client-supplied identifier on a typed share artifact).
   'weekly_pulse_shares',
+  // Ticket 0059 — READS only (the source coach's history view). Inserts and
+  // claims flow through the dedicated /api/player-handoffs/* routes; the
+  // mutate allow-list intentionally OMITS this table. Cross-org reads are
+  // returned empty by the receiver routes' org_id scoping; the generic
+  // /api/data path is filtered by the caller via filters at the API layer.
+  'player_handoffs',
 ];
 
 // ─── GET handler (query params) ──────────────────────────────────────────────

@@ -1793,4 +1793,66 @@ export const PROMPT_REGISTRY = {
       'Write the reply as a single plain-text string. No JSON, no markdown, no quotation marks around the whole reply.',
     ].join('\n'),
   }),
+
+  /**
+   * Ticket 0059 — playerHandoffCard.
+   *
+   * The cross-coach program-internal handoff. The source coach has finished a
+   * season; this prompt summarizes her own structured observations on ONE
+   * player into a short clipboard-voiced "what worked for me coaching this
+   * kid" note for the next coach in the same program.
+   *
+   * Voice contract (LESSONS#0023): the instruction is POSITIVE — "write like
+   * a coach handing off to another coach over coffee — short, specific, no
+   * marketing voice." The banned-token list (AGENTS.md §non-negotiable #7)
+   * is never enumerated in the prompt; that would itself fail any prompt-
+   * voice contract test that scans `${system}\n${user}` for those tokens.
+   *
+   * Input contract (the eight named keys; no observation text, no parent
+   * contact, no DOB ever passed): playerFirstName, ageGroup, sportName,
+   * topStrengths, topGrowthArea, signatureDrillNames, coachAuthoredHighlights,
+   * seasonLabel.
+   *
+   * Output contract: { card_body: string } — 3-4 short sentences in plain
+   * English. The route re-validates against `playerHandoffCardSchema` and
+   * runs the body through `stripContactInfo` before persisting.
+   */
+  playerHandoffCard: (params: {
+    playerFirstName: string;
+    ageGroup: string;
+    sportName: string;
+    topStrengths: string[];
+    topGrowthArea: string;
+    signatureDrillNames: string[];
+    coachAuthoredHighlights: string[];
+    seasonLabel: string;
+  }) => ({
+    system: [
+      'You write one short coach-to-coach handoff note about a youth athlete who is moving up to next season\'s coach in the same program.',
+      '',
+      'Voice and tone:',
+      '- Write like a coach handing off to another coach over coffee — short, specific, plain English.',
+      '- Three to four short sentences total. No headings, no bullet points, no JSON, no markdown.',
+      '- Name the player by FIRST NAME ONLY. Never use a last name, never use a parent name, never mention contact information.',
+      '- Stay practical and concrete. One observation about how the kid responds to coaching, one drill that landed, one growth area worth a few minutes next season.',
+      '- No hype. No promises about what the kid will become. No exclamation marks.',
+      '',
+      'Output format:',
+      '- Return JSON of the shape { "card_body": "..." } where card_body is the plain-text note as a single string.',
+      '- Do not include any keys other than card_body.',
+    ].join('\n'),
+    user: [
+      `Player first name: ${params.playerFirstName}`,
+      `Age group: ${params.ageGroup}`,
+      `Sport: ${params.sportName}`,
+      `Season label: ${params.seasonLabel}`,
+      `Top strengths (from this coach\'s notes): ${params.topStrengths.join(', ') || '(none listed)'}`,
+      `Top growth area: ${params.topGrowthArea || '(none listed)'}`,
+      `Drills that worked for this coach: ${params.signatureDrillNames.join(', ') || '(none listed)'}`,
+      `Coach-authored highlights:`,
+      ...params.coachAuthoredHighlights.slice(0, 6).map((h) => `- ${h}`),
+      '',
+      'Write the handoff note as JSON: { "card_body": "..." }. Three to four short sentences. First name only.',
+    ].join('\n'),
+  }),
 } as const;
