@@ -581,6 +581,25 @@ export interface PracticePlanShare {
   created_at: string;
 }
 
+// Weekly-pulse share mapping (ticket 0057). Maps a public token to a coach +
+// team + ISO week so /week/[token] renders an aggregate "what my team is
+// working on this week" card the coach drops in the league group chat. NO
+// per-minor data on this table: the public render path joins live to teams /
+// observations / sessions for team-level aggregates only (session count, top
+// categories, focus line). The (coach_id, team_id, iso_week) UNIQUE
+// constraint guarantees a coach who taps Publish twice in the same week
+// reuses the same token.
+export interface WeeklyPulseShare {
+  id: string;
+  token: string;
+  coach_id: string;
+  team_id: string;
+  iso_week: string;
+  caption: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface ConfigOverride {
   id: string;
   org_id: string | null;

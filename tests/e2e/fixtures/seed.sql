@@ -1084,4 +1084,59 @@ update players
   where id = '00000000-0000-4000-a000-000000000030'
     and (parent_email is null or parent_email = '');
 
+-- ────────────────────────────────────────────────────────────────────────
+-- Ticket 0057 — weekly-pulse share card (one tap → public /week/<token>)
+-- ────────────────────────────────────────────────────────────────────────
+-- ONE active weekly_pulse_shares row tied to the existing E2E coach + E2E
+-- team, plus a small observations seed inside the row's ISO week so the
+-- public GET route's category aggregation has data. UUIDs in the 0...00a2/
+-- 0...00a3 family (the parent_reactions seed above used 0...00a1; verified
+-- non-colliding per LESSONS#0101). iso_week is a calendar-frozen value
+-- ('2026-W22' = Mon May 25 → Sun May 31 UTC) so the spec assertions are
+-- deterministic regardless of when CI runs.
+--
+-- COPPA: NO new player rows; the existing Alice (...030) carries the seeded
+-- observations. The public /api/weekly-pulse/<token> route's response is
+-- key-set-allow-listed (asserted in tests/api/weekly-pulse-token-get.test.ts)
+-- so even with `player_id` set on these obs rows, no minor name / observation
+-- text / parent contact crosses to the public card.
+insert into weekly_pulse_shares (id, token, coach_id, team_id, iso_week, caption, is_active)
+values (
+  '00000000-0000-4000-a000-0000000000a2',
+  'test-weekly-pulse-token-e2e-001',
+  '00000000-0000-4000-a000-000000000001',
+  '00000000-0000-4000-a000-000000000020',
+  '2026-W22',
+  'anyone want to swap closeout drills?',
+  true
+)
+on conflict (token) do nothing;
+
+-- Two observations stamped INSIDE the seed iso_week range so the public GET
+-- route's topCategories aggregation returns a deterministic ordering. The
+-- text/player_id are populated (just like the existing 0050/0051 obs) so the
+-- response allow-list is the only thing preventing them from crossing to the
+-- public card — the assertion in the spec confirms they DO NOT cross.
+insert into observations (id, player_id, team_id, coach_id, session_id, category, sentiment, text, source, ai_parsed, is_highlighted, created_at)
+values
+  ('00000000-0000-4000-a000-0000000000a3',
+   '00000000-0000-4000-a000-000000000030',
+   '00000000-0000-4000-a000-000000000020',
+   '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000040',
+   'Defense', 'positive',
+   'E2E seed: 0057 obs inside iso_week 2026-W22',
+   'typed', false, false,
+   '2026-05-27T14:00:00Z'),
+  ('00000000-0000-4000-a000-0000000000a4',
+   '00000000-0000-4000-a000-000000000030',
+   '00000000-0000-4000-a000-000000000020',
+   '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000040',
+   'Effort', 'positive',
+   'E2E seed: 0057 obs inside iso_week 2026-W22',
+   'typed', false, false,
+   '2026-05-28T14:00:00Z')
+on conflict (id) do nothing;
+
 commit;

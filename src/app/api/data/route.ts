@@ -55,6 +55,11 @@ const ALLOWED_TABLES = [
   // publisher mints tokens through /api/practice-plan-shares/create). The
   // mutate allow-list intentionally OMITS this table.
   'practice_plan_shares',
+  // Ticket 0057 — same posture as 0049. READS only so the coach can list
+  // their own pulses; inserts/updates flow through the dedicated
+  // /api/weekly-pulse/create route (LESSONS#0039 — never trust a
+  // client-supplied identifier on a typed share artifact).
+  'weekly_pulse_shares',
 ];
 
 // ─── GET handler (query params) ──────────────────────────────────────────────
