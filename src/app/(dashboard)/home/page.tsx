@@ -66,6 +66,7 @@ import { SeasonWrapSection } from '@/components/home/season-wrap-card';
 import { ArcCompleteCard } from '@/components/home/arc-complete-card';
 import { WeeklyWrapCard } from '@/components/home/weekly-wrap-card';
 import { InviteCoachCard } from '@/components/home/invite-coach-card';
+import { WeeklyPulseShareCard } from '@/components/home/weekly-pulse-share-card';
 import { ReferralCelebrationCard } from '@/components/home/referral-celebration-card';
 import { PlanClonesCard } from '@/components/home/plan-clones-card';
 import { PendingCloneConsumer } from '@/components/home/pending-clone-consumer';
@@ -1617,6 +1618,11 @@ export default function HomePage() {
           sessions={stats.sessions}
         />
       )}
+
+      {/* Ticket 0057 — Share this week. Self-gating: renders null when the
+          coach has no observations + no sessions this ISO week so /home is
+          byte-identical for a brand-new coach with no content to share. */}
+      {activeTeam && <WeeklyPulseShareCard teamId={activeTeam.id} />}
 
       {/* Ticket 0049 — clones-of-your-published-plans card. Renders nothing
           when count is 0 OR <= lastSeenCount, so /home stays calm for coaches

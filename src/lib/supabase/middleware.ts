@@ -59,6 +59,13 @@ export async function updateSession(request: NextRequest) {
     // guard. The /plan/ page is the cold-search-reachable surface.
     '/plan/',
     '/api/practice-plan-shares/',
+    // Public weekly-pulse share (ticket 0057) — page + its public token GET.
+    // /api/weekly-pulse/create and /api/weekly-pulse/preview are NOT public
+    // surfaces: each self-enforces auth in the handler (auth.getUser() → 401),
+    // so the blanket prefix here never bypasses that guard. The /week/ page
+    // is the cold-search-reachable surface dropped in league group chats.
+    '/week/',
+    '/api/weekly-pulse/',
     // Public referral lookup (ticket 0021) — names the inviting coach on the
     // warm signup landing. Returns the referrer's first name only, no auth.
     '/api/referrals/lookup',

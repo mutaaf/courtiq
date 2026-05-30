@@ -38,10 +38,12 @@ function buildChain(data: unknown = null) {
 
 const BASE = 'https://youthsportsiq.test';
 
-// Wires the existing 6 sequential reads (orgs → team_cards → season_recaps →
-// coach_cards → game_recaps → practice_plans) PLUS the new 7th read for
-// coaches with non-null handle. The route looks up handle-by-coach-id from
-// the coach_cards rows; we hand it the mapping directly.
+// Wires the existing 7 sequential reads (orgs → team_cards → season_recaps →
+// coach_cards → game_recaps → practice_plans → weekly_pulse_shares) PLUS the
+// 8th read for coaches with non-null handle. The route looks up
+// handle-by-coach-id from the coach_cards rows; we hand it the mapping
+// directly. Ticket 0057 added the weekly_pulse_shares read between
+// practice_plan_shares (6th) and coaches/handle (8th).
 function wireTables(opts: {
   orgs?: Array<{ slug: string }>;
   teamCards?: Array<{ token: string; created_at?: string }>;
@@ -49,6 +51,7 @@ function wireTables(opts: {
   coachCards?: Array<{ token: string; coach_id?: string; created_at?: string }>;
   gameRecaps?: Array<{ token: string; created_at?: string }>;
   practicePlans?: Array<{ token: string; created_at?: string }>;
+  weeklyPulses?: Array<{ token: string; created_at?: string }>;
   handleByCoachId?: Array<{ id: string; handle: string }>;
 }) {
   mockFromFn
@@ -58,7 +61,10 @@ function wireTables(opts: {
     .mockReturnValueOnce(buildChain(opts.coachCards ?? []))
     .mockReturnValueOnce(buildChain(opts.gameRecaps ?? []))
     .mockReturnValueOnce(buildChain(opts.practicePlans ?? []))
-    // 7th: coaches WHERE handle IS NOT NULL AND id IN (coach_ids from coach_cards).
+    // 7th: weekly_pulse_shares (ticket 0057) — same is_active=true gating
+    // as the other token tables, /week/<token> URL prefix.
+    .mockReturnValueOnce(buildChain(opts.weeklyPulses ?? []))
+    // 8th: coaches WHERE handle IS NOT NULL AND id IN (coach_ids from coach_cards).
     .mockReturnValueOnce(buildChain(opts.handleByCoachId ?? []));
 }
 

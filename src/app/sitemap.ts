@@ -10,12 +10,13 @@ import { createServiceSupabase } from '@/lib/supabase/server';
 //   - /programs — the directory page (ticket 0033) — always indexed.
 //   - One /org/<slug> per organization that has explicitly opted into discovery
 //     (settings.discoverable = true), the same gate /api/programs filters on.
-//   - One entry per ACTIVE token across the five shipped public-token surfaces:
+//   - One entry per ACTIVE token across the six shipped public-token surfaces:
 //       team_card_shares       → /team-card/<token>      (0010)
 //       season_recap_shares    → /season-recap/<token>   (0017)
 //       coach_card_shares      → /coach/<token>          (0026)
 //       game_recap_shares      → /recap/<token>          (0027)
 //       practice_plan_shares   → /plan/<token>           (0049)
+//       weekly_pulse_shares    → /week/<token>           (0057)
 //
 // The parent portal at /share/<token> (parent_shares) is NEVER included — it
 // carries per-minor content and is marked `noindex` at the page level. The
@@ -189,6 +190,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       fetchActiveTokens(supabase, 'game_recap_shares'),
     ]);
     const practicePlans = await fetchActiveTokens(supabase, 'practice_plan_shares');
+    // Ticket 0057 — weekly_pulse_shares read AFTER the prior five so the
+    // existing sitemap.test.ts mock-ordering keeps matching byte-for-byte
+    // (LESSONS#0049 / #0100 family — sitemap test mocks are queued in the
+    // route's exact read order). The mock queue in tests/app/sitemap.test.ts
+    // is extended to add this 8th sequential read.
+    const weeklyPulses = await fetchActiveTokens(supabase, 'weekly_pulse_shares');
 
     // Ticket 0054 — resolve which coaches have a non-null handle so the
     // /coach/<handle> URL replaces the /coach/<token> URL. Bounded by the
@@ -268,6 +275,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...coachCardEntries,
       ...map(gameRecaps, '/recap'),
       ...map(practicePlans, '/plan'),
+      ...map(weeklyPulses, '/week'),
     ];
   } catch (error) {
     // Sitemap generation must never throw — a transient DB hiccup degrades to

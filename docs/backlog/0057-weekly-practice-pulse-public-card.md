@@ -1,12 +1,17 @@
 ---
 id: 0057
 title: Let the coach drop a one-tap "what my team is working on this week" card into the league group chat
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-05-30
 owner: product-groomer
 ---
+
+## Implementation log
+
+- 2026-05-30 [implementation-dev] Branched `feat/0057-weekly-pulse-share-card`. Flipped status to `in-progress`. Next free migration prefix is `054` (last was `053_parent_reactions_coach_reply.sql`). Will mirror 0049 / `practice_plan_shares` patterns for table + share token routes; the public page mirrors `/plan/[token]` (gray/orange parent-portal aesthetic). The home preview card mirrors 0049's publish-button pattern. The public payload's `referralCode` is server-derived via `makeReferralCode(coach.id)` so a forged `?ref=` is overwritten on the page (LESSONS#0039). Reusing the existing `coachFirstName` server-side split pattern from 0049's GET route so no last name is exposed.
+
 
 ## User story
 
