@@ -1,7 +1,7 @@
 ---
 id: 0057
 title: Let the coach drop a one-tap "what my team is working on this week" card into the league group chat
-status: in-progress
+status: shipped
 priority: P1
 area: growth
 created: 2026-05-30
