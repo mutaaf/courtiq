@@ -1,7 +1,7 @@
 ---
 id: 0058
 title: Catch the coach on Sunday night with the half-built plan they left on the kitchen table
-status: in-progress
+status: shipped
 priority: P1
 area: onboarding
 created: 2026-05-30

@@ -76,7 +76,6 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0058 | Catch the coach on Sunday night with the half-built plan they left on the kitchen table | P1 | in-progress | onboarding |
 | 0059 | When a kid ages up to next year's coach in the same program, hand the new coach what worked for the kid | P1 | groomed | ai |
 | 0001 | Stripe webhook signature verification on the live endpoint | P0 | shipped | billing |
 | 0002 | End-to-end checkout flow test — upgrade → pay → tier unlocks features | P0 | shipped | billing |
@@ -119,6 +118,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | 0054 | Let the coach claim a vanity URL (/coach/sarah-rodriguez) so their profile fits in an email signature | P1 | shipped | growth |
 | 0055 | Show a coach the practice plans other coaches in their league have published, before generic AI suggestions | P1 | shipped | plans |
 | 0057 | Let the coach drop a one-tap "what my team is working on this week" card into the league group chat | P1 | shipped | growth |
+| 0058 | Catch the coach on Sunday night with the half-built plan they left on the kitchen table | P1 | shipped | onboarding |
 | 0009 | Put the Player of the Week / Player of the Match spotlight on the parent portal | P2 | shipped | parent-portal |
 | 0010 | Make the Team Personality card a public, coach-to-coach referral surface | P2 | shipped | growth |
 | 0013 | Give the Player-of-the-Week spotlight its own rich link preview when a parent forwards the portal | P2 | shipped | parent-portal |
