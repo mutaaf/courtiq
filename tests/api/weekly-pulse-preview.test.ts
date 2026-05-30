@@ -97,6 +97,7 @@ describe('GET /api/weekly-pulse/preview (ticket 0057)', () => {
 
   it('returns 404 when the team belongs to a different coach', async () => {
     setAuth();
+    // team_coaches membership check returns null → 404.
     mockFromFn.mockReturnValueOnce(buildChain(null));
     const res = await GET(makeRequest(TEAM_ID));
     expect(res.status).toBe(404);
@@ -104,15 +105,16 @@ describe('GET /api/weekly-pulse/preview (ticket 0057)', () => {
 
   it('happy path returns the preview payload + existingToken=null when never shared this week', async () => {
     setAuth();
-    // The route reads: teams → coaches → sports → observations → sessions →
-    // (readProgramFocus internal: teams + config_overrides; for free tier it
-    // short-circuits after the first teams read) → plans (coach signature) →
-    // weekly_pulse_shares (existingToken lookup).
+    // The route reads: team_coaches (membership) → teams → coaches → sports
+    // → observations → sessions → (readProgramFocus internal: teams +
+    // config_overrides; for free tier it short-circuits after the first
+    // teams read) → plans (coach signature) → weekly_pulse_shares
+    // (existingToken lookup).
     mockFromFn
+      .mockReturnValueOnce(buildChain({ coach_id: COACH_ID })) // team_coaches
       .mockReturnValueOnce(buildChain({
         id: TEAM_ID, name: 'Coach Maya Team',
         age_group: '11-13', org_id: 'org-1', sport_id: 'sport-1',
-        coach_id: COACH_ID,
       }))
       .mockReturnValueOnce(buildChain({ id: COACH_ID, full_name: 'Maya Patel' }))
       .mockReturnValueOnce(buildChain({ id: 'sport-1', name: 'Basketball' }))
@@ -143,10 +145,10 @@ describe('GET /api/weekly-pulse/preview (ticket 0057)', () => {
   it('reports existingToken when the coach has already shared THIS week', async () => {
     setAuth();
     mockFromFn
+      .mockReturnValueOnce(buildChain({ coach_id: COACH_ID })) // team_coaches
       .mockReturnValueOnce(buildChain({
         id: TEAM_ID, name: 'Coach Maya Team',
         age_group: '11-13', org_id: 'org-1', sport_id: 'sport-1',
-        coach_id: COACH_ID,
       }))
       .mockReturnValueOnce(buildChain({ id: COACH_ID, full_name: 'Maya Patel' }))
       .mockReturnValueOnce(buildChain({ id: 'sport-1', name: 'Basketball' }))

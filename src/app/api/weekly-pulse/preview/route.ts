@@ -37,16 +37,32 @@ export async function GET(request: Request) {
   const supabase = await createServiceSupabase();
 
   try {
+    // Verify the team belongs to the caller via `team_coaches` (NOT a
+    // `teams.coach_id` column — teams has no such column; LESSONS#0039 /
+    // #0051 family: schema wins over prose).
+    const { data: teamCoach } = await supabase
+      .from('team_coaches')
+      .select('coach_id')
+      .eq('team_id', teamId)
+      .eq('coach_id', user.id)
+      .maybeSingle();
+
+    if (!teamCoach) {
+      return NextResponse.json(
+        { error: 'Team not found for this coach' },
+        { status: 404 },
+      );
+    }
+
     const { data: team } = await supabase
       .from('teams')
-      .select('id, name, age_group, org_id, sport_id, coach_id')
+      .select('id, name, age_group, org_id, sport_id')
       .eq('id', teamId)
-      .eq('coach_id', user.id)
       .single();
 
     if (!team) {
       return NextResponse.json(
-        { error: 'Team not found for this coach' },
+        { error: 'Team not found' },
         { status: 404 },
       );
     }

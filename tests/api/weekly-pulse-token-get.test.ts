@@ -90,7 +90,6 @@ const TEAM_ROW = {
   age_group: '11-13',
   org_id: 'org-1',
   sport_id: 'sport-1',
-  coach_id: COACH_ID,
 };
 
 const COACH_ROW = { id: COACH_ID, full_name: 'Sasha Williams' };

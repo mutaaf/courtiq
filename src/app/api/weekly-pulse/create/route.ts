@@ -54,20 +54,34 @@ export async function POST(request: Request) {
   const supabase = await createServiceSupabase();
 
   try {
-    // Verify the team belongs to the caller. coaches.id === auth.users.id is
-    // the shared invariant the rest of the app uses; the team's coach_id is
-    // the head-coach owner. Scoping by (id, coach_id) means another coach's
-    // team simply isn't found — no cross-coach leakage.
+    // Verify the team belongs to the caller. The coach-to-team relationship
+    // lives on the `team_coaches` join table (NOT a `teams.coach_id` column —
+    // teams has no such column; LESSONS#0039 / #0051 family: schema wins
+    // over prose). A foreign team simply returns null → 404, no cross-coach
+    // leakage.
+    const { data: teamCoach } = await supabase
+      .from('team_coaches')
+      .select('coach_id')
+      .eq('team_id', teamId)
+      .eq('coach_id', user.id)
+      .maybeSingle();
+
+    if (!teamCoach) {
+      return NextResponse.json(
+        { error: 'Team not found for this coach' },
+        { status: 404 },
+      );
+    }
+
     const { data: team } = await supabase
       .from('teams')
-      .select('id, name, coach_id')
+      .select('id, name')
       .eq('id', teamId)
-      .eq('coach_id', user.id)
       .single();
 
     if (!team) {
       return NextResponse.json(
-        { error: 'Team not found for this coach' },
+        { error: 'Team not found' },
         { status: 404 },
       );
     }

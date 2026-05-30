@@ -61,7 +61,8 @@ function buildChain(data: unknown = null, error: unknown = null) {
 
 const COACH_ID = 'coach-1';
 const TEAM_ID = 'team-1';
-const OWNED_TEAM = { id: TEAM_ID, name: 'E2E Test Team', coach_id: COACH_ID };
+const TEAM_COACH_ROW = { coach_id: COACH_ID };
+const OWNED_TEAM = { id: TEAM_ID, name: 'E2E Test Team' };
 
 function setAuthUser(id: string | null = COACH_ID) {
   if (id === null) {
@@ -100,7 +101,8 @@ describe('POST /api/weekly-pulse/create (ticket 0057)', () => {
 
   it('returns 404 when the team belongs to a different coach', async () => {
     setAuthUser();
-    // The route looks up by (id, coach_id) — a foreign team returns null.
+    // The route looks up team_coaches by (team_id, coach_id) — a foreign team
+    // returns null on the membership check.
     mockFromFn.mockReturnValueOnce(buildChain(null));
     const res = await POST(makeRequest());
     expect(res.status).toBe(404);
@@ -108,6 +110,7 @@ describe('POST /api/weekly-pulse/create (ticket 0057)', () => {
 
   it('happy path returns { token, url } with /week/<token> shape and a 32-hex token', async () => {
     setAuthUser();
+    const teamCoachChain = buildChain(TEAM_COACH_ROW);
     const teamChain = buildChain(OWNED_TEAM);
     const existingChain = buildChain(null);   // no existing active pulse this week
     const insertedChain = buildChain({
@@ -120,6 +123,7 @@ describe('POST /api/weekly-pulse/create (ticket 0057)', () => {
       is_active: true,
     });
     mockFromFn
+      .mockReturnValueOnce(teamCoachChain)
       .mockReturnValueOnce(teamChain)
       .mockReturnValueOnce(existingChain)
       .mockReturnValueOnce(insertedChain);
@@ -135,6 +139,7 @@ describe('POST /api/weekly-pulse/create (ticket 0057)', () => {
 
   it('is idempotent: re-create returns the EXISTING active token (never two)', async () => {
     setAuthUser();
+    const teamCoachChain = buildChain(TEAM_COACH_ROW);
     const teamChain = buildChain(OWNED_TEAM);
     const existingChain = buildChain({
       id: 'pulse-existing',
@@ -147,6 +152,7 @@ describe('POST /api/weekly-pulse/create (ticket 0057)', () => {
     });
     const insertChain = buildChain(null);
     mockFromFn
+      .mockReturnValueOnce(teamCoachChain)
       .mockReturnValueOnce(teamChain)
       .mockReturnValueOnce(existingChain)
       .mockReturnValueOnce(insertChain); // never reached on the idempotent path
@@ -162,6 +168,7 @@ describe('POST /api/weekly-pulse/create (ticket 0057)', () => {
 
   it('updates an existing row in place when a new caption is supplied', async () => {
     setAuthUser();
+    const teamCoachChain = buildChain(TEAM_COACH_ROW);
     const teamChain = buildChain(OWNED_TEAM);
     const existingChain = buildChain({
       id: 'pulse-existing',
@@ -174,6 +181,7 @@ describe('POST /api/weekly-pulse/create (ticket 0057)', () => {
     });
     const updateChain = buildChain({ id: 'pulse-existing' });
     mockFromFn
+      .mockReturnValueOnce(teamCoachChain)
       .mockReturnValueOnce(teamChain)
       .mockReturnValueOnce(existingChain)
       .mockReturnValueOnce(updateChain);
@@ -197,6 +205,7 @@ describe('POST /api/weekly-pulse/create (ticket 0057)', () => {
 
   it('defaults isoWeek to the current ISO week when omitted', async () => {
     setAuthUser();
+    const teamCoachChain = buildChain(TEAM_COACH_ROW);
     const teamChain = buildChain(OWNED_TEAM);
     const existingChain = buildChain(null);
     const insertedChain = buildChain({
@@ -209,6 +218,7 @@ describe('POST /api/weekly-pulse/create (ticket 0057)', () => {
       is_active: true,
     });
     mockFromFn
+      .mockReturnValueOnce(teamCoachChain)
       .mockReturnValueOnce(teamChain)
       .mockReturnValueOnce(existingChain)
       .mockReturnValueOnce(insertedChain);

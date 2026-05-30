@@ -62,10 +62,12 @@ export async function GET(
     // Resolve the team + its sport. The select stays narrow on PURPOSE —
     // every column listed here is either a team-level display string the
     // public card already renders, or the org_id needed to resolve the
-    // program weekly focus. No `players`-style join.
+    // program weekly focus. No `players`-style join. `teams` has no
+    // `coach_id` column — the share row already carries the publisher
+    // identity via its own `coach_id` (LESSONS#0039 family: schema wins).
     const { data: team } = await supabase
       .from('teams')
-      .select('id, name, age_group, org_id, sport_id, coach_id')
+      .select('id, name, age_group, org_id, sport_id')
       .eq('id', share.team_id)
       .single();
 
