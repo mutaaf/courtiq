@@ -62,6 +62,7 @@ export type AIInteractionType =
   | 'cv_coaching_event_extraction'
   | 'cv_identity_resolution'
   | 'generate_season_storyline'
+  | 'generate_player_handoff_card'
   | 'transcription'
   | 'custom';
 
@@ -862,4 +863,29 @@ export interface DrillSequenceAggregate {
   next_drill_id: string;
   coach_count: number;
   last_refreshed_at: string;
+}
+
+/**
+ * Ticket 0059 — the cross-coach program-internal "what worked for me coaching
+ * this kid" handoff card. One row per (source_coach, source_player, source_team)
+ * by the idempotency UNIQUE constraint. `card_body` is COACH-AUTHORED prose
+ * (the AI summarizes the source coach's existing observations into 3-4 short
+ * sentences; it does NOT invent new descriptive minor data). The receiving
+ * coach's claim stamps `claimed_*` and writes the body into the existing
+ * `player_notes` table — no new column on `players` (COPPA).
+ */
+export interface PlayerHandoff {
+  id: string;
+  source_coach_id: string;
+  source_player_id: string;
+  source_team_id: string;
+  org_id: string;
+  season_label: string;
+  card_body: string;
+  ai_provider: string;
+  claimed_by_coach_id: string | null;
+  claimed_at: string | null;
+  claimed_player_id: string | null;
+  is_archived: boolean;
+  created_at: string;
 }

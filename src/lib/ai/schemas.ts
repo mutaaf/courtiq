@@ -691,3 +691,19 @@ export const midSeasonTeamNewsletterSchema = z.object({
 }).strict();
 
 export type MidSeasonTeamNewsletter = z.infer<typeof midSeasonTeamNewsletterSchema>;
+
+// ─── Ticket 0059 — Player Handoff Card ───────────────────────────────────────
+//
+// The cross-coach program-internal handoff: when a kid ages up to next year's
+// coach in the SAME program, the prior coach taps a button and the AI
+// summarizes her own observations into a short clipboard-voiced one-pager the
+// new coach reads on her /roster screen in August.
+//
+// Schema is strict on purpose: { card_body: string } is the ENTIRE payload
+// the route persists. The body is 3-4 short sentences, clipboard tone — no
+// JSON shape leaks into the prose, no marketing voice, no extra keys.
+export const playerHandoffCardSchema = z.object({
+  card_body: z.string().min(1).max(1000),
+}).strict();
+
+export type PlayerHandoffCard = z.infer<typeof playerHandoffCardSchema>;
