@@ -26,6 +26,10 @@
     {
       "path": "/api/cron/refresh-drill-sequences",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/sunday-plan-prompt",
+      "schedule": "0 23 * * 0"
     }
   ]
 }

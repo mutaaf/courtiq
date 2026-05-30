@@ -15,6 +15,7 @@ import { isParentDigestEnabled, enableParentDigest, disableParentDigest } from '
 import { isDigestDisabled } from '@/lib/weekly-digest-utils';
 import { isReminderDisabled } from '@/lib/practice-reminder-utils';
 import { isCoachPaused } from '@/lib/coach-pause-utils';
+import { SundayPlanPromptToggle } from '@/components/settings/sunday-plan-prompt-toggle';
 import Link from 'next/link';
 
 export default function ProfileSettingsPage() {
@@ -413,6 +414,17 @@ export default function ProfileSettingsPage() {
                   />
                 </button>
               </div>
+
+              {/* Sunday planning prompt — ticket 0058. Mirrors the
+                  practice-reminder row's shape; opt-out key
+                  `disable_planning_prompts` lives in `coaches.preferences`
+                  (no migration). */}
+              {coach && (
+                <SundayPlanPromptToggle
+                  coachId={coach.id}
+                  preferences={coach.preferences ?? {}}
+                />
+              )}
 
               <p className="text-xs text-zinc-600 leading-relaxed border-t border-zinc-800 pt-3">
                 Add parent emails in Roster → player cards to start sending auto parent emails.

@@ -627,6 +627,9 @@ export default function PlansPage() {
 
   const searchParams = useSearchParams();
   const autoRunTriggeredRef = useRef(false);
+  // Ticket 0058 — guards the one-shot "expand the named draft" effect so the
+  // user's later interactions don't keep snapping back to the seeded plan.
+  const draftDeepLinkConsumedRef = useRef(false);
 
   const { data: plans, isLoading, refetch: refetchPlans } = useQuery({
     queryKey: queryKeys.plans.all(activeTeam?.id || ''),
@@ -657,6 +660,27 @@ export default function PlansPage() {
     setSelectedPlan(plan);
     setArcSessionForRun(isNaN(sessionIdx) ? null : sessionIdx);
     setShowRunModal(true);
+  }, [plans, searchParams]);
+
+  // Ticket 0058 — deep-link handler: /plans?draftId=<id> expands the named
+  // draft on first render so the Sunday-evening prompt email lands the coach
+  // directly on the unfinished plan. If the draft doesn't exist on the
+  // active team (cross-team / wrong coach / already cleaned up), the page
+  // falls back to the default empty state — no error toast (LESSONS#0036
+  // quiet-state pattern). The autoRunTriggeredRef guard above is separate;
+  // the draftId path is purely "select and scroll to", never "auto-run".
+  useEffect(() => {
+    if (draftDeepLinkConsumedRef.current || !plans?.length) return;
+    const draftId = searchParams.get('draftId');
+    if (!draftId) return;
+    const plan = plans.find((p) => p.id === draftId);
+    if (!plan) {
+      // Mark consumed so we don't keep re-checking on subsequent renders.
+      draftDeepLinkConsumedRef.current = true;
+      return;
+    }
+    draftDeepLinkConsumedRef.current = true;
+    setSelectedPlan(plan);
   }, [plans, searchParams]);
 
   // Ticket 0040 — reset the inline pre-game-brief surface whenever the coach

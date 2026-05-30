@@ -108,6 +108,15 @@ export async function updateSession(request: NextRequest) {
     // `/account` (no `/pause` suffix) is NOT in this list — the unpause
     // surface stays behind auth.
     '/account/pause',
+    // Ticket 0058 — the Sunday-evening plan-finish prompt cron self-enforces
+    // auth via the CRON_SECRET bearer (mirrors weekly-digest / practice-
+    // reminder). Vercel Cron hits this route with the Bearer header; the
+    // e2e spec hits it from Playwright with the same header. The supabase
+    // proxy must NOT short-circuit either with a 401 — the route's own
+    // CRON_SECRET check is the load-bearing gate (LESSONS#0038 family —
+    // when a new public route a non-browser caller must reach is added,
+    // add it to publicPaths).
+    '/api/cron/sunday-plan-prompt',
   ];
   if (pathname === '/' || publicPaths.some((p) => pathname.startsWith(p))) {
     return supabaseResponse;
