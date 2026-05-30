@@ -68,11 +68,10 @@ interface TeamRow {
   name: string;
 }
 
-interface PlanRow
-  extends Pick<
-    Plan,
-    'id' | 'team_id' | 'coach_id' | 'type' | 'title' | 'content_structured' | 'created_at'
-  > {}
+type PlanRow = Pick<
+  Plan,
+  'id' | 'team_id' | 'coach_id' | 'type' | 'title' | 'content_structured' | 'created_at'
+>;
 
 function getDayLabel(dateStr: string): string {
   // YYYY-MM-DD treated as UTC midnight so the cron's day-of-week is
