@@ -1,7 +1,7 @@
 ---
 id: 0060
 title: When a parent reads two of their kids' reports on SportsIQ, give them one tap to bring the OTHER kid's coach onto the app with their kid's name attached
-status: in-progress
+status: shipped
 priority: P1
 area: growth
 created: 2026-06-01
