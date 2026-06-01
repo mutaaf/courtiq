@@ -500,6 +500,25 @@ export interface ParentShare {
   created_at: string;
 }
 
+// Parent-to-OTHER-coach invite audit (ticket 0060). One row per parent tap of
+// the "Invite Sofia's coach with one tap" surface on /share/[token]. NO minor
+// data: no parent_email, no parent_phone, no date_of_birth, no sibling last
+// name. The candidate-lookup route resolves the sibling's first name from
+// `players.name.split(' ')[0]` and surfaces it as a pre-fill the parent can
+// edit before sending; what is persisted here is parent-authored. The
+// referral_code is stamped from `makeReferralCode(programId)` so the program
+// owns the referral (the parent never receives a referral credit per AC).
+export interface ParentInitiatedInvite {
+  id: string;
+  from_share_token: string;
+  from_player_id: string | null;
+  to_coach_email: string;
+  sibling_first_name: string | null;
+  program_id: string | null;
+  referral_code: string | null;
+  sent_at: string;
+}
+
 // Parent-to-program-director referral audit (ticket 0050). One row per submit
 // of the parent portal's "Send this to our program director" form. NO minor
 // data: no player_id, no observation excerpt, no DOB. The source coach is
