@@ -63,6 +63,7 @@ export type AIInteractionType =
   | 'cv_identity_resolution'
   | 'generate_season_storyline'
   | 'generate_player_handoff_card'
+  | 'generate_player_trajectory'
   | 'transcription'
   | 'custom';
 
@@ -907,4 +908,38 @@ export interface PlayerHandoff {
   claimed_player_id: string | null;
   is_archived: boolean;
   created_at: string;
+}
+
+// Ticket 0061 — per-player "Week 1 vs now" trajectory cache row.
+// The route writes one row per (player_id, observation_count_bucket) on AI
+// miss; re-opens in the same bucket read the cached row.
+export interface PlayerTrajectoryAnchor {
+  headline: string;
+  sentence: string;
+  observation_id: string;
+  observed_at: string;
+}
+export interface PlayerTrajectoryTurningPoint {
+  observation_id: string;
+  observed_at: string;
+  oneWordLabel: string;
+}
+export interface PlayerTrajectory {
+  id: string;
+  player_id: string;
+  observation_count_bucket: number;
+  started: PlayerTrajectoryAnchor;
+  now: PlayerTrajectoryAnchor;
+  turning_points: Array<{ observation_id: string; observed_at: string; one_word_label: string }>;
+  created_at: string;
+}
+
+// Ticket 0061 — per-(coach, player) view audit. Drives the free-tier
+// 30-day preview gate. One row per VIEW (not per generation) so the wall
+// stays consistent whether the route hit the cache or invoked the AI.
+export interface PlayerTrajectoryView {
+  id: string;
+  coach_id: string;
+  player_id: string;
+  viewed_at: string;
 }

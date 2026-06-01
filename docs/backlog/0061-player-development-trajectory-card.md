@@ -1,7 +1,7 @@
 ---
 id: 0061
 title: Show the coach who this kid was in Week 1 and who this kid is now, on one screen, after a full season of notes
-status: groomed
+status: in-progress
 priority: P1
 area: analytics
 created: 2026-06-01
@@ -322,3 +322,25 @@ Files / patterns the dev should touch.
 ## Implementation log
 
 (Appended by the implementation-dev agent during execution.)
+
+- 2026-06-01 [ship/0061] Branch `feat/0061-player-trajectory-card` opened. Pickup-time
+  deviations from ticket prose (schema/file layout wins):
+  - Migration prefix bumped 056 → **057** (0060 already claimed 056 with
+    `056_parent_initiated_invites.sql`; LESSONS#0006 — confirm at pickup).
+  - Per-player page lives at `/roster/[playerId]` (not
+    `/team/[teamId]/player/[playerId]`); trajectory page mounted at
+    `src/app/(dashboard)/roster/[playerId]/trajectory/page.tsx`.
+  - OG routes live under `src/app/api/og/…`; trajectory OG mounted at
+    `src/app/api/og/player-trajectory/[playerId]/route.tsx` (authed, NOT in
+    `publicPaths` per the AC).
+  - `observations` schema has `created_at`, NOT `observed_at` (LESSONS#0096 —
+    schema wins). The route projects `created_at` into the prompt input as the
+    ordering anchor; the JSON payload exposes it as `observed_at` (the public
+    contract the AC names) for the UI.
+  - Existing E2E coach auth row is reused; the seed adds 11 NEW observations on
+    Alice (...030) at the next free `0...00f0..0...00fa` UUID range, plus ONE
+    cache row at `0...00fb` so the e2e exercises the cache-hit path (no live
+    `callAI` against a real provider).
+  - Tier feature key: `feature_player_trajectory` registered in both
+    `src/lib/tier.ts` and `FEATURE_CONFIG` in `src/components/ui/upgrade-gate.tsx`
+    (LESSONS#0079 — the key is the lookup, not a free label).

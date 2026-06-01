@@ -707,3 +707,27 @@ export const playerHandoffCardSchema = z.object({
 }).strict();
 
 export type PlayerHandoffCard = z.infer<typeof playerHandoffCardSchema>;
+
+// Ticket 0061 — playerTrajectory.
+// The AI's role: turn ONE player's structured observations into a
+// "Week 1 vs now" pair of clipboard sentences + up to three turning-point
+// observation references. Schema is strict so a provider that returns a
+// looser shape rejects cleanly at the boundary.
+export const playerTrajectoryAnchorSchema = z.object({
+  headline: z.string().min(1).max(60),
+  sentence: z.string().min(1).max(220),
+  observation_id: z.string().min(1),
+}).strict();
+
+export const playerTrajectoryTurningPointSchema = z.object({
+  observation_id: z.string().min(1),
+  one_word_label: z.string().min(1).max(24),
+}).strict();
+
+export const playerTrajectorySchema = z.object({
+  started: playerTrajectoryAnchorSchema,
+  now: playerTrajectoryAnchorSchema,
+  turning_points: z.array(playerTrajectoryTurningPointSchema).max(3),
+}).strict();
+
+export type PlayerTrajectoryAIOutput = z.infer<typeof playerTrajectorySchema>;
