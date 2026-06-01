@@ -76,6 +76,10 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
+| 0060 | When a parent reads two of their kids' reports on SportsIQ, give them one tap to bring the OTHER kid's coach onto the app with their kid's name attached | P1 | groomed | growth |
+| 0061 | Show the coach who this kid was in Week 1 and who this kid is now, on one screen, after a full season of notes | P1 | groomed | analytics |
+| 0062 | When the coach has been capturing all season but hasn't said a single word about Maya in 8 days, nudge them with her name — not the whole roster | P1 | groomed | capture |
+| 0063 | When a coach clones another coach's practice plan, let them follow that coach's next drops in one tap — and tell the published coach | P1 | groomed | plans |
 | 0059 | When a kid ages up to next year's coach in the same program, hand the new coach what worked for the kid | P1 | shipped | ai |
 | 0001 | Stripe webhook signature verification on the live endpoint | P0 | shipped | billing |
 | 0002 | End-to-end checkout flow test — upgrade → pay → tier unlocks features | P0 | shipped | billing |
