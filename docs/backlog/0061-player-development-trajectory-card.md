@@ -1,7 +1,7 @@
 ---
 id: 0061
 title: Show the coach who this kid was in Week 1 and who this kid is now, on one screen, after a full season of notes
-status: in-progress
+status: shipped
 priority: P1
 area: analytics
 created: 2026-06-01
