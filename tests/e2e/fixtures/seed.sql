@@ -1432,4 +1432,26 @@ values (
 )
 on conflict (id) do nothing;
 
+-- ────────────────────────────────────────────────────────────────────────
+-- Ticket 0062 — mid-week silent-player nudge
+-- ────────────────────────────────────────────────────────────────────────
+-- Per the ticket's AC: re-stamp the EXISTING observations on Alice (the E2E
+-- player on the main team ...020) so Alice's most-recent note is 10+ days
+-- old at CI run time, AND ensure the coach still has at least ONE
+-- observation in the last 7 days so the cron's "actively capturing" probe
+-- passes. We do NOT add new players (LESSONS#0101 — schema wins; the AC
+-- says re-stamp existing rows, do not widen the seed).
+--
+-- Alice's 0050/0051/0052 observations default to now() at seed time. Push
+-- them to now() - 10 days so Alice is 10 days silent. Bob's most recent
+-- observation is 0F3 (default now() — recent) which keeps him non-silent
+-- AND counts as the coach's "in the last 7 days" activity.
+update observations
+  set created_at = now() - interval '10 days'
+  where id in (
+    '00000000-0000-4000-a000-000000000050',
+    '00000000-0000-4000-a000-000000000051',
+    '00000000-0000-4000-a000-000000000052'
+  );
+
 commit;

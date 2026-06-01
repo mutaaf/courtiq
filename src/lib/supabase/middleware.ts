@@ -117,6 +117,11 @@ export async function updateSession(request: NextRequest) {
     // when a new public route a non-browser caller must reach is added,
     // add it to publicPaths).
     '/api/cron/sunday-plan-prompt',
+    // Ticket 0062 — the Thursday-evening silent-player-nudge cron. Same
+    // posture as 0058: CRON_SECRET-bearer self-enforced, Vercel Cron + the
+    // e2e spec POST it directly, the proxy must not 401 it before the
+    // route's own check runs (LESSONS#0104).
+    '/api/cron/silent-player-nudge',
   ];
   if (pathname === '/' || publicPaths.some((p) => pathname.startsWith(p))) {
     return supabaseResponse;

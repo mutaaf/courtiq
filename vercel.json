@@ -30,6 +30,10 @@
     {
       "path": "/api/cron/sunday-plan-prompt",
       "schedule": "0 23 * * 0"
+    },
+    {
+      "path": "/api/cron/silent-player-nudge",
+      "schedule": "0 19 * * 4"
     }
   ]
 }
