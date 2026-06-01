@@ -16,6 +16,7 @@ import { isDigestDisabled } from '@/lib/weekly-digest-utils';
 import { isReminderDisabled } from '@/lib/practice-reminder-utils';
 import { isCoachPaused } from '@/lib/coach-pause-utils';
 import { SundayPlanPromptToggle } from '@/components/settings/sunday-plan-prompt-toggle';
+import { SilentPlayerNudgeToggle } from '@/components/settings/silent-player-nudge-toggle';
 import Link from 'next/link';
 
 export default function ProfileSettingsPage() {
@@ -421,6 +422,17 @@ export default function ProfileSettingsPage() {
                   (no migration). */}
               {coach && (
                 <SundayPlanPromptToggle
+                  coachId={coach.id}
+                  preferences={coach.preferences ?? {}}
+                />
+              )}
+
+              {/* Silent-player nudge — ticket 0062. Mirrors the Sunday-plan-
+                  prompt row's shape; opt-out key
+                  `disable_silent_player_nudge` lives in `coaches.preferences`
+                  (no migration). */}
+              {coach && (
+                <SilentPlayerNudgeToggle
                   coachId={coach.id}
                   preferences={coach.preferences ?? {}}
                 />
