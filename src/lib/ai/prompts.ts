@@ -1855,4 +1855,90 @@ export const PROMPT_REGISTRY = {
       'Write the handoff note as JSON: { "card_body": "..." }. Three to four short sentences. First name only.',
     ].join('\n'),
   }),
+
+  /**
+   * Ticket 0061 — playerTrajectory.
+   *
+   * The "Week 1 vs now" per-player trajectory prompt. The model receives ONE
+   * player's first name + age group + sport + an ordered list of that
+   * player's observations (text, sentiment, category, skill, created_at).
+   * It returns one short started/now sentence pair plus up to three
+   * turning-point observation references.
+   *
+   * Voice contract (LESSONS#0023): instruct POSITIVELY. The model is told
+   * "write like a coach's clipboard, not a marketing landing page" rather
+   * than enumerating the banned tokens; a verbatim ban list would fail any
+   * prompt-string scan that lints the prompt itself.
+   *
+   * Render-time fallback (AC): the route ALSO scans the AI OUTPUT at render
+   * time and falls back to a generic structured-language version if a
+   * banned word appears. The prompt instruction nudges, the render-time
+   * scan guarantees.
+   *
+   * Input contract (the five named keys; no observation rows beyond the
+   * five fields per row, no parent contact, no DOB, no last name):
+   * playerFirstName, ageGroup, sportName, weeksObserved, observations.
+   *
+   * Output contract: strict against `playerTrajectorySchema`.
+   */
+  playerTrajectory: (params: {
+    playerFirstName: string;
+    ageGroup: string;
+    sportName: string;
+    weeksObserved: number;
+    observations: Array<{
+      id: string;
+      text: string;
+      sentiment: 'positive' | 'needs-work' | 'neutral';
+      category: string;
+      skill_id: string | null;
+      observed_at: string;
+    }>;
+  }) => ({
+    system: [
+      'You write one short "where this player started / where this player is now" pair for a youth athlete, plus up to three turning-point references.',
+      '',
+      'Voice and tone:',
+      '- Write like a coach\'s clipboard, not a marketing landing page. Plain English, short sentences, specific to the kid.',
+      '- One sentence for "started." One sentence for "now." Each sentence is a single clause; no second clause.',
+      '- Name the player by FIRST NAME ONLY when needed. Never a last name, never a parent name, never contact information.',
+      '- Stay factual. No hype words, no breathless adjectives, no exclamation marks.',
+      '- Pick the EARLIEST cluster of needs-work observations as the anchor for "started."',
+      '- Pick the MOST RECENT cluster of positive observations on a related skill family as the anchor for "now."',
+      '- For turning points, pick up to three observations between "started" and "now" that mark a real shift. Each gets a one-word label (a noun or short verb the coach would recognise).',
+      '',
+      'Output format:',
+      '- Return JSON exactly of this shape and nothing else:',
+      '  {',
+      '    "started": { "headline": "...", "sentence": "...", "observation_id": "..." },',
+      '    "now":     { "headline": "...", "sentence": "...", "observation_id": "..." },',
+      '    "turning_points": [ { "observation_id": "...", "one_word_label": "..." } ]',
+      '  }',
+      '- "headline" is two to four words, lowercased except for proper nouns.',
+      '- "sentence" is one short sentence, never more than 220 characters.',
+      '- Use the exact observation `id` values from the input list — never invent ids.',
+      '- Up to three turning points; fewer is fine. Zero is fine if no clear shift exists.',
+      '- Do not include any keys other than `started`, `now`, `turning_points`.',
+    ].join('\n'),
+    user: [
+      `Player first name: ${params.playerFirstName}`,
+      `Age group: ${params.ageGroup}`,
+      `Sport: ${params.sportName}`,
+      `Weeks observed: ${params.weeksObserved}`,
+      '',
+      'Observations (oldest first; one per line as JSON):',
+      ...params.observations.map((o) =>
+        JSON.stringify({
+          id: o.id,
+          text: o.text,
+          sentiment: o.sentiment,
+          category: o.category,
+          skill_id: o.skill_id,
+          observed_at: o.observed_at,
+        }),
+      ),
+      '',
+      'Return the JSON object described above. First name only. One short sentence each.',
+    ].join('\n'),
+  }),
 } as const;

@@ -1,7 +1,7 @@
 'use client';
 import { useTier } from '@/hooks/use-tier';
 import { Button } from './button';
-import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye, FileAudio, CalendarDays, Gauge, CalendarRange, Swords, MessageCircle, UserCheck } from 'lucide-react';
+import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye, FileAudio, CalendarDays, Gauge, CalendarRange, Swords, MessageCircle, UserCheck, LineChart } from 'lucide-react';
 import Link from 'next/link';
 import type { Tier } from '@/lib/tier';
 
@@ -279,6 +279,22 @@ const FEATURE_CONFIG: Record<string, FeatureConfig> = {
       'Auto-attaches to the next coach\'s roster when she imports the matching player in your program',
       'You uncheck the kids you want to think about more before sending — nothing leaves without your tap',
       'The receiving coach saves the card to her own coach notes in one tap — no new app for her to learn',
+    ],
+    requiredTier: 'coach',
+    accentColor: 'text-orange-400',
+    accentBg: 'bg-orange-500/15',
+    accentBorder: 'border-orange-500/30',
+  },
+  feature_player_trajectory: {
+    icon: LineChart,
+    headline: 'Unlock the Player Trajectory Card',
+    tagline: 'Week 1 vs now for every kid on your roster, in one card you can save and show their parent at pickup.',
+    benefits: [
+      'Side-by-side "where she started / where she is now" for each player',
+      'Two short sentences in plain coach language, plus up to three turning-point notes',
+      'A 1280x720 card you save to camera roll for the parking-lot conversation',
+      'Generated from the notes you already captured — nothing extra to set up',
+      'Free coaches get one preview every 30 days; Coach plan covers every kid year-round',
     ],
     requiredTier: 'coach',
     accentColor: 'text-orange-400',
