@@ -1,7 +1,7 @@
 ---
 id: 0060
 title: When a parent reads two of their kids' reports on SportsIQ, give them one tap to bring the OTHER kid's coach onto the app with their kid's name attached
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-06-01
@@ -330,4 +330,23 @@ on pickup.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-01 [dev/0060] Starting work. Branch `feat/0060-parent-sibling-invite`.
+  Reconciliations from schema-wins-over-prose (LESSONS#0096):
+  - `parent_shares` has NO `parent_email` column; the parent-email edge ONLY
+    lives on `players.parent_email`. Candidate lookup matches on
+    `players.parent_email` (case-insensitive), same team's coach as the
+    inviting parent's source player's parent_email.
+  - Components live under `src/components/share/`, not `src/components/parent/`
+    (the share-page convention used by 0011/0019/0050).
+  - Migration prefix: `056_parent_initiated_invites.sql` is the next free
+    integer after `055_player_handoffs.sql`.
+  - Dedup table column name keeping ticket AC list verbatim:
+    `id, from_share_token, from_player_id, to_coach_email,
+    sibling_first_name, program_id, sent_at, referral_code`. NO `parent_email`,
+    NO `parent_phone`, NO sibling LAST name, NO `date_of_birth`.
+  - Per LESSONS#0023: voice contract instructs positively in code comments,
+    never enumerates banned tokens in user-visible template strings.
+  - Per ticket: NOT tier-gated; the route does NOT import `tier.ts`.
+  - From address: existing `noreply@sportsiq.app` (real default in
+    `src/lib/email.ts`); ticket prose said `noreply@youthsportsiq.com` —
+    reconciling to the real codebase default.
