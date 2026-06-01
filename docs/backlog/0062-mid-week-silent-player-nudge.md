@@ -1,7 +1,7 @@
 ---
 id: 0062
 title: When the coach has been capturing all season but hasn't said a single word about Maya in 8 days, nudge them with her name — not the whole roster
-status: in-progress
+status: shipped
 priority: P1
 area: capture
 created: 2026-06-01
