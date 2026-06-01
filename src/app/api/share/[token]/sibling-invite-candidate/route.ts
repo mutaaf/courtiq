@@ -115,7 +115,9 @@ export async function GET(
     .single();
 
   // 6) The other team's head coach — join via `team_coaches`. Pick the
-  //    head_coach row if present, else any coach.
+  //    head_coach row if present, else any coach. We deliberately go
+  //    through `team_coaches` (LESSONS#0057 — `teams.coach_id` does not
+  //    exist).
   const { data: otherCoachJoin } = await admin
     .from('team_coaches')
     .select('coach_id, coaches:coach_id (id, full_name, email)')
@@ -130,19 +132,25 @@ export async function GET(
     return NextResponse.json({ candidate: null, alreadyOnSportsIQ: false });
   }
 
-  // 7) Is the other coach already on SportsIQ? `coaches.email` is unique by
-  //    convention; a present row means the coach has signed up. The join
-  //    above already reads the row, but a second lookup keyed by email
-  //    (rather than the coach id we already have) lets us cover the case
-  //    where the seeded `coaches` row is a stub authored by another import
-  //    flow — the real signal is "does this email map to an active coach".
-  const { data: coachEmailMatches } = await admin
+  // 7) Is the OTHER coach already actively on SportsIQ? Reconciling the
+  //    ticket prose ("team's coach is NOT on SportsIQ") with the real
+  //    schema (LESSONS#0096): every `team_coaches` row references a
+  //    `coaches` row, so "coach absent from coaches" is structurally
+  //    impossible. The actual onboarding-completed signal we already use
+  //    elsewhere is `coaches.onboarding_complete = true`. A team whose
+  //    head coach has NOT completed onboarding is, for our purposes, the
+  //    invite target; a coach whose row says onboarding_complete = true
+  //    is "already on SportsIQ" and the UI pivots to the 0019 self-signup
+  //    surface. The dedicated lookup also tolerates seed stubs whose
+  //    `onboarding_complete` is NULL by treating NULL as not-yet-on
+  //    (false).
+  const { data: otherCoachStatus } = await admin
     .from('coaches')
-    .select('id, email')
-    .ilike('email', otherCoach.email.trim())
-    .limit(1);
+    .select('id, onboarding_complete')
+    .eq('id', otherCoach.id)
+    .maybeSingle();
 
-  const alreadyOnSportsIQ = (coachEmailMatches ?? []).length > 0;
+  const alreadyOnSportsIQ = otherCoachStatus?.onboarding_complete === true;
   if (alreadyOnSportsIQ) {
     return NextResponse.json({ candidate: null, alreadyOnSportsIQ: true });
   }

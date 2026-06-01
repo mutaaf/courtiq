@@ -1272,4 +1272,78 @@ values (
 )
 on conflict (source_coach_id, source_player_id, source_team_id) do nothing;
 
+-- ────────────────────────────────────────────────────────────────────────
+-- Ticket 0060 — parent-side sibling-coach invite candidate seed
+-- ────────────────────────────────────────────────────────────────────────
+-- The candidate-lookup route at /api/share/[token]/sibling-invite-candidate
+-- walks the inviting parent's `players.parent_email` to find a SECOND
+-- active `players` row on a DIFFERENT team. To exercise the happy path
+-- against a real seeded DB we need:
+--
+--   1) ONE additional `auth.users` row for the OTHER coach (per
+--      LESSONS#0084 — coaches.id references auth.users(id), so the
+--      auth row MUST be inserted before the coaches row).
+--   2) ONE `coaches` row for the OTHER coach. `onboarding_complete = false`
+--      is the invite-target signal (LESSONS#0096 reconciliation — the
+--      ticket prose said "not on SportsIQ", which is structurally
+--      impossible since every team_coaches row FK-references a coaches
+--      row; `onboarding_complete = false` IS the schema's "not yet
+--      onboarded" boolean).
+--   3) ONE `teams` row for the OTHER team, owned by the OTHER coach via
+--      `team_coaches` (LESSONS#0057 — teams.coach_id does not exist).
+--   4) ONE `players` row on the OTHER team with the SAME parent_email
+--      as the existing E2E player (sarah@walker-family.test).
+--
+-- UUIDs in the 0...d0+ range — verified non-colliding with the existing
+-- 0..00cN family used by ticket 0059 (LESSONS#0101).
+
+insert into auth.users (id, instance_id, aud, role, email,
+                        email_confirmed_at, created_at, updated_at)
+values (
+  '00000000-0000-4000-a000-0000000000d0',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated', 'authenticated',
+  'riley@hornets-e2e.test',
+  now(), now(), now()
+)
+on conflict (id) do nothing;
+
+insert into coaches (id, org_id, full_name, email, role, onboarding_complete)
+values (
+  '00000000-0000-4000-a000-0000000000d0',
+  '00000000-0000-4000-a000-000000000010',
+  'Coach Riley', 'riley@hornets-e2e.test', 'coach', false
+)
+on conflict (id) do nothing;
+
+insert into teams (id, org_id, sport_id, name, age_group, season, season_weeks, current_week, is_active)
+select
+  '00000000-0000-4000-a000-0000000000d1',
+  '00000000-0000-4000-a000-000000000010',
+  (select id from sports where slug = 'basketball' limit 1),
+  'E2E Sibling Hornets', '9-10', 'Spring 2026', 10, 3, true
+on conflict (id) do nothing;
+
+insert into team_coaches (team_id, coach_id, role)
+values (
+  '00000000-0000-4000-a000-0000000000d1',
+  '00000000-0000-4000-a000-0000000000d0',
+  'head_coach'
+)
+on conflict (team_id, coach_id) do nothing;
+
+-- The SIBLING player — same parent_email as Alice (the existing E2E
+-- player at ...030) so the candidate-lookup finds her by walking the
+-- parent_email edge. Parent-typed name "Sofia Walker" — the route strips
+-- to first space-delimited token "Sofia" before returning it (COPPA).
+insert into players (id, team_id, name, nickname, name_variants, age_group, position,
+                     parent_name, parent_email, is_active)
+values (
+  '00000000-0000-4000-a000-0000000000d2',
+  '00000000-0000-4000-a000-0000000000d1',
+  'Sofia Walker', null, null, '9-10', 'Guard',
+  'Walker Family', 'sarah@walker-family.test', true
+)
+on conflict (id) do nothing;
+
 commit;

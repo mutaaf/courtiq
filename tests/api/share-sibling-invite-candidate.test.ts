@@ -150,11 +150,10 @@ describe('GET /api/share/[token]/sibling-invite-candidate (ticket 0060)', () => 
       id: '00000000-0000-4000-a000-0000000000c2',
       name: 'Hornets U10',
     };
-    // The OTHER team's head coach IS on SportsIQ records (we have a coaches
-    // row) but their email is NOT in our `coaches.email` index of *active*
-    // coaches — meaning the other team is seeded into our system by the
-    // inviting coach via roster import, but its assigned head coach has not
-    // yet signed up. The candidate route surfaces them as the invite target.
+    // The OTHER team's head coach is in our `coaches` table (necessary for
+    // the team_coaches FK) BUT their `onboarding_complete` is false —
+    // they are a roster-stub coach, not an active SportsIQ coach. The
+    // candidate route surfaces them as the invite target.
     const otherCoachJoin = {
       coach_id: '00000000-0000-4000-a000-0000000000c0',
       coaches: {
@@ -162,6 +161,10 @@ describe('GET /api/share/[token]/sibling-invite-candidate (ticket 0060)', () => 
         full_name: 'Coach Riley',
         email: 'riley@hornets.test',
       },
+    };
+    const otherCoachStatus = {
+      id: '00000000-0000-4000-a000-0000000000c0',
+      onboarding_complete: false,
     };
 
     mockFromFn
@@ -171,7 +174,7 @@ describe('GET /api/share/[token]/sibling-invite-candidate (ticket 0060)', () => 
       .mockReturnValueOnce(buildChain([siblingRow])) // players (sibling search)
       .mockReturnValueOnce(buildChain(siblingTeam)) // teams (sibling)
       .mockReturnValueOnce(buildChain(otherCoachJoin)) // team_coaches join (head coach)
-      .mockReturnValueOnce(buildChain([])); // coaches search by email → empty (not on SportsIQ)
+      .mockReturnValueOnce(buildChain(otherCoachStatus)); // coaches.onboarding_complete
 
     const res = await GET(makeRequest(), { params: tokenParams() });
     expect(res.status).toBe(200);
@@ -212,9 +215,12 @@ describe('GET /api/share/[token]/sibling-invite-candidate (ticket 0060)', () => 
       .mockReturnValueOnce(buildChain([siblingRow]))
       .mockReturnValueOnce(buildChain(siblingTeam))
       .mockReturnValueOnce(buildChain(otherCoachJoin))
-      // Coach email lookup returns a row → already on SportsIQ.
+      // Coach onboarding_complete = true → already on SportsIQ.
       .mockReturnValueOnce(
-        buildChain([{ id: 'some-coach-id', email: 'riley@hornets.test' }]),
+        buildChain({
+          id: '00000000-0000-4000-a000-0000000000c0',
+          onboarding_complete: true,
+        }),
       );
 
     const res = await GET(makeRequest(), { params: tokenParams() });
@@ -277,7 +283,12 @@ describe('GET /api/share/[token]/sibling-invite-candidate (ticket 0060)', () => 
       .mockReturnValueOnce(siblingChain)
       .mockReturnValueOnce(siblingTeam)
       .mockReturnValueOnce(otherCoachJoin)
-      .mockReturnValueOnce(buildChain([]));
+      .mockReturnValueOnce(
+        buildChain({
+          id: '00000000-0000-4000-a000-0000000000c0',
+          onboarding_complete: false,
+        }),
+      );
 
     const res = await GET(makeRequest(), { params: tokenParams() });
     expect(res.status).toBe(200);

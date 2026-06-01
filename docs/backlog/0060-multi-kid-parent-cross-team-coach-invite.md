@@ -350,3 +350,11 @@ on pickup.
   - From address: existing `noreply@sportsiq.app` (real default in
     `src/lib/email.ts`); ticket prose said `noreply@youthsportsiq.com` —
     reconciling to the real codebase default.
+  - `alreadyOnSportsIQ` signal: the ticket prose ("the OTHER coach IS
+    already on SportsIQ") could not be expressed as "coaches.email row
+    missing" since every `team_coaches` row FK-references a `coaches`
+    row, so the coach is ALWAYS present. Reconciled to use
+    `coaches.onboarding_complete` — `true` means active SportsIQ coach
+    (pivot to 0019 self-signup), `false` / `null` means a roster-stub
+    coach not yet onboarded (the invite target). Same column the rest of
+    the app already uses to mean "this coach has completed signup."
