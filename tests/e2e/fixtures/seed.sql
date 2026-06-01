@@ -1346,4 +1346,90 @@ values (
 )
 on conflict (id) do nothing;
 
+-- ────────────────────────────────────────────────────────────────────────
+-- Ticket 0061 — player-development-trajectory card
+-- ────────────────────────────────────────────────────────────────────────
+-- Eleven additional observations on the existing E2E player (Alice ...030)
+-- and ONE pre-warmed `player_trajectories` cache row so the e2e exercises
+-- the cache-hit path WITHOUT a live `callAI` against a real provider. UUIDs
+-- in the 0...00f0..0...00fb range (the 0...00e* family was used by the cron
+-- ticket, 0...00d* by 0059; verified non-colliding against the rest of this
+-- file per LESSONS#0101 / #0043 — a colliding id would silently no-op under
+-- `on conflict (id) do nothing`).
+--
+-- COPPA posture: the cache row stores the AI-derived started/now sentences;
+-- the observations carry the player_id for the route's count + cache lookup
+-- and never cross to a public surface (the JSON route is authed, and the
+-- response allow-list is asserted in the API vitest).
+-- LESSONS#0084: no new auth.users rows — the E2E coach already exists.
+-- LESSONS#0085: jsonb columns are quoted as JSON strings inside SQL strings
+-- via `'..."text"...'::jsonb` so the seed parses under psql ON_ERROR_STOP=1.
+
+insert into observations (id, player_id, team_id, coach_id, session_id, category, sentiment, text, source, ai_parsed, is_highlighted, created_at)
+values
+  ('00000000-0000-4000-a000-0000000000f0', '00000000-0000-4000-a000-000000000030',
+   '00000000-0000-4000-a000-000000000020', '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000040', 'Defense', 'needs-work',
+   '0061 seed: hesitated on closeouts', 'typed', false, false, '2026-03-01T14:00:00Z'),
+  ('00000000-0000-4000-a000-0000000000f1', '00000000-0000-4000-a000-000000000030',
+   '00000000-0000-4000-a000-000000000020', '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000040', 'Defense', 'needs-work',
+   '0061 seed: lost her player on the second pass', 'typed', false, false, '2026-03-08T14:00:00Z'),
+  ('00000000-0000-4000-a000-0000000000f2', '00000000-0000-4000-a000-000000000030',
+   '00000000-0000-4000-a000-000000000020', '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000040', 'IQ', 'positive',
+   '0061 seed: talked teammates through a closeout', 'typed', false, false, '2026-03-15T14:00:00Z'),
+  ('00000000-0000-4000-a000-0000000000f3', '00000000-0000-4000-a000-000000000030',
+   '00000000-0000-4000-a000-000000000020', '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000040', 'Defense', 'positive',
+   '0061 seed: stayed forward on a closeout', 'typed', false, false, '2026-03-22T14:00:00Z'),
+  ('00000000-0000-4000-a000-0000000000f4', '00000000-0000-4000-a000-000000000030',
+   '00000000-0000-4000-a000-000000000020', '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000040', 'Offense', 'positive',
+   '0061 seed: started using her left hand on the drive', 'typed', false, false, '2026-04-05T14:00:00Z'),
+  ('00000000-0000-4000-a000-0000000000f5', '00000000-0000-4000-a000-000000000030',
+   '00000000-0000-4000-a000-000000000020', '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000040', 'Effort', 'positive',
+   '0061 seed: held a defensive stance through three reps', 'typed', false, false, '2026-04-12T14:00:00Z'),
+  ('00000000-0000-4000-a000-0000000000f6', '00000000-0000-4000-a000-000000000030',
+   '00000000-0000-4000-a000-000000000020', '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000040', 'Defense', 'positive',
+   '0061 seed: recovered to the next shooter', 'typed', false, false, '2026-04-19T14:00:00Z'),
+  ('00000000-0000-4000-a000-0000000000f7', '00000000-0000-4000-a000-000000000030',
+   '00000000-0000-4000-a000-000000000020', '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000040', 'Offense', 'positive',
+   '0061 seed: cleared the help defender on the drive', 'typed', false, false, '2026-05-03T14:00:00Z'),
+  ('00000000-0000-4000-a000-0000000000f8', '00000000-0000-4000-a000-000000000030',
+   '00000000-0000-4000-a000-000000000020', '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000040', 'Defense', 'positive',
+   '0061 seed: closed out and recovered cleanly', 'typed', false, false, '2026-05-10T14:00:00Z'),
+  ('00000000-0000-4000-a000-0000000000f9', '00000000-0000-4000-a000-000000000030',
+   '00000000-0000-4000-a000-000000000020', '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000040', 'Defense', 'positive',
+   '0061 seed: held help-side rotation through two reps', 'typed', false, false, '2026-05-17T14:00:00Z'),
+  ('00000000-0000-4000-a000-0000000000fa', '00000000-0000-4000-a000-000000000030',
+   '00000000-0000-4000-a000-000000000020', '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000040', 'Defense', 'positive',
+   '0061 seed: closeouts staying under control', 'typed', false, false, '2026-05-20T14:00:00Z')
+on conflict (id) do nothing;
+
+-- The pre-warmed cache row at the bucket the route lands on for the seeded
+-- observation count. Alice now has 2 (pre-existing) + 11 (just above) = 13
+-- observations; bucket = floor(13/3)*3 = 12. The route's first authed read
+-- for this (player, bucket) hits this cached row and returns it without a
+-- callAI invocation — that is the e2e contract this row is here to prove.
+-- The two anchor sentences are the canonical "started" / "now" the AC names;
+-- the spec asserts them by exact substring.
+insert into player_trajectories (id, player_id, observation_count_bucket, started, now, turning_points)
+values (
+  '00000000-0000-4000-a000-0000000000fb',
+  '00000000-0000-4000-a000-000000000030',
+  12,
+  '{"headline": "Tentative on closeouts", "sentence": "Alice started the season hesitating on closeouts.", "observation_id": "00000000-0000-4000-a000-0000000000f0", "observed_at": "2026-03-01T14:00:00Z"}'::jsonb,
+  '{"headline": "Closes out and recovers", "sentence": "Alice now closes out and recovers under control.", "observation_id": "00000000-0000-4000-a000-0000000000fa", "observed_at": "2026-05-20T14:00:00Z"}'::jsonb,
+  '[{"observation_id": "00000000-0000-4000-a000-0000000000f3", "observed_at": "2026-03-22T14:00:00Z", "one_word_label": "forward"},
+    {"observation_id": "00000000-0000-4000-a000-0000000000f7", "observed_at": "2026-05-03T14:00:00Z", "one_word_label": "drive"}]'::jsonb
+)
+on conflict (id) do nothing;
+
 commit;
