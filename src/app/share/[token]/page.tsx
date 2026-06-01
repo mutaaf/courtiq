@@ -6,6 +6,10 @@ import { StartYourTeamCTA } from '@/components/share/start-your-team-cta';
 import { ParentReactionForm } from '@/components/share/parent-reaction-form';
 import { ParentContactForm } from '@/components/share/parent-contact-form';
 import { ProgramReferralForm } from '@/components/share/program-referral-form';
+// Ticket 0060 — the parent-to-OTHER-coach invite card. Mounts AFTER the
+// existing 0011 "Share with your other coach" CTA and decides its own
+// rendered state via the candidate-lookup route fetched client-side.
+import { SiblingInviteLoader } from '@/components/share/sibling-invite-loader';
 import { ShareReportButton } from '@/components/share/share-report-button';
 import { ProgressTrendChart } from '@/components/share/progress-trend-chart';
 import { CalendarDays, Megaphone, MessageCircle } from 'lucide-react';
@@ -1346,6 +1350,14 @@ export default async function SharePage({
         <div className="mx-4 mt-6">
           <ParentViralCTA coachName={coachName} teamName={team?.name} referralCode={referralCode} />
         </div>
+
+        {/* ─── Sibling-coach invite card (ticket 0060) — when the parent reading
+            kid A's report has a SECOND kid on a different team that is NOT yet
+            on SportsIQ. The card decides its own visibility client-side from
+            the candidate-lookup route's response (silence beats a generic
+            invite CTA if there's no second kid). Sits AFTER the existing 0011
+            "Share with your other coach" CTA above. ─── */}
+        <SiblingInviteLoader shareToken={token} referralCode={referralCode} />
 
         {/* ─── Self-signup CTA (ticket 0019) — for the parent who is themselves a
             coach: a direct "start your own team" path, a plain server-rendered
