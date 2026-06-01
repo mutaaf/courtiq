@@ -1,7 +1,7 @@
 ---
 id: 0062
 title: When the coach has been capturing all season but hasn't said a single word about Maya in 8 days, nudge them with her name — not the whole roster
-status: groomed
+status: in-progress
 priority: P1
 area: capture
 created: 2026-06-01
@@ -301,4 +301,4 @@ Files / patterns the dev should touch.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-01 [implementation-dev] Picked up on branch `feat/0062-silent-player-nudge`. Wrote failing tests first per AGENTS.md. Schema reconciliations (LESSONS#96): `players.created_at` exists (migration 001, default now()), used as the gap-floor for zero-observation players per AC. Voice contract scan is on the literal banned tokens; copy is written positively per LESSONS#23. The cron mirrors `/api/cron/sunday-plan-prompt/route.ts` posture byte-for-byte where applicable (auth, batched coaches pagination, bookmark, error-counting). No new migration, no new tier feature key, no new env var.
