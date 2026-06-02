@@ -73,6 +73,7 @@ import {
 } from '@/components/plans/practice-plan-rollover-line';
 import { PublishPlanButton } from '@/components/plans/publish-plan-button';
 import { LeaguePlansSection } from '@/components/plan/league-plans-section';
+import { FromCoachesYouFollowSection } from '@/components/plan/from-coaches-you-follow-section';
 
 const PLAN_TYPE_CONFIG: Record<
   string,
@@ -3485,6 +3486,17 @@ export default function PlansPage() {
         <h1 className="text-2xl font-bold">Plans</h1>
         <p className="text-zinc-400 text-sm">Describe what you need and AI will generate it</p>
       </div>
+
+      {/*
+        Ticket 0063 — practice plans recently published by COACHES THE
+        VIEWING COACH FOLLOWS. Sits ABOVE the 0055 league section so a
+        coach's named-edge picks land before their broader league feed.
+        Renders NOTHING when the caller follows zero coaches OR when
+        followees have published zero plans — silence beats an empty
+        state. Best-effort: a network failure does NOT block the rest
+        of /plans from rendering.
+      */}
+      <FromCoachesYouFollowSection teamId={activeTeam?.id ?? null} />
 
       {/*
         Ticket 0055 — practice plans recently published by OTHER coaches in

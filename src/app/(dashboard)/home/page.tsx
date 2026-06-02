@@ -69,6 +69,7 @@ import { InviteCoachCard } from '@/components/home/invite-coach-card';
 import { WeeklyPulseShareCard } from '@/components/home/weekly-pulse-share-card';
 import { ReferralCelebrationCard } from '@/components/home/referral-celebration-card';
 import { PlanClonesCard } from '@/components/home/plan-clones-card';
+import { NewFollowersCard } from '@/components/home/new-followers-card';
 import { PendingCloneConsumer } from '@/components/home/pending-clone-consumer';
 import { GameDayCard } from '@/components/home/game-day-card';
 import { GoalDeadlineCard } from '@/components/home/goal-deadline-card';
@@ -1628,6 +1629,12 @@ export default function HomePage() {
           when count is 0 OR <= lastSeenCount, so /home stays calm for coaches
           who never published. The component is self-gating. */}
       <PlanClonesCard />
+
+      {/* Ticket 0063 — new-followers card for the publisher (sits next to
+          the 0049 clone-count card). Renders nothing when there are no new
+          followers since the publisher's last_seen_follow_count bookmark, so
+          /home stays calm for coaches who have not been followed yet. */}
+      <NewFollowersCard />
 
       {/* Ticket 0049 — consume a sessionStorage clone_token left by signup
           (from /plan/<token>'s unauthed CTA) and auto-clone onto the active

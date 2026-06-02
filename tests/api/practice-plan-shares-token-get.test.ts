@@ -4,15 +4,20 @@
  * Public, no auth. Resolves a token → its active practice_plan_shares row →
  * the plan's title + structured drill list, the publishing coach's FIRST name
  * (server-side string split), and the optional one-line note. The payload
- * allow-list is EXACTLY four keys; anything else (last name, email, player
+ * allow-list is EXACTLY five keys; anything else (last name, email, player
  * data, team name) is not exposed.
+ *
+ * Ticket 0063 widened the allow-list by one key (`coachId`) so the inline
+ * follow card on the clone-success state can POST { followee_id }. The coach
+ * id is NOT minor data and is already implicit in the public token; the
+ * widening keeps first-name extraction server-side (LESSONS#0009).
  *
  * Acceptance criteria → tests:
  *  - 404 when the token does not exist or the share is inactive.
  *  - 404 when the underlying plan is not type='practice' (defense-in-depth:
  *    even if a future plan type embedded per-player data, this route refuses
  *    anything but a practice plan).
- *  - 200 happy path returns exactly the four-key payload (key-set assertion).
+ *  - 200 happy path returns exactly the five-key payload (key-set assertion).
  *  - The coach's LAST NAME (and any email field) is absent from the payload.
  *  - The note from the share row rides through verbatim.
  *
@@ -109,7 +114,7 @@ describe('GET /api/practice-plan-shares/[token] (ticket 0049)', () => {
     expect(res.status).toBe(404);
   });
 
-  it('happy path returns EXACTLY the four-key payload, no last name, no email', async () => {
+  it('happy path returns EXACTLY the five-key payload, no last name, no email', async () => {
     const shareChain = buildChain({
       id: 'share-1',
       token: 'abc',
@@ -129,16 +134,19 @@ describe('GET /api/practice-plan-shares/[token] (ticket 0049)', () => {
     expect(res.status).toBe(200);
     const payload = (await res.json()) as Record<string, unknown>;
 
-    // Exactly four keys — anything else (lastName, email, teamName, coachId) is
-    // a data-minimization regression. The keyset assertion is deep-equality.
+    // Exactly FIVE keys (ticket 0063 widened by one: `coachId`). Anything else
+    // (lastName, email, teamName, parent contact) is a data-minimization
+    // regression. The keyset assertion is deep-equality.
     expect(Object.keys(payload).sort()).toEqual([
       'coachFirstName',
+      'coachId',
       'note',
       'planContent',
       'planTitle',
     ]);
 
     expect(payload.coachFirstName).toBe('Sasha');
+    expect(payload.coachId).toBe('coach-1');
     // The publisher's last name and email must not surface anywhere in the payload.
     const serialized = JSON.stringify(payload);
     expect(serialized).not.toContain('Williams');

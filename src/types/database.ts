@@ -602,6 +602,19 @@ export interface PracticePlanShare {
   created_at: string;
 }
 
+// Named persistent coach-to-coach edge (ticket 0063). A `coach_follows` row
+// means the follower wants to see the followee's next published practice plans
+// at the top of their own /plans league feed. COACH-TO-COACH ONLY — no
+// player, parent, or minor reference. The UNIQUE(follower_id, followee_id)
+// constraint makes follow idempotent; the CHECK(follower_id <> followee_id)
+// blocks self-follow.
+export interface CoachFollow {
+  id: string;
+  follower_id: string;
+  followee_id: string;
+  created_at: string;
+}
+
 // Weekly-pulse share mapping (ticket 0057). Maps a public token to a coach +
 // team + ISO week so /week/[token] renders an aggregate "what my team is
 // working on this week" card the coach drops in the league group chat. NO
