@@ -1,7 +1,7 @@
 ---
 id: 0063
 title: When a coach clones another coach's practice plan, let them follow that coach's next drops in one tap — and tell the published coach
-status: in-progress
+status: shipped
 priority: P1
 area: plans
 created: 2026-06-01
