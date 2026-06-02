@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SaveToMyTeamCTA } from '@/components/plan/save-to-my-team-cta';
+import { PlanCloneSurface } from '@/components/plan/plan-clone-surface';
 
 // ---------------------------------------------------------------------------
 // Public practice-plan page (ticket 0049).
@@ -34,6 +35,7 @@ interface PlanData {
   planTitle?: string | null;
   planContent?: PracticePlanContent | Record<string, unknown> | null;
   coachFirstName?: string | null;
+  coachId?: string | null;
   note?: string | null;
   error?: string;
   status?: number;
@@ -146,7 +148,7 @@ export default async function PracticePlanPage({
     return <NotFound />;
   }
 
-  const { planTitle, planContent, coachFirstName, note } = data;
+  const { planTitle, planContent, coachFirstName, coachId, note } = data;
   const content = (planContent ?? {}) as PracticePlanContent;
   const drills = Array.isArray(content.drills) ? content.drills : [];
 
@@ -196,9 +198,17 @@ export default async function PracticePlanPage({
           )}
         </div>
 
-        {/* CTA — top of page so a phone-viewer sees it before scrolling */}
+        {/* CTA — top of page so a phone-viewer sees it before scrolling.
+            Ticket 0063: PlanCloneSurface wraps the 0049 Save-to-my-team CTA
+            with the post-clone follow inline card; on a successful clone the
+            success state stays on screen with the FollowCoachInlineCard
+            directly below. */}
         <div className="mt-5" data-testid="save-cta-top">
-          <SaveToMyTeamCTA token={token} />
+          <PlanCloneSurface
+            token={token}
+            publisherCoachId={coachId ?? null}
+            publisherFirstName={coachFirstName ?? null}
+          />
         </div>
 
         {/* Drill list */}

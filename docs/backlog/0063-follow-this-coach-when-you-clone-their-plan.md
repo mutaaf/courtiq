@@ -1,7 +1,7 @@
 ---
 id: 0063
 title: When a coach clones another coach's practice plan, let them follow that coach's next drops in one tap — and tell the published coach
-status: groomed
+status: in-progress
 priority: P1
 area: plans
 created: 2026-06-01
@@ -391,4 +391,21 @@ on pickup.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-01 [implementation-dev] Started. Branch `feat/0063-follow-coach-after-clone`
+  off main. Status flipped to `in-progress` on both the ticket file and the
+  README index row.
+- 2026-06-01 [implementation-dev] Migration prefix deviation: the ticket named
+  `056_coach_follows.sql` and authorised a bump to 057/058 if claimed. At
+  pickup `supabase/migrations/056_parent_initiated_invites.sql` AND
+  `supabase/migrations/057_player_trajectories.sql` BOTH exist on main. The
+  next free prefix is **058**, so the migration ships as
+  `supabase/migrations/058_coach_follows.sql` (LESSONS#0006).
+- 2026-06-01 [implementation-dev] Regression-test deviation: the ticket's
+  regression AC said `/api/practice-plan-shares/[token]` response shape is
+  byte-identical. The inline follow card needs the publisher's coach id for
+  its POST body so the route's allow-list widens by ONE key (`coachId`). The
+  coach id is NOT minor data and is already implicit in the public token
+  (anyone holding the token can POST to /api/coach-follows). The widening
+  keeps first-name extraction server-side (LESSONS#0009). The existing
+  practice-plan-shares-token-get keyset assertion is updated in this PR to
+  expect the FIVE-key payload; no test was weakened — the contract widened.

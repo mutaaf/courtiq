@@ -3,11 +3,12 @@ import { createServiceSupabase } from '@/lib/supabase/server';
 
 // GET /api/practice-plan-shares/[token] — public, no auth. Resolves the active
 // token → its practice plan → the publishing coach's FIRST name (server-side
-// split). The payload is an allow-list of EXACTLY four keys:
+// split). The payload is an allow-list of EXACTLY five keys:
 //
 //   planTitle:        string | null      // the plan's title
 //   planContent:      Record<string,..>  // content_structured (drills, etc.)
 //   coachFirstName:   string | null      // attribution; first name only
+//   coachId:          string | null      // publisher's coach id (0063 follow)
 //   note:             string | null      // the publisher's optional one-liner
 //
 // COPPA: practice plans (type='practice') carry team-level drill content —
@@ -72,6 +73,13 @@ export async function GET(
       planTitle: plan.title ?? null,
       planContent: plan.content_structured ?? {},
       coachFirstName,
+      // Ticket 0063 — the inline follow card needs the publisher's coach id
+      // for its POST body. The publisher's coach id is NOT minor data and is
+      // already implicit in the public token (anyone holding the token can
+      // call /api/coach-follows). Exposing it here keeps first-name
+      // extraction server-side (LESSONS#0009) without leaking last name or
+      // email.
+      coachId: coach?.id ?? null,
       note: share.note ?? null,
     });
   } catch (error: unknown) {

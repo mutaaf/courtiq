@@ -560,7 +560,14 @@ describe('POST /api/cron/silent-player-nudge — COPPA', () => {
     expect(call.html).not.toContain('inhaler');
     expect(call.html).not.toContain('maya-parent@example.test');
     expect(call.html).not.toContain('+15555550101');
-    expect(call.html).not.toContain('23'); // jersey number — never used in the email body
+    // Jersey number — never rendered in the email. We MUST scope the check to
+    // the rendered jersey shapes (`#23`, `Jersey 23`, `Jersey number 23`) and
+    // NOT the bare substring "23", because the rendered email includes a
+    // formatted last-observation date like "May 23" whenever the CI run lands
+    // on a UTC date 10 days after the 23rd (LESSONS#0061 family — a
+    // defensive substring scan false-positives on natural content).
+    expect(call.html).not.toMatch(/#23\b/);
+    expect(call.html).not.toMatch(/jersey[\s:]+23\b/i);
   });
 
   it('the rendered HTML contains only the player FIRST name, not the full name', async () => {
