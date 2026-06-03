@@ -44,6 +44,8 @@ describe('sitemap() — includes active practice_plan_shares tokens (ticket 0049
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // LESSONS#0092 — drain mockReturnValueOnce queue between tests.
+    mockFromFn.mockReset();
     vi.resetModules();
     process.env.NEXT_PUBLIC_APP_URL = BASE;
   });
@@ -71,6 +73,7 @@ describe('sitemap() — includes active practice_plan_shares tokens (ticket 0049
       { token: 'pp-active-2', created_at: new Date().toISOString() },
     ]);
     const wpChain = buildChain([]); // weekly_pulse_shares — ticket 0057.
+    const dsChain = buildChain([]); // drill_shares — ticket 0064.
     const coachesChain = buildChain([]);
     mockFromFn
       .mockReturnValueOnce(orgsChain)
@@ -80,6 +83,7 @@ describe('sitemap() — includes active practice_plan_shares tokens (ticket 0049
       .mockReturnValueOnce(grChain)
       .mockReturnValueOnce(ppChain)
       .mockReturnValueOnce(wpChain)
+      .mockReturnValueOnce(dsChain)
       .mockReturnValueOnce(coachesChain);
 
     const { default: sitemap } = await import('@/app/sitemap');
@@ -98,6 +102,7 @@ describe('sitemap() — includes active practice_plan_shares tokens (ticket 0049
     const grChain = buildChain([]);
     const ppChain = buildChain([]);
     const wpChain = buildChain([]); // weekly_pulse_shares — ticket 0057.
+    const dsChain = buildChain([]); // drill_shares — ticket 0064.
     const coachesChain = buildChain([]);
     mockFromFn
       .mockReturnValueOnce(orgsChain)
@@ -107,6 +112,7 @@ describe('sitemap() — includes active practice_plan_shares tokens (ticket 0049
       .mockReturnValueOnce(grChain)
       .mockReturnValueOnce(ppChain)
       .mockReturnValueOnce(wpChain)
+      .mockReturnValueOnce(dsChain)
       .mockReturnValueOnce(coachesChain);
 
     const { default: sitemap } = await import('@/app/sitemap');

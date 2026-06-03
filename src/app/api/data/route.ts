@@ -66,6 +66,13 @@ const ALLOWED_TABLES = [
   // returned empty by the receiver routes' org_id scoping; the generic
   // /api/data path is filtered by the caller via filters at the API layer.
   'player_handoffs',
+  // Ticket 0064 — READS only (the publisher's own "drills I have published"
+  // list); inserts and updates flow through the dedicated
+  // /api/drill-shares/* routes. The mutate allow-list intentionally OMITS
+  // both this table and drill_share_clones — the clone path is the only way
+  // a clone row is written.
+  'drill_shares',
+  'drill_share_clones',
 ];
 
 // ─── GET handler (query params) ──────────────────────────────────────────────

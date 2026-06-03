@@ -122,6 +122,16 @@ export async function updateSession(request: NextRequest) {
     // e2e spec POST it directly, the proxy must not 401 it before the
     // route's own check runs (LESSONS#0104).
     '/api/cron/silent-player-nudge',
+    // Ticket 0064 — single-drill publish-and-clone surface. The page at
+    // /drill/<token> + the public token GET at /api/drill-shares/<token>
+    // are crawler-reachable without auth (cold visitors hit them before
+    // sign-in). /api/drill-shares/create, /clone, /unpublish, and /mine
+    // are NOT public surfaces: each self-enforces auth in the handler
+    // (auth.getUser() → 401), so the blanket /api/drill-shares/ prefix
+    // here never bypasses that guard (same posture as
+    // /api/practice-plan-shares/ already uses for 0049).
+    '/drill/',
+    '/api/drill-shares/',
   ];
   if (pathname === '/' || publicPaths.some((p) => pathname.startsWith(p))) {
     return supabaseResponse;

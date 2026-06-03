@@ -62,8 +62,12 @@ function buildChain(data: unknown = null) {
 //   6) practice_plan_shares  (ticket 0049 — read AFTER the prior four)
 //   7) weekly_pulse_shares   (ticket 0057 — read AFTER practice_plan_shares;
 //      same is_active=true gating, /week/<token> URL prefix)
-//   8) coaches WHERE handle IS NOT NULL (ticket 0054 — handle-vs-token URL
-//      swap for /coach/ entries; reads after the prior seven)
+//   8) drill_shares          (ticket 0064 — read AFTER weekly_pulse_shares;
+//      same is_active=true gating, /drill/<share_token> URL prefix. The
+//      route reads `share_token` (not `token`) but the test fixture stays
+//      `token`-shaped for readability — the route maps the column.)
+//   9) coaches WHERE handle IS NOT NULL (ticket 0054 — handle-vs-token URL
+//      swap for /coach/ entries; reads after the prior eight)
 function wireTables(opts: {
   orgs?: Array<{ slug: string; name?: string }>;
   teamCards?: Array<{ token: string; created_at?: string }>;
@@ -72,6 +76,7 @@ function wireTables(opts: {
   gameRecaps?: Array<{ token: string; created_at?: string }>;
   practicePlans?: Array<{ token: string; created_at?: string }>;
   weeklyPulses?: Array<{ token: string; created_at?: string }>;
+  drillShares?: Array<{ share_token: string; created_at?: string }>;
   coachesWithHandles?: Array<{ id: string; handle: string }>;
 }) {
   mockFromFn
@@ -82,6 +87,7 @@ function wireTables(opts: {
     .mockReturnValueOnce(buildChain(opts.gameRecaps ?? []))
     .mockReturnValueOnce(buildChain(opts.practicePlans ?? []))
     .mockReturnValueOnce(buildChain(opts.weeklyPulses ?? []))
+    .mockReturnValueOnce(buildChain(opts.drillShares ?? []))
     .mockReturnValueOnce(buildChain(opts.coachesWithHandles ?? []));
 }
 
@@ -92,6 +98,11 @@ describe('sitemap() — dynamic public-surface index (ticket 0038)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // LESSONS#0092 — vi.clearAllMocks() does NOT drain a mock's
+    // mockReturnValueOnce queue. Without mockReset() here, a queue chain
+    // left over by one test leaks into the next and shifts the consumed
+    // order. mockReset() drains the queue AND clears state.
+    mockFromFn.mockReset();
     process.env.NEXT_PUBLIC_APP_URL = BASE;
   });
 
@@ -146,7 +157,9 @@ describe('sitemap() — dynamic public-surface index (ticket 0038)', () => {
       .mockReturnValueOnce(buildChain([]))
       // weekly_pulse_shares (ticket 0057) — read AFTER practice_plan_shares.
       .mockReturnValueOnce(buildChain([]))
-      // coaches WHERE handle IS NOT NULL (ticket 0054) — 8th sequential read.
+      // drill_shares (ticket 0064) — read AFTER weekly_pulse_shares.
+      .mockReturnValueOnce(buildChain([]))
+      // coaches WHERE handle IS NOT NULL (ticket 0054) — 9th sequential read.
       .mockReturnValueOnce(buildChain([]));
 
     const { default: sitemap } = await import('@/app/sitemap');
@@ -195,12 +208,32 @@ describe('sitemap() — dynamic public-surface index (ticket 0038)', () => {
     expect(urls).toContain(`${BASE}/week/wp-active-2`);
   });
 
+  // ─── AC (ticket 0064) ──────────────────────────────────────────────────────
+  // Single-drill publish-and-clone cards ride the SAME crawlable posture as
+  // every other public token surface (LESSONS#0038 / #0049): one
+  // /drill/<share_token> entry per active row, none for inactive.
+  it('includes an entry per ACTIVE drill_shares token at /drill/<share_token>', async () => {
+    wireTables({
+      drillShares: [
+        { share_token: 'ds-active-1' },
+        { share_token: 'ds-active-2' },
+      ],
+    });
+    const { default: sitemap } = await import('@/app/sitemap');
+    const entries = await sitemap();
+    const urls = entries.map((e) => e.url);
+
+    expect(urls).toContain(`${BASE}/drill/ds-active-1`);
+    expect(urls).toContain(`${BASE}/drill/ds-active-2`);
+  });
+
   it('filters each token table on is_active=true at the DB query (inactive excluded)', async () => {
     const orgsChain = buildChain([]);
     const tcChain = buildChain([]);
     const srChain = buildChain([]);
     const ccChain = buildChain([]);
     const grChain = buildChain([]);
+    const drillSharesChain = buildChain([]);
     mockFromFn
       .mockReturnValueOnce(orgsChain)
       .mockReturnValueOnce(tcChain)
@@ -211,7 +244,9 @@ describe('sitemap() — dynamic public-surface index (ticket 0038)', () => {
       .mockReturnValueOnce(buildChain([]))
       // weekly_pulse_shares (ticket 0057) — also filter is_active=true.
       .mockReturnValueOnce(buildChain([]))
-      // coaches WHERE handle IS NOT NULL (ticket 0054) — 8th sequential read.
+      // drill_shares (ticket 0064) — also filter is_active=true.
+      .mockReturnValueOnce(drillSharesChain)
+      // coaches WHERE handle IS NOT NULL (ticket 0054) — 9th sequential read.
       .mockReturnValueOnce(buildChain([]));
 
     const { default: sitemap } = await import('@/app/sitemap');
@@ -219,7 +254,7 @@ describe('sitemap() — dynamic public-surface index (ticket 0038)', () => {
 
     // Each token chain must filter is_active=true so a revoked/inactive token
     // is never indexed.
-    for (const chain of [tcChain, srChain, ccChain, grChain]) {
+    for (const chain of [tcChain, srChain, ccChain, grChain, drillSharesChain]) {
       const eqCalls = (chain.eq as ReturnType<typeof vi.fn>).mock.calls;
       const filteredOnActive = eqCalls.some(
         ([col, val]) => String(col) === 'is_active' && val === true,
@@ -307,7 +342,9 @@ describe('sitemap() — dynamic public-surface index (ticket 0038)', () => {
       .mockReturnValueOnce(buildChain([]))
       // weekly_pulse_shares (ticket 0057) — empty in this size-bound case.
       .mockReturnValueOnce(buildChain([]))
-      // coaches WHERE handle IS NOT NULL (ticket 0054) — 8th sequential read.
+      // drill_shares (ticket 0064) — empty in this size-bound case.
+      .mockReturnValueOnce(buildChain([]))
+      // coaches WHERE handle IS NOT NULL (ticket 0054) — 9th sequential read.
       .mockReturnValueOnce(buildChain([]));
 
     const { default: sitemap } = await import('@/app/sitemap');

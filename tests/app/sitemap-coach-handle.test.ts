@@ -38,12 +38,14 @@ function buildChain(data: unknown = null) {
 
 const BASE = 'https://youthsportsiq.test';
 
-// Wires the existing 7 sequential reads (orgs → team_cards → season_recaps →
-// coach_cards → game_recaps → practice_plans → weekly_pulse_shares) PLUS the
-// 8th read for coaches with non-null handle. The route looks up
-// handle-by-coach-id from the coach_cards rows; we hand it the mapping
-// directly. Ticket 0057 added the weekly_pulse_shares read between
-// practice_plan_shares (6th) and coaches/handle (8th).
+// Wires the existing 8 sequential reads (orgs → team_cards → season_recaps →
+// coach_cards → game_recaps → practice_plans → weekly_pulse_shares →
+// drill_shares) PLUS the 9th read for coaches with non-null handle. Ticket
+// 0064 added the drill_shares read between weekly_pulse_shares (7th) and
+// coaches/handle (now 9th). LESSONS#0049 / #0100 — the queue for every
+// sibling sitemap test gets the new chain in the same PR; without it, the
+// drill_shares from() resolves to undefined and the route throws inside the
+// next chained call.
 function wireTables(opts: {
   orgs?: Array<{ slug: string }>;
   teamCards?: Array<{ token: string; created_at?: string }>;
@@ -52,6 +54,7 @@ function wireTables(opts: {
   gameRecaps?: Array<{ token: string; created_at?: string }>;
   practicePlans?: Array<{ token: string; created_at?: string }>;
   weeklyPulses?: Array<{ token: string; created_at?: string }>;
+  drillShares?: Array<{ share_token: string; created_at?: string }>;
   handleByCoachId?: Array<{ id: string; handle: string }>;
 }) {
   mockFromFn
@@ -64,7 +67,10 @@ function wireTables(opts: {
     // 7th: weekly_pulse_shares (ticket 0057) — same is_active=true gating
     // as the other token tables, /week/<token> URL prefix.
     .mockReturnValueOnce(buildChain(opts.weeklyPulses ?? []))
-    // 8th: coaches WHERE handle IS NOT NULL AND id IN (coach_ids from coach_cards).
+    // 8th: drill_shares (ticket 0064) — same is_active=true gating,
+    // /drill/<share_token> URL prefix.
+    .mockReturnValueOnce(buildChain(opts.drillShares ?? []))
+    // 9th: coaches WHERE handle IS NOT NULL AND id IN (coach_ids from coach_cards).
     .mockReturnValueOnce(buildChain(opts.handleByCoachId ?? []));
 }
 
@@ -73,6 +79,9 @@ describe('sitemap() — coach handles prefer /coach/<handle> over /coach/<token>
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // LESSONS#0092 — drain the mockReturnValueOnce queue so a leak from
+    // a sibling test cannot shift the consumed order in this one.
+    mockFromFn.mockReset();
     vi.resetModules();
     process.env.NEXT_PUBLIC_APP_URL = BASE;
   });

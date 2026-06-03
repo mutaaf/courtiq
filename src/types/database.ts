@@ -602,6 +602,32 @@ export interface PracticePlanShare {
   created_at: string;
 }
 
+// Single-drill publish-and-clone primitive (ticket 0064). One row per
+// (coach_id, drill_id) — re-publish UPDATEs caption + updated_at on the SAME
+// row and reuses the same share_token. COACH-TO-COACH only — no player,
+// parent, or minor reference. The clone destination is the cloning coach's
+// preferences.favorited_drills array (the 0039 primitive), not a new table.
+export interface DrillShare {
+  id: string;
+  coach_id: string;
+  drill_id: string;
+  share_token: string;
+  caption: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// One row per (drill_share, cloner_coach) — the source of the publisher's
+// clone-count rollup on their authed coach-profile dashboard. UNIQUE on
+// (drill_share_id, cloner_coach_id) makes the clone route idempotent.
+export interface DrillShareClone {
+  id: string;
+  drill_share_id: string;
+  cloner_coach_id: string;
+  cloned_at: string;
+}
+
 // Named persistent coach-to-coach edge (ticket 0063). A `coach_follows` row
 // means the follower wants to see the followee's next published practice plans
 // at the top of their own /plans league feed. COACH-TO-COACH ONLY — no
