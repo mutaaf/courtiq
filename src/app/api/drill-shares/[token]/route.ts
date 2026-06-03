@@ -18,15 +18,20 @@ import { createServiceSupabase } from '@/lib/supabase/server';
 // Payload allow-list (TOP LEVEL):
 //   drill:      { id, name, setup, sportSlug, ageGroupHint }
 //   caption:    string | null   — coach-typed (voice-scanned at write time)
-//   publisher:  { firstName, handle | null }
+//   publisher:  { id, firstName, handle | null }
 //   createdAt:  ISO string
 //   isActive:   boolean
 //
 // COPPA: this route NEVER references a player, parent, session, or team.
-// The publisher's first name + handle are the only person-shaped fields,
-// and both are already public (the handle is on /coach/<handle> per 0054).
-// Last name, email, parent contact, and any other field are never read.
-// The route's .select() calls are EXPLICIT ALLOW-LISTS per LESSONS#0036.
+// The publisher's id + first name + handle are the only person-shaped
+// fields, and all three are already public (the id is implicit in any
+// share token; the handle is on /coach/<handle> per 0054; the first name
+// is on every public coach surface). Last name, email, parent contact,
+// and any other field are never read. The route's .select() calls are
+// EXPLICIT ALLOW-LISTS per LESSONS#0036. Exposing the coach id keeps
+// first-name extraction server-side and lets the public page's inline
+// follow card (0063) POST { followee_id } without a second round-trip
+// (LESSONS#0009 — same posture as 0049 widened by 0063).
 //
 // LESSONS#0096 — drills are a real DB table; the resolution is a
 // `from('drills')` lookup + a `from('sports')` join for the slug. The
@@ -112,6 +117,7 @@ export async function GET(
       },
       caption: share.caption ?? null,
       publisher: {
+        id: coach?.id ?? share.coach_id,
         firstName,
         handle: coach?.handle ?? null,
       },

@@ -196,6 +196,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // route's exact read order). The mock queue in tests/app/sitemap.test.ts
     // is extended to add this 8th sequential read.
     const weeklyPulses = await fetchActiveTokens(supabase, 'weekly_pulse_shares');
+    // Ticket 0064 — single-drill publish-and-clone surface. drill_shares
+    // uses `share_token` (not `token`) as its public-URL column, so we
+    // read it through a dedicated helper rather than fetchActiveTokens.
+    // The 7th sequential read; the mock queue in tests/app/sitemap.test.ts
+    // is extended to add the 7th `mockReturnValueOnce` chain in the same
+    // PR per LESSONS#0049 / #0100.
+    const { data: drillShareRows } = await supabase
+      .from('drill_shares')
+      .select('share_token, created_at')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(TOKEN_TABLE_LIMIT);
+    const drillShares = ((drillShareRows ?? []) as Array<{
+      share_token: string | null;
+      created_at?: string | null;
+    }>).filter(
+      (r) => typeof r.share_token === 'string' && r.share_token.length > 0,
+    );
 
     // Ticket 0054 — resolve which coaches have a non-null handle so the
     // /coach/<handle> URL replaces the /coach/<token> URL. Bounded by the
@@ -269,6 +287,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       };
     });
 
+    // Ticket 0064 — drill_shares uses the column `share_token` instead of
+    // `token`; map to a TokenRow-shaped object so the same `map` helper
+    // re-uses the existing URL emission shape.
+    const drillShareEntries: MetadataRoute.Sitemap = drillShares.map((r) => ({
+      url: `${base}/drill/${r.share_token}`,
+      lastModified: r.created_at ? new Date(r.created_at) : now,
+      changeFrequency: 'monthly' as const,
+      priority: 0.6,
+    }));
+
     tokenEntries = [
       ...map(teamCards, '/team-card'),
       ...map(seasonRecaps, '/season-recap'),
@@ -276,6 +304,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...map(gameRecaps, '/recap'),
       ...map(practicePlans, '/plan'),
       ...map(weeklyPulses, '/week'),
+      ...drillShareEntries,
     ];
   } catch (error) {
     // Sitemap generation must never throw — a transient DB hiccup degrades to

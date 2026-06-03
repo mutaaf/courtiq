@@ -13,8 +13,12 @@
  *    confusing not-found).
  *  - 200 happy path returns the keyset:
  *      { drill: { id, name, setup, sportSlug, ageGroupHint },
- *        caption, publisher: { firstName, handle }, createdAt, isActive }
+ *        caption, publisher: { id, firstName, handle }, createdAt, isActive }
  *  - Publisher's first name only — last name + email NEVER leak.
+ *  - publisher.id is the coach UUID (LESSONS#0009 — exposing it lets the
+ *    public page's 0063 follow card POST { followee_id } without a second
+ *    round-trip; the coach id is NOT minor data and is already implicit in
+ *    the public token).
  *  - The handle is `coaches.handle` if set, else null.
  *  - Planted player/team data (foreign to this table) does NOT leak.
  *
@@ -145,9 +149,10 @@ describe('GET /api/drill-shares/[token] (ticket 0064)', () => {
     expect(drill.sportSlug).toBe('basketball');
     expect(drill.ageGroupHint).toBe('8-10');
 
-    // Publisher sub-object — only firstName + handle (LESSONS#0036).
+    // Publisher sub-object — id + firstName + handle (LESSONS#0036).
     const publisher = payload.publisher as Record<string, unknown>;
-    expect(Object.keys(publisher).sort()).toEqual(['firstName', 'handle']);
+    expect(Object.keys(publisher).sort()).toEqual(['firstName', 'handle', 'id']);
+    expect(publisher.id).toBe('coach-1');
     expect(publisher.firstName).toBe('Sarah');
     expect(publisher.handle).toBe('sarah-r');
 

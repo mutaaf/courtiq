@@ -1,6 +1,6 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState } from 'react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQuery } from '@tanstack/react-query';
 import { query } from '@/lib/api';
@@ -25,9 +25,11 @@ import {
   CalendarClock,
   ThumbsUp,
   ThumbsDown,
+  Share2,
 } from 'lucide-react';
 import Link from 'next/link';
-import type { Drill, Observation, Player, Sport } from '@/types/database';
+import type { Drill, DrillShare, Observation, Player, Sport } from '@/types/database';
+import { PublishDrillSheet } from '@/components/drills/publish-drill-sheet';
 import {
   buildDrillUsageSummary,
   buildUsageSummaryLabel,
@@ -47,6 +49,24 @@ export default function DrillDetailPage({
 }) {
   const { drillId } = use(params);
   const { activeTeam } = useActiveTeam();
+  const [publishSheetOpen, setPublishSheetOpen] = useState(false);
+
+  // Ticket 0064 — look up any existing drill_shares row this coach has for
+  // this drill, so the publish sheet opens with the existing caption
+  // pre-filled (idempotent re-publish). The data-route allow-list (ticket
+  // 0049 / 0064 family) is READ-only on drill_shares.
+  const { data: existingShares = [] } = useQuery({
+    queryKey: ['drill-shares', drillId],
+    queryFn: async () =>
+      query<DrillShare[]>({
+        table: 'drill_shares',
+        select: 'id, share_token, caption, is_active, drill_id',
+        filters: { drill_id: drillId },
+      }),
+    staleTime: 60 * 1000,
+  });
+  const myShare =
+    existingShares.find((s) => s.drill_id === drillId) ?? null;
 
   const { data: drill, isLoading } = useQuery({
     queryKey: queryKeys.drills.detail(drillId),
@@ -168,10 +188,42 @@ export default function DrillDetailPage({
               {drill.source}
             </Badge>
           )}
+          {/* Ticket 0064 — the publish control. Sits inside the per-drill
+              action row near the badges; a small icon button, not a
+              prominent CTA. Tap to open the publish sheet (which then
+              POSTs /api/drill-shares/create). */}
+          <button
+            type="button"
+            onClick={() => setPublishSheetOpen(true)}
+            data-testid="publish-drill-trigger"
+            aria-label={myShare && myShare.is_active ? 'Edit drill share' : 'Publish drill'}
+            className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900/60 px-3 text-xs font-medium text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+          >
+            <Share2 className="h-3.5 w-3.5" />
+            {myShare && myShare.is_active ? 'Edit share' : 'Publish'}
+          </button>
         </div>
         <h1 className="text-2xl font-bold text-zinc-100 leading-tight">{drill.name}</h1>
         <p className="text-zinc-400 text-sm leading-relaxed">{drill.description}</p>
       </div>
+
+      {/* Publish sheet (ticket 0064) — mounted at the page root so the
+          sheet's fixed-overlay covers the full viewport. */}
+      <PublishDrillSheet
+        open={publishSheetOpen}
+        onClose={() => setPublishSheetOpen(false)}
+        drillId={drillId}
+        drillName={drill.name}
+        existingShare={
+          myShare
+            ? {
+                token: myShare.share_token,
+                caption: myShare.caption,
+                isActive: myShare.is_active,
+              }
+            : null
+        }
+      />
 
       {/* Key stats */}
       <div className="grid grid-cols-3 gap-3">
