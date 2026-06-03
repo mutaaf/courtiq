@@ -1,7 +1,7 @@
 ---
 id: 0064
 title: Let a coach publish a single drill they love as a one-tap clone card another coach saves into their library in 10 seconds
-status: in-progress
+status: shipped
 priority: P1
 area: plans
 created: 2026-06-03
