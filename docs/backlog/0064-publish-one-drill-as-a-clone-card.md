@@ -1,7 +1,7 @@
 ---
 id: 0064
 title: Let a coach publish a single drill they love as a one-tap clone card another coach saves into their library in 10 seconds
-status: groomed
+status: in-progress
 priority: P1
 area: plans
 created: 2026-06-03
@@ -525,4 +525,15 @@ doesn't redesign on pickup.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-03 [implementation-dev] Picked up at status `groomed` P1. Confirmed
+  `058_coach_follows.sql` is the latest migration on `main`; using `059` as
+  the next free prefix (LESSONS#0006). Drills are in the DB (`drills` table,
+  UUID PK, FK to sports/orgs/coaches per `001_schema.sql:299`), so
+  `drill_shares.drill_id` is `UUID NOT NULL REFERENCES drills(id) ON DELETE
+  CASCADE` per the ticket's LESSONS#0096 fork ("if drills ARE in the DB at
+  pickup, switch to UUID + FK + ON DELETE CASCADE"). The drill detail page
+  lives at `src/app/(dashboard)/drills/[drillId]/page.tsx` as the ticket
+  expected. No `src/app/(dashboard)/coach-profile/page.tsx` exists — only
+  `coach-profile/followers/page.tsx`; mounting the "Drills I have published"
+  panel on a new `/coach-profile/published/page.tsx` (the ticket's
+  fallback path).
