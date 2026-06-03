@@ -73,6 +73,11 @@ const ALLOWED_TABLES = [
   // a clone row is written.
   'drill_shares',
   'drill_share_clones',
+  // Ticket 0065 — READS only (the caller's own director-contact prefill).
+  // Inserts and updates flow through the dedicated
+  // /api/program-director-invites/create route; the mutate allow-list
+  // intentionally OMITS this table (same posture as program_referrals).
+  'coach_director_contacts',
 ];
 
 // ─── GET handler (query params) ──────────────────────────────────────────────

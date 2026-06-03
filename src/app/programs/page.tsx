@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ChevronRight, Search } from 'lucide-react';
+import { verifyDirectorInviteRef } from '@/lib/director-invite-utils';
 
 // ---------------------------------------------------------------------------
 // Public program directory (ticket 0033).
@@ -77,8 +78,28 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function ProgramsDirectoryPage() {
+export default async function ProgramsDirectoryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ invite?: string; ref?: string }>;
+}) {
   const { programs } = await getPrograms();
+  // Ticket 0065 — coach-to-director invite landing. The director taps the
+  // secondary CTA in the email and lands here with ?invite=director&ref=
+  // <signed>. We verify the HMAC server-side (NEVER trust the client;
+  // LESSONS#0039) only to surface a small contextual welcome banner — the
+  // actual team-attachment happens in /api/auth/setup once they sign up.
+  // A bad / expired ref silently falls back to the regular directory.
+  const { invite, ref } = await searchParams;
+  const isDirectorInvite = invite === 'director';
+  let inviteRefValid = false;
+  if (isDirectorInvite && typeof ref === 'string' && ref) {
+    const secret = process.env.CRON_SECRET || '';
+    if (secret) {
+      const v = verifyDirectorInviteRef(ref, secret);
+      inviteRefValid = v.ok;
+    }
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -92,6 +113,14 @@ export default async function ProgramsDirectoryPage() {
           <p className="mt-3 text-base text-zinc-400">
             Find the program your league runs on SportsIQ, then claim the team you coach.
           </p>
+          {inviteRefValid && (
+            <div
+              className="mt-5 rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm text-orange-200"
+              data-testid="director-invite-welcome"
+            >
+              One of your coaches invited you. Claim the program here to keep their team attached.
+            </div>
+          )}
         </div>
       </div>
 
