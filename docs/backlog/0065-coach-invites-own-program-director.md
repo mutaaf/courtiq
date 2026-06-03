@@ -1,7 +1,7 @@
 ---
 id: 0065
 title: Right on the weekly-pulse share card, let a coach name their own program director and bring them onto SportsIQ with one tap and one email
-status: in-progress
+status: shipped
 priority: P1
 area: growth
 created: 2026-06-03
