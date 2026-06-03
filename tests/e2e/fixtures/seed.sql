@@ -1433,6 +1433,82 @@ values (
 on conflict (id) do nothing;
 
 -- ────────────────────────────────────────────────────────────────────────
+-- Ticket 0064 — single-drill publish-and-clone
+-- ────────────────────────────────────────────────────────────────────────
+-- The ticket adds:
+--   • ONE deterministic drill row (with a known UUID — the migration-seeded
+--     drills use gen_random_uuid() defaults, so we can't reference one
+--     without inserting our own). This drill is what the seeded share row
+--     resolves to on /drill/<token>.
+--   • ONE drill_shares row owned by the existing E2E coach (...001) for
+--     the seeded drill, with an active token + caption.
+--   • ONE additional auth.users + coaches row for the CLONER coach (the
+--     spec signs in as this second coach and taps Save). LESSONS#0084 —
+--     coaches.id FK references auth.users(id); seed the auth user FIRST.
+--   • UUIDs in the 0...010+ family. The existing 0...00d2/0...00f* /
+--     0...0aa1 families are taken; 0...0110+ is unused above (verified
+--     via grep before commit per LESSONS#0101 / #0043).
+--
+-- COPPA: the drill_shares table never references a player, parent, or
+-- session. The cloner-coach row carries no player data of its own; the
+-- only sharing primitive on this surface is COACH-TO-COACH.
+
+-- One deterministic drill row. The migration's gen_random_uuid() defaults
+-- mean the e2e spec cannot pin to a seed-migration drill; we insert our
+-- own with a fixed UUID so the spec's URL resolves deterministically.
+insert into drills (id, sport_id, name, description, category, age_groups,
+                    duration_minutes, player_count_min, player_count_max,
+                    equipment, teaching_cues, setup_instructions, source)
+select
+  '00000000-0000-4000-a000-000000000110',
+  (select id from sports where slug = 'basketball' limit 1),
+  '0064 E2E Closeout Drill',
+  'Defender starts at the rim. Coach passes to a shooter on the perimeter. Defender sprints out and contests without fouling.',
+  'Defense',
+  '{"8-10","11-13"}',
+  10, 2, 12,
+  '{"basketballs","cones"}',
+  '{"Stay low on the close-out","Chest to the ball-handler","Hands up at the end"}',
+  'Players close out on the shooter from the elbow.
+Focus on chest-to-the-ball-handler before the hands go up.',
+  'seeded'
+on conflict (id) do nothing;
+
+-- The active share token. The spec navigates to /drill/<this token>.
+insert into drill_shares (id, coach_id, drill_id, share_token, caption, is_active)
+values (
+  '00000000-0000-4000-a000-000000000111',
+  '00000000-0000-4000-a000-000000000001',
+  '00000000-0000-4000-a000-000000000110',
+  'test-drill-share-token-e2e-001',
+  'Finally got my U10 girls to finish their close-outs.',
+  true
+)
+on conflict (id) do nothing;
+
+-- The cloner coach (the spec signs in as this coach to tap Save). LESSONS
+-- #0084 — auth.users row FIRST so the coaches FK resolves.
+insert into auth.users (id, instance_id, aud, role, email,
+                        email_confirmed_at, created_at, updated_at)
+values (
+  '00000000-0000-4000-a000-000000000112',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated', 'authenticated',
+  'cloner-0064-e2e@test.com',
+  now(), now(), now()
+)
+on conflict (id) do nothing;
+
+insert into coaches (id, org_id, full_name, email, role, onboarding_complete, preferences)
+values (
+  '00000000-0000-4000-a000-000000000112',
+  '00000000-0000-4000-a000-000000000010',
+  'James Stark Jr', 'cloner-0064-e2e@test.com', 'coach', true,
+  '{}'::jsonb
+)
+on conflict (id) do nothing;
+
+-- ────────────────────────────────────────────────────────────────────────
 -- Ticket 0062 — mid-week silent-player nudge
 -- ────────────────────────────────────────────────────────────────────────
 -- Per the ticket's AC: re-stamp the EXISTING observations on Alice (the E2E

@@ -28,7 +28,7 @@ import {
   Share2,
 } from 'lucide-react';
 import Link from 'next/link';
-import type { Drill, DrillShare, Observation, Player, Sport } from '@/types/database';
+import type { Drill, Observation, Player, Sport } from '@/types/database';
 import { PublishDrillSheet } from '@/components/drills/publish-drill-sheet';
 import {
   buildDrillUsageSummary,
@@ -51,22 +51,37 @@ export default function DrillDetailPage({
   const { activeTeam } = useActiveTeam();
   const [publishSheetOpen, setPublishSheetOpen] = useState(false);
 
-  // Ticket 0064 — look up any existing drill_shares row this coach has for
-  // this drill, so the publish sheet opens with the existing caption
-  // pre-filled (idempotent re-publish). The data-route allow-list (ticket
-  // 0049 / 0064 family) is READ-only on drill_shares.
-  const { data: existingShares = [] } = useQuery({
-    queryKey: ['drill-shares', drillId],
-    queryFn: async () =>
-      query<DrillShare[]>({
-        table: 'drill_shares',
-        select: 'id, share_token, caption, is_active, drill_id',
-        filters: { drill_id: drillId },
-      }),
+  // Ticket 0064 — look up any existing drill_shares row this coach owns
+  // for this drill, so the publish sheet opens with the existing caption
+  // pre-filled (idempotent re-publish). Goes through the dedicated
+  // /api/drill-shares/mine route (authed, scoped to the caller's own
+  // shares) rather than the generic /api/data — the dedicated route is
+  // the only one that filters by coach_id server-side, so the page never
+  // sees another coach's share for the same drill.
+  const { data: existingMineShares = [] } = useQuery({
+    queryKey: ['drill-shares', 'mine'],
+    queryFn: async () => {
+      const res = await fetch('/api/drill-shares/mine', { credentials: 'include' });
+      if (!res.ok) return [] as Array<{
+        token: string;
+        drillId: string;
+        caption: string | null;
+        isActive: boolean;
+      }>;
+      const body = (await res.json().catch(() => ({}))) as {
+        shares?: Array<{
+          token: string;
+          drillId: string;
+          caption: string | null;
+          isActive: boolean;
+        }>;
+      };
+      return body.shares ?? [];
+    },
     staleTime: 60 * 1000,
   });
   const myShare =
-    existingShares.find((s) => s.drill_id === drillId) ?? null;
+    existingMineShares.find((s) => s.drillId === drillId) ?? null;
 
   const { data: drill, isLoading } = useQuery({
     queryKey: queryKeys.drills.detail(drillId),
@@ -196,11 +211,11 @@ export default function DrillDetailPage({
             type="button"
             onClick={() => setPublishSheetOpen(true)}
             data-testid="publish-drill-trigger"
-            aria-label={myShare && myShare.is_active ? 'Edit drill share' : 'Publish drill'}
+            aria-label={myShare && myShare.isActive ? 'Edit drill share' : 'Publish drill'}
             className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900/60 px-3 text-xs font-medium text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
           >
             <Share2 className="h-3.5 w-3.5" />
-            {myShare && myShare.is_active ? 'Edit share' : 'Publish'}
+            {myShare && myShare.isActive ? 'Edit share' : 'Publish'}
           </button>
         </div>
         <h1 className="text-2xl font-bold text-zinc-100 leading-tight">{drill.name}</h1>
@@ -217,9 +232,9 @@ export default function DrillDetailPage({
         existingShare={
           myShare
             ? {
-                token: myShare.share_token,
+                token: myShare.token,
                 caption: myShare.caption,
-                isActive: myShare.is_active,
+                isActive: myShare.isActive,
               }
             : null
         }
