@@ -77,7 +77,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
 | 0064 | Let a coach publish a single drill they love as a one-tap clone card another coach saves into their library in 10 seconds | P1 | shipped | plans |
-| 0065 | Right on the weekly-pulse share card, let a coach name their own program director and bring them onto SportsIQ with one tap and one email | P1 | groomed | growth |
+| 0065 | Right on the weekly-pulse share card, let a coach name their own program director and bring them onto SportsIQ with one tap and one email | P1 | in-progress | growth |
 | 0066 | When a coach asks for their second parent report and the notes are thinner than week one, make the report fall back to "what carried forward" instead of inventing | P1 | groomed | ai |
 | 0067 | When the regular coach can't make Tuesday's practice and a parent volunteers to run it, give them a one-tap "here's what we're working on" link for that sub | P1 | groomed | capture |
 | 0062 | When the coach has been capturing all season but hasn't said a single word about Maya in 8 days, nudge them with her name — not the whole roster | P1 | shipped | capture |

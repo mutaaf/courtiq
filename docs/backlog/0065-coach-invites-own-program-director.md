@@ -1,7 +1,7 @@
 ---
 id: 0065
 title: Right on the weekly-pulse share card, let a coach name their own program director and bring them onto SportsIQ with one tap and one email
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-06-03
@@ -513,4 +513,8 @@ Files / patterns the dev should touch.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-03 [implementation-dev] Picked up. Migration prefix 059 is already
+  taken by `059_drill_shares.sql` (ticket 0064), so this ticket lands as
+  `060_coach_director_contacts.sql` per LESSONS#0006 — version prefixes
+  must be unique. Branch `feat/0065-coach-invites-program-director` off
+  freshly-pulled main.

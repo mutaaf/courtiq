@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Share2, Copy, Check, X, MessageSquare } from 'lucide-react';
 import { formatWeekHeader } from '@/lib/weekly-pulse-utils';
+import { DirectorInviteSection } from '@/components/home/director-invite-section';
 
 // Ticket 0057 — the home-card publish surface for the weekly-pulse share.
 // One tap opens a sheet showing a preview of the public card, a Copy button
@@ -284,6 +285,22 @@ export function WeeklyPulseShareCard({ teamId }: WeeklyPulseShareCardProps) {
               </button>
             </div>
           </div>
+
+          {/* Ticket 0065 — director-invite section. Mounts BELOW the
+              Copy-link + caption surfaces with a clear divider, so the
+              existing 0057 surfaces render byte-identically. Only rendered
+              once we have a token (so the public URL the email carries is
+              real). The section itself self-fetches the prefill GET. */}
+          {token && publicUrl && (
+            <>
+              <div className="h-px bg-zinc-800" aria-hidden="true" />
+              <DirectorInviteSection
+                teamId={teamId}
+                weeklyPulseToken={token}
+                weeklyPulsePublicUrl={publicUrl}
+              />
+            </>
+          )}
         </div>
       )}
     </div>

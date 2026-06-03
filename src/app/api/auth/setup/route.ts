@@ -1,6 +1,7 @@
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { verifyDirectorId } from '@/lib/program-referral-utils';
+import { verifyDirectorInviteRef } from '@/lib/director-invite-utils';
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabase();
@@ -17,6 +18,13 @@ export async function POST(request: Request) {
     org: orgSlug,
     team: teamId,
     programReferralId,
+    // Ticket 0065 — coach-to-director invite claim path. The director
+    // arrived via /programs?invite=director&ref=<signed> -> /signup. The
+    // verified ref binds the inviting coach + team; on a valid ref AND a
+    // team that is either unattached or already on the newly-claimed
+    // org, the team's org_id is updated to attach it. A team attached to
+    // a DIFFERENT org returns 409 reason:'team-already-attached'.
+    directorInviteRef,
   } = body;
   const name = fullName || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Coach';
 
@@ -151,6 +159,51 @@ export async function POST(request: Request) {
       }
     } catch (err) {
       console.error('[auth/setup] program_referral stamp failed (ignored):', err);
+    }
+  }
+
+  // Ticket 0065 — coach-to-director invite claim attribution. When the
+  // director arrived through /programs?invite=director&ref=<signed>, we
+  // verify the HMAC server-side (NEVER trust a client-supplied id;
+  // LESSONS#0039), and if valid, attach the inviting coach's team to the
+  // newly-claimed org by updating the team's org_id. A team already on a
+  // DIFFERENT org returns 409 — the existing /programs page handles it
+  // quietly (LESSONS#0036). A bad / forged / expired / missing ref is
+  // silently ignored — the rest of the signup already succeeded; never
+  // block onboarding on an attribution stamp. The team's `org_id` is the
+  // attachment shape because `team_coaches` + `coaches.org_id` already
+  // resolve org context from the team row (LESSONS#0096 — schema wins
+  // over prose).
+  if (directorInviteRef && typeof directorInviteRef === 'string') {
+    try {
+      const secret = process.env.CRON_SECRET || '';
+      if (secret) {
+        const v = verifyDirectorInviteRef(directorInviteRef, secret);
+        if (v.ok) {
+          const { data: invitingTeam } = await adminSupabase
+            .from('teams')
+            .select('id, org_id')
+            .eq('id', v.payload.teamId)
+            .single();
+          if (invitingTeam) {
+            if (invitingTeam.org_id && invitingTeam.org_id !== org.id) {
+              // Already on a different program — quiet 409 per the AC.
+              return NextResponse.json(
+                { reason: 'team-already-attached' },
+                { status: 409 },
+              );
+            }
+            if (!invitingTeam.org_id) {
+              await adminSupabase
+                .from('teams')
+                .update({ org_id: org.id })
+                .eq('id', invitingTeam.id);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[auth/setup] director-invite-ref attach failed (ignored):', err);
     }
   }
 

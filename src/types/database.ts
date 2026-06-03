@@ -660,6 +660,26 @@ export interface WeeklyPulseShare {
   created_at: string;
 }
 
+// Coach-to-director invite contact (ticket 0065). One row per (coach_id,
+// director_email_hash) — a re-invite of the same director by the same coach
+// increments invite_count and bumps last_invited_at on the SAME row. The
+// table is COACH-TO-DIRECTOR ONLY — no player, parent, session, observation,
+// age band, or minor reference. The director_email_hash exists so the dedup
+// query (shared 30-day check across this table AND program_referrals from
+// 0050) never puts a raw email into a WHERE clause (mirrors the 0050
+// posture). The raw email is stored so a second invite can re-send to the
+// same address; it is NEVER returned to the client (the prefill GET masks
+// it as `m***@example.com`).
+export interface CoachDirectorContact {
+  id: string;
+  coach_id: string;
+  director_first_name: string;
+  director_email: string;
+  director_email_hash: string;
+  last_invited_at: string;
+  invite_count: number;
+}
+
 export interface ConfigOverride {
   id: string;
   org_id: string | null;

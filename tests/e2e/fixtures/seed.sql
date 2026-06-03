@@ -1530,4 +1530,42 @@ update observations
     '00000000-0000-4000-a000-000000000052'
   );
 
+-- ────────────────────────────────────────────────────────────────────────
+-- Ticket 0065 — coach invites their own program director from the
+-- 0057 weekly-pulse share sheet
+-- ────────────────────────────────────────────────────────────────────────
+-- ONE pre-seeded `coach_director_contacts` row for the E2E coach so the
+-- pre-fill GET returns a contact on the FIRST sheet open (the spec
+-- asserts the masked email + the pre-filled name). The 0057 seed already
+-- inserted ONE `weekly_pulse_shares` row owned by the E2E coach (token
+-- `test-weekly-pulse-token-e2e-001`), which is the token the share sheet
+-- threads into the create POST.
+--
+-- UUIDs in the 0...0160 family — unused above (the 0064 / 0058 ranges
+-- end at 0...0150). Verified via grep before commit per LESSONS#0101.
+-- LESSONS#0084 — no new auth.users row is needed for the director:
+-- they do NOT have a coach row until they claim, so the FK posture is
+-- COACH-only on coach_director_contacts.coach_id (the E2E coach
+-- already exists at 0...001).
+--
+-- COPPA: this table NEVER references a player, parent, session,
+-- observation, or any minor-side field. The director is an adult
+-- contact volunteered by the coach.
+insert into coach_director_contacts (
+  id, coach_id, director_first_name, director_email,
+  director_email_hash, last_invited_at, invite_count
+)
+values (
+  '00000000-0000-4000-a000-000000000160',
+  '00000000-0000-4000-a000-000000000001',
+  'Mike',
+  'mike+seed@example.test',
+  -- sha256('mike+seed@example.test') hex (deterministic; the dedup
+  -- query reads this hash, never the raw email — LESSONS#0023 family).
+  '8420cc8e7e289eb98bd2c2db07ab1a45b1ec150245ca95058d6f0edf8fd16314',
+  now() - interval '7 days',
+  1
+)
+on conflict (id) do nothing;
+
 commit;
