@@ -78,6 +78,12 @@ const ALLOWED_TABLES = [
   // /api/program-director-invites/create route; the mutate allow-list
   // intentionally OMITS this table (same posture as program_referrals).
   'coach_director_contacts',
+  // Ticket 0067 — READS only (the caller's own sub-handoffs history view if
+  // ever needed). Inserts and updates flow through the dedicated
+  // /api/sub-handoff/* routes; the mutate allow-list intentionally OMITS
+  // this table. The sub-note write is from the PUBLIC sub-note route
+  // (token-scoped, never via generic /api/data).
+  'sub_handoffs',
 ];
 
 // ─── GET handler (query params) ──────────────────────────────────────────────

@@ -1002,3 +1002,26 @@ export interface PlayerTrajectoryView {
   player_id: string;
   viewed_at: string;
 }
+
+// Ticket 0067 — substitute-coach Tuesday-night handoff. One row per
+// (session_id, coach_id) — re-creating the handoff for the same session
+// UPDATES this row in place. The observer_token is minted by
+// src/lib/observer-utils.ts (the existing 24h HMAC token shape) so the
+// sub-facing page rides the SAME validation path the bare observer link
+// rides. The three include-flag booleans drive what the public
+// /sub/<token> page renders; the sub_note_* fields carry the sub-coach's
+// optional one-line note back to the regular coach.
+export interface SubHandoff {
+  id: string;
+  session_id: string;
+  coach_id: string;
+  observer_token: string;
+  sub_first_name: string | null;
+  include_queued_drills: boolean;
+  include_weekly_focus: boolean;
+  include_eyes_on_players: boolean;
+  sub_note_text: string | null;
+  sub_note_at: string | null;
+  sub_note_seen_at: string | null;
+  created_at: string;
+}

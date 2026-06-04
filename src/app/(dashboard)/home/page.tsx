@@ -70,6 +70,7 @@ import { WeeklyPulseShareCard } from '@/components/home/weekly-pulse-share-card'
 import { ReferralCelebrationCard } from '@/components/home/referral-celebration-card';
 import { PlanClonesCard } from '@/components/home/plan-clones-card';
 import { NewFollowersCard } from '@/components/home/new-followers-card';
+import { SubNoteCard } from '@/components/home/sub-note-card';
 import { PendingCloneConsumer } from '@/components/home/pending-clone-consumer';
 import { GameDayCard } from '@/components/home/game-day-card';
 import { GoalDeadlineCard } from '@/components/home/goal-deadline-card';
@@ -1635,6 +1636,12 @@ export default function HomePage() {
           followers since the publisher's last_seen_follow_count bookmark, so
           /home stays calm for coaches who have not been followed yet. */}
       <NewFollowersCard />
+
+      {/* Ticket 0067 — sub-coach Tuesday note card. Self-gating: renders
+          nothing when the coach has no unread sub-notes in the last 7 days
+          (silence beats nag) so /home stays calm for coaches who never
+          handed off practice. Smallest possible touch per LESSONS#0162. */}
+      <SubNoteCard />
 
       {/* Ticket 0049 — consume a sessionStorage clone_token left by signup
           (from /plan/<token>'s unauthed CTA) and auto-clone onto the active
