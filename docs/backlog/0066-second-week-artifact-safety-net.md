@@ -1,7 +1,7 @@
 ---
 id: 0066
 title: When a coach asks for their second parent report and the notes are thinner than week one, make the report fall back to "what carried forward" instead of inventing
-status: in-progress
+status: shipped
 priority: P1
 area: ai
 created: 2026-06-03
