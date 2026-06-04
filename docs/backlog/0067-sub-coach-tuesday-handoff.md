@@ -1,7 +1,7 @@
 ---
 id: 0067
 title: When the regular coach can't make Tuesday's practice and a parent volunteers to run it, give them a one-tap "here's what we're working on" link for that sub
-status: groomed
+status: in-progress
 priority: P1
 area: capture
 created: 2026-06-03
@@ -548,4 +548,58 @@ Files / patterns the dev should touch.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-04 [implementation-dev] Picked at pickup; status flipped to in-progress.
+  Pickup discovery (LESSONS#0096 — schema wins over prose):
+  - Migrations 059 (drill_shares) and 060 (coach_director_contacts) are taken;
+    next free is 061. Bumped per LESSONS#0006.
+  - Observer helpers: `src/lib/observer-utils.ts` exports
+    `generateObserverToken(sessionId, ttlHours)` and `validateObserverToken`
+    (NOT `verifyObserverToken` as the ticket prose said). Will use the real
+    names. The observer page uses `/observe/[token]` per
+    `buildObserverUrl()`; the sub page links Roster to that route at the
+    SAME token so a sub can fall back to the roster view without a
+    re-mint.
+  - Session detail page at
+    `src/app/(dashboard)/sessions/[sessionId]/page.tsx` confirmed. Existing
+    Observer button at line ~3679 (`handleObserverLink`). Hand-off button
+    mounts ABOVE that one.
+  - `home/page.tsx` already mounts `<NewFollowersCard />` (line 1637) +
+    `<ParentReactionsCard />` (line 1600) etc. — adding SubNoteCard with one
+    import + one JSX entry next to them (LESSONS#0065 / #0066 / #0162).
+  - `parent_reactions.coach_reply_at IS NULL` is the natural "open thread"
+    proxy, but the schema and route shape make the eyes-on-players query
+    cleaner if I read the two most-recent open-thread reactions, look up
+    their player_id, and source the watch-line from the player's
+    most-recent observation. Documented choice: use parent_reactions open
+    threads (coach_reply_at IS NULL) → player_id → most-recent observation
+    text. Fallback to "two players with the longest observation streak this
+    week" only if zero open threads exist for the team.
+  - `voice` scan: reusing `containsBannedWord` from `player-trajectory-utils.ts`
+    (shared with director-invite per the existing pattern).
+  - Sitemap decision: NOT extended (24h-scoped, no cold-search value).
+    Negative assertion added.
+  - publicPaths: adding `'/sub/'` AND `'/api/sub-handoff/'`. /create,
+    /recent-notes, /recent-notes/seen self-enforce auth in the handler
+    (same posture as `/api/practice-plan-shares/`).
+  - Seed UUIDs: 0xfc/0xfd/0xfe range (last taken is 0xfb).
+- 2026-06-04 [implementation-dev] Implementation complete. Full local
+  vitest suite green except: (a) `no-new-migration-0066.test.ts` migration
+  count pin bumped 61 → 62 per its own self-documenting upgrade path
+  (sub_handoffs landed at prefix 061); (b) `player-of-match-utils.test.ts`
+  "appends formatted date when provided" fails locally on a non-UTC
+  machine with `Apr 28 → Apr 27` — known TZ env issue per LESSONS#0036,
+  CI runs in UTC and passes. Not touched.
+- 2026-06-04 [implementation-dev] Decision documented at pickup:
+  eyes-on-players reads `parent_reactions` where `coach_reply_at IS NULL`
+  → distinct player_id → most-recent observation per player. This is the
+  cleaner path because parent_reactions.player_id is already first-class
+  and the COALESCE-style fallback (top-streak this week) would have
+  required scanning observations twice. The fallback is implicit: when
+  there are zero open threads the eyesOnPlayers section is omitted
+  entirely (silence beats invention).
+- 2026-06-04 [implementation-dev] E2E spec follows the observer-flow.spec
+  pattern — skip when SUPABASE_SERVICE_ROLE_KEY is unset. The sub_handoffs
+  row is seeded at runtime via a direct PostgREST insert with the service-
+  role key (idempotent DELETE-then-INSERT) so the spec does not need a
+  pre-seeded row in seed.sql, which would have required pgcrypto-side
+  HMAC generation against a Postgres custom_setting (fragile).

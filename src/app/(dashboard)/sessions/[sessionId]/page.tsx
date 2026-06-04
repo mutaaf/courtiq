@@ -64,6 +64,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { DeletePracticeSheet } from '@/components/sessions/delete-practice-sheet';
+import { SubHandoffSheet } from '@/components/session/sub-handoff-sheet';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
@@ -3156,6 +3157,11 @@ export default function SessionDetailPage() {
   const [observerLinkGenerating, setObserverLinkGenerating] = useState(false);
   const [observerLinkCopied, setObserverLinkCopied] = useState(false);
 
+  // Ticket 0067 — substitute-coach handoff sheet. Opens above the bare
+  // observer-link button below; the sub-handoff is the more specific
+  // surface (it carries the coaching context) so it sits first.
+  const [subHandoffOpen, setSubHandoffOpen] = useState(false);
+
   // Quick result entry state
   const [resultEditing, setResultEditing] = useState(false);
   const [resultPendingOutcome, setResultPendingOutcome] = useState<ResultValue | null>(null);
@@ -3676,6 +3682,21 @@ export default function SessionDetailPage() {
               Attendance
             </Button>
           </Link>
+          {/* Ticket 0067 — Hand-off button, mounted ABOVE the existing 0029
+              observer-link button. Carries the coaching context the bare
+              observer link does not (queued drills, this-week focus, two
+              kids to give extra eyes to). */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSubHandoffOpen(true)}
+            title="Hand off practice to a sub — share what we're working on"
+            data-testid="sub-handoff-open-btn"
+            className="h-9 shrink-0 border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-orange-400 hover:border-orange-700"
+          >
+            <Users className="h-4 w-4" />
+            Hand off
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -4563,6 +4584,15 @@ export default function SessionDetailPage() {
           setDeleteError(null);
         }
       }}
+    />
+
+    {/* Ticket 0067 — sub-handoff sheet. Mounted at the page level so the
+        backdrop covers the whole viewport, same posture as
+        DeletePracticeSheet above. */}
+    <SubHandoffSheet
+      sessionId={sessionId}
+      open={subHandoffOpen}
+      onClose={() => setSubHandoffOpen(false)}
     />
 
     {/* ─── Quick Observe Bottom Sheet ──────────────────────────────────────── */}

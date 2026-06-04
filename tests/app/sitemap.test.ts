@@ -413,5 +413,24 @@ describe('sitemap() — dynamic public-surface index (ticket 0038)', () => {
       }
     }
   });
+
+  // ─── AC (ticket 0067) ──────────────────────────────────────────────────────
+  // Sub-handoff links are 24h-scoped one-off forward-to-a-parent URLs. They
+  // are not coach surfaces and are not crawler-reachable by design — same
+  // posture as parent-portal `/share/<token>` (which is excluded above) and
+  // the observer-link `/observe/<token>` (also excluded). The sub-handoff
+  // route is NOT added to the sitemap reads; this assertion is the
+  // structural guarantee that future edits don't accidentally surface them.
+  it('never includes /sub/ paths (ticket 0067 — 24h-scoped, non-crawlable)', async () => {
+    wireTables({
+      orgs: [{ slug: 'lincoln-rec' }],
+      teamCards: [{ token: 'tc-1' }],
+    });
+    const { default: sitemap } = await import('@/app/sitemap');
+    const entries = await sitemap();
+    for (const e of entries) {
+      expect(e.url.startsWith(`${BASE}/sub/`)).toBe(false);
+    }
+  });
 });
 

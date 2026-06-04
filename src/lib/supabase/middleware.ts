@@ -132,6 +132,18 @@ export async function updateSession(request: NextRequest) {
     // /api/practice-plan-shares/ already uses for 0049).
     '/drill/',
     '/api/drill-shares/',
+    // Ticket 0067 — substitute-coach Tuesday-night handoff. The page at
+    // /sub/<token> + the public token GET at /api/sub-handoff/<token> +
+    // the sub-note POST at /api/sub-handoff/<token>/sub-note are visited
+    // by a parent volunteer who has no account by design. The /create,
+    // /recent-notes, and /recent-notes/seen routes are NOT public
+    // surfaces: each self-enforces auth in the handler (auth.getUser()
+    // → 401), so the blanket /api/sub-handoff/ prefix here never
+    // bypasses that guard (same posture as /api/practice-plan-shares/
+    // for 0049 and /api/drill-shares/ for 0064). The sub-handoff is
+    // NOT in the sitemap — 24h-scoped, non-crawlable by design.
+    '/sub/',
+    '/api/sub-handoff/',
   ];
   if (pathname === '/' || publicPaths.some((p) => pathname.startsWith(p))) {
     return supabaseResponse;
