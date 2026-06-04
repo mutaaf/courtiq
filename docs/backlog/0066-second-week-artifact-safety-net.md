@@ -1,7 +1,7 @@
 ---
 id: 0066
 title: When a coach asks for their second parent report and the notes are thinner than week one, make the report fall back to "what carried forward" instead of inventing
-status: groomed
+status: in-progress
 priority: P1
 area: ai
 created: 2026-06-03
@@ -428,4 +428,32 @@ Files / patterns the dev should touch.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-03 [implementation-dev] Picked up the ticket. Reconciled the spec
+  against the real codebase:
+  - Real route: `src/app/api/ai/parent-report/route.ts` (matches spec).
+  - Real prompt builder: `PROMPT_REGISTRY.parentReport` in
+    `src/lib/ai/prompts.ts` (matches spec; carries the 0016 `priorReport`
+    and the 0034 `priorSeasonReport` blocks).
+  - Real continuity row shape: `plans` rows with `type = 'parent_report'`
+    whose `content_structured` is the rendered `parentReportSchema` object.
+    The spec calls these "the 0016 continuity row" and "the previous
+    report's three specific commitments". The schema today has no first-
+    class `commitments` field; the closest grounded source the prompt can
+    quote is the previous report's `coach_note` (always present) plus
+    `skill_progress[].skill_name` (the focus areas the report already
+    named). v1 derives the previous-report "commitments" lexically from
+    those existing fields rather than inventing a new persisted shape — no
+    new migration, no new column, per the ticket's "no new migration"
+    constraint.
+  - Real schema: `parentReportSchema` (`src/lib/ai/schemas.ts`) already
+    accepts `since_last_report` / `since_last_season` as optional — the
+    public response shape is unchanged.
+  - Helper lives at `src/lib/thin-week-utils.ts` (per spec). PURE helpers
+    only — no DB access. Voice POSITIVE (LESSONS#0023) — banned tokens
+    are NEVER enumerated in the prompt body or the template.
+  - The post-AI output rendered-text scan happens in the route; on a
+    banned-word hit we render `renderThinWeekFallback` from the same
+    `thin-week-utils.ts` module and log the fallback to `ai_interactions`
+    with a `metadata.thin_week_fallback = true` marker (no new column).
+  - The thin-week prompt branch is universal across tiers — no new tier
+    feature key, no `tier.ts` import added.
