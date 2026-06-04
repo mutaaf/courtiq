@@ -1,7 +1,7 @@
 ---
 id: 0067
 title: When the regular coach can't make Tuesday's practice and a parent volunteers to run it, give them a one-tap "here's what we're working on" link for that sub
-status: in-progress
+status: shipped
 priority: P1
 area: capture
 created: 2026-06-03
