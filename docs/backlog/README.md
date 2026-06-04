@@ -79,7 +79,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | 0064 | Let a coach publish a single drill they love as a one-tap clone card another coach saves into their library in 10 seconds | P1 | shipped | plans |
 | 0065 | Right on the weekly-pulse share card, let a coach name their own program director and bring them onto SportsIQ with one tap and one email | P1 | shipped | growth |
 | 0066 | When a coach asks for their second parent report and the notes are thinner than week one, make the report fall back to "what carried forward" instead of inventing | P1 | shipped | ai |
-| 0067 | When the regular coach can't make Tuesday's practice and a parent volunteers to run it, give them a one-tap "here's what we're working on" link for that sub | P1 | in-progress | capture |
+| 0067 | When the regular coach can't make Tuesday's practice and a parent volunteers to run it, give them a one-tap "here's what we're working on" link for that sub | P1 | shipped | capture |
 | 0062 | When the coach has been capturing all season but hasn't said a single word about Maya in 8 days, nudge them with her name — not the whole roster | P1 | shipped | capture |
 | 0063 | When a coach clones another coach's practice plan, let them follow that coach's next drops in one tap — and tell the published coach | P1 | shipped | plans |
 | 0060 | When a parent reads two of their kids' reports on SportsIQ, give them one tap to bring the OTHER kid's coach onto the app with their kid's name attached | P1 | shipped | growth |
