@@ -582,3 +582,24 @@ Files / patterns the dev should touch.
     /recent-notes, /recent-notes/seen self-enforce auth in the handler
     (same posture as `/api/practice-plan-shares/`).
   - Seed UUIDs: 0xfc/0xfd/0xfe range (last taken is 0xfb).
+- 2026-06-04 [implementation-dev] Implementation complete. Full local
+  vitest suite green except: (a) `no-new-migration-0066.test.ts` migration
+  count pin bumped 61 → 62 per its own self-documenting upgrade path
+  (sub_handoffs landed at prefix 061); (b) `player-of-match-utils.test.ts`
+  "appends formatted date when provided" fails locally on a non-UTC
+  machine with `Apr 28 → Apr 27` — known TZ env issue per LESSONS#0036,
+  CI runs in UTC and passes. Not touched.
+- 2026-06-04 [implementation-dev] Decision documented at pickup:
+  eyes-on-players reads `parent_reactions` where `coach_reply_at IS NULL`
+  → distinct player_id → most-recent observation per player. This is the
+  cleaner path because parent_reactions.player_id is already first-class
+  and the COALESCE-style fallback (top-streak this week) would have
+  required scanning observations twice. The fallback is implicit: when
+  there are zero open threads the eyesOnPlayers section is omitted
+  entirely (silence beats invention).
+- 2026-06-04 [implementation-dev] E2E spec follows the observer-flow.spec
+  pattern — skip when SUPABASE_SERVICE_ROLE_KEY is unset. The sub_handoffs
+  row is seeded at runtime via a direct PostgREST insert with the service-
+  role key (idempotent DELETE-then-INSERT) so the spec does not need a
+  pre-seeded row in seed.sql, which would have required pgcrypto-side
+  HMAC generation against a Postgres custom_setting (fragile).
