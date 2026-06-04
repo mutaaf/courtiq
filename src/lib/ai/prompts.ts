@@ -361,6 +361,13 @@ export const PROMPT_REGISTRY = {
     // presence exactly like priorReport: absent → the prompt is byte-identical to
     // the 0016 behavior; present → add a cross-season "since_last_season" note.
     priorSeasonReport?: { highlights?: string[]; skill_progress?: unknown[]; coach_note?: string } | null;
+    // Ticket 0066 — thin-week safety net. The route flips this true ONLY when
+    // `isThinSecondPlusReport()` returns true; absent / false leaves the prompt
+    // byte-identical to the post-0034 behavior. `previousCommitments` are the
+    // up-to-three coach-named focus areas the route derived from the previous
+    // report's already-persisted shape (no new column — see 0066 ticket).
+    isThinWeek?: boolean;
+    previousCommitments?: string[];
   }) => {
     const continuityBlock = params.priorReport
       ? [
@@ -391,6 +398,25 @@ export const PROMPT_REGISTRY = {
         ].join('\n')
       : null;
 
+    // Ticket 0066 — thin-week safety net. Appended (not replaced) so both the
+    // 0016 since_last_report block and the 0034 since_last_season block still
+    // fire when applicable. Voice POSITIVELY per LESSONS.md 2026-05-23 — the
+    // instruction NEVER enumerates the banned tokens; the route's rendered-
+    // output scan is the safety net for a model that emits one anyway.
+    const thinWeekBlock = params.isThinWeek
+      ? [
+          'This week was lighter than the last report\'s window. Write a short honest opening that names the lighter week (one sentence). Then ONE short paragraph anchored to what the previous report named as the focus and what actually carried forward this week. Then ONE line called "what we\'re watching next." Write like a coach\'s clipboard, not a marketing landing page; never invent improvement that is not in the observations. If there is no honest carry-forward, write a single honest sentence about this week and the watching-next line — do not pad.',
+          params.previousCommitments && params.previousCommitments.length > 0
+            ? `Previous report named these as the focus areas: ${params.previousCommitments
+                .slice(0, 3)
+                .map((c) => `"${c}"`)
+                .join(', ')}.`
+            : '',
+        ]
+          .filter(Boolean)
+          .join('\n')
+      : null;
+
     return {
       system: [
         buildSystemPreamble(params),
@@ -408,6 +434,7 @@ export const PROMPT_REGISTRY = {
         `Progress data: ${JSON.stringify(params.reportData)}`,
         ...(continuityBlock ? [continuityBlock] : []),
         ...(crossSeasonBlock ? [crossSeasonBlock] : []),
+        ...(thinWeekBlock ? [thinWeekBlock] : []),
         'Respond with JSON: { "player_name", "greeting", "highlights": [], "skill_progress": [{ "skill_name", "level", "narrative" }], "encouragement", "home_activity": { "name", "description", "duration_minutes" }, "coach_note", "since_last_report": string|null }',
       ].join('\n'),
     };

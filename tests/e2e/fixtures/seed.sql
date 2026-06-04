@@ -1568,4 +1568,83 @@ values (
 )
 on conflict (id) do nothing;
 
+-- ────────────────────────────────────────────────────────────────────────
+-- Ticket 0066 — thin-week parent-report safety net
+-- ────────────────────────────────────────────────────────────────────────
+-- Seeds the conditions the route's thin-week detector needs to flip true
+-- on Bob Carter (...031):
+--   * artifactCount = 2 — there is exactly ONE prior parent_report row
+--     for Bob (...170), so the route counts 1 prior + 1 new = 2 artifacts.
+--   * newObservationCount = 3 — three observations on Bob created within
+--     the last 7 days (...171/...172/...173).
+--   * daysSinceLastReport = 8 — the prior parent_report is dated
+--     now() - interval '8 days'.
+--
+-- The "previous commitments" the prompt builder will quote are derived
+-- from the prior report's existing structure: skill_progress[].skill_name
+-- carries the three coach-named focus areas ("finish the closeout",
+-- "drive with the left hand", "communicate on switches") so no new
+-- persisted shape / migration is required.
+--
+-- COPPA: the new rows reference only the existing seeded player + coach
+-- + team + sport. No DOB, no medical notes, no parent email — the prior
+-- report's content_structured is coach-authored narrative only.
+--
+-- UUIDs in the 0...0170+ family — verified unused above (the 0065
+-- range stops at 0...0160).
+
+insert into plans (id, team_id, coach_id, player_id, type, title, content, content_structured, created_at)
+values (
+  '00000000-0000-4000-a000-000000000170',
+  '00000000-0000-4000-a000-000000000020',
+  '00000000-0000-4000-a000-000000000001',
+  '00000000-0000-4000-a000-000000000031',
+  'parent_report',
+  'Parent Report - Bob Carter (Week 1)',
+  '{}',
+  '{
+    "player_name": "Bob Carter",
+    "greeting": "Bob had a strong first week.",
+    "highlights": ["finish the closeout", "drive with the left hand", "communicate on switches"],
+    "skill_progress": [
+      {"skill_name": "finish the closeout", "level": "Practicing", "narrative": "Closeouts are coming along."},
+      {"skill_name": "drive with the left hand", "level": "Practicing", "narrative": "Left hand getting there."},
+      {"skill_name": "communicate on switches", "level": "Practicing", "narrative": "Calling switches in scrimmage."}
+    ],
+    "encouragement": "Keep it up!",
+    "coach_note": "Working on closeouts, left hand, and switch communication."
+  }'::jsonb,
+  now() - interval '8 days'
+)
+on conflict (id) do nothing;
+
+-- Three thin observations on Bob this week (under the 4-obs thin-week
+-- threshold). All within the last 7 days so the route's
+-- newObservationCount filter (created_at >= prior_report.created_at)
+-- counts them.
+insert into observations (id, player_id, team_id, coach_id, session_id, category, sentiment, text, source, ai_parsed, is_highlighted, created_at)
+values
+  ('00000000-0000-4000-a000-000000000171',
+   '00000000-0000-4000-a000-000000000031',
+   '00000000-0000-4000-a000-000000000020',
+   '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000040',
+   'Defense', 'positive', 'Made one strong closeout in Saturday scrimmage', 'typed', false, false,
+   now() - interval '2 days'),
+  ('00000000-0000-4000-a000-000000000172',
+   '00000000-0000-4000-a000-000000000031',
+   '00000000-0000-4000-a000-000000000020',
+   '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000040',
+   'Defense', 'positive', 'Called out a switch on the wing', 'typed', false, false,
+   now() - interval '3 days'),
+  ('00000000-0000-4000-a000-000000000173',
+   '00000000-0000-4000-a000-000000000031',
+   '00000000-0000-4000-a000-000000000020',
+   '00000000-0000-4000-a000-000000000001',
+   '00000000-0000-4000-a000-000000000040',
+   'Effort', 'positive', 'Stayed engaged in the short scrimmage', 'typed', false, false,
+   now() - interval '4 days')
+on conflict (id) do nothing;
+
 commit;

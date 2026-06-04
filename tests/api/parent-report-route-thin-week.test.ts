@@ -259,6 +259,10 @@ describe('POST /api/ai/parent-report — thin-week safety net (ticket 0066)', ()
   });
 
   // AC: AI returns banned-word → template fallback fires; no second AI call.
+  // The fallback also writes a marker on the existing ai_interactions row
+  // (route .update().eq() — best-effort), so the from() sequence is one
+  // longer than the AI path: coaches, players, observations, proficiency,
+  // plans (prior report), ai_interactions (fallback marker), plans (insert).
   it('falls back to the structured template when the AI output contains a banned word', async () => {
     setAuthUser();
     mockCallAIWithJSON.mockResolvedValue({
@@ -271,6 +275,7 @@ describe('POST /api/ai/parent-report — thin-week safety net (ticket 0066)', ()
       .mockReturnValueOnce(buildChain(THIN_OBSERVATIONS))
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([PRIOR_REPORT_PLAN]))
+      .mockReturnValueOnce(buildChain(null))             // ai_interactions update (marker)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     const res = await POST(makeRequest());
