@@ -26,7 +26,8 @@ describe('Ticket 0066 — no new migration files (regression)', () => {
     // constant and call out the deviation in the bumping ticket's
     // Implementation log. Bumped 61 → 62 by ticket 0067 (sub_handoffs
     // landed at prefix 061 — 059/060 already taken by drill_shares and
-    // coach_director_contacts).
-    expect(files.length).toBe(62);
+    // coach_director_contacts). Bumped 62 → 63 by ticket 0068
+    // (season_opener_shares landed at prefix 062).
+    expect(files.length).toBe(63);
   });
 });

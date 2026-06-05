@@ -1025,3 +1025,16 @@ export interface SubHandoff {
   sub_note_seen_at: string | null;
   created_at: string;
 }
+
+// Ticket 0068 — the season-opener share. ONE row per team per season; a
+// re-create on the same (team_id, season_label) REPLACES the focus_line +
+// the token (the coach can refresh a stale link in one tap).
+export interface SeasonOpenerShare {
+  id: string;
+  team_id: string;
+  coach_id: string;
+  token: string;
+  season_label: string;
+  focus_line: string;
+  created_at: string;
+}

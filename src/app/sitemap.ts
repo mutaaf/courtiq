@@ -215,6 +215,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       (r) => typeof r.share_token === 'string' && r.share_token.length > 0,
     );
 
+    // Ticket 0068 — season_opener_shares. Sequenced AFTER drill_shares so
+    // the existing sitemap mock queues only grow by one entry at the tail
+    // (LESSONS#0049 / #0100 / #0110 — every sibling sitemap*.test.ts has
+    // its mockReturnValueOnce queue extended in the same PR). No
+    // `is_active` column on this table; the season opener is a season-
+    // durable surface and every active row is indexed.
+    const { data: seasonOpenerRows } = await supabase
+      .from('season_opener_shares')
+      .select('token, created_at')
+      .order('created_at', { ascending: false })
+      .limit(TOKEN_TABLE_LIMIT);
+    const seasonOpeners = ((seasonOpenerRows ?? []) as TokenRow[]).filter(
+      (r) => typeof r.token === 'string' && r.token.length > 0,
+    );
+
     // Ticket 0054 — resolve which coaches have a non-null handle so the
     // /coach/<handle> URL replaces the /coach/<token> URL. Bounded by the
     // current coach-card batch (we only join against coaches whose cards we
@@ -305,6 +320,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...map(practicePlans, '/plan'),
       ...map(weeklyPulses, '/week'),
       ...drillShareEntries,
+      // Ticket 0068 — season_opener_shares → /opener/<token>.
+      ...map(seasonOpeners, '/opener'),
     ];
   } catch (error) {
     // Sitemap generation must never throw — a transient DB hiccup degrades to

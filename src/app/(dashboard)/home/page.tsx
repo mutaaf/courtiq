@@ -77,6 +77,7 @@ import { GoalDeadlineCard } from '@/components/home/goal-deadline-card';
 import { QuickWinsCard } from '@/components/home/quick-wins-card';
 import { HomeQuickObserveSheet } from '@/components/home/home-quick-observe-sheet';
 import { SidelineCheatSheetCard } from '@/components/home/sideline-cheat-sheet-card';
+import { SeasonOpenerCard } from '@/components/home/season-opener-card';
 
 // ─── Live capture feed helper ──────────────────────────────────────────────────
 
@@ -1473,6 +1474,18 @@ export default function HomePage() {
           sessions={stats.sessions}
           observations={stats.observations}
           teamId={activeTeam.id}
+        />
+      )}
+
+      {/* Ticket 0068 — season-opener parent intro card. Renders ONLY when
+          the active team's created_at is within the last 7 days; the card
+          short-circuits to null afterward so /home stays clean for every
+          coach past their first week. Smallest possible touch — one
+          import + one JSX entry, per LESSONS#0065 / #0066 / #0162. */}
+      {activeTeam && (
+        <SeasonOpenerCard
+          teamId={activeTeam.id}
+          teamCreatedAt={activeTeam.created_at}
         />
       )}
 

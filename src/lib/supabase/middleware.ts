@@ -144,6 +144,16 @@ export async function updateSession(request: NextRequest) {
     // NOT in the sitemap — 24h-scoped, non-crawlable by design.
     '/sub/',
     '/api/sub-handoff/',
+    // Ticket 0068 — season-opener parent intro card. The page at
+    // /opener/<token> + the public token GET at /api/season-opener/<token>
+    // are read by parents who have no account, opened from a group-chat
+    // link. The /create POST is NOT public: it self-enforces auth in the
+    // handler (auth.getUser() → 401), so the blanket /api/season-opener/
+    // prefix here never bypasses that guard (same posture as
+    // /api/practice-plan-shares/ for 0049, /api/drill-shares/ for 0064,
+    // and /api/sub-handoff/ for 0067).
+    '/opener/',
+    '/api/season-opener/',
   ];
   if (pathname === '/' || publicPaths.some((p) => pathname.startsWith(p))) {
     return supabaseResponse;
