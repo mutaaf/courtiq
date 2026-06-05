@@ -76,7 +76,6 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0068 | Give the coach a one-tap "hi parents, here's our season" card to drop in the team group chat the day the roster is set | P1 | in-progress | growth |
 | 0069 | After a rough game, let the coach record 30 seconds of voice on the drive home and have it become the first drill of the next practice | P1 | groomed | capture |
 | 0070 | Make every parent report sound like the coach who is writing it — across every team they have ever coached | P1 | groomed | ai |
 | 0071 | When 3+ coaches in the same program are working on the same skill this week, surface it to the director as "your program is rallying around X" | P1 | groomed | analytics |
@@ -84,6 +83,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 | 0065 | Right on the weekly-pulse share card, let a coach name their own program director and bring them onto SportsIQ with one tap and one email | P1 | shipped | growth |
 | 0066 | When a coach asks for their second parent report and the notes are thinner than week one, make the report fall back to "what carried forward" instead of inventing | P1 | shipped | ai |
 | 0067 | When the regular coach can't make Tuesday's practice and a parent volunteers to run it, give them a one-tap "here's what we're working on" link for that sub | P1 | shipped | capture |
+| 0068 | Give the coach a one-tap "hi parents, here's our season" card to drop in the team group chat the day the roster is set | P1 | shipped | growth |
 | 0062 | When the coach has been capturing all season but hasn't said a single word about Maya in 8 days, nudge them with her name — not the whole roster | P1 | shipped | capture |
 | 0063 | When a coach clones another coach's practice plan, let them follow that coach's next drops in one tap — and tell the published coach | P1 | shipped | plans |
 | 0060 | When a parent reads two of their kids' reports on SportsIQ, give them one tap to bring the OTHER kid's coach onto the app with their kid's name attached | P1 | shipped | growth |

@@ -1,7 +1,7 @@
 ---
 id: 0068
 title: Give the coach a one-tap "hi parents, here's our season" card to drop in the team group chat the day the roster is set
-status: in-progress
+status: shipped
 priority: P1
 area: growth
 created: 2026-06-05
