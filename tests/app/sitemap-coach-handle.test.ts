@@ -55,6 +55,7 @@ function wireTables(opts: {
   practicePlans?: Array<{ token: string; created_at?: string }>;
   weeklyPulses?: Array<{ token: string; created_at?: string }>;
   drillShares?: Array<{ share_token: string; created_at?: string }>;
+  seasonOpeners?: Array<{ token: string; created_at?: string }>;
   handleByCoachId?: Array<{ id: string; handle: string }>;
 }) {
   mockFromFn
@@ -70,7 +71,10 @@ function wireTables(opts: {
     // 8th: drill_shares (ticket 0064) — same is_active=true gating,
     // /drill/<share_token> URL prefix.
     .mockReturnValueOnce(buildChain(opts.drillShares ?? []))
-    // 9th: coaches WHERE handle IS NOT NULL AND id IN (coach_ids from coach_cards).
+    // 9th: season_opener_shares (ticket 0068) — durable token, /opener/<token>
+    // URL prefix; no is_active column.
+    .mockReturnValueOnce(buildChain(opts.seasonOpeners ?? []))
+    // 10th: coaches WHERE handle IS NOT NULL AND id IN (coach_ids from coach_cards).
     .mockReturnValueOnce(buildChain(opts.handleByCoachId ?? []));
 }
 

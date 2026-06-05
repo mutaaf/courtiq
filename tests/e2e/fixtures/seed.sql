@@ -1647,4 +1647,35 @@ values
    now() - interval '4 days')
 on conflict (id) do nothing;
 
+-- ────────────────────────────────────────────────────────────────────────
+-- Ticket 0068 — season-opener parent intro card
+-- ────────────────────────────────────────────────────────────────────────
+-- ONE pre-minted season_opener_shares row owned by the E2E coach for the
+-- existing E2E team. The token is deterministic ('test-season-opener-token-
+-- e2e-001') so the unauthed Playwright spec can navigate to /opener/<token>
+-- without minting a row at runtime. The public route resolves the row →
+-- the team + sport + coach's first name + the focus line, and the page
+-- renders the parent-facing single-screen card.
+--
+-- UUIDs in the 0...0180 family — verified unused above (the 0066 range
+-- stops at 0...0173). LESSONS#0101 — pick a free UUID range before
+-- seeding.
+--
+-- COPPA: this fixture seeds only the team-level focus line + the coach
+-- attribution. No player, no observation text, no DOB / parent contact
+-- rides on this row.
+insert into season_opener_shares (
+  id, team_id, coach_id, token, season_label, focus_line, created_at
+)
+values (
+  '00000000-0000-4000-a000-000000000180',
+  '00000000-0000-4000-a000-000000000020',
+  '00000000-0000-4000-a000-000000000001',
+  'test-season-opener-token-e2e-001',
+  'Spring 2026',
+  'closeouts and good sportsmanship — we will have fun',
+  now()
+)
+on conflict (token) do nothing;
+
 commit;

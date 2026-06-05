@@ -66,8 +66,11 @@ function buildChain(data: unknown = null) {
 //      same is_active=true gating, /drill/<share_token> URL prefix. The
 //      route reads `share_token` (not `token`) but the test fixture stays
 //      `token`-shaped for readability — the route maps the column.)
-//   9) coaches WHERE handle IS NOT NULL (ticket 0054 — handle-vs-token URL
-//      swap for /coach/ entries; reads after the prior eight)
+//   9) season_opener_shares  (ticket 0068 — read AFTER drill_shares;
+//      no is_active column, /opener/<token> URL prefix. Durable for the
+//      season; crawler-reachable by design.)
+//  10) coaches WHERE handle IS NOT NULL (ticket 0054 — handle-vs-token URL
+//      swap for /coach/ entries; now the 10th sequential read)
 function wireTables(opts: {
   orgs?: Array<{ slug: string; name?: string }>;
   teamCards?: Array<{ token: string; created_at?: string }>;
@@ -77,6 +80,7 @@ function wireTables(opts: {
   practicePlans?: Array<{ token: string; created_at?: string }>;
   weeklyPulses?: Array<{ token: string; created_at?: string }>;
   drillShares?: Array<{ share_token: string; created_at?: string }>;
+  seasonOpeners?: Array<{ token: string; created_at?: string }>;
   coachesWithHandles?: Array<{ id: string; handle: string }>;
 }) {
   mockFromFn
@@ -88,6 +92,7 @@ function wireTables(opts: {
     .mockReturnValueOnce(buildChain(opts.practicePlans ?? []))
     .mockReturnValueOnce(buildChain(opts.weeklyPulses ?? []))
     .mockReturnValueOnce(buildChain(opts.drillShares ?? []))
+    .mockReturnValueOnce(buildChain(opts.seasonOpeners ?? []))
     .mockReturnValueOnce(buildChain(opts.coachesWithHandles ?? []));
 }
 
@@ -159,7 +164,9 @@ describe('sitemap() — dynamic public-surface index (ticket 0038)', () => {
       .mockReturnValueOnce(buildChain([]))
       // drill_shares (ticket 0064) — read AFTER weekly_pulse_shares.
       .mockReturnValueOnce(buildChain([]))
-      // coaches WHERE handle IS NOT NULL (ticket 0054) — 9th sequential read.
+      // season_opener_shares (ticket 0068) — read AFTER drill_shares.
+      .mockReturnValueOnce(buildChain([]))
+      // coaches WHERE handle IS NOT NULL (ticket 0054) — 10th sequential read.
       .mockReturnValueOnce(buildChain([]));
 
     const { default: sitemap } = await import('@/app/sitemap');
@@ -246,7 +253,10 @@ describe('sitemap() — dynamic public-surface index (ticket 0038)', () => {
       .mockReturnValueOnce(buildChain([]))
       // drill_shares (ticket 0064) — also filter is_active=true.
       .mockReturnValueOnce(drillSharesChain)
-      // coaches WHERE handle IS NOT NULL (ticket 0054) — 9th sequential read.
+      // season_opener_shares (ticket 0068) — no is_active column;
+      // every active row is indexed. 9th sequential read.
+      .mockReturnValueOnce(buildChain([]))
+      // coaches WHERE handle IS NOT NULL (ticket 0054) — 10th sequential read.
       .mockReturnValueOnce(buildChain([]));
 
     const { default: sitemap } = await import('@/app/sitemap');
@@ -344,7 +354,9 @@ describe('sitemap() — dynamic public-surface index (ticket 0038)', () => {
       .mockReturnValueOnce(buildChain([]))
       // drill_shares (ticket 0064) — empty in this size-bound case.
       .mockReturnValueOnce(buildChain([]))
-      // coaches WHERE handle IS NOT NULL (ticket 0054) — 9th sequential read.
+      // season_opener_shares (ticket 0068) — empty in this size-bound case.
+      .mockReturnValueOnce(buildChain([]))
+      // coaches WHERE handle IS NOT NULL (ticket 0054) — 10th sequential read.
       .mockReturnValueOnce(buildChain([]));
 
     const { default: sitemap } = await import('@/app/sitemap');

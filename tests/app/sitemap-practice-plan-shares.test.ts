@@ -74,6 +74,7 @@ describe('sitemap() — includes active practice_plan_shares tokens (ticket 0049
     ]);
     const wpChain = buildChain([]); // weekly_pulse_shares — ticket 0057.
     const dsChain = buildChain([]); // drill_shares — ticket 0064.
+    const soChain = buildChain([]); // season_opener_shares — ticket 0068.
     const coachesChain = buildChain([]);
     mockFromFn
       .mockReturnValueOnce(orgsChain)
@@ -84,6 +85,7 @@ describe('sitemap() — includes active practice_plan_shares tokens (ticket 0049
       .mockReturnValueOnce(ppChain)
       .mockReturnValueOnce(wpChain)
       .mockReturnValueOnce(dsChain)
+      .mockReturnValueOnce(soChain)
       .mockReturnValueOnce(coachesChain);
 
     const { default: sitemap } = await import('@/app/sitemap');
@@ -103,6 +105,7 @@ describe('sitemap() — includes active practice_plan_shares tokens (ticket 0049
     const ppChain = buildChain([]);
     const wpChain = buildChain([]); // weekly_pulse_shares — ticket 0057.
     const dsChain = buildChain([]); // drill_shares — ticket 0064.
+    const soChain = buildChain([]); // season_opener_shares — ticket 0068.
     const coachesChain = buildChain([]);
     mockFromFn
       .mockReturnValueOnce(orgsChain)
@@ -113,6 +116,7 @@ describe('sitemap() — includes active practice_plan_shares tokens (ticket 0049
       .mockReturnValueOnce(ppChain)
       .mockReturnValueOnce(wpChain)
       .mockReturnValueOnce(dsChain)
+      .mockReturnValueOnce(soChain)
       .mockReturnValueOnce(coachesChain);
 
     const { default: sitemap } = await import('@/app/sitemap');
