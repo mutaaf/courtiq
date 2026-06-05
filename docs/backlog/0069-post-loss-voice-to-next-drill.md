@@ -1,7 +1,7 @@
 ---
 id: 0069
 title: After a rough game, let the coach record 30 seconds of voice on the drive home and have it become the first drill of the next practice
-status: groomed
+status: in-progress
 priority: P1
 area: capture
 created: 2026-06-05
@@ -598,4 +598,5 @@ Files / patterns the dev should touch.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-05 [implementation-dev] Picked up on `feat/0069-post-loss-voice-to-next-drill`. Schema reconciliation (LESSONS#0096): `sessions` has NO `started_at` column — the table carries `date date NOT NULL` + `start_time time NULL` + `created_at timestamptz`. The 24-hour window check therefore composes `(date || ' ' || start_time)::timestamptz` when `start_time` is present, else `(date || ' 00:00')::timestamptz`, with a final fallback to `created_at`. The ticket prose's "started_at" stays as written (the groomer's intent is "when the game played"); the dev resolves to the real columns without inventing a new field.
+- 2026-06-05 [implementation-dev] Migration prefix 063 confirmed free (next after 062). Will not bump.
