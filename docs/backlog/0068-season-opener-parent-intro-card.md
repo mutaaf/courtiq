@@ -1,7 +1,7 @@
 ---
 id: 0068
 title: Give the coach a one-tap "hi parents, here's our season" card to drop in the team group chat the day the roster is set
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-06-05
@@ -489,4 +489,15 @@ that the dev does not have to re-discover the architecture.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-05 [implementation-dev] Picked up. Branched `feat/0068-season-opener-card`. Confirmed
+  migration prefix 062 is free (LESSONS#0006). Confirmed `parent_reactions.entity_type` does NOT
+  exist on the table (migration 023 + the live schema): the reaction shape is `share_token`-keyed,
+  not enum-keyed (LESSONS#0096 — schema wins over prose), so the migration does NOT extend any
+  CHECK constraint. The opener page will reuse the existing `ParentReactionForm` with the season-
+  opener share token threaded as `shareToken`. Confirmed `team_focus_suggestions` is not a real
+  table — the default focus textarea will be an empty placeholder, no schema dependency. Confirmed
+  `/onboarding/setup` and `/onboarding/roster` BOTH `router.push` away immediately on success (no
+  in-page post-success state); the load-bearing entry point is `/home` for any team whose
+  `created_at` is within the last 7 days, per the ticket's "AND on /home" clause. Documented in
+  the implementation log per LESSONS#0096. UUID seed range: next free is `0...0180+` (the 0066
+  range stops at `0...0173`).
