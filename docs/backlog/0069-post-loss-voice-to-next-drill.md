@@ -1,7 +1,7 @@
 ---
 id: 0069
 title: After a rough game, let the coach record 30 seconds of voice on the drive home and have it become the first drill of the next practice
-status: in-progress
+status: shipped
 priority: P1
 area: capture
 created: 2026-06-05
