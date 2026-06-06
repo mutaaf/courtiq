@@ -1,7 +1,7 @@
 ---
 id: 0071
 title: When 3+ coaches in the same program are working on the same skill this week, surface it to the director as "your program is rallying around X"
-status: groomed
+status: in-progress
 priority: P1
 area: analytics
 created: 2026-06-05
@@ -551,4 +551,47 @@ Files / patterns the dev should touch.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-06 [implementation-dev] Pickup reads (per LESSONS#0096):
+  - **Schema (reconciled to ground truth):** there is no `organization_members`
+    table in this repo. Org membership lives on `coaches.org_id` +
+    `coaches.role` (the existing 0028 program-pulse route's posture). The
+    director gate is `role === 'admin'` AND `organizations.tier === 'organization'`.
+    Mirroring the 0028 route exactly per the ticket's auth-posture
+    instruction.
+  - **`plans.skills_targeted`** confirmed `text[]` in
+    `supabase/migrations/001_schema.sql` → typed `string[] | null` in
+    `src/types/database.ts`. No spec/schema drift.
+  - **Admin/home surface:** the org-tier admin lands on
+    `src/app/(dashboard)/admin/page.tsx` (the page that already mounts the
+    0028 `<ProgramPulseSection />`). Mounting the new `<EmergentFocusSection />`
+    next to it.
+  - **`<UpgradeGate>` inline-upsell pattern:** the existing 0028 / 0035
+    pattern is `<UpgradeGate feature="feature_*" featureLabel="...">{...}</UpgradeGate>`.
+    Mirrored exactly. New tier key registered as
+    `feature_program_emergent_focus` on the `organization` tier only.
+  - **Seed (existing):** the Organization-tier org `...110` (E2E Program Org)
+    has only TWO teams seeded — Program U10s (...120) and Program U12s (...121)
+    — and zero `plans` rows. The ticket's MIN_CONVERGENCE = 3 requires three
+    distinct teams. Per the AC's "if the seed has fewer than 3 teams in any
+    one org, ADD the necessary teams + auth.users + coaches + team_coaches
+    rows" path, the seed is extended with: ONE additional `coaches` row +
+    ONE additional `auth.users` row + ONE additional `teams` row +
+    `team_coaches`, and THREE seeded `plans` rows (one per team) with
+    `skills_targeted = '{closeouts}'` and `created_at = now() - interval '2 days'`.
+    UUIDs in the unused `0...0190+` family (verified via grep per
+    LESSONS#0101); the existing 0...0180 (ticket 0068) is the last seeded id
+    before this addition. Per LESSONS#0084 every new coach gets a matching
+    `auth.users` row in the same idempotent block.
+  - **Mock-queue spillover (LESSONS#0049/#0092/#0100/#0110/#0064/#0039):**
+    `Glob`ed `tests/api/org-*.test.ts` AND `tests/api/admin*.test.ts` —
+    NEITHER prefix has any existing files in this repo. The
+    `/api/ai/program-pulse` route's existing mock (in `tests/ai/program-pulse.test.ts`)
+    uses `mockFromFn.mockImplementation((table) => {...})` (table-keyed,
+    NOT a `mockReturnValueOnce` queue), so no per-test queue extension is
+    needed for sibling org/admin tests. The new route's mock follows the
+    same table-keyed `mockImplementation` shape.
+  - **Authed E2E creds:** mirroring the existing 0028 / 0023 /
+    program-pulse-flow.spec.ts pattern — the spec sign-ins via the UI and
+    `test.skip()`s when `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` are unset
+    (the CI gating runner). The CI-load-bearing proof is the vitest
+    component + route suite per the AC's fallback line.
