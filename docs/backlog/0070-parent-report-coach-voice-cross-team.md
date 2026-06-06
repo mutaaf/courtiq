@@ -1,7 +1,7 @@
 ---
 id: 0070
 title: Make every parent report sound like the coach who is writing it — across every team they have ever coached
-status: in-progress
+status: shipped
 priority: P1
 area: ai
 created: 2026-06-05
@@ -498,3 +498,4 @@ Files / patterns the dev should touch.
 - 2026-06-06 [implementation-dev] Branch `feat/0070-parent-report-coach-voice-cross-team` off `main`. Status flipped to in-progress in same commit as README index row (LESSONS#42/#74).
 - 2026-06-06 [implementation-dev] Read confirmed at pickup (LESSONS#0096): the actual route is `src/app/api/ai/parent-report/route.ts`; existing `from('plans').select(...)` reads in the route are scoped by `player_id` (0016) and `prior_player_id` (0034), NOT `coach_id` — so per LESSONS#0112 the existing reads CANNOT be widened to subsume the new `coach_id`-scoped voice-anchor read (different filter family). A NEW `from('plans')` call is required, and the sibling test queues need extension (LESSONS#0049 / #0092 / #0100 / #0110). The existing sibling tests that mock the chain queue are: `tests/ai/parent-report-continuity.test.ts`, `tests/ai/parent-report-cross-season.test.ts`, `tests/api/parent-report-route-thin-week.test.ts`. `tests/ai/parent-report-thin-week.test.ts` and `tests/ai/parent-report-cross-season-contract.test.ts` exercise the prompt directly via `PROMPT_REGISTRY` (not via the route) — no mock-queue update needed there.
 - 2026-06-06 [implementation-dev] Parent-report tier gate confirmed: existing key is `parent_sharing` (free + paid all carry it per `src/lib/tier.ts` lines 22/29/36). The voice-anchor enrichment is a quality lift on the same gate — NO new tier feature key (per ticket).
+- 2026-06-06 [implementation-dev] Shipped via PR #382 with all three gating checks green (`lint`, `unit-tests`, `e2e-tests`). Auto-merge armed after CI green per LESSONS#0075; shipped-flip filed as separate chore branch off freshly-pulled main per the same lesson. Local-gate vitest had ONE unrelated environmental TZ failure in `player-of-match-utils.test.ts` (Apr 27 vs Apr 28) — reproduces on bare `main` (LESSONS#0036), CI's UTC Node 20 runs it green. The route used the LESSONS#0103 optional-widening pattern: `CoachingSignature.voice_anchors` is OPTIONAL, so every existing 0037 / 0039 caller (practicePlan / practiceArc / pregame / newsletter / pulse / game-decompression) stayed byte-identical without a sweep. Three sibling test files (parent-report-continuity, parent-report-cross-season, parent-report-route-thin-week) had their `mockReturnValueOnce` queues extended in the same PR per LESSONS#0049 / #0092 / #0100 / #0110.
