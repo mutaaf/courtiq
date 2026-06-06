@@ -136,6 +136,62 @@ async function fetchPriorPlanRollover(
   }
 }
 
+/**
+ * Ticket 0069 — best-effort read of the coach's MOST-RECENT unconsumed
+ * `game_decompressions` row for the (coach, team) pair. When present, the
+ * route inserts the recommendation as drill #1 of the new plan and writes
+ * the `why` into `content_structured.first_drill_why`. Null on read failure
+ * or when no decompression has fired in the last 14 days — the plan
+ * generation then renders BYTE-IDENTICALLY to today (silent no-op).
+ *
+ * Self-scoped to (coach_id, team_id) so a cross-coach / cross-team
+ * decompression is unreachable. The 14-day window mirrors the AC and
+ * the partial-index posture (`WHERE consumed_at IS NULL`) of the
+ * migration. Required recommendation columns must be present — a
+ * row whose AI step failed (no drill_name) is skipped.
+ */
+interface UnconsumedDecompression {
+  id: string;
+  recommendedDrillName: string;
+  recommendedDrillSetup: string[] | null;
+  recommendedDrillWhy: string | null;
+}
+
+async function fetchUnconsumedDecompression(
+  coachId: string,
+  teamId: string,
+  admin: Awaited<ReturnType<typeof createServiceSupabase>>,
+): Promise<UnconsumedDecompression | null> {
+  try {
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+    const { data } = await admin
+      .from('game_decompressions')
+      .select('id, recommended_drill_name, recommended_drill_setup, recommended_drill_why')
+      .eq('coach_id', coachId)
+      .eq('team_id', teamId)
+      .is('consumed_at', null)
+      .gte('created_at', fourteenDaysAgo)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    const rows = (data ?? []) as Array<{
+      id: string;
+      recommended_drill_name: string | null;
+      recommended_drill_setup: string[] | null;
+      recommended_drill_why: string | null;
+    }>;
+    const row = rows[0];
+    if (!row || !row.recommended_drill_name) return null;
+    return {
+      id: row.id,
+      recommendedDrillName: row.recommended_drill_name,
+      recommendedDrillSetup: row.recommended_drill_setup ?? null,
+      recommendedDrillWhy: row.recommended_drill_why ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export interface TrendEntry {
   category: string;
   recentCount: number;
@@ -314,7 +370,7 @@ export async function POST(request: Request) {
     // The coaching signature (ticket 0037) is a best-effort coach-scoped read,
     // relevant only to practice plans; gameday sheets don't use it. It resolves to
     // null for a cold-start coach and degrades the plan to today's behavior.
-    const [context, observationInsights, programFocus, coachingSignature, priorPlanRollover] = await Promise.all([
+    const [context, observationInsights, programFocus, coachingSignature, priorPlanRollover, unconsumedDecompression] = await Promise.all([
       buildAIContext(teamId, admin),
       type === 'practice'
         ? fetchObservationInsights(teamId, admin).catch((): ObservationInsights => ({
@@ -332,6 +388,13 @@ export async function POST(request: Request) {
       // a coach with no prior plan / a fully-completed prior plan also
       // resolves to null and the prompt's carry-forward block is omitted.
       type === 'practice' ? fetchPriorPlanRollover(user.id, teamId, admin) : Promise.resolve(null),
+      // Ticket 0069 — best-effort post-loss decompression read. A coach
+      // with no recent decompression resolves to null and the plan is
+      // BYTE-IDENTICAL to today (silent no-op). When a decompression is
+      // present, the recommended drill is inserted at index 0 of the
+      // saved plan AND the row is marked consumed after the insert so a
+      // second generation does not re-fire the same decompression.
+      type === 'practice' ? fetchUnconsumedDecompression(user.id, teamId, admin) : Promise.resolve(null),
     ]);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -404,6 +467,34 @@ export async function POST(request: Request) {
       }));
     }
 
+    // Ticket 0069 — when an unconsumed decompression is in the window,
+    // insert its recommended drill at index 0 of the saved plan AND
+    // write the `why` into content_structured.first_drill_why so the
+    // plan view can surface the small banner. The decompression is
+    // marked consumed AFTER the plan insert below so the same row
+    // never re-fires on the next generation. A plan with NO
+    // decompression renders byte-identically to today.
+    if (
+      unconsumedDecompression &&
+      type === 'practice' &&
+      validated &&
+      typeof validated === 'object'
+    ) {
+      const drillsBefore = Array.isArray(validated.drills) ? validated.drills : [];
+      const recommendedDrill = {
+        name: unconsumedDecompression.recommendedDrillName,
+        duration_minutes: 8,
+        description: Array.isArray(unconsumedDecompression.recommendedDrillSetup)
+          ? unconsumedDecompression.recommendedDrillSetup.join('\n')
+          : '',
+        source: 'game_decompression',
+      };
+      validated.drills = [recommendedDrill, ...drillsBefore];
+      if (unconsumedDecompression.recommendedDrillWhy) {
+        validated.first_drill_why = unconsumedDecompression.recommendedDrillWhy;
+      }
+    }
+
     // Derive skills_targeted: prefer explicit focusSkills, otherwise use top needs-work categories
     const skillsTargeted: string[] =
       Array.isArray(focusSkills) && focusSkills.length > 0
@@ -422,6 +513,27 @@ export async function POST(request: Request) {
       curriculum_week: context.seasonWeek,
       skills_targeted: skillsTargeted,
     }).select().single();
+
+    // Ticket 0069 — mark the decompression consumed AFTER the plan
+    // insert so the same row never re-fires on the next generation.
+    // Best-effort: a failed update does NOT roll back the plan (the
+    // plan is the user's load-bearing artifact; the consumed-stamp
+    // failure at worst surfaces the same recommendation on the next
+    // generation, which is recoverable). We stamp `consumed_plan_id`
+    // ONLY when we have a real plan id back.
+    if (unconsumedDecompression && plan?.id) {
+      try {
+        await admin
+          .from('game_decompressions')
+          .update({
+            consumed_at: new Date().toISOString(),
+            consumed_plan_id: plan.id,
+          })
+          .eq('id', unconsumedDecompression.id);
+      } catch {
+        // Silent — the plan still ships; next regeneration just re-fires.
+      }
+    }
 
     return NextResponse.json({ plan, content: validated, observationInsights });
   } catch (error: unknown) {

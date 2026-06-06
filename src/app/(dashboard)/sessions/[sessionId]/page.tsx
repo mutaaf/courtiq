@@ -65,6 +65,7 @@ import {
 } from 'lucide-react';
 import { DeletePracticeSheet } from '@/components/sessions/delete-practice-sheet';
 import { SubHandoffSheet } from '@/components/session/sub-handoff-sheet';
+import { GameDecompressionEntry } from '@/components/session/game-decompression-entry';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Session, Observation, Player, Media, SessionType, Sentiment } from '@/types/database';
@@ -4231,6 +4232,21 @@ export default function SessionDetailPage() {
             opponent={session.opponent}
           />
         </div>
+      )}
+
+      {/* Ticket 0069 — post-loss decompression entry. Mounts ABOVE the
+          0027 game-recap-card; only renders on a game/scrimmage/tournament
+          session whose effective played-at is within the last 24 hours. */}
+      {activeTeam && (session.type === 'game' || session.type === 'scrimmage' || session.type === 'tournament') && (
+        <GameDecompressionEntry
+          session={{
+            id: sessionId,
+            type: session.type,
+            date: session.date,
+            start_time: session.start_time,
+            created_at: session.created_at,
+          }}
+        />
       )}
 
       {/* Game Recap — game/scrimmage/tournament only */}

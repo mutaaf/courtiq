@@ -1038,3 +1038,28 @@ export interface SeasonOpenerShare {
   focus_line: string;
   created_at: string;
 }
+
+// Ticket 0069 — coach-facing post-loss decompression. ONE row per
+// (session, coach): the 30-second voice note the coach records on the
+// drive home from a bad loss, the AI's single drill recommendation for
+// the next practice's drill #1, and the consumed-state stamp the
+// /api/ai/plan route flips when it inserts the drill at index 0.
+// COACH-AUTHORED ONLY — never a player FK, never a parent contact.
+// The transcript may mention a player by first name (the coach said it
+// on the recording); the AI prompt is positive about first-names-only,
+// and a defensive last-name strip runs on the `why` line before
+// persistence (LESSONS#0061).
+export interface GameDecompression {
+  id: string;
+  session_id: string;
+  coach_id: string;
+  team_id: string;
+  transcript: string;
+  duration_seconds: number;
+  recommended_drill_name: string | null;
+  recommended_drill_setup: string[] | null;
+  recommended_drill_why: string | null;
+  consumed_at: string | null;
+  consumed_plan_id: string | null;
+  created_at: string;
+}

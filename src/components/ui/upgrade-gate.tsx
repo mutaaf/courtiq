@@ -1,7 +1,7 @@
 'use client';
 import { useTier } from '@/hooks/use-tier';
 import { Button } from './button';
-import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye, FileAudio, CalendarDays, Gauge, CalendarRange, Swords, MessageCircle, UserCheck, LineChart } from 'lucide-react';
+import { Lock, BarChart3, Sparkles, ArrowRight, Check, TrendingUp, Brain, Users, Target, Activity, Lightbulb, Eye, FileAudio, CalendarDays, Gauge, CalendarRange, Swords, MessageCircle, UserCheck, LineChart, Mic } from 'lucide-react';
 import Link from 'next/link';
 import type { Tier } from '@/lib/tier';
 
@@ -311,6 +311,22 @@ const FEATURE_CONFIG: Record<string, FeatureConfig> = {
       'Every player mention becomes a coaching note',
       'Resumable upload — safe on slow connections',
       'Coach plan: 5 uploads/month · Pro plan: unlimited',
+    ],
+    requiredTier: 'coach',
+    accentColor: 'text-orange-400',
+    accentBg: 'bg-orange-500/15',
+    accentBorder: 'border-orange-500/30',
+  },
+  feature_game_decompression: {
+    icon: Mic,
+    headline: 'Turn this voice note into the next practice',
+    tagline: 'The drive-home voice note becomes the first drill of Tuesday\'s plan.',
+    benefits: [
+      'Your 30-second voice note becomes a real drill — not a list',
+      'Drawn from your team\'s drill library and the way you usually coach',
+      'A one-line "why this is first today" you read before practice',
+      'Auto-inserted as drill #1 of your next practice plan',
+      'Free coaches can still save the voice note — paid coaches get the drill',
     ],
     requiredTier: 'coach',
     accentColor: 'text-orange-400',

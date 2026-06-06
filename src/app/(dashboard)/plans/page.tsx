@@ -71,6 +71,7 @@ import {
   PracticePlanRolloverLine,
   type RolloverFromLastWeekEntry,
 } from '@/components/plans/practice-plan-rollover-line';
+import { NextPracticeFirstDrillBanner } from '@/components/plans/next-practice-first-drill-banner';
 import { PublishPlanButton } from '@/components/plans/publish-plan-button';
 import { LeaguePlansSection } from '@/components/plan/league-plans-section';
 import { FromCoachesYouFollowSection } from '@/components/plan/from-coaches-you-follow-section';
@@ -2132,6 +2133,14 @@ export default function PlansPage() {
               <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald-400">
                 Drills
               </h3>
+              {/* Ticket 0069 — quiet banner above drill #1 carrying the
+                  `why this is first today` line from the consumed post-loss
+                  decompression. Silence beats invention: when the field is
+                  absent, the banner renders nothing and the drills section
+                  is byte-identical to today's behavior. */}
+              <NextPracticeFirstDrillBanner
+                firstDrillWhy={typeof structured.first_drill_why === 'string' ? structured.first_drill_why : null}
+              />
               {Array.isArray(structured.drills) ? (
                 <ul className="space-y-2">
                   {structured.drills.map((drill: any, i: number) => (
