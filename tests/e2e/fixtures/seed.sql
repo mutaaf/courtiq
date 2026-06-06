@@ -1678,4 +1678,54 @@ values (
 )
 on conflict (token) do nothing;
 
+-- ── ticket 0069 — game_decompressions seed ───────────────────────────────────
+-- A fresh "today" game session (within the 24h decompression window) on the
+-- existing E2E team + coach, plus a pre-minted game_decompressions row with a
+-- pre-canned recommendation. The Playwright spec asserts that:
+--   1) the decompression entry renders on this session detail page;
+--   2) when the coach generates a new practice plan, the recommendation
+--      surfaces as drill #1 + the banner reads the seeded `why`;
+--   3) a second plan generation does NOT re-fire the same row.
+--
+-- COPPA: the seed mints ONLY a coach-authored transcript + a coach-authored
+-- recommendation. NO player FK, NO parent contact, NO DOB. The transcript
+-- mentions a first name ("Maya") — the route's positive prompt and the
+-- defensive surname strip handle this; the seed proves the column allows it.
+--
+-- UUID range: `0000000000d0` (game session), `0000000000d1`
+-- (decompression row). `0000000000c0`-`c1` are sub-handoff observer tokens,
+-- `0000000000d2`+ remain free for sibling seeds. Confirmed via
+-- `grep -nE "0000000000d[0-9a-f]" tests/e2e/fixtures/seed.sql` at pickup
+-- (LESSONS#0101).
+insert into sessions (id, team_id, coach_id, type, date, location, opponent, result, notes)
+values (
+  '00000000-0000-4000-a000-0000000000d0',
+  '00000000-0000-4000-a000-000000000020',
+  '00000000-0000-4000-a000-000000000001',
+  'game', current_date, 'Away Gym', 'Eagles', 'L 4-12',
+  'E2E seed RECENT game (decompression window — ticket 0069)'
+)
+on conflict (id) do nothing;
+
+insert into game_decompressions (
+  id, session_id, coach_id, team_id, transcript, duration_seconds,
+  recommended_drill_name, recommended_drill_setup, recommended_drill_why,
+  consumed_at, consumed_plan_id, created_at
+)
+values (
+  '00000000-0000-4000-a000-0000000000d1',
+  '00000000-0000-4000-a000-0000000000d0',
+  '00000000-0000-4000-a000-000000000001',
+  '00000000-0000-4000-a000-000000000020',
+  'We couldn''t get a single rebound today. They outran us on every transition. Need to work on rebounding and effort.',
+  28,
+  'Live-ball rebound 2-on-2',
+  ARRAY['Pair up at the elbows; one shooter at the wing.','Box out on the shot; first to 5 boards wins the round.','Eight minutes. Switch partners every two.'],
+  'Saturday said rebounding and effort. Starting here.',
+  null,
+  null,
+  now()
+)
+on conflict (session_id, coach_id) do nothing;
+
 commit;

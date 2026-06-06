@@ -178,6 +178,7 @@ describe('POST /api/ai/plan — unfinished-drills rollover (ticket 0045)', () =>
       .mockReturnValueOnce(buildChain([]))                   // coach plans for signature
       .mockReturnValueOnce(buildChain([]))                   // coach_drill_signals (0039)
       .mockReturnValueOnce(priorPlanChain)                   // prior practice plan (rollover)
+      .mockReturnValueOnce(buildChain([]))                   // 0069 — unconsumed decompression (none)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));          // plans insert
 
     const res = await PLAN_POST(planRequest());
@@ -201,6 +202,7 @@ describe('POST /api/ai/plan — unfinished-drills rollover (ticket 0045)', () =>
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(priorPlanChain)
+      .mockReturnValueOnce(buildChain([]))                   // 0069 — unconsumed decompression (none)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     await PLAN_POST(planRequest());
@@ -221,6 +223,7 @@ describe('POST /api/ai/plan — unfinished-drills rollover (ticket 0045)', () =>
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))      // prior plan: NONE
+      .mockReturnValueOnce(buildChain([]))                   // 0069 — unconsumed decompression (none)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     const res = await PLAN_POST(planRequest());
@@ -243,6 +246,7 @@ describe('POST /api/ai/plan — unfinished-drills rollover (ticket 0045)', () =>
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([fullyCompleted]))
+      .mockReturnValueOnce(buildChain([]))                   // 0069 — unconsumed decompression (none)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     await PLAN_POST(planRequest());
@@ -260,6 +264,7 @@ describe('POST /api/ai/plan — unfinished-drills rollover (ticket 0045)', () =>
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([priorPlanRow()]))
+      .mockReturnValueOnce(buildChain([]))                   // 0069 — unconsumed decompression (none)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     await PLAN_POST(planRequest());
@@ -291,6 +296,7 @@ describe('POST /api/ai/plan — unfinished-drills rollover (ticket 0045)', () =>
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([poisoned]))
+      .mockReturnValueOnce(buildChain([]))                   // 0069 — unconsumed decompression (none)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     await PLAN_POST(planRequest());
@@ -317,6 +323,7 @@ describe('POST /api/ai/plan — unfinished-drills rollover (ticket 0045)', () =>
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(throwing)
+      .mockReturnValueOnce(buildChain([]))                   // 0069 — unconsumed decompression (none)
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     const res = await PLAN_POST(planRequest());

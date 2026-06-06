@@ -84,6 +84,12 @@ const ALLOWED_TABLES = [
   // this table. The sub-note write is from the PUBLIC sub-note route
   // (token-scoped, never via generic /api/data).
   'sub_handoffs',
+  // Ticket 0069 — READS only (the caller's own decompression history view
+  // and the unconsumed-for-team read the /api/ai/plan route uses through
+  // a typed endpoint). Inserts/updates flow through the dedicated
+  // /api/game-decompression/* routes; the mutate allow-list intentionally
+  // OMITS this table.
+  'game_decompressions',
 ];
 
 // ─── GET handler (query params) ──────────────────────────────────────────────

@@ -1968,4 +1968,94 @@ export const PROMPT_REGISTRY = {
       'Return the JSON object described above. First name only. One short sentence each.',
     ].join('\n'),
   }),
+  /**
+   * Ticket 0069 — gameDecompressionToDrill.
+   *
+   * The coach just recorded 30 seconds of voice on the drive home from a
+   * loss ("we couldn't get a single rebound, they outran us on every
+   * transition, three kids gave up by the second quarter"). The prompt's
+   * job is to pick ONE drill for the FIRST slot of the next practice
+   * that fits what HURT in that transcript, and write a one-line "why
+   * this is first today" the coach reads in the parking lot before
+   * Tuesday's practice.
+   *
+   * Voice (positive instruction only, per LESSONS#0023 — no enumerated
+   * ban-list inside the prompt body): write like a coach's clipboard,
+   * not a marketing landing page; plain English; one short clause for
+   * the why line; name a player only by FIRST NAME and never invent a
+   * surname or jersey number.
+   *
+   * Drill source order (the prompt instruction names this explicitly so
+   * the model leans on team-known drills first): (1) draw from the
+   * provided drillLibrary if any entry's focus matches the transcript's
+   * anchor (rebound, conditioning, passing, transition, etc.); (2) fall
+   * back to a coachingSignature recurring drill that fits; (3) only as
+   * a last resort propose an AI-invented drill.
+   */
+  gameDecompressionToDrill: (params: {
+    transcript: string;
+    sportName?: string;
+    ageGroup?: string;
+    drillLibrary?: Array<{
+      name: string;
+      focus?: string | null;
+      setup_lines?: string[] | null;
+    }>;
+    coachingSignature?: CoachingSignature | null;
+  }) => ({
+    system: [
+      buildSystemPreamble({
+        sportName: params.sportName,
+        ageGroup: params.ageGroup,
+      }),
+      'You are picking the FIRST drill of the coach\'s next practice based on what hurt in the game they just lost.',
+      '',
+      'Voice and tone:',
+      '- Write like a coach\'s clipboard, not a marketing landing page. Plain English, short sentences, specific to what the coach said.',
+      '- The "why" line is ONE short clause a coach would read on the drive to Tuesday\'s practice. No second clause, no hype, no exclamation marks.',
+      '- Name a player by FIRST NAME ONLY if the transcript named one. Never invent a surname. Never invent a jersey number.',
+      '',
+      'Drill-source order (lean on team-known drills first; invent only as a last resort):',
+      '- FIRST PREFERENCE: draw drill_name from the provided drill library when any entry\'s focus matches the transcript\'s anchor (rebound / conditioning / passing / transition / boxing out / closeouts / effort / and so on).',
+      '- SECOND PREFERENCE: if the coachingSignature names recurring drills the coach already runs, lean on one of those.',
+      '- LAST RESORT: propose a concrete drill by name only when neither source fits the transcript\'s anchor.',
+      '',
+      'Output format:',
+      '- Return JSON exactly of this shape and nothing else:',
+      '  {',
+      '    "drill_name": "...",',
+      '    "setup_lines": ["...", "...", "..."],',
+      '    "why": "..."',
+      '  }',
+      '- drill_name is 2 to 8 words.',
+      '- setup_lines is up to 3 short lines (each <= 120 chars). Each line names ONE concrete setup step.',
+      '- why is one short clause, never more than 160 characters.',
+      '- Do not include any keys other than drill_name, setup_lines, why.',
+    ].join('\n'),
+    user: [
+      `Sport: ${params.sportName || 'basketball'}`,
+      `Age group: ${params.ageGroup || ''}`,
+      '',
+      'Coach voice note transcript (what hurt in the game):',
+      params.transcript,
+      '',
+      params.drillLibrary && params.drillLibrary.length > 0
+        ? [
+            'Drill library (prefer one of these when its focus fits the transcript):',
+            ...params.drillLibrary.slice(0, 30).map((d) => {
+              const setup = d.setup_lines && d.setup_lines.length > 0
+                ? ` — setup: ${d.setup_lines.slice(0, 2).join('; ')}`
+                : '';
+              return `- ${d.name}${d.focus ? ` (focus: ${d.focus})` : ''}${setup}`;
+            }),
+          ].join('\n')
+        : 'Drill library: (none on file)',
+      '',
+      params.coachingSignature && params.coachingSignature.recurring_drills.length > 0
+        ? `This coach tends to come back to: ${params.coachingSignature.recurring_drills.join(', ')}.`
+        : '',
+      '',
+      'Return the JSON object described above. One drill. One short why line. First name only if the transcript named one.',
+    ].filter(Boolean).join('\n'),
+  }),
 } as const;
