@@ -302,7 +302,7 @@ describe('buildCoachingSignature — voice_anchors from prior parent reports (ti
     ];
     const sig = buildCoachingSignature(basePlans(), { priorParentReports });
     expect(sig).not.toBeNull();
-    expect(sig!.voice_anchors[0]).toBe('playing with her hands ready');
+    expect(sig!.voice_anchors![0]).toBe('playing with her hands ready');
     expect(sig!.voice_anchors).toContain('hearing the call before the ball comes');
     // Below-MIN phrase is filtered.
     expect(sig!.voice_anchors).not.toContain('she finished left');
@@ -414,6 +414,6 @@ describe('buildCoachingSignature — voice_anchors from prior parent reports (ti
     ]);
     const sig = buildCoachingSignature(basePlans(), { priorParentReports });
     expect(sig).not.toBeNull();
-    expect(sig!.voice_anchors.length).toBeLessThanOrEqual(MAX_SIGNATURE_VOICE_ANCHORS);
+    expect(sig!.voice_anchors!.length).toBeLessThanOrEqual(MAX_SIGNATURE_VOICE_ANCHORS);
   });
 });
