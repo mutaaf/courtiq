@@ -1,7 +1,7 @@
 ---
 id: 0071
 title: When 3+ coaches in the same program are working on the same skill this week, surface it to the director as "your program is rallying around X"
-status: in-progress
+status: shipped
 priority: P1
 area: analytics
 created: 2026-06-05
