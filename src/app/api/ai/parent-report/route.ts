@@ -10,6 +10,20 @@ import {
   renderThinWeekFallback,
   containsBannedToken,
 } from '@/lib/thin-week-utils';
+import {
+  extractVoiceAnchors,
+  type CoachPlanRow,
+  type CoachingSignature,
+} from '@/lib/coaching-signature-utils';
+
+/**
+ * Ticket 0070 — bound the cross-team prior-report read at 40 rows. The
+ * voice-anchor extractor is O(n) on this input so the bound also caps the
+ * extractor's work for a long-tenured coach (200+ prior reports). 40 rows is
+ * enough to surface stable recurring phrasings without enlarging the read
+ * surface beyond what the AI-cost tier-gating already pays for.
+ */
+const COACH_PRIOR_PARENT_REPORTS_LIMIT = 40;
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabase();
@@ -144,6 +158,65 @@ export async function POST(request: Request) {
       }
     }
 
+    // Ticket 0070 — read the coach's OWN prior parent_report plans across
+    // every team they have ever coached (scoped by `coach_id`, NOT `team_id`)
+    // so the voice-anchor extractor sees the full history. The 40-row LIMIT
+    // bounds the read for a long-tenured coach without changing the bounded
+    // cost surface this AI route already pays for. Wrapped in try/catch so
+    // a read failure degrades to today's behavior (best-effort posture per
+    // LESSONS#0036) — the parent-report still generates, just without the
+    // soft-preference voice block.
+    //
+    // The .select() is an explicit allow-list (per LESSONS#0036): only the
+    // persisted coach-authored `content_structured` is read. No `players`
+    // row field, no `observations`, no `parent_*` or `date_of_birth` ever
+    // touches this query — the COPPA boundary is the same as the 0037
+    // plan-rows-in / signature-out contract.
+    //
+    // Note (per LESSONS#0112): the EXISTING `from('plans')` reads in this
+    // route are scoped by `player_id` (0016) and `prior_player_id` (0034) and
+    // cannot be widened to subsume the coach-scoped read (different filter
+    // family). A new `from()` call is required; every sibling test that
+    // mocks the chain queue was extended in the same PR (LESSONS#0049 /
+    // #0092 / #0100 / #0110).
+    let coachingSignature: CoachingSignature | null = null;
+    try {
+      const { data: coachPriorReports } = await admin
+        .from('plans')
+        .select('content_structured')
+        .eq('coach_id', user.id)
+        .eq('type', 'parent_report')
+        .order('created_at', { ascending: false })
+        .limit(COACH_PRIOR_PARENT_REPORTS_LIMIT);
+      const priorParentReports: CoachPlanRow[] = Array.isArray(coachPriorReports)
+        ? (coachPriorReports as CoachPlanRow[])
+        : [];
+      // The parentReport prompt consumes only `voice_anchors` from the
+      // signature (not top_skills / recurring_drills / typical_session_minutes),
+      // so we build a minimal signature object with just the voice anchors.
+      // This sidesteps the buildCoachingSignature gate on MIN_PLANS_FOR_SIGNATURE
+      // (which counts practice plans, not parent reports) — a coach can have
+      // shipped 60 parent reports without ever having created a practice plan
+      // and still deserve the voice signal.
+      const voiceAnchors = extractVoiceAnchors(priorParentReports);
+      // Surface a signature object whose only meaningful field is the voice
+      // anchors. The 0037 fields are present-but-empty defaults so the type
+      // contract is honored; the parentReport prompt branches on
+      // `voice_anchors.length > 0` and ignores the others.
+      coachingSignature = voiceAnchors.length > 0
+        ? {
+            top_skills: [],
+            recurring_drills: [],
+            typical_session_minutes: 0,
+            voice_anchors: voiceAnchors,
+          }
+        : null;
+    } catch {
+      // Degrade silently — the parent-report still ships without the soft
+      // voice preference. LESSONS#0036 best-effort posture.
+      coachingSignature = null;
+    }
+
     const reportData = {
       observations: observations || [],
       proficiency: proficiency || [],
@@ -219,6 +292,12 @@ export async function POST(request: Request) {
       // post-0034 prompt.
       isThinWeek,
       previousCommitments: isThinWeek ? previousCommitments : undefined,
+      // Ticket 0070 — soft-preference voice signal. When absent (or its
+      // voice_anchors is []) the prompt body is byte-identical to today's
+      // post-0066 behavior (LESSONS#0103). When present and non-empty, the
+      // system prompt gains a "lean on" block naming the coach's recurring
+      // phrasings on a single line joined by ` / `.
+      coachingSignature,
     });
 
     const result = await callAIWithJSON<ParentReport>(

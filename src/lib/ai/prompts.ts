@@ -368,6 +368,13 @@ export const PROMPT_REGISTRY = {
     // report's already-persisted shape (no new column — see 0066 ticket).
     isThinWeek?: boolean;
     previousCommitments?: string[];
+    // Ticket 0070 — coach voice signature derived from the coach's OWN prior
+    // parent reports across every team they have coached. When present AND
+    // `voice_anchors.length > 0`, a SOFT-preference block is appended at the
+    // END of the system prompt instructing the model to "lean on" these
+    // phrasings when the underlying observation matches. When absent or empty,
+    // the prompt is BYTE-IDENTICAL to the post-0066 behavior (LESSONS#0103).
+    coachingSignature?: CoachingSignature | null;
   }) => {
     const continuityBlock = params.priorReport
       ? [
@@ -417,6 +424,20 @@ export const PROMPT_REGISTRY = {
           .join('\n')
       : null;
 
+    // Ticket 0070 — coach voice signature. When the route passes a
+    // coachingSignature whose voice_anchors are non-empty, append a SOFT-
+    // preference block at the END of the system prompt naming the coach's
+    // recurring phrasings on a SINGLE line joined by ` / `. The block is
+    // instructed POSITIVELY per LESSONS#0023 — never a banned-token enum, and
+    // never a numbered list (a numbered list invites the model to use ALL of
+    // them, the opposite of the intent). When absent or empty, this branch
+    // produces no text and the system prompt is BYTE-IDENTICAL to the
+    // post-0066 baseline (LESSONS#0103 optional widening).
+    const voiceAnchors = params.coachingSignature?.voice_anchors ?? [];
+    const voiceAnchorBlock = voiceAnchors.length > 0
+      ? `\nThis coach has shipped parent reports before; they tend to write with phrasings like: ${voiceAnchors.join(' / ')}. When the observation for THIS player matches one of these phrasings, lean on it. When it does not, write plain — never force a phrase that does not fit.`
+      : '';
+
     return {
       system: [
         buildSystemPreamble(params),
@@ -428,7 +449,7 @@ export const PROMPT_REGISTRY = {
         '- Never compare to other players.',
         '- Include 1 at-home practice suggestion.',
         '- Maximum 500 words.',
-      ].join('\n'),
+      ].join('\n') + voiceAnchorBlock,
       user: [
         `Generate a parent report for ${params.playerName}.`,
         `Progress data: ${JSON.stringify(params.reportData)}`,

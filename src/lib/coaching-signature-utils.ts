@@ -29,6 +29,21 @@ export interface CoachingSignature {
   recurring_drills: string[];
   /** The session length the coach typically runs (minutes). */
   typical_session_minutes: number;
+  /**
+   * Ticket 0070 — short phrasings the coach has used across their OWN prior
+   * `parent_report` plans, ranked by recurrence, capped at
+   * MAX_SIGNATURE_VOICE_ANCHORS. Threaded into the parentReport prompt as a
+   * SOFT preference so the generated report sounds like THIS coach's voice
+   * across every team they have ever coached.
+   *
+   * Declared OPTIONAL per LESSONS#0103 so every existing call site (the 0037
+   * practicePlan / practiceArc / pregame / newsletter / pulse routes) stays
+   * byte-identical without a sweep. The builder always surfaces it as `[]`
+   * when no `priorParentReports` are passed — the prompt's `.length > 0`
+   * branch then evaluates false and the prompt body is byte-identical to the
+   * post-0066 baseline.
+   */
+  voice_anchors?: string[];
 }
 
 /** A coach needs at least this many plans before we infer a personal style. */
@@ -36,6 +51,46 @@ export const MIN_PLANS_FOR_SIGNATURE = 5;
 /** Bound the lists so the prompt block stays small. */
 export const MAX_SIGNATURE_SKILLS = 5;
 export const MAX_SIGNATURE_DRILLS = 6;
+/**
+ * Ticket 0070 — bound the voice-anchor list so the prompt block stays small.
+ * Mirrors `MAX_SIGNATURE_DRILLS = 6`.
+ */
+export const MAX_SIGNATURE_VOICE_ANCHORS = 6;
+/**
+ * Ticket 0070 — a phrase is only a "voice anchor" once it shows up across at
+ * least this many of the coach's own prior parent reports. Mirrors
+ * `MIN_DRILL_RECURRENCE = 2`.
+ */
+export const MIN_VOICE_ANCHOR_RECURRENCE = 2;
+/**
+ * Ticket 0070 — cold-start cap: the coach needs at least this many prior
+ * parent reports before voice-anchor extraction is meaningful. Fewer than this
+ * → `voice_anchors: []` and the prompt branch falls back to the post-0066
+ * byte-identical body.
+ */
+const MIN_PRIOR_REPORTS_FOR_VOICE = 3;
+/** Voice-anchor phrases must be at least 8 characters (avoid noise like "great"). */
+const MIN_VOICE_ANCHOR_LENGTH = 8;
+/** Voice-anchor phrases cap at 80 characters (mirrors `cleanName` for drill names). */
+const MAX_VOICE_ANCHOR_LENGTH = 80;
+
+/**
+ * Ticket 0070 — AGENTS.md banned tokens (mirrors the load-bearing list in
+ * `src/lib/thin-week-utils.ts`). A phrase containing ANY of these is filtered
+ * during extraction, so the prompt's soft-preference block can be instructed
+ * positively (LESSONS#0023) — the block never re-enumerates the ban-list.
+ *
+ * Kept lowercase; the extractor compares against the phrase's lowercased form.
+ */
+const BANNED_VOICE_TOKENS = [
+  'journey',
+  'amazing',
+  'exciting',
+  'elevate',
+  'empower',
+  'synergy',
+  'unlock your potential',
+];
 
 /** A drill name is only "recurring" once it shows up in at least this many plans. */
 const MIN_DRILL_RECURRENCE = 2;
@@ -157,6 +212,25 @@ export interface BuildCoachingSignatureOptions {
   drillSignals?: CoachDrillRatingInput[];
   /** Optional name → drill_id lookup so signals (by id) align with names. */
   drill_id_by_name?: Record<string, string>;
+  /**
+   * Ticket 0070 — the coach's OWN prior `parent_report`-typed plan rows across
+   * ALL their teams. The builder walks each report's
+   * `content_structured.highlights[]` array AND `content_structured.coach_note`
+   * string, extracts short phrasings (8–80 chars), ranks by recurrence across
+   * reports, and surfaces them as `voice_anchors` on the returned signature.
+   *
+   * When omitted (or fewer than MIN_PRIOR_REPORTS_FOR_VOICE rows), the
+   * builder's output remains byte-identical to today's behavior (LESSONS#0103
+   * optional widening); existing 0037 / 0039 callers that don't pass this
+   * field get `voice_anchors: []` and otherwise unchanged output.
+   *
+   * The builder reads ONLY `content_structured.highlights` and
+   * `content_structured.coach_note` — never `observations`, never any field
+   * on the `players` row, never `parent_*`, never `date_of_birth`,
+   * `medical_notes`, or any other minor data. The COPPA boundary is the same
+   * as the 0037 plan-rows-in / signature-out contract (per the ticket).
+   */
+  priorParentReports?: CoachPlanRow[];
 }
 
 /**
@@ -237,11 +311,153 @@ export function buildCoachingSignature(
   // No honest signal to offer → no signature (the caller degrades to today).
   if (top_skills.length === 0 && recurring_drills.length === 0) return null;
 
+  // Ticket 0070 — extract voice anchors from the coach's OWN prior parent
+  // reports. The widening is additive (LESSONS#0103): when no priorParentReports
+  // are passed, voice_anchors surfaces as [] and every other key on the
+  // returned signature is byte-identical to today's output. When ≥ MIN
+  // reports are provided, the extractor walks the coach-authored fields and
+  // ranks short phrasings by recurrence.
+  const voice_anchors = extractVoiceAnchors(options?.priorParentReports ?? []);
+
   return {
     top_skills,
     recurring_drills,
     typical_session_minutes: typicalSessionMinutes(durations),
+    voice_anchors,
   };
+}
+
+// ─── Ticket 0070 — voice-anchor extraction ────────────────────────────────────
+
+/**
+ * Walk the coach's OWN prior parent-report plan rows, extract short phrasings
+ * the coach has used more than once, rank by recurrence across reports, cap at
+ * MAX_SIGNATURE_VOICE_ANCHORS. Returns `[]` for the cold-start case (fewer
+ * than MIN_PRIOR_REPORTS_FOR_VOICE rows) and for the no-recurrence case.
+ *
+ * Reads ONLY `content_structured.highlights[]` and `content_structured.coach_note`
+ * — never any other key on the structured content, never any minor data the
+ * row might carry alongside. The COPPA boundary is the same as the 0037
+ * plan-rows-in / signature-out contract.
+ *
+ * Per LESSONS#0061 — surname-guard uses a LITERAL SPACE (not `\s+`) so a
+ * labelled-key newline ("Maya\nAge group:") cannot false-positive as a
+ * "FirstName LastName" pair.
+ *
+ * Per LESSONS#0023 — phrases containing AGENTS.md banned tokens are dropped
+ * during extraction so the prompt's soft-preference block can be instructed
+ * positively (never enumerates the ban-list).
+ *
+ * Per LESSONS#0034 — `--`-comment lines are stripped from any scanned
+ * `coach_note` content before phrase extraction so documentation comments in
+ * a coach's note never become voice anchors.
+ *
+ * Exported so the parent-report route (and tests) can derive a voice-only
+ * signature without forcing the `plans`-based MIN_PLANS_FOR_SIGNATURE gate
+ * (the prompt only consumes `voice_anchors` from the signature).
+ */
+export function extractVoiceAnchors(priorParentReports: CoachPlanRow[]): string[] {
+  if (!Array.isArray(priorParentReports) || priorParentReports.length < MIN_PRIOR_REPORTS_FOR_VOICE) {
+    return [];
+  }
+
+  const phraseCounts = new Map<string, number>();
+
+  for (const report of priorParentReports) {
+    const content = report?.content_structured;
+    if (!isRecord(content)) continue;
+
+    // Track phrases unique to THIS report so a single report mentioning the
+    // same phrase twice doesn't masquerade as recurrence across reports
+    // (mirrors the drill-recurrence semantics).
+    const seenInThisReport = new Set<string>();
+
+    // ── highlights[] : each entry is one candidate phrase ─────────────
+    const highlights = (content as { highlights?: unknown }).highlights;
+    if (Array.isArray(highlights)) {
+      for (const raw of highlights) {
+        if (typeof raw !== 'string') continue;
+        const cleaned = cleanVoicePhrase(raw);
+        if (!cleaned) continue;
+        if (seenInThisReport.has(cleaned)) continue;
+        seenInThisReport.add(cleaned);
+        phraseCounts.set(cleaned, (phraseCounts.get(cleaned) ?? 0) + 1);
+      }
+    }
+
+    // ── coach_note : split into sentences/lines, treat each as a candidate ────
+    const coachNote = (content as { coach_note?: unknown }).coach_note;
+    if (typeof coachNote === 'string' && coachNote.length > 0) {
+      // Strip `--`-comment lines (LESSONS#0034) before phrase extraction.
+      const noteWithoutComments = coachNote
+        .split('\n')
+        .filter((line) => !line.trim().startsWith('--'))
+        .join('\n');
+      // Split on sentence terminators + newlines so each candidate is a
+      // self-contained short phrase.
+      const fragments = noteWithoutComments.split(/[.!?\n]+/);
+      for (const raw of fragments) {
+        const cleaned = cleanVoicePhrase(raw);
+        if (!cleaned) continue;
+        if (seenInThisReport.has(cleaned)) continue;
+        seenInThisReport.add(cleaned);
+        phraseCounts.set(cleaned, (phraseCounts.get(cleaned) ?? 0) + 1);
+      }
+    }
+  }
+
+  // Rank by recurrence (desc), tie-broken by phrase (asc) for determinism.
+  return [...phraseCounts.entries()]
+    .filter(([, n]) => n >= MIN_VOICE_ANCHOR_RECURRENCE)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, MAX_SIGNATURE_VOICE_ANCHORS)
+    .map(([phrase]) => phrase);
+}
+
+/**
+ * Normalize and validate a candidate voice-anchor phrase. Returns `null` for
+ * any phrase that's too short, too long, contains a surname-shape, or carries
+ * a banned token. The surname guard uses a LITERAL SPACE per LESSONS#0061.
+ *
+ * Returns the surname-stripped form on success: "Maya Walker is finding the
+ * ball" → "Maya is finding the ball" (the surname-shape — a capitalized word
+ * preceded by a single space and another capitalized word — is replaced with
+ * just the first word). First names alone are kept because the phrase loses
+ * meaning without them.
+ */
+function cleanVoicePhrase(raw: string): string | null {
+  if (typeof raw !== 'string') return null;
+  // Strip outer whitespace and normalize repeated whitespace runs to single
+  // spaces (preserves intentional content; we don't squash newlines because
+  // candidates already arrived line-by-line / sentence-by-sentence).
+  let phrase = raw.trim().replace(/[ \t]+/g, ' ');
+  if (!phrase) return null;
+
+  // Strip FirstName LastName pairs: a capitalized word followed by a LITERAL
+  // SPACE followed by another capitalized word. Replace with just the first
+  // capitalized word (the first name) so the phrase retains its subject. Per
+  // LESSONS#0061 — using a LITERAL SPACE here (not `\s+`) so a labelled-key
+  // newline like "Maya\nAge group:" cannot false-positive as "Maya Age".
+  // Repeat to handle middle-name shapes (rare but possible).
+  let prev: string;
+  do {
+    prev = phrase;
+    phrase = phrase.replace(/([A-Z][a-z]+) ([A-Z][a-z]+)/g, '$1');
+  } while (phrase !== prev);
+  // Re-normalize whitespace introduced by replacement.
+  phrase = phrase.replace(/[ \t]+/g, ' ').trim();
+
+  if (phrase.length < MIN_VOICE_ANCHOR_LENGTH) return null;
+  if (phrase.length > MAX_VOICE_ANCHOR_LENGTH) return null;
+
+  // Banned-token pre-filter (LESSONS#0023). Lowercase comparison so case
+  // variants (e.g. "Amazing!") are caught.
+  const lowered = phrase.toLowerCase();
+  for (const banned of BANNED_VOICE_TOKENS) {
+    if (lowered.includes(banned)) return null;
+  }
+
+  return phrase;
 }
 
 /**

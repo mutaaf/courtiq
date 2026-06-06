@@ -191,6 +191,7 @@ describe('POST /api/ai/parent-report — cross-season memory (ticket 0034)', () 
       .mockReturnValueOnce(buildChain(PRIOR_PLAYER_SAME_ORG))             // prior player row
       .mockReturnValueOnce(buildChain(PRIOR_TEAM_SAME_ORG))               // prior player's team (org check)
       .mockReturnValueOnce(buildChain([{ content_structured: PRIOR_SEASON_REPORT }])) // prior-season report
+      .mockReturnValueOnce(buildChain([]))                                 // 0070 coach-scoped voice anchors
       .mockReturnValueOnce(buildChain(SAVED_PLAN));                        // insert
 
     const res = await POST(makeRequest());
@@ -217,6 +218,7 @@ describe('POST /api/ai/parent-report — cross-season memory (ticket 0034)', () 
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))     // same-player prior report (none)
+      .mockReturnValueOnce(buildChain([]))     // 0070 coach-scoped voice anchors
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     const res = await POST(makeRequest());
@@ -238,10 +240,11 @@ describe('POST /api/ai/parent-report — cross-season memory (ticket 0034)', () 
       interactionId: 'interaction-3',
     });
     // After the org mismatch the route reads NOTHING cross-org and proceeds to the
-    // insert. The from() sequence is therefore exactly: coaches, players,
-    // observations, proficiency, plans(0016), players(prior), teams(other org),
-    // insert — 8 calls. A 9th read would mean the cross-org prior-report plans read
-    // ran, which the org check must prevent.
+    // 0070 coach-scoped voice-anchor read, then the insert. The from() sequence is
+    // therefore exactly: coaches, players, observations, proficiency, plans(0016),
+    // players(prior), teams(other org), plans(0070 voice anchors), insert — 9 calls.
+    // A 10th read would mean the cross-org prior-report plans read ran, which the
+    // org check must prevent.
     mockFromFn
       .mockReturnValueOnce(buildChain({ org_id: ORG_ID }))
       .mockReturnValueOnce(buildChain(LINKED_PLAYER))
@@ -250,6 +253,7 @@ describe('POST /api/ai/parent-report — cross-season memory (ticket 0034)', () 
       .mockReturnValueOnce(buildChain([]))                                 // same-player prior report
       .mockReturnValueOnce(buildChain(PRIOR_PLAYER_SAME_ORG))             // prior player row
       .mockReturnValueOnce(buildChain(PRIOR_TEAM_OTHER_ORG))             // prior team — DIFFERENT org
+      .mockReturnValueOnce(buildChain([]))                                 // 0070 coach-scoped voice anchors
       .mockReturnValueOnce(buildChain(SAVED_PLAN));                        // insert (no cross-org read)
 
     const res = await POST(makeRequest());
@@ -258,8 +262,8 @@ describe('POST /api/ai/parent-report — cross-season memory (ticket 0034)', () 
     const promptArg = mockCallAIWithJSON.mock.calls[0][0] as { userPrompt: string };
     expect(promptArg.userPrompt).not.toContain('last season');
     expect(promptArg.userPrompt).not.toContain('Closeouts are the growth edge for next season.');
-    // The cross-org prior-report plans read must never have run: exactly 8 from() calls.
-    expect(mockFromFn).toHaveBeenCalledTimes(8);
+    // The cross-org prior-report plans read must never have run: exactly 9 from() calls.
+    expect(mockFromFn).toHaveBeenCalledTimes(9);
   });
 
   // AC5: a throwing cross-season read degrades to single-season — never 500.
@@ -278,6 +282,7 @@ describe('POST /api/ai/parent-report — cross-season memory (ticket 0034)', () 
       .mockReturnValueOnce(buildChain(PRIOR_PLAYER_SAME_ORG))             // prior player row
       .mockReturnValueOnce(buildChain(PRIOR_TEAM_SAME_ORG))               // prior team (same org)
       .mockReturnValueOnce(throwingChain())                               // prior-season report THROWS
+      .mockReturnValueOnce(buildChain([]))                                 // 0070 coach-scoped voice anchors
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     const res = await POST(makeRequest());
@@ -297,6 +302,7 @@ describe('POST /api/ai/parent-report — cross-season memory (ticket 0034)', () 
       .mockReturnValueOnce(buildChain(PRIOR_PLAYER_SAME_ORG))
       .mockReturnValueOnce(buildChain(PRIOR_TEAM_SAME_ORG))
       .mockReturnValueOnce(buildChain([{ content_structured: PRIOR_SEASON_REPORT }]))
+      .mockReturnValueOnce(buildChain([]))                                 // 0070 coach-scoped voice anchors
       .mockReturnValueOnce(insertChain);
 
     await POST(makeRequest());
@@ -331,6 +337,7 @@ describe('POST /api/ai/parent-report — cross-season memory (ticket 0034)', () 
       .mockReturnValueOnce(buildChain(PRIOR_PLAYER_SAME_ORG))
       .mockReturnValueOnce(buildChain(PRIOR_TEAM_SAME_ORG))
       .mockReturnValueOnce(buildChain([{ content_structured: priorWithExtra }]))
+      .mockReturnValueOnce(buildChain([]))                                 // 0070 coach-scoped voice anchors
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     await POST(makeRequest());
@@ -355,6 +362,7 @@ describe('POST /api/ai/parent-report — cross-season memory (ticket 0034)', () 
       .mockReturnValueOnce(buildChain(PRIOR_PLAYER_SAME_ORG))
       .mockReturnValueOnce(buildChain(PRIOR_TEAM_SAME_ORG))
       .mockReturnValueOnce(buildChain([{ content_structured: PRIOR_SEASON_REPORT }]))
+      .mockReturnValueOnce(buildChain([]))                                 // 0070 coach-scoped voice anchors
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     await POST(makeRequest());

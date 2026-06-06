@@ -147,7 +147,8 @@ describe('POST /api/ai/parent-report — continuity (ticket 0016)', () => {
       .mockReturnValueOnce(buildChain(PLAYER))                    // players
       .mockReturnValueOnce(buildChain([]))                         // observations
       .mockReturnValueOnce(buildChain([]))                         // proficiency
-      .mockReturnValueOnce(buildChain([{ content_structured: PRIOR_REPORT }])) // prior report
+      .mockReturnValueOnce(buildChain([{ content_structured: PRIOR_REPORT }])) // prior report (0016)
+      .mockReturnValueOnce(buildChain([]))                         // 0070 coach-scoped voice anchors
       .mockReturnValueOnce(buildChain(SAVED_PLAN));                // insert
 
     const res = await POST(makeRequest());
@@ -173,6 +174,7 @@ describe('POST /api/ai/parent-report — continuity (ticket 0016)', () => {
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))    // empty prior reports
+      .mockReturnValueOnce(buildChain([]))    // 0070 coach-scoped voice anchors
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     const res = await POST(makeRequest());
@@ -211,6 +213,7 @@ describe('POST /api/ai/parent-report — continuity (ticket 0016)', () => {
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain(null, { message: 'DB error' })) // prior report errors
+      .mockReturnValueOnce(buildChain([]))                              // 0070 coach-scoped voice anchors
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     const res = await POST(makeRequest());
@@ -227,6 +230,7 @@ describe('POST /api/ai/parent-report — continuity (ticket 0016)', () => {
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([{ content_structured: PRIOR_REPORT }]))
+      .mockReturnValueOnce(buildChain([]))                              // 0070 coach-scoped voice anchors
       .mockReturnValueOnce(insertChain);
 
     await POST(makeRequest());
@@ -258,6 +262,7 @@ describe('POST /api/ai/parent-report — continuity (ticket 0016)', () => {
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([]))
       .mockReturnValueOnce(buildChain([{ content_structured: priorWithExtra }]))
+      .mockReturnValueOnce(buildChain([]))                              // 0070 coach-scoped voice anchors
       .mockReturnValueOnce(buildChain(SAVED_PLAN));
 
     await POST(makeRequest());
