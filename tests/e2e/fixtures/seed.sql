@@ -1728,4 +1728,92 @@ values (
 )
 on conflict (session_id, coach_id) do nothing;
 
+-- ════════════════════════════════════════════════════════════════════════
+-- Ticket 0071 — emergent (bottom-up) focus fixture (Organization-tier org)
+-- ════════════════════════════════════════════════════════════════════════
+-- The emergent-focus card requires THREE distinct teams in the SAME org to
+-- have shipped a recent practice plan whose `skills_targeted` array includes
+-- the same skill. The existing Organization-tier program org (...110) was
+-- seeded with TWO teams (Program U10s ...120, Program U12s ...121) for the
+-- 0028 program-pulse fixture. This block extends it with:
+--   * ONE more auth.users + coaches row (a third coach), per LESSONS#0084 —
+--     coaches.id FK references auth.users(id), so the auth row must exist
+--     first.
+--   * ONE more teams row (Program U14s) for the third coach, linked via
+--     team_coaches (LESSONS#0057 — head-coach ownership lives on
+--     team_coaches, not teams.coach_id which does not exist).
+--   * THREE plans rows — one per team — with `skills_targeted = '{closeouts}'`
+--     and `created_at = now() - interval '2 days'` so the route's 14-day
+--     window includes them all and the aggregation surfaces a single
+--     converged focus on "closeouts" across all three teams.
+--
+-- UUID family `00000000-0000-4000-a000-000000000190+` — verified unused
+-- above (the 0068 family stops at 0...0180; the 0069 family uses
+-- 0...00d0/d1 which is in a DIFFERENT byte slot; no collision per
+-- LESSONS#0101 / #0043).
+--
+-- COPPA: NO new players / observations / parent_* rows. The plans are
+-- team-level (no player_id). The route's response carries only skill names
+-- + team display names — never a player name.
+
+insert into auth.users (id, instance_id, aud, role, email,
+                        email_confirmed_at, created_at, updated_at)
+values (
+  '00000000-0000-4000-a000-000000000190',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated', 'authenticated',
+  'coach-third-e2e@test.com', now(), now(), now()
+)
+on conflict (id) do nothing;
+
+insert into coaches (id, org_id, full_name, email, role, onboarding_complete)
+values (
+  '00000000-0000-4000-a000-000000000190',
+  '00000000-0000-4000-a000-000000000110',
+  'Coach Third', 'coach-third-e2e@test.com', 'coach', true
+)
+on conflict (id) do nothing;
+
+insert into teams (id, org_id, sport_id, name, age_group, season, season_weeks, current_week, is_active)
+select
+  '00000000-0000-4000-a000-000000000191',
+  '00000000-0000-4000-a000-000000000110',
+  (select id from sports where slug = 'basketball' limit 1),
+  'Program U14s', '14-16', 'Spring 2026', 10, 3, true
+on conflict (id) do nothing;
+
+insert into team_coaches (team_id, coach_id, role)
+values (
+  '00000000-0000-4000-a000-000000000191',
+  '00000000-0000-4000-a000-000000000190',
+  'head_coach'
+)
+on conflict (team_id, coach_id) do nothing;
+
+-- The three converging practice plans — one per program team — all
+-- targeting "closeouts" within the route's 14-day window. created_at is
+-- explicit (now() - interval '2 days') so the seed re-applies idempotently
+-- AND every CI run lands inside the window with no clock skew worry.
+insert into plans (id, team_id, coach_id, player_id, type, title, content, skills_targeted, content_structured, created_at)
+values
+  ('00000000-0000-4000-a000-000000000192',
+   '00000000-0000-4000-a000-000000000120',
+   '00000000-0000-4000-a000-000000000101',
+   null, 'practice', 'U10s closeouts session',
+   '{}', '{closeouts}', '{"drills":[]}'::jsonb,
+   now() - interval '2 days'),
+  ('00000000-0000-4000-a000-000000000193',
+   '00000000-0000-4000-a000-000000000121',
+   '00000000-0000-4000-a000-000000000102',
+   null, 'practice', 'U12s closeouts session',
+   '{}', '{closeouts}', '{"drills":[]}'::jsonb,
+   now() - interval '2 days'),
+  ('00000000-0000-4000-a000-000000000194',
+   '00000000-0000-4000-a000-000000000191',
+   '00000000-0000-4000-a000-000000000190',
+   null, 'practice', 'U14s closeouts session',
+   '{}', '{closeouts}', '{"drills":[]}'::jsonb,
+   now() - interval '2 days')
+on conflict (id) do nothing;
+
 commit;

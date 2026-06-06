@@ -76,7 +76,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0071 | When 3+ coaches in the same program are working on the same skill this week, surface it to the director as "your program is rallying around X" | P1 | groomed | analytics |
+| 0071 | When 3+ coaches in the same program are working on the same skill this week, surface it to the director as "your program is rallying around X" | P1 | in-progress | analytics |
 | 0070 | Make every parent report sound like the coach who is writing it — across every team they have ever coached | P1 | shipped | ai |
 | 0069 | After a rough game, let the coach record 30 seconds of voice on the drive home and have it become the first drill of the next practice | P1 | shipped | capture |
 | 0064 | Let a coach publish a single drill they love as a one-tap clone card another coach saves into their library in 10 seconds | P1 | shipped | plans |

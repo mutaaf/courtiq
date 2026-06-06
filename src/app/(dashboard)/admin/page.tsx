@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import type { CoachRole } from '@/types/database';
 import { ProgramPulseSection } from '@/components/admin/program-pulse-card';
+import { EmergentFocusSection } from '@/components/admin/emergent-focus-card';
 
 interface OrgCoach {
   id: string;
@@ -176,6 +177,12 @@ export default function AdminPage() {
       {/* Ticket 0028 — the director-private weekly program pulse. Best-effort:
           renders nothing while loading, on failure, or on a quiet program week. */}
       <ProgramPulseSection orgId={coach?.org_id} isAdmin={isAdminUser} />
+
+      {/* Ticket 0071 — bottom-up "your program is rallying around X" card.
+          Surfaces when 3+ coaches independently target the same skill this
+          week. Best-effort: absent on a quiet week, on read failure, and
+          for 7 days after a Got-it dismiss. */}
+      <EmergentFocusSection orgId={coach?.org_id} isAdmin={isAdminUser} />
 
       {/* Org Tier */}
       <Card>

@@ -237,6 +237,26 @@ const FEATURE_CONFIG: Record<string, FeatureConfig> = {
     accentBg: 'bg-orange-500/15',
     accentBorder: 'border-orange-500/30',
   },
+  // ── Ticket 0071 — emergent (bottom-up) program focus ─────────────────────
+  // The inverse of feature_program_focus: when 3+ coaches independently pick
+  // the same skill in their own practice plans, the director sees the
+  // convergence and can shout it out in the all-coaches text thread.
+  feature_program_emergent_focus: {
+    icon: Activity,
+    headline: 'See what your coaches are converging on',
+    tagline: 'When three of your coaches pick the same skill on their own, that pattern surfaces here.',
+    benefits: [
+      'A small Monday card when 3 or more of your coaches target the same skill',
+      'The team names so you know who to shout out in the Tuesday all-coaches text',
+      'Pre-drafted line you can copy and paste — no app for the coaches to learn',
+      'Built from practice plans your coaches already write — nothing extra to set up',
+      'Quiet on a quiet week, gone on a tap, back the following week',
+    ],
+    requiredTier: 'organization',
+    accentColor: 'text-orange-400',
+    accentBg: 'bg-orange-500/15',
+    accentBorder: 'border-orange-500/30',
+  },
   feature_pregame_brief: {
     icon: Swords,
     headline: 'Unlock the Pre-Game Brief',
