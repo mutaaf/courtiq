@@ -1084,3 +1084,25 @@ export interface CoachReactivationSignal {
   notified_at: string | null;
   consumed_at: string | null;
 }
+
+// Ticket 0073 — coach reputation milestone primitive. One row per
+// (published coach, milestone kind) edge written by the clone-route
+// best-effort hook when the publishing coach's reputation crosses a
+// documented threshold. The home-card reads unconsumed rows and
+// renders the most-recent; tapping "Got it" stamps notified_at.
+export type CoachReputationMilestoneKind =
+  | 'clones_3'
+  | 'clones_10'
+  | 'clones_25'
+  | 'clones_50'
+  | 'programs_2'
+  | 'programs_4'
+  | 'programs_8';
+
+export interface CoachReputationMilestone {
+  id: string;
+  published_coach_id: string;
+  milestone_kind: CoachReputationMilestoneKind;
+  crossed_at: string;
+  notified_at: string | null;
+}

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
 import { addFavorite, parseFavoritedDrills } from '@/lib/drill-favorites-utils';
+import { fireMilestonesForPublishedCoach } from '@/lib/coach-reputation-milestone-hook';
 
 // POST /api/drill-shares/[token]/clone — save a published drill into the
 // caller's favorites library (ticket 0064).
@@ -119,6 +120,12 @@ export async function POST(
         drill_share_id: share.id,
         cloner_coach_id: user.id,
       });
+
+    // Ticket 0073 — best-effort milestone hook. Fires the
+    // publishing coach's reputation milestones if the just-landed
+    // drill clone pushed their counts over a threshold.
+    // LESSONS#0036 — errors are caught inside the helper.
+    await fireMilestonesForPublishedCoach(supabase, share.coach_id);
 
     return NextResponse.json({
       drillId: share.drill_id,

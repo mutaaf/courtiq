@@ -179,6 +179,18 @@ describe('GET /api/practice-plan-shares/league (ticket 0055)', () => {
         },
       },
     ]));
+    // Ticket 0073 reputation extension — 3 new from() calls:
+    // 6. plans (clones with source_plan_id IN <peer plan ids>).
+    mockFromFn.mockReturnValueOnce(buildChain([]));
+    // 7. drill_shares (publisher's drill shares).
+    mockFromFn.mockReturnValueOnce(buildChain([]));
+    // 8. drill_share_clones — skipped when publisher has no shares,
+    //    so this chain only gets pulled if there are drill shares.
+    //    Keep it queued to be safe (the route reads coaches even when
+    //    there are no drill shares — see step 9).
+    // 9. coaches (cloning-coach org_id batch read).
+    //    With no clones, distinctCloningCoachIds is empty and the
+    //    route SKIPS this read. We DON'T queue a chain.
 
     const res = await GET(makeRequest());
     expect(res.status).toBe(200);
@@ -189,8 +201,9 @@ describe('GET /api/practice-plan-shares/league (ticket 0055)', () => {
     expect(body.eligible).toBe(true);
     expect(body.plans.length).toBe(2);
 
-    // Keyset deep-equality — exactly EIGHT keys per row, every one documented
-    // (LESSONS#78). Adding a future key requires changing this assertion.
+    // Keyset deep-equality — exactly NINE keys per row (8 documented
+    // 0055 keys + the new 0073 `reputation` field). Adding a future
+    // key requires changing this assertion.
     const ALLOWED = [
       'token',
       'planTitle',
@@ -200,6 +213,7 @@ describe('GET /api/practice-plan-shares/league (ticket 0055)', () => {
       'ageGroup',
       'sourcePlanId',
       'note',
+      'reputation',
     ].sort();
     for (const row of body.plans) {
       expect(Object.keys(row).sort()).toEqual(ALLOWED);

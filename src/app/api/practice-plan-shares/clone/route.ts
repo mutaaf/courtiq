@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
+import { fireMilestonesForPublishedCoach } from '@/lib/coach-reputation-milestone-hook';
 
 // POST /api/practice-plan-shares/clone — save a published practice plan to the
 // caller's own team (ticket 0049). Inserts a fresh `plans` row with
@@ -110,6 +111,13 @@ export async function POST(request: Request) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // Ticket 0073 — best-effort milestone hook. Fires the
+    // publishing coach's reputation milestones if the just-landed
+    // clone pushed their cloneCount / distinctProgramCount over a
+    // threshold. Errors are caught inside the helper so the clone
+    // path is never blocked (LESSONS#0036).
+    await fireMilestonesForPublishedCoach(supabase, share.coach_id);
 
     return NextResponse.json({ planId: inserted?.id ?? null });
   } catch (error: unknown) {

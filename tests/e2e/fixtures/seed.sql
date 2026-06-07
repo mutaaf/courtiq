@@ -1943,4 +1943,236 @@ values (
 )
 on conflict (share_token) do nothing;
 
+-- ════════════════════════════════════════════════════════════════════════
+-- Ticket 0073 — coach reputation on league discovery fixture
+-- ════════════════════════════════════════════════════════════════════════
+-- The reputation line on the 0055 league-discovery section, and the
+-- milestone card on /home for the publishing coach. The seed extension:
+--   * 12 plan-clone rows tied to the seeded 0055 published plan (...303),
+--     spread across 4 distinct CLONING orgs (the load-bearing
+--     distinctProgramCount=4 signal). Each clone is a `plans` row with
+--     source_plan_id = the seeded published plan id (matching the 0049
+--     schema — there is no separate practice_plan_clones table).
+--   * Four new cloning coaches (one per distinct cloning org) + auth.users
+--     mirrors per LESSONS#0084.
+--   * Four new cloning teams (one per cloning coach, in distinct orgs).
+--   * Three additional cloning orgs (...d8, ...da, ...dc) — the fourth
+--     program is the EXISTING ...010 org the caller belongs to (the
+--     route's distinct-program count includes the caller's org if a
+--     cloner from that org cloned the plan).
+--   * ONE coach_reputation_milestones row for the published coach
+--     (...301), kind 'programs_2', notified_at IS NULL — the milestone
+--     card on the published coach's /home asserts on this.
+--
+-- LESSONS#0084 — every coaches row gets a matching auth.users row first.
+-- LESSONS#0101 — UUIDs in the d7..df range (verified unused above; d2..d6
+-- are 0072 territory).
+-- COPPA — no new players, no new parent rows. The seed clones a
+-- team-level practice plan; no minor data is introduced.
+
+-- Three additional cloning orgs (the 4th program is the existing ...010
+-- the caller belongs to).
+insert into organizations (id, name, slug)
+values
+  ('00000000-0000-4000-a000-0000000000d8', 'Hornets Program', 'hornets-program-0073'),
+  ('00000000-0000-4000-a000-0000000000da', 'Falcons Program', 'falcons-program-0073'),
+  ('00000000-0000-4000-a000-0000000000dc', 'Owls Program',    'owls-program-0073')
+on conflict (id) do nothing;
+
+-- Four cloning auth.users + coaches rows, one per cloning org. The
+-- coaches.org_id is what the reputation aggregator reads to derive
+-- distinctProgramCount.
+insert into auth.users (id, instance_id, aud, role, email,
+                        email_confirmed_at, created_at, updated_at)
+values
+  ('00000000-0000-4000-a000-0000000000d7', '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated', 'cloner-a-0073@test.com', now(), now(), now()),
+  ('00000000-0000-4000-a000-0000000000d9', '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated', 'cloner-b-0073@test.com', now(), now(), now()),
+  ('00000000-0000-4000-a000-0000000000db', '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated', 'cloner-c-0073@test.com', now(), now(), now()),
+  ('00000000-0000-4000-a000-0000000000dd', '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated', 'cloner-d-0073@test.com', now(), now(), now())
+on conflict (id) do nothing;
+
+insert into coaches (id, org_id, full_name, email, role, onboarding_complete)
+values
+  -- Cloner A — uses an org already present (cloning into the same program
+  -- as the published coach is one of the four).
+  ('00000000-0000-4000-a000-0000000000d7',
+   '00000000-0000-4000-a000-000000000010',
+   'Cloner A', 'cloner-a-0073@test.com', 'coach', true),
+  -- Cloner B — Hornets program.
+  ('00000000-0000-4000-a000-0000000000d9',
+   '00000000-0000-4000-a000-0000000000d8',
+   'Cloner B', 'cloner-b-0073@test.com', 'coach', true),
+  -- Cloner C — Falcons program.
+  ('00000000-0000-4000-a000-0000000000db',
+   '00000000-0000-4000-a000-0000000000da',
+   'Cloner C', 'cloner-c-0073@test.com', 'coach', true),
+  -- Cloner D — Owls program.
+  ('00000000-0000-4000-a000-0000000000dd',
+   '00000000-0000-4000-a000-0000000000dc',
+   'Cloner D', 'cloner-d-0073@test.com', 'coach', true)
+on conflict (id) do nothing;
+
+-- Four cloning teams, one per cloner. Each team's org_id matches its
+-- coach's org_id (the route reads the coach's org_id, not the team's,
+-- but a team-org alignment keeps the seed semantically consistent with
+-- a real org).
+insert into teams (id, org_id, sport_id, name, age_group, season, is_active)
+select '00000000-0000-4000-a000-0000000000e2',
+       '00000000-0000-4000-a000-000000000010',
+       (select id from sports where slug = 'basketball' limit 1),
+       'Cloner A Team', '11-13', 'Spring 2026', true
+on conflict (id) do nothing;
+
+insert into teams (id, org_id, sport_id, name, age_group, season, is_active)
+select '00000000-0000-4000-a000-0000000000e3',
+       '00000000-0000-4000-a000-0000000000d8',
+       (select id from sports where slug = 'basketball' limit 1),
+       'Cloner B Team', '11-13', 'Spring 2026', true
+on conflict (id) do nothing;
+
+insert into teams (id, org_id, sport_id, name, age_group, season, is_active)
+select '00000000-0000-4000-a000-0000000000e4',
+       '00000000-0000-4000-a000-0000000000da',
+       (select id from sports where slug = 'basketball' limit 1),
+       'Cloner C Team', '11-13', 'Spring 2026', true
+on conflict (id) do nothing;
+
+insert into teams (id, org_id, sport_id, name, age_group, season, is_active)
+select '00000000-0000-4000-a000-0000000000e5',
+       '00000000-0000-4000-a000-0000000000dc',
+       (select id from sports where slug = 'basketball' limit 1),
+       'Cloner D Team', '11-13', 'Spring 2026', true
+on conflict (id) do nothing;
+
+-- 12 plan-clone rows, spread 3-3-3-3 across the four cloning coaches.
+-- Each row is a `plans` row with source_plan_id = the seeded 0055
+-- published plan (...303). The cloning coach's org_id is what the
+-- aggregator counts for distinctProgramCount. created_at = now() so
+-- every row falls inside the 28-day reputation window.
+--
+-- The id family `0000000000e6..f1` is unused (d2..d6 + d7..dd + e0..e5
+-- are claimed above; e6+ is free).
+
+-- LESSONS#0084 — idempotent DELETE-then-INSERT block. A previous
+-- seed run's clone rows are dropped so a re-seeded run doesn't double
+-- the counts.
+delete from plans where id in (
+  '00000000-0000-4000-a000-0000000000e6',
+  '00000000-0000-4000-a000-0000000000e7',
+  '00000000-0000-4000-a000-0000000000e8',
+  '00000000-0000-4000-a000-0000000000e9',
+  '00000000-0000-4000-a000-0000000000ea',
+  '00000000-0000-4000-a000-0000000000eb',
+  '00000000-0000-4000-a000-0000000000ec',
+  '00000000-0000-4000-a000-0000000000ed',
+  '00000000-0000-4000-a000-0000000000ee',
+  '00000000-0000-4000-a000-0000000000ef',
+  '00000000-0000-4000-a000-0000000000f0',
+  '00000000-0000-4000-a000-0000000000f1'
+);
+
+insert into plans (id, team_id, coach_id, player_id, type, title, content, content_structured, source_plan_id)
+values
+  -- Three from Cloner A (org ...010).
+  ('00000000-0000-4000-a000-0000000000e6',
+   '00000000-0000-4000-a000-0000000000e2',
+   '00000000-0000-4000-a000-0000000000d7',
+   null, 'practice', 'Tuesday Closeouts Series (cloned)',
+   '{}', '{"drills": []}'::jsonb,
+   '00000000-0000-4000-a000-000000000303'),
+  ('00000000-0000-4000-a000-0000000000e7',
+   '00000000-0000-4000-a000-0000000000e2',
+   '00000000-0000-4000-a000-0000000000d7',
+   null, 'practice', 'Tuesday Closeouts Series (cloned)',
+   '{}', '{"drills": []}'::jsonb,
+   '00000000-0000-4000-a000-000000000303'),
+  ('00000000-0000-4000-a000-0000000000e8',
+   '00000000-0000-4000-a000-0000000000e2',
+   '00000000-0000-4000-a000-0000000000d7',
+   null, 'practice', 'Tuesday Closeouts Series (cloned)',
+   '{}', '{"drills": []}'::jsonb,
+   '00000000-0000-4000-a000-000000000303'),
+  -- Three from Cloner B (Hornets).
+  ('00000000-0000-4000-a000-0000000000e9',
+   '00000000-0000-4000-a000-0000000000e3',
+   '00000000-0000-4000-a000-0000000000d9',
+   null, 'practice', 'Tuesday Closeouts Series (cloned)',
+   '{}', '{"drills": []}'::jsonb,
+   '00000000-0000-4000-a000-000000000303'),
+  ('00000000-0000-4000-a000-0000000000ea',
+   '00000000-0000-4000-a000-0000000000e3',
+   '00000000-0000-4000-a000-0000000000d9',
+   null, 'practice', 'Tuesday Closeouts Series (cloned)',
+   '{}', '{"drills": []}'::jsonb,
+   '00000000-0000-4000-a000-000000000303'),
+  ('00000000-0000-4000-a000-0000000000eb',
+   '00000000-0000-4000-a000-0000000000e3',
+   '00000000-0000-4000-a000-0000000000d9',
+   null, 'practice', 'Tuesday Closeouts Series (cloned)',
+   '{}', '{"drills": []}'::jsonb,
+   '00000000-0000-4000-a000-000000000303'),
+  -- Three from Cloner C (Falcons).
+  ('00000000-0000-4000-a000-0000000000ec',
+   '00000000-0000-4000-a000-0000000000e4',
+   '00000000-0000-4000-a000-0000000000db',
+   null, 'practice', 'Tuesday Closeouts Series (cloned)',
+   '{}', '{"drills": []}'::jsonb,
+   '00000000-0000-4000-a000-000000000303'),
+  ('00000000-0000-4000-a000-0000000000ed',
+   '00000000-0000-4000-a000-0000000000e4',
+   '00000000-0000-4000-a000-0000000000db',
+   null, 'practice', 'Tuesday Closeouts Series (cloned)',
+   '{}', '{"drills": []}'::jsonb,
+   '00000000-0000-4000-a000-000000000303'),
+  ('00000000-0000-4000-a000-0000000000ee',
+   '00000000-0000-4000-a000-0000000000e4',
+   '00000000-0000-4000-a000-0000000000db',
+   null, 'practice', 'Tuesday Closeouts Series (cloned)',
+   '{}', '{"drills": []}'::jsonb,
+   '00000000-0000-4000-a000-000000000303'),
+  -- Three from Cloner D (Owls).
+  ('00000000-0000-4000-a000-0000000000ef',
+   '00000000-0000-4000-a000-0000000000e5',
+   '00000000-0000-4000-a000-0000000000dd',
+   null, 'practice', 'Tuesday Closeouts Series (cloned)',
+   '{}', '{"drills": []}'::jsonb,
+   '00000000-0000-4000-a000-000000000303'),
+  ('00000000-0000-4000-a000-0000000000f0',
+   '00000000-0000-4000-a000-0000000000e5',
+   '00000000-0000-4000-a000-0000000000dd',
+   null, 'practice', 'Tuesday Closeouts Series (cloned)',
+   '{}', '{"drills": []}'::jsonb,
+   '00000000-0000-4000-a000-000000000303'),
+  ('00000000-0000-4000-a000-0000000000f1',
+   '00000000-0000-4000-a000-0000000000e5',
+   '00000000-0000-4000-a000-0000000000dd',
+   null, 'practice', 'Tuesday Closeouts Series (cloned)',
+   '{}', '{"drills": []}'::jsonb,
+   '00000000-0000-4000-a000-000000000303')
+on conflict (id) do nothing;
+
+-- ONE coach_reputation_milestones row for the seeded 0055 published
+-- coach (...301), kind 'programs_2', notified_at IS NULL. The
+-- published coach's /home renders the milestone card on top of this
+-- row.
+delete from coach_reputation_milestones
+  where published_coach_id = '00000000-0000-4000-a000-000000000301'
+    and milestone_kind = 'programs_2';
+
+insert into coach_reputation_milestones (
+  id, published_coach_id, milestone_kind, crossed_at, notified_at
+)
+values (
+  '00000000-0000-4000-a000-0000000000f2',
+  '00000000-0000-4000-a000-000000000301',
+  'programs_2',
+  now() - interval '1 day',
+  null
+)
+on conflict (published_coach_id, milestone_kind) do nothing;
+
 commit;
