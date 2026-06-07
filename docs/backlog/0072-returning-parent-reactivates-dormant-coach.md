@@ -1,7 +1,7 @@
 ---
 id: 0072
 title: When a parent whose kid's coach has been dark 30+ days lands on the parent portal for their NEW team in the fall, tell the dormant coach by name — "Liam's mom is back, she's looking at SportsIQ for fall"
-status: groomed
+status: in-progress
 priority: P1
 area: onboarding
 created: 2026-06-07
