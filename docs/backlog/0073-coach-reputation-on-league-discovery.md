@@ -1,7 +1,7 @@
 ---
 id: 0073
 title: When a coach browses the league discovery surface, rank the published coaches by how many DIFFERENT programs have cloned their plans this month — and tell each named coach who saw their work
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-06-07
@@ -703,3 +703,27 @@ Files / patterns the dev should touch.
 ## Implementation log
 
 (Appended by the implementation-dev agent during execution.)
+
+### 2026-06-07 — Pickup notes (implementation-dev)
+
+**Status: in-progress.** Branch `feat/0073-coach-reputation-on-league-discovery`.
+
+LESSONS#0096 pickup reads — actual schema/routes vs. ticket prose:
+
+- **Clone-tracking tables.** The 0049 schema (`supabase/migrations/048_practice_plan_shares.sql`) does NOT use a `practice_plan_clones` table — the clone tracking is `plans.source_plan_id` (a self-FK on `plans`, set when a clone is created). The 0064 schema (`supabase/migrations/059_drill_shares.sql`) uses a dedicated `drill_share_clones` table. So the route extension must read `plans` (filtered by `source_plan_id IN <publisher plan_ids>`) for plan clones AND `drill_share_clones` for drill clones. Joined to the cloning coach's row to derive `cloning_org_id`.
+- **0055 league-discovery route.** Lives at `src/app/api/practice-plan-shares/league/route.ts` (not `src/app/api/league/discovery/route.ts`). The route already does five `from()` calls: teams (caller ownership), coaches (caller org), coaches (peer coaches), teams (peer teams), practice_plan_shares (heavy read with plan join). We extend with two NEW reads — plans (source_plan_id-based clone scan) and drill_share_clones — for the reputation aggregation. Per LESSONS#0112 widening one of the existing `.select()` calls subsumes nothing usefully because the new reads are on different tables — but we DO keep the new reads conditional on a non-empty peer plan set so the route is byte-identical on empty leagues.
+- **0049 clone route.** Lives at `src/app/api/practice-plan-shares/clone/route.ts` (not `/api/practice-plan/clone/route.ts`).
+- **0064 drill clone route.** Lives at `src/app/api/drill-shares/[token]/clone/route.ts` (not `/api/drill-share/clone/route.ts`).
+- **0055 UI surface.** The league discovery surface is a `<LeaguePlansSection />` mounted at the top of `src/app/(dashboard)/plans/page.tsx` — NOT a separate `/library/league` page. The reputation line mounts on each row of `src/components/plan/league-plans-section.tsx`.
+- **/home page.** `src/app/(dashboard)/home/page.tsx` (client component). Pattern: mount the new milestone card next to the existing `<ReturningParentSection />` (line 1444) — same `!practiceActive` guard.
+- **Next migration prefix.** `064_coach_reactivation_signals.sql` is the latest. `065` is the next free prefix. Confirmed via `ls supabase/migrations/`.
+- **UUID range for seed extension.** Used: `d0..d6`, `e0..e1`. Next free: `0000000000d7..dc` (six rows planned for this ticket).
+
+LESSONS#0116 empty-sweep documentation (Glob hits that returned empty):
+
+- `tests/api/league*.test.ts` — empty (no files match this prefix). The relevant league test is `tests/api/practice-plan-shares-league.test.ts`; we extend that file.
+- `tests/app/library*.test.ts` — empty (no `library*` files; the 0055 surface is on `/plans`, not `/library`).
+- `tests/api/practice-plan-clone*.test.ts` — empty (no files match this prefix). The relevant clone test is `tests/api/practice-plan-shares-clone.test.ts`; we extend that file.
+- `tests/api/drill*clone*.test.ts` — empty (no files match this prefix). The relevant drill clone test is `tests/api/drill-shares-clone.test.ts`; we extend that file.
+
+Per LESSONS#0116 the empty sweeps are a no-op — don't invent files. The actual sibling files we update are the four named above.
