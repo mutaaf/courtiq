@@ -150,7 +150,14 @@ describe('POST /api/practice-plan-shares/clone (ticket 0049)', () => {
       .mockReturnValueOnce(planChain)
       .mockReturnValueOnce(callerCoachChain)
       .mockReturnValueOnce(ownTeamChain)
-      .mockReturnValueOnce(insertChain);
+      .mockReturnValueOnce(insertChain)
+      // Ticket 0073 milestone hook reads (LESSONS#0072 / #0118 — extend
+      // the existing queue when a new from() call lands on the route).
+      // The hook reads:
+      //   6. publisher's plans (empty → short-circuits)
+      //   7. publisher's drill_shares (empty → short-circuits)
+      .mockReturnValueOnce(buildChain([]))
+      .mockReturnValueOnce(buildChain([]));
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
@@ -180,7 +187,10 @@ describe('POST /api/practice-plan-shares/clone (ticket 0049)', () => {
       .mockReturnValueOnce(planChain)
       .mockReturnValueOnce(callerCoachChain)
       .mockReturnValueOnce(ownTeamChain)
-      .mockReturnValueOnce(insertChain);
+      .mockReturnValueOnce(insertChain)
+      // 0073 milestone hook — empty short-circuits.
+      .mockReturnValueOnce(buildChain([]))
+      .mockReturnValueOnce(buildChain([]));
 
     await POST(
       makeRequest({

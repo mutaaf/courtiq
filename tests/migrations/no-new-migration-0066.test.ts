@@ -30,7 +30,8 @@ describe('Ticket 0066 — no new migration files (regression)', () => {
     // (season_opener_shares landed at prefix 062). Bumped 63 → 64 by
     // ticket 0069 (game_decompressions landed at prefix 063). Bumped
     // 64 → 65 by ticket 0072 (coach_reactivation_signals landed at
-    // prefix 064).
-    expect(files.length).toBe(65);
+    // prefix 064). Bumped 65 → 66 by ticket 0073
+    // (coach_reputation_milestones landed at prefix 065).
+    expect(files.length).toBe(66);
   });
 });

@@ -133,7 +133,12 @@ describe('POST /api/drill-shares/[token]/clone (ticket 0064)', () => {
       .mockReturnValueOnce(shareChain) // drill_shares lookup
       .mockReturnValueOnce(coachReadChain) // coaches.preferences read
       .mockReturnValueOnce(coachUpdateChain) // coaches.preferences update (favorite add)
-      .mockReturnValueOnce(cloneInsertChain); // drill_share_clones insert
+      .mockReturnValueOnce(cloneInsertChain) // drill_share_clones insert
+      // Ticket 0073 milestone hook (LESSONS#0072 / #0118 — extend the
+      // existing queue when a new from() call lands on the route).
+      // Publisher has no plans and no drill_shares → short-circuits.
+      .mockReturnValueOnce(buildChain([])) // hook: publisher plans (empty)
+      .mockReturnValueOnce(buildChain([])); // hook: publisher drill_shares (empty)
 
     const res = await POST(makeRequest(), paramsFor('abc'));
     expect(res.status).toBe(200);

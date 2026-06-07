@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Users, Check } from 'lucide-react';
 import { formatLeaguePlanRow } from '@/lib/league-plans-utils';
+import { CoachReputationLine } from '@/components/library/coach-reputation-line';
 
 // Ticket 0055 — <LeaguePlansSection /> renders at the TOP of /plans.
 //
@@ -37,6 +38,15 @@ interface LeaguePlan {
   ageGroup: string | null;
   sourcePlanId: string;
   note: string | null;
+  /** Ticket 0073 reputation extension — present when the published
+   *  coach's clone counts are above the discovery threshold. Optional
+   *  on the legacy payload shape per LESSONS#0103 (callers without
+   *  the new field stay byte-identical). */
+  reputation?: {
+    cloneCount: number;
+    distinctProgramCount: number;
+    distinctCoachCount: number;
+  } | null;
 }
 
 interface LeaguePayload {
@@ -142,6 +152,13 @@ export function LeaguePlansSection({ teamId }: { teamId: string | null }) {
                   {plan.planTitle ?? 'Practice plan'}
                 </p>
                 <p className="text-xs text-zinc-400 mt-0.5 truncate">{rowLine}</p>
+                {/* Ticket 0073 — reputation line. Renders ONLY when */}
+                {/* the published coach's counts are above the */}
+                {/* discovery threshold; ABSENT otherwise. */}
+                <CoachReputationLine
+                  cardKey={plan.token}
+                  reputation={plan.reputation ?? null}
+                />
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <a

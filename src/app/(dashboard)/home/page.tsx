@@ -79,6 +79,7 @@ import { HomeQuickObserveSheet } from '@/components/home/home-quick-observe-shee
 import { SidelineCheatSheetCard } from '@/components/home/sideline-cheat-sheet-card';
 import { SeasonOpenerCard } from '@/components/home/season-opener-card';
 import { ReturningParentSection } from '@/components/home/returning-parent-card';
+import { CoachReputationMilestoneSection } from '@/components/home/coach-reputation-milestone-card';
 
 // ─── Live capture feed helper ──────────────────────────────────────────────────
 
@@ -1442,6 +1443,12 @@ export default function HomePage() {
       {/* a parent portal on a DIFFERENT team's kid. Sits ABOVE the 0036 */}
       {/* season-wrap card; renders nothing when no unconsumed signal. */}
       {!practiceActive && <ReturningParentSection />}
+
+      {/* Ticket 0073 — coach reputation milestone: the publishing coach's */}
+      {/* clone count crossed a threshold this month. Renders nothing when */}
+      {/* no unconsumed milestone. Smallest possible touch per */}
+      {/* LESSONS#0065 / #0066 / #0162 — one import + one JSX entry. */}
+      {!practiceActive && <CoachReputationMilestoneSection />}
 
       {!practiceActive && activeTeam && (
         <SeasonWrapSection teamId={activeTeam.id} />
