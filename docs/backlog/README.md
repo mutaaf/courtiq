@@ -76,6 +76,10 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
+| 0072 | When a parent whose kid's coach has been dark 30+ days lands on the parent portal for their NEW team in the fall, tell the dormant coach by name — "Liam's mom is back, she's looking at SportsIQ for fall" | P1 | groomed | onboarding |
+| 0073 | When a coach browses the league discovery surface, rank the published coaches by how many DIFFERENT programs have cloned their plans this month — and tell each named coach who saw their work | P1 | groomed | growth |
+| 0074 | When a coach hits 3 successful referrals — converted coaches who shipped real plans — credit one real free month on their next Stripe invoice and tell them by name who earned it | P1 | groomed | billing |
+| 0075 | When a coach opens Capture and three coaches in OTHER programs in the same sport are working on the same skill this week, surface ONE quiet line — "three coaches in your sport are on closeouts too — here's the drill they're running" | P1 | groomed | capture |
 | 0071 | When 3+ coaches in the same program are working on the same skill this week, surface it to the director as "your program is rallying around X" | P1 | shipped | analytics |
 | 0070 | Make every parent report sound like the coach who is writing it — across every team they have ever coached | P1 | shipped | ai |
 | 0069 | After a rough game, let the coach record 30 seconds of voice on the drive home and have it become the first drill of the next practice | P1 | shipped | capture |
