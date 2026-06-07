@@ -1,7 +1,7 @@
 ---
 id: 0074
 title: When a coach hits 3 successful referrals — converted coaches who shipped real plans — credit one real free month on their next Stripe invoice and tell them by name who earned it
-status: groomed
+status: in-progress
 priority: P1
 area: billing
 created: 2026-06-07
@@ -671,4 +671,14 @@ Files / patterns the dev should touch.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-07 [ship/0074] Branched `feat/0074-referral-credit-real-free-month`
+  from `origin/main`. Confirmed migration `066_` is the next free prefix (065
+  is the latest, the coach-reputation-milestones table). Confirmed
+  `src/lib/referral-code.ts` ships the deterministic
+  `makeReferralCode(coachId)` helper to reuse for the referral-graph lookup.
+  Confirmed the existing `/api/referrals/celebration` route reads the
+  `preferences->>referred_by_code` JSONB selector that the new GET route will
+  mirror. Confirmed `organizations.tier` + `stripe_customer_id` are the real
+  columns (per LESSONS#0039). Confirmed the home page mounts other 0072/0073
+  cards near the `<ReferralCelebrationCard />` line — that's where the
+  smallest-possible-touch insert goes (LESSONS#0065 / #0066 / #0162).
