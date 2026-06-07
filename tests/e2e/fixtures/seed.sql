@@ -1816,4 +1816,131 @@ values
    now() - interval '2 days')
 on conflict (id) do nothing;
 
+-- ════════════════════════════════════════════════════════════════════════
+-- Ticket 0072 — dormant-coach reactivation fixture
+-- ════════════════════════════════════════════════════════════════════════
+-- The reactivation card on the dormant coach's /home renders when a
+-- returning parent — recognized by parent_email matching a prior player
+-- on a DIFFERENT team — opens a parent portal whose team is NOT the
+-- prior team. This block seeds:
+--   * ONE more auth.users + coaches row — the SPRING dormant coach
+--     ("Sarah Hawkes") whose last_active_at is 45 days ago. (LESSONS#0084
+--     — auth.users row first; LESSONS#0096 — the freshness column is
+--     `last_active_at`, populated here so isCoachDormant returns true.)
+--   * ONE more teams row — the SPRING team Sarah ran ("Spring Hawks").
+--   * ONE more team_coaches row marking Sarah head_coach of the spring
+--     team (LESSONS#0057 — head-coach ownership lives on team_coaches).
+--   * ONE more players row — Liam, the prior-spring-player carrying the
+--     parent_email that ties the reactivation edge.
+--   * ONE more players row on the EXISTING E2E fall team — a sibling
+--     ("Maya") for the same parent_email. The existing parent_shares
+--     token (`test-share-token-e2e-001`) already resolves to that
+--     fall-team player_id (Alice), so to seed the reactivation we need
+--     a SECOND parent_shares token resolving to a NEW fall-team player
+--     whose parent_email matches Liam's. (We can't simply share Alice's
+--     token — Alice's parent_name is hardcoded in many spec assertions.)
+--   * ONE more parent_shares row tied to the new fall player whose
+--     parent_email matches Liam's spring row — this is the token the
+--     Playwright spec hits as "the parent has come back to a NEW team."
+--
+-- UUID family `00000000-0000-4000-a000-0000000000d2`+ — verified unused
+-- via `grep -nE "0000000000d[0-9a-f]" tests/e2e/fixtures/seed.sql` at
+-- pickup; the 0069 family uses d0/d1, so d2+ are free.
+--
+-- COPPA: parent_email is the load-bearing edge — set on TWO rows in the
+-- seed (the spring prior-player and the fall current-player). The
+-- production migration stores a SHA-256 hash, never the plaintext; the
+-- seed inputs are plaintext only because the route reads parent_email
+-- on the players rows (already in the schema, NOT a new collection).
+-- NO new column on coaches / players / teams. NO new DOB, NO medical_notes.
+
+insert into auth.users (id, instance_id, aud, role, email,
+                        email_confirmed_at, created_at, updated_at)
+values (
+  '00000000-0000-4000-a000-0000000000d2',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated', 'authenticated',
+  'coach-spring-dormant-e2e@test.com', now(), now(), now()
+)
+on conflict (id) do nothing;
+
+insert into coaches (
+  id, org_id, full_name, email, role, onboarding_complete, last_active_at
+)
+values (
+  '00000000-0000-4000-a000-0000000000d2',
+  '00000000-0000-4000-a000-000000000010',
+  'Sarah Hawkes',
+  'coach-spring-dormant-e2e@test.com',
+  'coach', true,
+  now() - interval '45 days'
+)
+on conflict (id) do nothing;
+
+insert into teams (id, org_id, sport_id, name, age_group, season, is_active)
+values (
+  '00000000-0000-4000-a000-0000000000d3',
+  '00000000-0000-4000-a000-000000000010',
+  null,
+  'Spring Hawks',
+  '8-10',
+  'Spring 2026', true
+)
+on conflict (id) do nothing;
+
+insert into team_coaches (team_id, coach_id, role)
+values (
+  '00000000-0000-4000-a000-0000000000d3',
+  '00000000-0000-4000-a000-0000000000d2',
+  'head_coach'
+)
+on conflict (team_id, coach_id) do nothing;
+
+-- The SPRING prior-player ("Liam") with the parent_email edge.
+insert into players (
+  id, team_id, name, age_group, position, jersey_number,
+  parent_name, parent_email, is_active
+)
+values (
+  '00000000-0000-4000-a000-0000000000d4',
+  '00000000-0000-4000-a000-0000000000d3',
+  'Liam Reactive',
+  '8-10', 'PG', 7,
+  'Linda', 'returning-parent-e2e@test.com', true
+)
+on conflict (id) do nothing;
+
+-- The FALL current-player ("Maya") on the existing E2E team, sharing
+-- the same parent_email — the parent the Playwright spec impersonates.
+insert into players (
+  id, team_id, name, age_group, position, jersey_number,
+  parent_name, parent_email, is_active
+)
+values (
+  '00000000-0000-4000-a000-0000000000d5',
+  '00000000-0000-4000-a000-000000000020',
+  'Maya Reactive',
+  '8-10', 'SF', 11,
+  'Linda', 'returning-parent-e2e@test.com', true
+)
+on conflict (id) do nothing;
+
+-- The parent_shares row whose token the spec opens. Resolves to Maya
+-- on the fall E2E team. share_token = 'test-share-token-e2e-reactive'.
+insert into parent_shares (
+  id, player_id, team_id, coach_id, share_token,
+  include_report_card, include_highlights, include_observations,
+  is_active, expires_at
+)
+values (
+  '00000000-0000-4000-a000-0000000000d6',
+  '00000000-0000-4000-a000-0000000000d5',
+  '00000000-0000-4000-a000-000000000020',
+  '00000000-0000-4000-a000-000000000001',
+  'test-share-token-e2e-reactive',
+  true, true, true, true,
+  now() + interval '365 days'
+)
+on conflict (share_token) do nothing;
+
 commit;

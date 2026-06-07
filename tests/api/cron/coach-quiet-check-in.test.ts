@@ -60,6 +60,32 @@ function clearStore() {
   store.prefsWrites = [];
 }
 
+// Ticket 0072 — a chain that resolves empty for the cron's reactivation
+// branch reads (signals/players/teams). Every chain method returns
+// `this` and the chain is thenable so `await chain` resolves to
+// `{ data: [], error: null }`.
+function buildEmptyChain() {
+  const resolved = { data: [], error: null };
+  const chain: Record<string, unknown> = {
+    select: vi.fn().mockReturnThis(),
+    update: vi.fn().mockReturnThis(),
+    insert: vi.fn().mockReturnThis(),
+    upsert: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    is: vi.fn().mockReturnThis(),
+    gte: vi.fn().mockReturnThis(),
+    lte: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue(resolved),
+    maybeSingle: vi.fn().mockResolvedValue(resolved),
+    then: (onFulfilled: (v: typeof resolved) => unknown) =>
+      Promise.resolve(resolved).then(onFulfilled),
+  };
+  return chain;
+}
+
 function buildCoachesChain() {
   let _ordered: Coach[] = [...store.coaches];
   const chain: Record<string, unknown> = {
@@ -92,6 +118,16 @@ beforeEach(() => {
 
   mockFromFn.mockImplementation((table: string) => {
     if (table === 'coaches') return buildCoachesChain();
+    // Ticket 0072 — the cron's reactivation branch reads these tables.
+    // The default in this base file: every read resolves empty so the
+    // reactivation branch is a silent no-op for the 0042 tests.
+    if (
+      table === 'coach_reactivation_signals' ||
+      table === 'players' ||
+      table === 'teams'
+    ) {
+      return buildEmptyChain();
+    }
     throw new Error(`unexpected table read: ${table}`);
   });
 

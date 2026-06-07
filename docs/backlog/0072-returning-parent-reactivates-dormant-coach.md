@@ -1,7 +1,7 @@
 ---
 id: 0072
 title: When a parent whose kid's coach has been dark 30+ days lands on the parent portal for their NEW team in the fall, tell the dormant coach by name — "Liam's mom is back, she's looking at SportsIQ for fall"
-status: groomed
+status: in-progress
 priority: P1
 area: onboarding
 created: 2026-06-07
@@ -644,4 +644,53 @@ Files / patterns the dev should touch.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-07 Implementation-dev pickup. Confirmed `064` is free
+  (063_game_decompressions.sql is the tip; no sibling claimed 064).
+  Confirmed the freshness column is `coaches.last_active_at`
+  (migration 042), not the ticket's prose `coaches.updated_at` —
+  schema wins per LESSONS#0096; the prose's "updated_at proxy" reads
+  as the 0042 family's `last_active_at` semantically and the new
+  helper keys off it. Confirmed the prior-player route's existing
+  player .select() does NOT include `parent_email`, so the
+  ticket's "widen the existing read" option (LESSONS#0112) is
+  available: widened the existing player read from
+  `'id, name, nickname, position, jersey_number, photo_url,
+  parent_name, parent_phone'` to add `parent_email`, then strip it
+  from the response payload before NextResponse.json so the
+  parent surface is BYTE-IDENTICAL. The route's existing tests
+  use `mockImplementation((table) => ...)` (table-keyed), so the
+  new from() calls do NOT need a mockReturnValueOnce queue sweep
+  (LESSONS#0049 / #0092 / #0100 / #0110 family does not apply
+  here — vacuously satisfied per LESSONS#0116). The trajectory
+  page lives at `/roster/[playerId]/trajectory`, NOT
+  `/players/[playerId]/trajectory` as the ticket prose said —
+  schema wins per LESSONS#0096.
+- 2026-06-07 The cron route's existing test was using a
+  `mockImplementation` that THREW on any unknown table; the
+  reactivation branch's new `coach_reactivation_signals` /
+  `players` / `teams` reads triggered the throw under the new
+  branch's try/catch but caused noisy logs. Extended the existing
+  cron test's mockImplementation to return empty chains for the
+  three new tables — preserving the 0042 test's assertions while
+  letting the new branch silently no-op on the existing fixtures.
+- 2026-06-07 The route's player payload, after the reactivation
+  detection, must NOT carry parent_email in the response. The
+  obvious `delete reportData.player.parent_email` mutated the
+  SHARED test-fixture object across vitest cases — caught the
+  pollution by re-running the failing test in isolation and
+  finding it green there. Switched to `const { parent_email, ...rest }
+  = ...; reportData.player = rest;` so we never mutate the
+  upstream row.
+- 2026-06-07 Bumped `tests/migrations/no-new-migration-0066.test.ts`'s
+  pinned migration count from 64 to 65 to accommodate the new
+  064_coach_reactivation_signals.sql migration. Documented the
+  bump in the test's inline comment alongside prior bumps.
+- 2026-06-07 Local gate: `npm run lint` (0 errors), `tsc --noEmit`
+  (0 errors), `vitest run --no-file-parallelism` (6093/6095 passed
+  — the 2 failures: one is the well-known LESSONS#0036 TZ env
+  fail on `player-of-match-utils.test.ts:281` that reproduces
+  identically on bare main; the other was the migration-count
+  pin, now bumped and re-verified passing). E2E spec was scoped
+  to the public parent-portal page only — the dormant-coach-side
+  surface is auth-protected and covered by the vitest component
+  test + the route tests.

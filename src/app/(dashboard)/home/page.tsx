@@ -78,6 +78,7 @@ import { QuickWinsCard } from '@/components/home/quick-wins-card';
 import { HomeQuickObserveSheet } from '@/components/home/home-quick-observe-sheet';
 import { SidelineCheatSheetCard } from '@/components/home/sideline-cheat-sheet-card';
 import { SeasonOpenerCard } from '@/components/home/season-opener-card';
+import { ReturningParentSection } from '@/components/home/returning-parent-card';
 
 // ─── Live capture feed helper ──────────────────────────────────────────────────
 
@@ -1435,6 +1436,12 @@ export default function HomePage() {
       {!practiceActive && activeTeam && (
         <SidelineCheatSheetCard teamId={activeTeam.id} />
       )}
+
+      {/* Ticket 0072 — dormant-coach reactivation: a parent who lived */}
+      {/* the value of this coach's reports last season has just opened */}
+      {/* a parent portal on a DIFFERENT team's kid. Sits ABOVE the 0036 */}
+      {/* season-wrap card; renders nothing when no unconsumed signal. */}
+      {!practiceActive && <ReturningParentSection />}
 
       {!practiceActive && activeTeam && (
         <SeasonWrapSection teamId={activeTeam.id} />
