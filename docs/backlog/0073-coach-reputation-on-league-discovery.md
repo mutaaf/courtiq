@@ -727,3 +727,33 @@ LESSONS#0116 empty-sweep documentation (Glob hits that returned empty):
 - `tests/api/drill*clone*.test.ts` — empty (no files match this prefix). The relevant drill clone test is `tests/api/drill-shares-clone.test.ts`; we extend that file.
 
 Per LESSONS#0116 the empty sweeps are a no-op — don't invent files. The actual sibling files we update are the four named above.
+
+### 2026-06-07 — Final implementation notes
+
+**AC coverage (one line per box):**
+
+- Pure helper `src/lib/coach-reputation-utils.ts` — `computeCoachReputation` + `milestonesCrossed` + `isAboveDiscoveryThreshold`. Tests: `tests/lib/coach-reputation-utils.test.ts` (7 cases, all green).
+- League discovery extension at `src/app/api/practice-plan-shares/league/route.ts` — reads `plans` (clones via `source_plan_id`), `drill_shares`, `drill_share_clones`, and `coaches` for cloning-coach org_ids; per-row reputation; re-ranks by tuple. Tests: `tests/api/league-discovery-reputation.test.ts` (new, 4 cases) + extended `tests/api/practice-plan-shares-league.test.ts` (queue + ALLOWED keyset). Per LESSONS#0112 — widening the existing select wasn't viable (the new reads are on different tables) so we appended two new from() calls and updated every sibling queue in the same PR (LESSONS#0049 / #0092 / #0100 / #0110).
+- League discovery UI line at `src/components/library/coach-reputation-line.tsx` — mounted on the existing `<LeaguePlansSection />` (smallest possible touch per LESSONS#0065 / #0066 / #0162; per-card `data-testid` per LESSONS#0029 / #0082). Tests: `tests/components/coach-reputation-line.test.tsx`.
+- Migration `supabase/migrations/065_coach_reputation_milestones.sql` — UNIQUE(published_coach_id, milestone_kind) + CHECK on milestone_kind + partial index. Tests: `tests/migrations/065-coach-reputation-milestones.test.ts`. LESSONS#0088 — `--` comments stripped. LESSONS#0114 — `coach_reputation_milestones` + `published_coach_id` identifiers stripped before banned-token sweep. Also bumped `tests/migrations/no-new-migration-0066.test.ts` from 65 → 66.
+- Write-side hook at `src/lib/coach-reputation-milestone-hook.ts` — best-effort upsert on (published_coach_id, milestone_kind). Wired into BOTH `src/app/api/practice-plan-shares/clone/route.ts` AND `src/app/api/drill-shares/[token]/clone/route.ts`. Tests: `tests/api/practice-plan-clone-reputation.test.ts` (4 cases) + `tests/api/drill-share-clone-reputation.test.ts` (3 cases). Sibling queues in `practice-plan-shares-clone.test.ts` + `drill-shares-clone.test.ts` extended (2 empty short-circuit chains each). LESSONS#0036 — best-effort try/catch never blocks the clone.
+- Home milestone card at `src/components/home/coach-reputation-milestone-card.tsx` (+ section wrapper). Mounted next to the existing `<ReturningParentSection />` on `src/app/(dashboard)/home/page.tsx`. Tests: `tests/components/coach-reputation-milestone-card.test.tsx` (7 cases including the banned-word matrix scan over all 7 milestone kinds per LESSONS#0023).
+- Tier gating: universal — no new feature key (`src/lib/tier.ts` untouched). The published coach's reputation belongs to them.
+- Privacy / COPPA: explicit `.select()` allow-lists everywhere. The reputation aggregation reads `plans.coach_id / team_id / source_plan_id / created_at` (no player_id, no DOB, no medical), `drill_share_clones.drill_share_id / cloner_coach_id / cloned_at`, `coaches.id / org_id` (NO full_name, NO email). The milestone-card surface never names a cloning coach — the per-kind copy uses program-count aggregates only.
+- Voice contract: every component test scans rendered DOM for the AGENTS.md banned hype words. The milestone-kind matrix scan covers all 7 kinds. No `\s+` regex (LESSONS#0061).
+- Regression: the existing 0055 league-discovery test was updated to allow the new `reputation` key on the response keyset; the existing 0049 / 0064 clone-route tests were extended with two empty short-circuit chains for the milestone hook. Existing snapshots/coverage unchanged.
+- Seeded e2e: 12 plan-clone rows across 4 distinct cloning orgs tied to the 0055 published plan (id `00000000-0000-4000-a000-000000000303`); one `coach_reputation_milestones` row for the published coach. UUIDs in `0000000000d7..f2` (LESSONS#0101 free range; LESSONS#0084 idempotent `delete then insert`; every new coaches row has a matching auth.users row). Spec: `tests/e2e/coach-reputation-flow.spec.ts` (skips when E2E creds unset).
+
+**LESSONS fired this run:**
+- LESSONS#0096 — schema wins over prose (the 0049 clone-tracking is `plans.source_plan_id`, not a `practice_plan_clones` table; the 0055 route is `/api/practice-plan-shares/league`, not `/api/league/discovery`).
+- LESSONS#0049 / #0072 / #0092 / #0100 / #0110 / #0118 — every sibling test mock queue updated for the new from() calls in the same PR.
+- LESSONS#0036 — milestone write-hook wrapped in try/catch; the clone path is byte-identical on hook failure.
+- LESSONS#0088 / #0114 — migration COPPA scan strips `--` comments AND the structural identifier names.
+- LESSONS#0023 — every rendered copy variant is positively instructed; no banned hype words.
+- LESSONS#0084 / #0101 — seed extension is `delete then insert`; every new auth.users row matches a coaches row; UUIDs in the next free `0000000000d7..f2` range.
+- LESSONS#0065 / #0066 / #0162 — /home and discovery hotspots touched with the smallest possible imports + JSX entries.
+- LESSONS#0029 / #0082 — every reputation-line `data-testid` is scoped per card.
+
+**No deferred slice.** The ticket landed end-to-end in one PR.
+
+**Status: shipped (pending CI green + merge).**
