@@ -1063,3 +1063,24 @@ export interface GameDecompression {
   consumed_plan_id: string | null;
   created_at: string;
 }
+
+// Ticket 0072 — dormant-coach reactivation signal. ONE row per (dormant
+// coach, prior player) edge fired when a parent on that prior player's
+// row opens a parent-portal token for a DIFFERENT team (their other
+// kid's fall season). The dormant coach's /home surface reads the
+// unconsumed rows and renders the <ReturningParentCard />; the 0042
+// quiet-coach cron extension reads the unconsumed-and-not-yet-notified
+// rows and sends ONE email per signal. The parent email is stored as a
+// SHA-256 hash — never the plaintext — and the dormant-coach surface
+// never reads it either way (the only personalisation is the prior
+// player's first name, which the coach already has on their roster).
+export interface CoachReactivationSignal {
+  id: string;
+  dormant_coach_id: string;
+  prior_team_id: string;
+  prior_player_id: string;
+  returning_parent_email_hash: string;
+  fired_at: string;
+  notified_at: string | null;
+  consumed_at: string | null;
+}

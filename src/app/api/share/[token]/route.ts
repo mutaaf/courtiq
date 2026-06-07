@@ -44,10 +44,14 @@ export async function GET(
     }
 
     // Get player info (include parent_name for personalized greeting;
-    // parent_phone used to decide whether to show the contact-collection form)
+    // parent_phone used to decide whether to show the contact-collection
+    // form; ticket 0072 — parent_email read here is consumed ONLY by the
+    // best-effort dormant-coach reactivation detection below and NEVER
+    // surfaced in the response payload; the response is BYTE-IDENTICAL
+    // to today on the parent-portal render).
     const { data: player } = await supabase
       .from('players')
-      .select('id, name, nickname, position, jersey_number, photo_url, parent_name, parent_phone')
+      .select('id, name, nickname, position, jersey_number, photo_url, parent_name, parent_phone, parent_email')
       .eq('id', share.player_id)
       .single();
 
@@ -350,6 +354,112 @@ export async function GET(
       opponent: s.opponent ?? null,
     }));
 
+    // ─── Ticket 0072 — dormant-coach reactivation detection ───────────────
+    // Best-effort, never blocks the render. When the parent on THIS portal
+    // is also the parent on a prior player on a DIFFERENT team whose head
+    // coach is dormant (>= 30 days since last_active_at), upsert a row into
+    // `coach_reactivation_signals` so the dormant coach's /home surface and
+    // the 0042 cron extension can pull them back by name.
+    //
+    // The response payload is BYTE-IDENTICAL — no new field on reportData,
+    // no UI change for the parent (the surface is COMPLETELY INVISIBLE to
+    // the parent per the ticket's COPPA contract). The parent email lives
+    // only in the helper's local scope; we persist the SHA-256 hash.
+    //
+    // Per LESSONS#0036 — try/catch swallows any failure; the parent's
+    // page render NEVER waits on this detection succeeding.
+    try {
+      const parentEmail = (player as { parent_email?: string | null } | null)?.parent_email ?? null;
+      if (parentEmail) {
+        // Find every other-team active player carrying this parent email
+        // (case-insensitive). LESSONS#0036 allow-list: only the four
+        // columns the helper needs — NEVER reads DOB / medical_notes /
+        // parent_phone on the prior-player row.
+        const { data: priorPlayers } = await supabase
+          .from('players')
+          .select('id, name, team_id, parent_email')
+          .ilike('parent_email', parentEmail)
+          .neq('team_id', share.team_id)
+          .eq('is_active', true);
+
+        const priorTeamIds = Array.from(
+          new Set((priorPlayers ?? []).map((p) => p.team_id)),
+        );
+        if (priorTeamIds.length > 0) {
+          // Resolve the prior team's head coach via team_coaches (per
+          // LESSONS#0057 — teams.coach_id does not exist).
+          const { data: headCoachJoins } = await supabase
+            .from('team_coaches')
+            .select('team_id, coach_id, role')
+            .in('team_id', priorTeamIds)
+            .eq('role', 'head_coach');
+
+          const headCoachByTeam = new Map<string, string>();
+          for (const j of (headCoachJoins ?? []) as Array<{
+            team_id: string;
+            coach_id: string;
+            role: string;
+          }>) {
+            if (!headCoachByTeam.has(j.team_id)) headCoachByTeam.set(j.team_id, j.coach_id);
+          }
+
+          const coachIds = Array.from(new Set(headCoachByTeam.values()));
+          if (coachIds.length > 0) {
+            // Load coach freshness — `last_active_at` is the 0042 family
+            // freshness column (schema wins over the ticket's
+            // `updated_at` shorthand per LESSONS#0096).
+            const { data: coachRows } = await supabase
+              .from('coaches')
+              .select('id, last_active_at')
+              .in('id', coachIds);
+
+            const { findDormantCoachesForReturningParent } = await import(
+              '@/lib/coach-reactivation-utils'
+            );
+            const candidates = findDormantCoachesForReturningParent({
+              parentEmail,
+              currentTeamId: share.team_id,
+              coachRows: (coachRows ?? []) as Array<{
+                id: string;
+                last_active_at: string | null;
+              }>,
+              priorPlayerRows: (priorPlayers ?? []).map((p) => ({
+                id: p.id as string,
+                team_id: p.team_id as string,
+                parent_email: (p.parent_email as string | null) ?? null,
+                first_name: ((p.name as string) || '').split(' ')[0],
+                team_coach_id: headCoachByTeam.get(p.team_id as string) ?? '',
+              })),
+              nowMs: Date.now(),
+            });
+
+            for (const candidate of candidates) {
+              // UPSERT on (dormant_coach_id, prior_player_id) so a parent
+              // re-visiting the same other-team portal does NOT spam a
+              // new signal; a previously-consumed row stays consumed.
+              await supabase
+                .from('coach_reactivation_signals')
+                .upsert(
+                  {
+                    dormant_coach_id: candidate.dormantCoachId,
+                    prior_team_id: candidate.priorTeamId,
+                    prior_player_id: candidate.priorPlayerId,
+                    returning_parent_email_hash: candidate.parentEmailHash,
+                    fired_at: new Date().toISOString(),
+                  },
+                  { onConflict: 'dormant_coach_id,prior_player_id', ignoreDuplicates: false },
+                );
+            }
+          }
+        }
+      }
+    } catch (reactErr) {
+      // Best-effort: never let a reactivation-detection failure 500 the
+      // parent portal. Silent no-op (LESSONS#0036).
+      // eslint-disable-next-line no-console
+      console.error('[ticket-0072] Reactivation-signal detection failed (best-effort):', reactErr);
+    }
+
     // Increment view count
     await supabase
       .from('parent_shares')
@@ -358,6 +468,19 @@ export async function GET(
         last_viewed_at: new Date().toISOString(),
       })
       .eq('id', share.id);
+
+    // Strip the parent_email we read for the reactivation detection from
+    // the response payload — the parent surface is BYTE-IDENTICAL to
+    // today and never carries the email forward. We clone the player so
+    // we don't mutate the upstream row reference (some callers / tests
+    // hold the same object identity).
+    if (reportData.player && typeof reportData.player === 'object') {
+      const { parent_email: _stripped, ...playerSansEmail } = reportData.player as Record<
+        string,
+        unknown
+      >;
+      reportData.player = playerSansEmail;
+    }
 
     return NextResponse.json(reportData);
   } catch (error: any) {

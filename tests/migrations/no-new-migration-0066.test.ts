@@ -28,7 +28,9 @@ describe('Ticket 0066 — no new migration files (regression)', () => {
     // landed at prefix 061 — 059/060 already taken by drill_shares and
     // coach_director_contacts). Bumped 62 → 63 by ticket 0068
     // (season_opener_shares landed at prefix 062). Bumped 63 → 64 by
-    // ticket 0069 (game_decompressions landed at prefix 063).
-    expect(files.length).toBe(64);
+    // ticket 0069 (game_decompressions landed at prefix 063). Bumped
+    // 64 → 65 by ticket 0072 (coach_reactivation_signals landed at
+    // prefix 064).
+    expect(files.length).toBe(65);
   });
 });

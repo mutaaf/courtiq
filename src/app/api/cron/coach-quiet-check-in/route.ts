@@ -32,6 +32,10 @@ import {
   markQuietCheckInSent,
 } from '@/lib/coach-quiet-check-in-utils';
 import { isCoachPaused } from '@/lib/coach-pause-utils';
+import {
+  buildReturningParentReactivationSubject,
+  buildReturningParentReactivationHtml,
+} from '@/lib/coach-reactivation-email';
 import type { Json } from '@/types/database';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.youthsportsiq.com';
@@ -145,12 +149,157 @@ export async function POST(request: Request) {
     offset += BATCH_SIZE;
   }
 
+  // ─── Ticket 0072 — dormant-coach reactivation email branch ─────────────
+  // Walk unconsumed, not-yet-notified `coach_reactivation_signals` from
+  // the last 7 days. For each signal, send a single reactivation email
+  // (subject: "<priorPlayerFirstName>'s parent is back on SportsIQ this
+  // week"), then stamp notified_at so the same signal is never re-sent.
+  //
+  // The branch respects the EXISTING 0042 pause flag: a coach whose
+  // `paused_until` is still in the future does not get the reactivation
+  // email either (no new opt-out shape per the ticket's out-of-scope).
+  //
+  // The branch ALSO skips a coach who is NOT dormant: if they already
+  // engaged this week, they don't need a reactivation pull.
+  //
+  // Per LESSONS#0049 / #0092 / #0100 / #0110 — this adds new from()
+  // calls; the existing test for this route uses table-keyed mocks
+  // (mockImplementation), so the new reads do not need queue extension.
+  let totalReactSent = 0;
+  let totalReactSkipped = 0;
+  let totalReactErrors = 0;
+
+  try {
+    const sevenDaysAgo = new Date(now.getTime() - 7 * DAY_MS).toISOString();
+    const { data: signals, error: sigErr } = await admin
+      .from('coach_reactivation_signals')
+      .select('id, dormant_coach_id, prior_team_id, prior_player_id, fired_at')
+      .is('notified_at', null)
+      .is('consumed_at', null)
+      .gte('fired_at', sevenDaysAgo)
+      .order('fired_at', { ascending: false });
+
+    if (sigErr) {
+      console.error('[coach-quiet-check-in] reactivation signal read error:', sigErr.message);
+    } else {
+      const rows = (signals ?? []) as Array<{
+        id: string;
+        dormant_coach_id: string;
+        prior_team_id: string;
+        prior_player_id: string;
+        fired_at: string;
+      }>;
+
+      if (rows.length > 0) {
+        // Load all unique coaches once. Allow-list.
+        const coachIds = Array.from(new Set(rows.map((r) => r.dormant_coach_id)));
+        const { data: coachRows } = await admin
+          .from('coaches')
+          .select('id, email, full_name, preferences, paused_until, last_active_at')
+          .in('id', coachIds);
+        const coachById = new Map<string, CoachRow>();
+        for (const c of (coachRows ?? []) as CoachRow[]) coachById.set(c.id, c);
+
+        // Allow-list. The cron NEVER reads parent_email, parent_phone, DOB,
+        // medical_notes, etc. on the prior player.
+        const priorPlayerIds = Array.from(new Set(rows.map((r) => r.prior_player_id)));
+        const { data: priorPlayers } = await admin
+          .from('players')
+          .select('id, name')
+          .in('id', priorPlayerIds);
+        const playerNameById = new Map<string, string>();
+        for (const p of (priorPlayers ?? []) as Array<{ id: string; name: string }>) {
+          // First name only. Literal space (LESSONS#0061).
+          playerNameById.set(p.id, (p.name || '').split(' ')[0]);
+        }
+        const priorTeamIds = Array.from(new Set(rows.map((r) => r.prior_team_id)));
+        const { data: priorTeams } = await admin
+          .from('teams')
+          .select('id, name')
+          .in('id', priorTeamIds);
+        const teamNameById = new Map<string, string>();
+        for (const t of (priorTeams ?? []) as Array<{ id: string; name: string }>) {
+          teamNameById.set(t.id, t.name);
+        }
+
+        for (const sig of rows) {
+          try {
+            const coach = coachById.get(sig.dormant_coach_id);
+            if (!coach || !coach.email) {
+              totalReactSkipped++;
+              continue;
+            }
+            // Respect existing 0042 pause flag.
+            if (isCoachPaused(coach, now)) {
+              totalReactSkipped++;
+              continue;
+            }
+            // Only fire on coaches who are STILL dormant; a coach who
+            // came back this week doesn't need the reactivation pull.
+            if (!isCoachQuiet(coach, now, 14)) {
+              totalReactSkipped++;
+              continue;
+            }
+
+            const playerFirstName = playerNameById.get(sig.prior_player_id) || '';
+            if (!playerFirstName) {
+              totalReactSkipped++;
+              continue;
+            }
+            const teamName = teamNameById.get(sig.prior_team_id) || null;
+
+            const trajectoryUrl = `${APP_URL}/roster/${sig.prior_player_id}/trajectory`;
+            const subject = buildReturningParentReactivationSubject({
+              priorPlayerFirstName: playerFirstName,
+            });
+            const html = buildReturningParentReactivationHtml({
+              coachFullName: coach.full_name,
+              priorPlayerFirstName: playerFirstName,
+              priorTeamName: teamName,
+              trajectoryUrl,
+            });
+
+            const result = await sendEmail({ to: coach.email, subject, html });
+            if (result.success) {
+              await admin
+                .from('coach_reactivation_signals')
+                .update({ notified_at: new Date().toISOString() })
+                .eq('id', sig.id);
+              totalReactSent++;
+            } else {
+              console.error(
+                '[coach-quiet-check-in] reactivation send failed:',
+                coach.email,
+                result.error,
+              );
+              totalReactErrors++;
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error(
+              '[coach-quiet-check-in] reactivation unexpected error for signal',
+              sig.id,
+              msg,
+            );
+            totalReactErrors++;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[coach-quiet-check-in] reactivation branch unexpected error:', msg);
+  }
+
   console.log(
-    `[coach-quiet-check-in] done — sent=${totalSent} skipped=${totalSkipped} errors=${totalErrors}`,
+    `[coach-quiet-check-in] done — sent=${totalSent} skipped=${totalSkipped} errors=${totalErrors} reactSent=${totalReactSent} reactSkipped=${totalReactSkipped} reactErrors=${totalReactErrors}`,
   );
   return NextResponse.json({
     sent: totalSent,
     skipped: totalSkipped,
     errors: totalErrors,
+    reactivationSent: totalReactSent,
+    reactivationSkipped: totalReactSkipped,
+    reactivationErrors: totalReactErrors,
   });
 }
