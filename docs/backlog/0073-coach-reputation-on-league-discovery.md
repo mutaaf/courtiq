@@ -1,7 +1,7 @@
 ---
 id: 0073
 title: When a coach browses the league discovery surface, rank the published coaches by how many DIFFERENT programs have cloned their plans this month — and tell each named coach who saw their work
-status: in-progress
+status: shipped
 priority: P1
 area: growth
 created: 2026-06-07
