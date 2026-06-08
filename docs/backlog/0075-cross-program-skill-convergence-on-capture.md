@@ -1,7 +1,7 @@
 ---
 id: 0075
 title: When a coach opens Capture and three coaches in OTHER programs in the same sport are working on the same skill this week, surface ONE quiet line — "three coaches in your sport are on closeouts too — here's the drill they're running"
-status: groomed
+status: in-progress
 priority: P1
 area: capture
 created: 2026-06-07
@@ -541,4 +541,16 @@ Files / patterns the dev should touch.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-08 [implementation-dev] Picked up ticket 0075. Branch `feat/0075-cross-program-skill-convergence-on-capture`.
+  - At-pickup audit (LESSONS#0096 — schema wins):
+    - `src/lib/emergent-focus-utils.ts` ships `computeEmergentFocus(plans, opts)` keyed on `team_id`. The new helper will be additive (`computeCrossProgramEmergentFocus`) per LESSONS#0103 so 0071 callers stay byte-identical.
+    - `src/app/(dashboard)/capture/page.tsx` mounts existing 0014/0020/0025/0031/0062 lines below the focus block; the new `<CrossProgramFocusLine />` slots in after `<CarryoverStrip />` (the 0014 "last practice's focus areas" block), above the record controls — smallest possible touch per LESSONS#0065/0066/0162.
+    - 0064 clone POST is at `/api/drill-shares/[token]/clone` (the ticket prose's `/api/drill-share/clone` does not exist — using the real path).
+    - `teams` has `org_id` + `sport_id` (no `coach_id`). `drill_shares` is keyed on `coach_id, drill_id` with a public `share_token`. The "most-thumbed-up drill" ranking comes from `coach_drill_signals.rating='up'` + `drill_share_clones` clone-counts.
+  - Mock-queue sweep per LESSONS#0049/#0064/#0092/#0100/#0110/#0116:
+    - `tests/api/sport*.test.ts` → empty (no-op).
+    - `tests/api/emergent*.test.ts` → empty (the existing `tests/api/org-emergent-focus.test.ts` uses `mockImplementation((table) => ...)` — queue-agnostic per LESSONS#0118; no extension needed).
+    - `tests/api/capture*.test.ts` → empty (no-op).
+    - The new route is its own surface — no shared sitemap / cron read to extend.
+  - Tier posture: NO new feature key. The line is available to every tier (free included). The clone calls existing 0064 POST untouched.
+  - Seed family: existing 0...01a0 — 0...01ff range is free (next used UUID is 0...0201). Will use 0...01a0+ for new orgs/coaches/teams/plans + drill_share.
