@@ -110,3 +110,118 @@ export function computeEmergentFocus(
 
   return results.slice(0, maxFocuses);
 }
+
+// ─── Ticket 0075 — cross-program (sport-wide) emergent focus ───────────────
+//
+// Pure helper that walks a sport's recent practice plans and surfaces ONE
+// skill that 3+ DISTINCT PROGRAMS (orgs) have organically targeted in the
+// same window. This is the COACH-side CROSS-PROGRAM counterpart to the 0071
+// director-side IN-PROGRAM signal (which keys on team_id within a single
+// org). The compounding dynamic: 0071 surfaces convergence to a director;
+// THIS surfaces convergence to every coach in the sport, at the moment they
+// open Capture.
+//
+// Per LESSONS#0103 — this helper is ADDITIVE. The existing
+// `computeEmergentFocus` and its 0071 callers stay BYTE-IDENTICAL: zero
+// changes to that function's signature, defaults, or call paths.
+//
+// Reads no DB. Writes no AI. The caller (the /api/sport/emergent-focus
+// route) is responsible for the EXCLUDE-OWN-ORG contract — this helper just
+// dedupes on the `org_id` it is given.
+
+/** Minimal plan-row shape for the cross-program aggregator. Each plan
+ *  carries the ORG that owns the team that owns the plan; cross-program
+ *  dedup is on `org_id` (a program), NOT `team_id`. The route resolves
+ *  team→org via a join before handing rows to this helper. */
+export interface CrossProgramPlanRow {
+  org_id: string;
+  skills_targeted: string[] | null;
+  created_at: string;
+}
+
+/** Surfaceable record: a skill 3+ distinct orgs rallied around + the org ids
+ *  that did so (the route uses orgIds.length as `distinctProgramCount`). */
+export interface CrossProgramEmergentFocus {
+  skill: string;
+  orgIds: string[];
+  distinctProgramCount: number;
+}
+
+export interface CrossProgramComputeOpts {
+  /** Minimum DISTINCT orgs that must target the skill — default 3 (the
+   *  ticket's cross-program scarcity bar; below that, silence). */
+  minPrograms?: number;
+  /** Window of plans to consider — default 14 days (matches 0071's window
+   *  so the two surfaces share a temporal frame). */
+  windowDays?: number;
+  /** Hard cap on returned focuses — default 1 (the Capture surface renders
+   *  AT MOST ONE line; multi-focus is explicitly out-of-scope per the
+   *  ticket's Out-of-scope section). */
+  maxFocuses?: number;
+}
+
+const CP_DEFAULTS: Required<CrossProgramComputeOpts> = {
+  minPrograms: 3,
+  windowDays: 14,
+  maxFocuses: 1,
+};
+
+/**
+ * Aggregate plan-level `skills_targeted` across DISTINCT orgs. Returns the
+ * top `maxFocuses` skills that ≥ `minPrograms` distinct orgs have targeted
+ * inside the last `windowDays` days, sorted by program count descending,
+ * then skill name ascending for a deterministic tiebreak.
+ *
+ * The caller is responsible for the EXCLUDE-OWN-ORG contract — this helper
+ * just dedupes on the `org_id` it is given. Pass in plans from teams whose
+ * `org_id !== caller's org`.
+ */
+export function computeCrossProgramEmergentFocus(
+  plans: CrossProgramPlanRow[],
+  opts: CrossProgramComputeOpts = {}
+): CrossProgramEmergentFocus[] {
+  const { minPrograms, windowDays, maxFocuses } = { ...CP_DEFAULTS, ...opts };
+
+  if (!Array.isArray(plans) || plans.length === 0) return [];
+
+  const windowStart = Date.now() - windowDays * DAY_MS;
+
+  // skill → set of org_ids that targeted it in-window.
+  const bySkill = new Map<string, Set<string>>();
+
+  for (const plan of plans) {
+    if (!plan || !plan.org_id || !plan.skills_targeted) continue;
+    const ts = Date.parse(plan.created_at);
+    if (!Number.isFinite(ts) || ts < windowStart) continue;
+
+    // An org is unioned ONCE per skill, even if 5 of its teams ran 5 plans.
+    for (const rawSkill of plan.skills_targeted) {
+      if (typeof rawSkill !== 'string') continue;
+      const skill = rawSkill.trim();
+      if (!skill) continue;
+      let orgs = bySkill.get(skill);
+      if (!orgs) {
+        orgs = new Set<string>();
+        bySkill.set(skill, orgs);
+      }
+      orgs.add(plan.org_id);
+    }
+  }
+
+  const results: CrossProgramEmergentFocus[] = [];
+  for (const [skill, orgs] of bySkill.entries()) {
+    if (orgs.size < minPrograms) continue;
+    const orgIds = Array.from(orgs).sort();
+    results.push({ skill, orgIds, distinctProgramCount: orgs.size });
+  }
+
+  // Sort by program count desc, then skill name asc.
+  results.sort((a, b) => {
+    if (b.distinctProgramCount !== a.distinctProgramCount) {
+      return b.distinctProgramCount - a.distinctProgramCount;
+    }
+    return a.skill.localeCompare(b.skill);
+  });
+
+  return results.slice(0, maxFocuses);
+}

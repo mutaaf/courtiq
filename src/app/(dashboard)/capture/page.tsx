@@ -14,7 +14,9 @@ import { CarryoverStrip } from '@/components/capture/carryover-strip';
 import { ArcContinuityLine } from '@/components/capture/arc-continuity-line';
 import { PlayerMemoryLine } from '@/components/capture/player-memory-line';
 import { ProgramFocusLine } from '@/components/capture/program-focus-line';
+import { CrossProgramFocusLine } from '@/components/capture/cross-program-focus-line';
 import type { ActiveArcResponse } from '@/app/api/ai/practice-arc/active/route';
+import type { CrossProgramFocusResponse } from '@/app/api/sport/emergent-focus/route';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Send, Keyboard, Mic, AlertCircle, Sparkles, Upload, FileAudio, Camera, Lock } from 'lucide-react';
 import { generateId } from '@/lib/utils';
@@ -189,6 +191,35 @@ export default function CapturePage() {
     enabled: !!activeTeam?.org_id,
     retry: false,
     staleTime: 5 * 60_000,
+  });
+
+  // Best-effort cross-program emergent focus (ticket 0075): one quiet line
+  // ("three coaches in your sport are on closeouts too — here's the drill
+  // they're running") shown BELOW the 0014 carryover block, ABOVE the
+  // capture controls. The signal is sport-wide and EXCLUDES the caller's own
+  // org (the cross-program contract). NEVER gates capture — on failure /
+  // timeout / no convergence the line is absent and the Capture surface is
+  // byte-identical. NOT a direct Supabase call (AGENTS.md rule 3) — it goes
+  // through /api/sport/emergent-focus which scopes the read service-side.
+  const { data: crossProgramFocus } = useQuery<CrossProgramFocusResponse | undefined>({
+    queryKey: ['capture-cross-program-focus', (activeTeam as any)?.sport_id, activeTeam?.org_id],
+    queryFn: async () => {
+      const sportId = (activeTeam as any)?.sport_id as string | undefined;
+      const orgId = activeTeam?.org_id as string | undefined;
+      if (!sportId || !orgId) return undefined;
+      try {
+        const res = await fetch(
+          `/api/sport/emergent-focus?sportId=${encodeURIComponent(sportId)}&excludeOrgId=${encodeURIComponent(orgId)}`
+        );
+        if (!res.ok) return undefined;
+        return (await res.json()) as CrossProgramFocusResponse;
+      } catch {
+        return undefined; // degrade silently — capture must never be blocked
+      }
+    },
+    enabled: !!((activeTeam as any)?.sport_id) && !!(activeTeam?.org_id),
+    retry: false,
+    staleTime: 10 * 60_000,
   });
 
   // Best-effort active Practice Arc read (ticket 0020): surfaces the team's active
@@ -1068,6 +1099,21 @@ export default function CapturePage() {
                 Best-effort: absent when no prior debrief or fetch fails; never gates. */}
             {captureState !== 'recording' && (
               <CarryoverStrip focus={carryover?.focus} />
+            )}
+
+            {/* Cross-program focus line (ticket 0075): "Three coaches in
+                <sport> are on <skill> this week too — the drill they're
+                running most: '<drill>' — N minutes." Mounted BELOW the 0014
+                carryover block and ABOVE the rest of the capture controls,
+                so a coach sees the cross-program signal as they're choosing
+                what to work on. Absent when no convergence, the fetch
+                failed, or the focus skill has no published drill ranking
+                (silence beats nag). Never gates capture. */}
+            {captureState !== 'recording' && (
+              <CrossProgramFocusLine
+                data={crossProgramFocus}
+                sportName={sportSlug || 'your sport'}
+              />
             )}
 
             {/* Active Practice Arc continuity line (ticket 0020): "Defense Arc ·
