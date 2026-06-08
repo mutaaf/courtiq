@@ -682,3 +682,18 @@ Files / patterns the dev should touch.
   columns (per LESSONS#0039). Confirmed the home page mounts other 0072/0073
   cards near the `<ReferralCelebrationCard />` line — that's where the
   smallest-possible-touch insert goes (LESSONS#0065 / #0066 / #0162).
+- 2026-06-07 [ship/0074] Bumped the 0066 migration-count regression pin
+  (`tests/migrations/no-new-migration-0066.test.ts`) from 66 → 67 to
+  accommodate the new `066_referral_credit_grants.sql`. Documented inline in
+  the test's bump comment (per its own protocol: "if a sibling ticket
+  legitimately adds a migration, bump this constant and call out the
+  deviation in the bumping ticket's Implementation log"). Not weakening —
+  the pin's express job is to flag stray migrations; the bump records that
+  066 is intentional.
+- 2026-06-07 [ship/0074] Local vitest surfaced the documented LESSONS#0036
+  TZ-environmental fail in `tests/player-of-match-utils.test.ts:281`
+  (`Apr 27` vs `Apr 28`). Confirmed it reproduces identically on pristine
+  `origin/main` under the pinned Node 20.19.0 (this machine is `CDT`, the
+  test composes a local-time date from a YYYY-MM-DD string). CI runs UTC
+  and is green on `main`; pushing and letting CI arbitrate per
+  LESSONS#0036.
