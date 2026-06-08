@@ -1,7 +1,7 @@
 ---
 id: 0075
 title: When a coach opens Capture and three coaches in OTHER programs in the same sport are working on the same skill this week, surface ONE quiet line — "three coaches in your sport are on closeouts too — here's the drill they're running"
-status: in-progress
+status: shipped
 priority: P1
 area: capture
 created: 2026-06-07
