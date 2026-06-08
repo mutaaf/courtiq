@@ -80,8 +80,18 @@ import { SidelineCheatSheetCard } from '@/components/home/sideline-cheat-sheet-c
 import { SeasonOpenerCard } from '@/components/home/season-opener-card';
 import { ReturningParentSection } from '@/components/home/returning-parent-card';
 import { CoachReputationMilestoneSection } from '@/components/home/coach-reputation-milestone-card';
+import { ReferralCreditSection } from '@/components/home/referral-credit-card';
+import { useTier } from '@/hooks/use-tier';
 
 // ─── Live capture feed helper ──────────────────────────────────────────────────
+
+// Ticket 0074 — small wrapper that pulls the caller's tier from useTier()
+// and forwards it to the ReferralCreditSection. Kept tiny + colocated so
+// the home-page diff stays minimal (LESSONS#0065 / #0066 / #0162).
+function ReferralCreditSectionForTier() {
+  const { tier } = useTier();
+  return <ReferralCreditSection tier={tier} />;
+}
 
 function formatLiveTimeAgo(iso: string): string {
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
@@ -1449,6 +1459,13 @@ export default function HomePage() {
       {/* no unconsumed milestone. Smallest possible touch per */}
       {/* LESSONS#0065 / #0066 / #0162 — one import + one JSX entry. */}
       {!practiceActive && <CoachReputationMilestoneSection />}
+
+      {/* Ticket 0074 — referral credit: the inviter coach's count of */}
+      {/* qualified converted coaches crossed a threshold. Renders nothing */}
+      {/* when the caller has no unconsumed milestone. Tier-aware copy + */}
+      {/* CTA (paid → invoice; free → upgrade). Smallest possible touch */}
+      {/* per LESSONS#0065 / #0066 / #0162 — one import + one JSX entry. */}
+      {!practiceActive && <ReferralCreditSectionForTier />}
 
       {!practiceActive && activeTeam && (
         <SeasonWrapSection teamId={activeTeam.id} />

@@ -1106,3 +1106,30 @@ export interface CoachReputationMilestone {
   crossed_at: string;
   notified_at: string | null;
 }
+
+// Ticket 0074 — referral credit grant primitive. One row per
+// (inviter coach, milestone kind) edge written by the apply-credit
+// route when the inviter's count of qualified converted coaches
+// crosses a documented threshold. The home-card reads unconsumed rows
+// and renders the most-recent; tapping "Got it" stamps notified_at.
+// The qualified_referral_coach_ids array is the LOAD-BEARING AUDIT
+// TRAIL — the original list of UUIDs at the moment the milestone
+// fired, preserved even after a converted coach later deletes their
+// account (LESSONS#0044 billing immutability).
+export type ReferralCreditMilestoneKind =
+  | 'qualified_3'
+  | 'qualified_10'
+  | 'qualified_25';
+
+export interface ReferralCreditGrant {
+  id: string;
+  inviter_coach_id: string;
+  milestone_kind: ReferralCreditMilestoneKind;
+  qualified_referral_coach_ids: string[];
+  credit_amount_cents: number;
+  credit_currency: string;
+  stripe_customer_balance_txn_id: string | null;
+  granted_at: string;
+  redeemed_period_end: string | null;
+  notified_at: string | null;
+}
