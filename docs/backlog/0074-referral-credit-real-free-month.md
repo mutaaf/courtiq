@@ -1,7 +1,7 @@
 ---
 id: 0074
 title: When a coach hits 3 successful referrals — converted coaches who shipped real plans — credit one real free month on their next Stripe invoice and tell them by name who earned it
-status: in-progress
+status: shipped
 priority: P1
 area: billing
 created: 2026-06-07
