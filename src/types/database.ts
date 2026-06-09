@@ -1097,7 +1097,26 @@ export type CoachReputationMilestoneKind =
   | 'clones_50'
   | 'programs_2'
   | 'programs_4'
-  | 'programs_8';
+  | 'programs_8'
+  // Ticket 0076 — the cloning coach ran the cloned drill AND thumbed
+  // it up. Stuck-kind milestones fire from the thumbs-up hook.
+  | 'stuck_1'
+  | 'stuck_3'
+  | 'stuck_8';
+
+// Ticket 0076 — clone-stick edge. One row per (drill_share, cloner)
+// when the cloning coach later thumbs-up the drill they cloned (a
+// 0044 coach_drill_signals row with rating='up' signaled AFTER the
+// drill_share_clones row). The signal — distinct from the raw clone
+// — is "the cloning coach ran the drill on a real court and it
+// worked". COACH-TO-COACH only — no player or parent reference.
+export interface DrillCloneStickSignal {
+  id: string;
+  drill_share_id: string;
+  cloner_coach_id: string;
+  cloner_org_id: string | null;
+  stuck_at: string;
+}
 
 export interface CoachReputationMilestone {
   id: string;

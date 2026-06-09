@@ -76,7 +76,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0076 | When a coach who cloned another coach's drill thumbs it up after running it, tell the publishing coach by name — "your closeout drill landed for a coach in the Hornets program" — and weight 0073 reputation by clones that stuck, not clones that downloaded | P1 | groomed | plans |
+| 0076 | When a coach who cloned another coach's drill thumbs it up after running it, tell the publishing coach by name — "your closeout drill landed for a coach in the Hornets program" — and weight 0073 reputation by clones that stuck, not clones that downloaded | P1 | in-progress | plans |
 | 0077 | When a program director opens the weekly pulse, show ONE quiet line about what directors of two neighboring programs are working on this week — "Riverside and Westview are both on transitions" — and let them bring one of those directors onto SportsIQ with one tap | P1 | groomed | growth |
 | 0078 | When a dormant coach who published a drill last season gets cloned by a coach in a new program this week, send ONE honest email — "Sarah, your closeout drill was cloned by a coach in the Hornets program today" — that brings them back into SportsIQ on the strongest possible signal | P1 | groomed | onboarding |
 | 0079 | When a parent opens their kid's report on the portal, give them one tap to forward this week's report to ONE other parent on the same team — "send this to Liam's mom too" — so the parent-portal acquisition graph finally has a parent → parent edge | P2 | groomed | parent-portal |

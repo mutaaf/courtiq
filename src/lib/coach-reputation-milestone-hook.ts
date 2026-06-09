@@ -17,6 +17,7 @@
 import type {
   PlanCloneRow,
   DrillCloneRow,
+  StuckCloneRow,
   CoachReputation,
 } from '@/lib/coach-reputation-utils';
 import {
@@ -163,11 +164,40 @@ export async function fireMilestonesForPublishedCoach(
       cloning_org_id: coachOrgById.get(r.cloning_coach_id) ?? null,
     }));
 
+    // 3b) Ticket 0076 — stuck signal rollup. Read the
+    //     `drill_clone_stick_signals` rows for the publisher's
+    //     drill_share ids. Empty when the publisher has no drill
+    //     shares OR no stick signals yet.
+    let stuckClones: StuckCloneRow[] = [];
+    if (publisherDrillShareIds.length > 0) {
+      const stickRowsResp = await ((
+        (admin.from('drill_clone_stick_signals') as unknown) as {
+          select: (s: string) => {
+            in: (col: string, vals: string[]) => Promise<{ data: Array<{ drill_share_id: string; cloner_coach_id: string; cloner_org_id: string | null; stuck_at: string }> | null; error: unknown }>;
+          };
+        }
+      )
+        .select('drill_share_id, cloner_coach_id, cloner_org_id, stuck_at')
+        .in('drill_share_id', publisherDrillShareIds));
+      stuckClones = ((stickRowsResp.data ?? []) as Array<{
+        drill_share_id: string;
+        cloner_coach_id: string;
+        cloner_org_id: string | null;
+        stuck_at: string;
+      }>).map((r) => ({
+        drill_share_id: r.drill_share_id,
+        cloner_coach_id: r.cloner_coach_id,
+        cloner_org_id: r.cloner_org_id ?? null,
+        stuck_at: r.stuck_at,
+      }));
+    }
+
     // 4) Compute reputation and the milestone-kind list to upsert.
     const rep: CoachReputation = computeCoachReputation({
       publishedCoachId,
       planClones,
       drillClones,
+      stuckClones,
       nowMs: Date.now(),
     });
     const kinds = milestonesCrossed(rep);

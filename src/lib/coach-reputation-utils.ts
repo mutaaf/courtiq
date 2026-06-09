@@ -51,11 +51,29 @@ export interface DrillCloneRow {
 }
 
 /** The reputation shape rendered under each discovery card and the
- *  threshold input for the milestone hook. */
+ *  threshold input for the milestone hook.
+ *
+ *  Ticket 0076 — additive `stuckCloneCount` / `stuckProgramCount`
+ *  subset the existing counts to clones that STUCK (the cloning
+ *  coach later thumbed-up the cloned drill). Existing callers stay
+ *  byte-identical because the new fields default to 0 when no
+ *  `stuckClones` input is passed (LESSONS#0103). */
 export interface CoachReputation {
   cloneCount: number;
   distinctProgramCount: number;
   distinctCoachCount: number;
+  stuckCloneCount: number;
+  stuckProgramCount: number;
+}
+
+/** Ticket 0076 — one stuck clone tuple. Resolved by the caller from
+ *  the new `drill_clone_stick_signals` table; the helper does not
+ *  read DB. */
+export interface StuckCloneRow {
+  drill_share_id: string;
+  cloner_coach_id: string;
+  cloner_org_id: string | null;
+  stuck_at: string;
 }
 
 export interface ComputeArgs {
@@ -67,6 +85,11 @@ export interface ComputeArgs {
   /** "Now" in milliseconds since epoch. Injected so the unit tests
    *  pin the window without freezing the system clock. */
   nowMs: number;
+  /** Ticket 0076 — stuck-clone rows in scope. Optional per
+   *  LESSONS#0103: when omitted the helper returns
+   *  `stuckCloneCount: 0` and `stuckProgramCount: 0` so every
+   *  existing 0073 caller stays byte-identical. */
+  stuckClones?: StuckCloneRow[];
 }
 
 /**
@@ -86,6 +109,7 @@ export function computeCoachReputation(args: ComputeArgs): CoachReputation {
     drillClones,
     windowDays = DEFAULT_WINDOW_DAYS,
     nowMs,
+    stuckClones,
   } = args;
 
   const windowStartMs = nowMs - windowDays * DAY_MS;
@@ -112,10 +136,30 @@ export function computeCoachReputation(args: ComputeArgs): CoachReputation {
   if (Array.isArray(planClones)) for (const r of planClones) consume(r);
   if (Array.isArray(drillClones)) for (const r of drillClones) consume(r);
 
+  // Ticket 0076 — stuck subset. Same self-filter + windowDays posture
+  // as the clone counts. Optional per LESSONS#0103 — defaults to 0
+  // when the caller does not pass `stuckClones`, so every existing
+  // 0073 consumer stays byte-identical.
+  const stuckPrograms = new Set<string>();
+  let stuckCloneCount = 0;
+  if (Array.isArray(stuckClones)) {
+    for (const r of stuckClones) {
+      if (!r) continue;
+      if (r.cloner_coach_id === publishedCoachId) continue; // self-stick filter
+      const ts = Date.parse(r.stuck_at);
+      if (!Number.isFinite(ts)) continue;
+      if (ts < windowStartMs) continue;
+      stuckCloneCount += 1;
+      if (r.cloner_org_id) stuckPrograms.add(r.cloner_org_id);
+    }
+  }
+
   return {
     cloneCount,
     distinctProgramCount: programs.size,
     distinctCoachCount: coaches.size,
+    stuckCloneCount,
+    stuckProgramCount: stuckPrograms.size,
   };
 }
 
@@ -133,12 +177,22 @@ export type MilestoneKind =
   | 'clones_50'
   | 'programs_2'
   | 'programs_4'
-  | 'programs_8';
+  | 'programs_8'
+  // Ticket 0076 — the cloning coach ran the cloned drill AND thumbed
+  // it up.
+  | 'stuck_1'
+  | 'stuck_3'
+  | 'stuck_8';
 
 /** Return the milestone kinds the published coach has CROSSED (i.e.
  *  the threshold at or below the current count). The caller upserts
  *  one row per returned kind; the UNIQUE(published_coach_id,
- *  milestone_kind) constraint makes re-upserts idempotent. */
+ *  milestone_kind) constraint makes re-upserts idempotent.
+ *
+ *  Ticket 0076 — the three new stuck-kind thresholds are included
+ *  AT ALL (not exclusively the top) so a coach crossing stuck_3
+ *  still has the stuck_1 row written (the home-card shows the
+ *  most-recent unconsumed kind). */
 export function milestonesCrossed(rep: CoachReputation): MilestoneKind[] {
   const out: MilestoneKind[] = [];
   if (rep.cloneCount >= 50) out.push('clones_50');
@@ -149,6 +203,14 @@ export function milestonesCrossed(rep: CoachReputation): MilestoneKind[] {
   if (rep.distinctProgramCount >= 8) out.push('programs_8');
   else if (rep.distinctProgramCount >= 4) out.push('programs_4');
   else if (rep.distinctProgramCount >= 2) out.push('programs_2');
+
+  // Stuck thresholds — additive. Unlike the clone-count tiers, every
+  // crossed stuck tier is emitted so the home-card surfaces the
+  // earlier tier on a re-engagement event (the UNIQUE constraint
+  // keeps each kind firing once per coach).
+  if (rep.stuckCloneCount >= 1) out.push('stuck_1');
+  if (rep.stuckCloneCount >= 3) out.push('stuck_3');
+  if (rep.stuckCloneCount >= 8) out.push('stuck_8');
 
   return out;
 }

@@ -37,12 +37,28 @@ export type ReputationMilestoneKind =
   | 'clones_50'
   | 'programs_2'
   | 'programs_4'
-  | 'programs_8';
+  | 'programs_8'
+  // Ticket 0076 — the cloning coach ran the cloned drill AND thumbed
+  // it up. The card names the cloning PROGRAM (not the cloning
+  // coach) — same consent posture as the existing 0073 program-
+  // naming contract.
+  | 'stuck_1'
+  | 'stuck_3'
+  | 'stuck_8';
 
 export interface ReputationMilestone {
   id: string;
   kind: ReputationMilestoneKind;
   crossedAt: string;
+  // Ticket 0076 — stuck-kind metadata. The publishing coach's
+  // home-card surface reads these from the milestone-list route.
+  // `drillTitle` is the cloned drill's name. `programNames` lists
+  // the cloning programs (NOT the cloning coaches) — same consent
+  // posture as 0073. `drillId` lets the card deep-link to the
+  // 0064 share-card admin surface.
+  drillTitle?: string;
+  programNames?: string[];
+  drillId?: string;
 }
 
 interface CardProps {
@@ -53,11 +69,21 @@ interface CardProps {
 
 /** Per-kind copy line. Each variant instructs positively and never
  *  names a cloning coach (the program-count aggregate is the load-
- *  bearing signal). Voice scan covers every variant in the unit test. */
-function copyForKind(kind: ReputationMilestoneKind): {
+ *  bearing signal). Voice scan covers every variant in the unit test.
+ *
+ *  Ticket 0076 — stuck-kind copy renders the cloning program name
+ *  (NOT the cloning coach's name) and the cloned drill title.
+ *  Numbers spelled out (one / three / eight) per the 0071 / 0073 /
+ *  0075 voice posture. */
+function copyForKind(
+  kind: ReputationMilestoneKind,
+  ctx: { drillTitle?: string; programNames?: string[] },
+): {
   headline: string;
   detail: string;
 } {
+  const drillTitle = ctx.drillTitle ?? 'drill';
+  const programs = ctx.programNames ?? [];
   switch (kind) {
     case 'clones_3':
       return {
@@ -94,6 +120,27 @@ function copyForKind(kind: ReputationMilestoneKind): {
         headline: 'Your work was cloned by coaches in 8 different programs.',
         detail: 'Eight programs are running your plans — keep publishing.',
       };
+    case 'stuck_1': {
+      const program = programs[0] ?? 'another program';
+      return {
+        headline: `Your ${drillTitle} just landed for a coach in the ${program} program.`,
+        detail: 'They ran it and thumbed it up — first program where your drill stuck.',
+      };
+    }
+    case 'stuck_3': {
+      const list = programs.length > 0
+        ? programs.slice(0, 3).join(', ')
+        : 'three programs';
+      return {
+        headline: `Your ${drillTitle} has stuck in a third program.`,
+        detail: `${list} have each run it and thumbed it up.`,
+      };
+    }
+    case 'stuck_8':
+      return {
+        headline: `Your ${drillTitle} has stuck in eight programs this month.`,
+        detail: 'Want to publish another drill?',
+      };
   }
 }
 
@@ -107,7 +154,18 @@ export function CoachReputationMilestoneCard({
 
   const current = milestones[0];
   const remainingCount = milestones.length - 1;
-  const copy = copyForKind(current.kind);
+  const copy = copyForKind(current.kind, {
+    drillTitle: current.drillTitle,
+    programNames: current.programNames,
+  });
+
+  // Ticket 0076 — drill-shaped milestones deep-link to the 0064
+  // share-card admin surface for the cloned drill. Plan-shaped
+  // milestones keep the existing /plans deep-link.
+  const isStuckKind =
+    current.kind === 'stuck_1' ||
+    current.kind === 'stuck_3' ||
+    current.kind === 'stuck_8';
 
   return (
     <div
@@ -130,14 +188,25 @@ export function CoachReputationMilestoneCard({
             </span>
           )}
           <div className="mt-3 flex items-center gap-2">
-            <Link
-              href="/plans"
-              data-testid="coach-reputation-milestone-card-open-plans"
-              className="inline-flex items-center gap-1.5 rounded-md bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600"
-            >
-              Open my plans
-              <ArrowRight className="h-3 w-3" aria-hidden="true" />
-            </Link>
+            {isStuckKind ? (
+              <Link
+                href={current.drillId ? `/drills/${current.drillId}` : '/drills'}
+                data-testid="coach-reputation-milestone-card-open-drill"
+                className="inline-flex items-center gap-1.5 rounded-md bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600"
+              >
+                Open my drill
+                <ArrowRight className="h-3 w-3" aria-hidden="true" />
+              </Link>
+            ) : (
+              <Link
+                href="/plans"
+                data-testid="coach-reputation-milestone-card-open-plans"
+                className="inline-flex items-center gap-1.5 rounded-md bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600"
+              >
+                Open my plans
+                <ArrowRight className="h-3 w-3" aria-hidden="true" />
+              </Link>
+            )}
             <button
               type="button"
               data-testid="coach-reputation-milestone-card-got-it"

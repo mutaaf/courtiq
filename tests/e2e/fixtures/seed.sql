@@ -2175,4 +2175,150 @@ values (
 )
 on conflict (published_coach_id, milestone_kind) do nothing;
 
+-- ────────────────────────────────────────────────────────────────────────
+-- Ticket 0076 — clone-stick signal back to the publishing coach
+-- ────────────────────────────────────────────────────────────────────────
+-- The 0073 seed pre-mints the published coach (...301) + her published
+-- practice plan + 4 cloner coaches (...0d7/...0d9/...0db/...0dd) across
+-- 4 cloning orgs. To reuse THAT graph for the drill-level stick signal,
+-- the 0076 seed adds:
+--
+--   * ONE deterministic drill row owned by the published coach (...0301)
+--     so the seeded drill_share has a real drill_id to point at. The
+--     drill is NOT a player-level entity.
+--   * ONE drill_shares row owned by the published coach. Tokens prefixed
+--     `test-stick-drill-token-e2e-0076-001` so they don't collide with
+--     the existing 0064 drill share token.
+--   * ONE drill_share_clones row per cloner-A/B (the cloners from the
+--     0073 seed) on this drill_shares row so the stick hook has a real
+--     clone to match against.
+--   * ONE coach_drill_signals row per cloner-A/B with rating='up' on
+--     the seeded drill_id — the structural pre-existing stick signal
+--     the route renders.
+--   * TWO drill_clone_stick_signals rows (one per cloner-A/B) so the
+--     publishing coach's /home renders the stuck_1 milestone after
+--     reload. The third cloner (C) is reserved for the forward-path
+--     e2e flow (sign in as cloner-C, fire a thumb-up, assert the
+--     write-side hook).
+--   * ONE coach_reputation_milestones row of kind stuck_1 with
+--     notified_at IS NULL for the published coach.
+--
+-- UUID family: 0...310+ is unused above (verified via grep before
+-- commit per LESSONS#0101). The 0064/0073 ranges stop at 0...0f2.
+-- LESSONS#0084 — no new auth.users rows needed; the cloner coaches
+-- are reused from the 0073 seed (...0d7/...0d9/...0db/...0dd).
+-- LESSONS#0085 — no jsonb string values added here, just structured
+-- DDL rows.
+--
+-- COPPA: the new drill is a coach-level resource; nothing references
+-- a player, parent, session, or any minor data.
+
+insert into drills (id, sport_id, name, description, category, age_groups,
+                    duration_minutes, player_count_min, player_count_max,
+                    equipment, teaching_cues, setup_instructions, source)
+select
+  '00000000-0000-4000-a000-000000000310',
+  (select id from sports where slug = 'basketball' limit 1),
+  '0076 E2E Maya Closeout Drill',
+  'Maya''s closeout drill — the drill that gets cloned and stuck across the league.',
+  'Defense',
+  '{"8-10","11-13"}',
+  10, 2, 12,
+  '{"basketballs","cones"}',
+  '{"Stay low on the close-out","Chest to the ball-handler","Hands up at the end"}',
+  'Players close out on the shooter from the elbow.',
+  'seeded'
+on conflict (id) do nothing;
+
+-- The active drill_shares row owned by the seeded 0073 published coach.
+insert into drill_shares (id, coach_id, drill_id, share_token, caption, is_active)
+values (
+  '00000000-0000-4000-a000-000000000311',
+  '00000000-0000-4000-a000-000000000301',
+  '00000000-0000-4000-a000-000000000310',
+  'test-stick-drill-token-e2e-0076-001',
+  'My closeout drill — worked well on Tuesday with our U13s.',
+  true
+)
+on conflict (id) do nothing;
+
+-- Three drill_share_clones rows tied to cloner-A (...0d7), cloner-B
+-- (...0d9), and cloner-C (...0db). cloned_at is in the past so the
+-- stick rows below pass the "thumb after clone" gate.
+delete from drill_share_clones where id in (
+  '00000000-0000-4000-a000-000000000312',
+  '00000000-0000-4000-a000-000000000313',
+  '00000000-0000-4000-a000-000000000314'
+);
+insert into drill_share_clones (id, drill_share_id, cloner_coach_id, cloned_at)
+values
+  ('00000000-0000-4000-a000-000000000312',
+   '00000000-0000-4000-a000-000000000311',
+   '00000000-0000-4000-a000-0000000000d7',
+   now() - interval '20 days'),
+  ('00000000-0000-4000-a000-000000000313',
+   '00000000-0000-4000-a000-000000000311',
+   '00000000-0000-4000-a000-0000000000d9',
+   now() - interval '15 days'),
+  ('00000000-0000-4000-a000-000000000314',
+   '00000000-0000-4000-a000-000000000311',
+   '00000000-0000-4000-a000-0000000000db',
+   now() - interval '10 days');
+
+-- coach_drill_signals — cloner-A and cloner-B have already thumbed-up
+-- the cloned drill (the structural sticks). Cloner-C has not — the
+-- e2e flow signs in as cloner-C and fires the thumb-up.
+delete from coach_drill_signals
+  where drill_id = '00000000-0000-4000-a000-000000000310'
+    and coach_id in (
+      '00000000-0000-4000-a000-0000000000d7',
+      '00000000-0000-4000-a000-0000000000d9'
+    );
+insert into coach_drill_signals (coach_id, drill_id, rating, run_count, last_rated_at)
+values
+  ('00000000-0000-4000-a000-0000000000d7',
+   '00000000-0000-4000-a000-000000000310',
+   'up', 1, now() - interval '5 days'),
+  ('00000000-0000-4000-a000-0000000000d9',
+   '00000000-0000-4000-a000-000000000310',
+   'up', 1, now() - interval '3 days');
+
+-- drill_clone_stick_signals — two rows (cloner-A in Cloner-A's org,
+-- cloner-B in Hornets). The third stick row is the one the e2e flow
+-- writes when cloner-C fires the thumb-up.
+delete from drill_clone_stick_signals where id in (
+  '00000000-0000-4000-a000-000000000315',
+  '00000000-0000-4000-a000-000000000316'
+);
+insert into drill_clone_stick_signals (id, drill_share_id, cloner_coach_id, cloner_org_id, stuck_at)
+values
+  ('00000000-0000-4000-a000-000000000315',
+   '00000000-0000-4000-a000-000000000311',
+   '00000000-0000-4000-a000-0000000000d7',
+   '00000000-0000-4000-a000-000000000010',
+   now() - interval '5 days'),
+  ('00000000-0000-4000-a000-000000000316',
+   '00000000-0000-4000-a000-000000000311',
+   '00000000-0000-4000-a000-0000000000d9',
+   '00000000-0000-4000-a000-0000000000d8',
+   now() - interval '3 days');
+
+-- ONE coach_reputation_milestones row of kind 'stuck_1' with
+-- notified_at IS NULL for the published coach. The /home card
+-- renders the milestone after the published coach signs in.
+delete from coach_reputation_milestones
+  where published_coach_id = '00000000-0000-4000-a000-000000000301'
+    and milestone_kind = 'stuck_1';
+insert into coach_reputation_milestones (
+  id, published_coach_id, milestone_kind, crossed_at, notified_at
+)
+values (
+  '00000000-0000-4000-a000-000000000317',
+  '00000000-0000-4000-a000-000000000301',
+  'stuck_1',
+  now() - interval '4 days',
+  null
+)
+on conflict (published_coach_id, milestone_kind) do nothing;
+
 commit;

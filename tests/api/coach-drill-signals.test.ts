@@ -87,6 +87,12 @@ function patchRequest(body: Record<string, unknown>) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // LESSONS#0092 — clearAllMocks() does NOT drain a mock's
+  // mockReturnValueOnce queue. The 0076 ticket added a stick-write
+  // hook on the PATCH path that fires extra from() reads after the
+  // thumbs-up upsert; resetting the queue here keeps each `it()`
+  // hermetic.
+  mockFromFn.mockReset();
 });
 
 // ─── AC2: GET scoping + payload shape ────────────────────────────────────────

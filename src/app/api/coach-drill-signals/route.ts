@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
+import { fireClonStickForThumbUp } from '@/lib/clone-stick-write-hook';
 
 // ─── /api/coach-drill-signals ─────────────────────────────────────────────────
 // Ticket 0039 — server-side mirror of the break-screen drill thumbs-up so a
@@ -117,5 +118,14 @@ export async function PATCH(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Ticket 0076 — when the caller thumbs-up a drill they previously
+  // cloned, write a stick-signal row + fire the publishing coach's
+  // milestone hook. Best-effort per LESSONS#0036 — errors caught
+  // inside the helper so the thumbs-up response is unaffected.
+  if (rating === 'up') {
+    await fireClonStickForThumbUp(admin, user.id, drillId);
+  }
+
   return NextResponse.json({ signal: data });
 }

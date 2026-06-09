@@ -208,4 +208,130 @@ describe('computeCoachReputation (ticket 0073)', () => {
     });
     expect(out2).toEqual(out1);
   });
+
+  // ─── Ticket 0076 — additive stuckClones widening ──────────────────────────
+  //
+  // Per LESSONS#0103 — the new `stuckClones` arg defaults to undefined
+  // for every existing 0073 caller; when absent, `stuckCloneCount` and
+  // `stuckProgramCount` default to 0. The existing-keys output stays
+  // BYTE-IDENTICAL.
+  it('existing 0073 callers stay byte-identical when stuckClones is undefined (the new keys default to 0)', () => {
+    const planClones = [
+      planClone({ cloning_coach_id: 'c1', cloning_org_id: PROG_A }),
+      planClone({ cloning_coach_id: 'c2', cloning_org_id: PROG_B }),
+    ];
+    const out = computeCoachReputation({
+      publishedCoachId: PUBLISHED,
+      planClones,
+      drillClones: [],
+      nowMs: NOW_MS,
+    });
+    // Existing keys unchanged.
+    expect(out.cloneCount).toBe(2);
+    expect(out.distinctProgramCount).toBe(2);
+    expect(out.distinctCoachCount).toBe(2);
+    // New keys default to 0 when stuckClones is undefined.
+    expect(out.stuckCloneCount).toBe(0);
+    expect(out.stuckProgramCount).toBe(0);
+  });
+
+  it('12 clones with 3 stuck across 2 distinct cloner orgs → stuckCloneCount=3, stuckProgramCount=2', () => {
+    const planClones = [
+      planClone({ cloning_coach_id: 'c1', cloning_org_id: PROG_A }),
+      planClone({ cloning_coach_id: 'c2', cloning_org_id: PROG_A }),
+      planClone({ cloning_coach_id: 'c3', cloning_org_id: PROG_B }),
+      planClone({ cloning_coach_id: 'c4', cloning_org_id: PROG_B }),
+      planClone({ cloning_coach_id: 'c5', cloning_org_id: PROG_C }),
+      planClone({ cloning_coach_id: 'c6', cloning_org_id: PROG_C }),
+      planClone({ cloning_coach_id: 'c7', cloning_org_id: PROG_D }),
+      planClone({ cloning_coach_id: 'c8', cloning_org_id: PROG_D }),
+      planClone({ cloning_coach_id: 'c9', cloning_org_id: PROG_A }),
+      planClone({ cloning_coach_id: 'c10', cloning_org_id: PROG_B }),
+      planClone({ cloning_coach_id: 'c11', cloning_org_id: PROG_C }),
+      planClone({ cloning_coach_id: 'c12', cloning_org_id: PROG_D }),
+    ];
+    const out = computeCoachReputation({
+      publishedCoachId: PUBLISHED,
+      planClones,
+      drillClones: [],
+      nowMs: NOW_MS,
+      // 3 stuck signals across 2 programs (A, B).
+      stuckClones: [
+        {
+          drill_share_id: 'share-1',
+          cloner_coach_id: 'c1',
+          cloner_org_id: PROG_A,
+          stuck_at: daysAgoIso(2),
+        },
+        {
+          drill_share_id: 'share-1',
+          cloner_coach_id: 'c2',
+          cloner_org_id: PROG_A,
+          stuck_at: daysAgoIso(3),
+        },
+        {
+          drill_share_id: 'share-1',
+          cloner_coach_id: 'c3',
+          cloner_org_id: PROG_B,
+          stuck_at: daysAgoIso(4),
+        },
+      ],
+    });
+    expect(out.cloneCount).toBe(12);
+    expect(out.stuckCloneCount).toBe(3);
+    expect(out.stuckProgramCount).toBe(2);
+  });
+
+  it('stuck self-clones are filtered (self-thumb on own drill never counts)', () => {
+    const out = computeCoachReputation({
+      publishedCoachId: PUBLISHED,
+      planClones: [],
+      drillClones: [],
+      nowMs: NOW_MS,
+      stuckClones: [
+        // Self-stick — must be filtered.
+        {
+          drill_share_id: 'share-self',
+          cloner_coach_id: PUBLISHED,
+          cloner_org_id: PROG_A,
+          stuck_at: daysAgoIso(1),
+        },
+        // Legitimate stuck signal from another coach.
+        {
+          drill_share_id: 'share-1',
+          cloner_coach_id: 'c1',
+          cloner_org_id: PROG_B,
+          stuck_at: daysAgoIso(2),
+        },
+      ],
+    });
+    expect(out.stuckCloneCount).toBe(1);
+    expect(out.stuckProgramCount).toBe(1);
+  });
+
+  it('stuck signals respect windowDays (a stick more than windowDays ago is excluded)', () => {
+    const out = computeCoachReputation({
+      publishedCoachId: PUBLISHED,
+      planClones: [],
+      drillClones: [],
+      nowMs: NOW_MS,
+      stuckClones: [
+        {
+          drill_share_id: 'share-1',
+          cloner_coach_id: 'c-inside',
+          cloner_org_id: PROG_A,
+          stuck_at: daysAgoIso(10),
+        },
+        {
+          drill_share_id: 'share-1',
+          cloner_coach_id: 'c-outside',
+          cloner_org_id: PROG_B,
+          stuck_at: daysAgoIso(35),
+        },
+      ],
+    });
+    // Default windowDays = 28 — outside is dropped.
+    expect(out.stuckCloneCount).toBe(1);
+    expect(out.stuckProgramCount).toBe(1);
+  });
 });
