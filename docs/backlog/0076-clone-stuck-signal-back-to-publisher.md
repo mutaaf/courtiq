@@ -1,7 +1,7 @@
 ---
 id: 0076
 title: When a coach who cloned another coach's drill thumbs it up after running it, tell the publishing coach by name — "your closeout drill landed for a coach in the Hornets program" — and weight 0073 reputation by clones that stuck, not clones that downloaded
-status: groomed
+status: in-progress
 priority: P1
 area: plans
 created: 2026-06-09
@@ -683,4 +683,22 @@ Files / patterns the dev should touch.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-09 [impl-dev] Pickup. Read AGENTS.md + LESSONS.md + ticket in
+  full. Confirmed migration 067 is the next free prefix (last is 066
+  referral_credit_grants). Read existing 0073 stack — pure helper at
+  `src/lib/coach-reputation-utils.ts`, milestone write hook at
+  `src/lib/coach-reputation-milestone-hook.ts`, card at
+  `src/components/home/coach-reputation-milestone-card.tsx`. Read the
+  0044 thumbs-up route at `src/app/api/coach-drill-signals/route.ts`
+  (PATCH not POST — the route is PATCH-shaped because it doubles as a
+  delete on `rating: null`). Read the 0064 drill_share_clones schema +
+  drill-share clone route. Confirmed seed UUID range — the 0073 family
+  ends at `0...f2`; `0...310+` is free.
+- 2026-06-09 [impl-dev] Migration 067 plan: new
+  `drill_clone_stick_signals` table + widen the
+  `coach_reputation_milestones.milestone_kind` CHECK constraint in the
+  same migration to include `stuck_1 / stuck_3 / stuck_8`. Per
+  LESSONS#0088 / #0114 strip `--` comments AND the structural
+  identifier names before the COPPA banned-token sweep.
+- 2026-06-09 [impl-dev] Branch
+  `feat/0076-clone-stick-signal` created off `main`.
