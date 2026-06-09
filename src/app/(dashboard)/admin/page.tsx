@@ -20,6 +20,7 @@ import {
 import type { CoachRole } from '@/types/database';
 import { ProgramPulseSection } from '@/components/admin/program-pulse-card';
 import { EmergentFocusSection } from '@/components/admin/emergent-focus-card';
+import { CrossProgramDirectorPulseSection } from '@/components/programs/cross-program-director-pulse-line';
 
 interface OrgCoach {
   id: string;
@@ -183,6 +184,14 @@ export default function AdminPage() {
           week. Best-effort: absent on a quiet week, on read failure, and
           for 7 days after a Got-it dismiss. */}
       <EmergentFocusSection orgId={coach?.org_id} isAdmin={isAdminUser} />
+
+      {/* Ticket 0077 — director-side cross-program peer pulse: ONE quiet
+          line about what directors of two neighboring programs are
+          working on this week, with a one-tap action to bring one of
+          those directors onto SportsIQ. Best-effort: absent when fewer
+          than two neighbors converge, on a read failure, or below the
+          per-program practice threshold. */}
+      <CrossProgramDirectorPulseSection orgId={coach?.org_id} isAdmin={isAdminUser} />
 
       {/* Org Tier */}
       <Card>
