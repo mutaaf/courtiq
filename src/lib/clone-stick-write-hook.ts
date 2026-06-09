@@ -134,7 +134,6 @@ export async function fireClonStickForThumbUp(
     }
   } catch (e) {
     // Best-effort per LESSONS#0036 — the thumbs-up path is unaffected.
-    // eslint-disable-next-line no-console
     console.error('clone-stick write hook failed', e);
   }
 }
