@@ -8,6 +8,7 @@ import {
   type CoachReputation,
   type PlanCloneRow,
   type DrillCloneRow,
+  type StuckCloneRow,
 } from '@/lib/coach-reputation-utils';
 
 // GET /api/practice-plan-shares/league?teamId=<id> — ticket 0055.
@@ -228,13 +229,21 @@ async function queryLeaguePlans(args: {
   // for any coach whose counts fall below the discovery threshold.
   await attachReputation(supabase, rows);
 
-  // RE-RANK by (distinctProgramCount desc, cloneCount desc, recency
-  // desc). When every reputation is null the sort ties on the
-  // existing recency order — BYTE-IDENTICAL to today (the ticket
-  // contract).
+  // Ticket 0076 — RE-RANK by
+  //   (stuckProgramCount desc,
+  //    distinctProgramCount desc,
+  //    cloneCount desc,
+  //    recency desc).
+  // When every reputation has stuckProgramCount = 0 the new tuple
+  // ties on the existing 0073 order — BYTE-IDENTICAL to today (the
+  // ticket contract). When every reputation is null the sort ties
+  // on recency — BYTE-IDENTICAL to 0055.
   rows.sort((a, b) => {
     const aRep = a.reputation;
     const bRep = b.reputation;
+    const aStickProg = aRep?.stuckProgramCount ?? 0;
+    const bStickProg = bRep?.stuckProgramCount ?? 0;
+    if (aStickProg !== bStickProg) return bStickProg - aStickProg;
     const aProg = aRep?.distinctProgramCount ?? 0;
     const bProg = bRep?.distinctProgramCount ?? 0;
     if (aProg !== bProg) return bProg - aProg;
@@ -319,6 +328,33 @@ async function attachReputation(
     for (const r of drillCloneRows) cloningCoachIds.push(r.cloner_coach_id);
   }
 
+  // Ticket 0076 — stick signals on the publisher's drill shares. One
+  // extra `from()` call (LESSONS#0049 / #0092 / #0100 / #0110 — sibling
+  // mock queues are extended in the same PR). The read is SKIPPED
+  // entirely when the publisher has zero drill shares (the common case
+  // for a coach who only publishes plans).
+  let stickRows: Array<{
+    drill_share_id: string;
+    cloner_coach_id: string;
+    cloner_org_id: string | null;
+    stuck_at: string;
+  }> = [];
+  if (publisherDrillShares.length > 0) {
+    const { data: stickRowsRaw } = await supabase
+      .from('drill_clone_stick_signals')
+      .select('drill_share_id, cloner_coach_id, cloner_org_id, stuck_at')
+      .in(
+        'drill_share_id',
+        publisherDrillShares.map((s) => s.id),
+      );
+    stickRows = (stickRowsRaw ?? []) as Array<{
+      drill_share_id: string;
+      cloner_coach_id: string;
+      cloner_org_id: string | null;
+      stuck_at: string;
+    }>;
+  }
+
   // Now resolve all cloning-coach org_ids in one batched read.
   const distinctCloningCoachIds = Array.from(new Set(cloningCoachIds));
   const coachOrgById = new Map<string, string | null>();
@@ -368,14 +404,37 @@ async function attachReputation(
     drillClonesByCoach.set(publishingCoachId, arr);
   }
 
+  // Ticket 0076 — group stick rows by publishing coach so each row's
+  // reputation includes only THEIR sticks. The publishing coach is
+  // resolved via drill_shares.coach_id (the share owner).
+  const stickClonesByCoach = new Map<string, StuckCloneRow[]>();
+  for (const r of stickRows) {
+    const publishingCoachId = drillShareIdToCoachId.get(r.drill_share_id);
+    if (!publishingCoachId) continue;
+    const arr = stickClonesByCoach.get(publishingCoachId) ?? [];
+    arr.push({
+      drill_share_id: r.drill_share_id,
+      cloner_coach_id: r.cloner_coach_id,
+      cloner_org_id: r.cloner_org_id,
+      stuck_at: r.stuck_at,
+    });
+    stickClonesByCoach.set(publishingCoachId, arr);
+  }
+
   const nowMs = Date.now();
   for (const row of rows) {
     const rep = computeCoachReputation({
       publishedCoachId: row.publishedCoachId,
       planClones: planClonesByCoach.get(row.publishedCoachId) ?? [],
       drillClones: drillClonesByCoach.get(row.publishedCoachId) ?? [],
+      stuckClones: stickClonesByCoach.get(row.publishedCoachId) ?? [],
       nowMs,
     });
+    // Keep the discovery-threshold gate AS-IS — the 0073 threshold
+    // (cloneCount >= 3 AND distinctProgramCount >= 2) still governs
+    // whether the reputation surface is rendered. The new stuck
+    // fields ride along on the same payload when above threshold;
+    // they do NOT promote a sub-threshold publisher.
     row.reputation = isAboveDiscoveryThreshold(rep) ? rep : null;
   }
 }

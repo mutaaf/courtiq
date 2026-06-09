@@ -127,6 +127,10 @@ describe('POST /api/drill-shares/[token]/clone — milestone hook (ticket 0073)'
         { id: CLONER_ID, org_id: PROG_Y },
       ]),
     );
+    // Ticket 0076 — drill_clone_stick_signals (publisher has shares so
+    // this read fires). Empty here — no stick signals on a fresh
+    // clone.
+    mockFromFn.mockReturnValueOnce(buildChain([]));
     // milestone upsert.
     const upsertChain = buildChain({ id: 'm-new' });
     mockFromFn.mockReturnValueOnce(upsertChain);
@@ -158,6 +162,9 @@ describe('POST /api/drill-shares/[token]/clone — milestone hook (ticket 0073)'
     );
     // 4. cloning coach org_ids.
     mockFromFn.mockReturnValueOnce(buildChain([{ id: CLONER_ID, org_id: PROG_X }]));
+    // 5. Ticket 0076 — drill_clone_stick_signals — empty (fresh clone,
+    //    no thumbs-up yet).
+    mockFromFn.mockReturnValueOnce(buildChain([]));
     // No upsert chain queued — the route MUST short-circuit when no
     // thresholds cross.
 

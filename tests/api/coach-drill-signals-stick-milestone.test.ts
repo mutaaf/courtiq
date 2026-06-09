@@ -192,26 +192,32 @@ describe('PATCH /api/coach-drill-signals — stuck-milestone hook (ticket 0076)'
         { id: CLONER, org_id: CLONER_ORG },
       ]),
     );
-    // drill_clone_stick_signals returns 3 rows (the existing 2 + the new one).
+    // drill_clone_stick_signals returns 3 rows (the existing 2 + the new
+    // one). All within the 28-day reputation window (the helper uses
+    // Date.now() inside the milestone hook; we use a recent ISO so the
+    // window filter doesn't drop the row).
+    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+    const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
     mockFromFn.mockReturnValueOnce(
       buildChain([
         {
           drill_share_id: SHARE_X,
           cloner_coach_id: 'c-prior-1',
           cloner_org_id: 'org-prior-1',
-          stuck_at: '2026-05-10T00:00:00Z',
+          stuck_at: tenDaysAgo,
         },
         {
           drill_share_id: SHARE_X,
           cloner_coach_id: 'c-prior-2',
           cloner_org_id: 'org-prior-2',
-          stuck_at: '2026-05-20T00:00:00Z',
+          stuck_at: fiveDaysAgo,
         },
         {
           drill_share_id: SHARE_X,
           cloner_coach_id: CLONER,
           cloner_org_id: CLONER_ORG,
-          stuck_at: '2026-06-09T20:00:00Z',
+          stuck_at: tenMinAgo,
         },
       ]),
     );

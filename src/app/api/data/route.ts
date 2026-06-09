@@ -90,6 +90,12 @@ const ALLOWED_TABLES = [
   // /api/game-decompression/* routes; the mutate allow-list intentionally
   // OMITS this table.
   'game_decompressions',
+  // Ticket 0076 — READS only (the publisher's own stick-count rollup on
+  // their drill-share admin surface). Inserts flow through the
+  // dedicated thumbs-up hook on /api/coach-drill-signals; there is no
+  // direct write path. The mutate allow-list intentionally OMITS this
+  // table.
+  'drill_clone_stick_signals',
 ];
 
 // ─── GET handler (query params) ──────────────────────────────────────────────

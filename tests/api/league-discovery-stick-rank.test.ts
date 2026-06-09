@@ -135,7 +135,7 @@ describe('GET /api/practice-plan-shares/league — stick-rank extension (ticket 
       },
     ]);
     // 6. plans (clones).
-    const today = '2026-06-07T00:00:00Z';
+    const today = new Date(Date.now() - 60 * 1000).toISOString();
     const mayaClones = [1, 2, 3].map((i) => ({
       source_plan_id: 'plan-maya',
       coach_id: `cloner-m-${i}`,
@@ -149,9 +149,39 @@ describe('GET /api/practice-plan-shares/league — stick-rank extension (ticket 
       created_at: today,
     }));
     mockFromFn.mockReturnValueOnce(buildChain([...mayaClones, ...sarahClones]));
-    // 7. drill_shares (publisher's) — empty (both have only plan shares).
+    // 7. drill_shares (publisher's). Maya has one share; Sarah none.
+    //    The stick read filters by these share ids.
+    mockFromFn.mockReturnValueOnce(
+      buildChain([{ id: 'share-maya-drill', coach_id: MAYA }]),
+    );
+    // 8. drill_share_clones — none of these are clones-of-drill-shares
+    //    (Maya's clones are plan clones). Empty.
     mockFromFn.mockReturnValueOnce(buildChain([]));
-    // 8. coaches (cloning-coach org_id resolution).
+    // 9. drill_clone_stick_signals — Maya has 3 stuck rows in 2
+    //    distinct cloner_org_ids (P, Q); Sarah has none.
+    mockFromFn.mockReturnValueOnce(
+      buildChain([
+        {
+          drill_share_id: 'share-maya-drill',
+          cloner_coach_id: 'cloner-m-1',
+          cloner_org_id: 'prog-P',
+          stuck_at: today,
+        },
+        {
+          drill_share_id: 'share-maya-drill',
+          cloner_coach_id: 'cloner-m-2',
+          cloner_org_id: 'prog-P',
+          stuck_at: today,
+        },
+        {
+          drill_share_id: 'share-maya-drill',
+          cloner_coach_id: 'cloner-m-3',
+          cloner_org_id: 'prog-Q',
+          stuck_at: today,
+        },
+      ]),
+    );
+    // 10. coaches (cloning-coach org_id resolution).
     mockFromFn.mockReturnValueOnce(
       buildChain([
         // Maya's 3 clones land in 2 distinct programs (P, Q).
@@ -162,33 +192,6 @@ describe('GET /api/practice-plan-shares/league — stick-rank extension (ticket 
         { id: 'cloner-s-1', org_id: 'prog-R' },
         { id: 'cloner-s-2', org_id: 'prog-R' },
         { id: 'cloner-s-3', org_id: 'prog-S' },
-      ]),
-    );
-    // 9. drill_clone_stick_signals — Maya has 3 stuck rows in 3
-    //    distinct cloner_org_ids; Sarah has none.
-    mockFromFn.mockReturnValueOnce(
-      buildChain([
-        {
-          drill_share_id: 'share-maya-drill',
-          publisher_coach_id: MAYA,
-          cloner_coach_id: 'cloner-m-1',
-          cloner_org_id: 'prog-P',
-          stuck_at: today,
-        },
-        {
-          drill_share_id: 'share-maya-drill',
-          publisher_coach_id: MAYA,
-          cloner_coach_id: 'cloner-m-2',
-          cloner_org_id: 'prog-P',
-          stuck_at: today,
-        },
-        {
-          drill_share_id: 'share-maya-drill',
-          publisher_coach_id: MAYA,
-          cloner_coach_id: 'cloner-m-3',
-          cloner_org_id: 'prog-Q',
-          stuck_at: today,
-        },
       ]),
     );
 
@@ -243,7 +246,7 @@ describe('GET /api/practice-plan-shares/league — stick-rank extension (ticket 
         plans: { id: 'plan-maya', title: 'Maya plan', team_id: 'team-maya' },
       },
     ]);
-    const today = '2026-06-07T00:00:00Z';
+    const today = new Date(Date.now() - 60 * 1000).toISOString();
     // Sarah: 5 clones across 5 different programs (above the 0073
     // discovery threshold). Maya: 3 clones across 2 programs.
     const sarahClones = [1, 2, 3, 4, 5].map((i) => ({
@@ -259,7 +262,31 @@ describe('GET /api/practice-plan-shares/league — stick-rank extension (ticket 
       created_at: today,
     }));
     mockFromFn.mockReturnValueOnce(buildChain([...sarahClones, ...mayaClones]));
+    // drill_shares — Maya has one share (the source of stick signals).
+    mockFromFn.mockReturnValueOnce(
+      buildChain([{ id: 'share-maya-drill', coach_id: MAYA }]),
+    );
+    // drill_share_clones — none.
     mockFromFn.mockReturnValueOnce(buildChain([]));
+    // drill_clone_stick_signals — Maya stuck in 2 programs; Sarah
+    // stuck in zero.
+    mockFromFn.mockReturnValueOnce(
+      buildChain([
+        {
+          drill_share_id: 'share-maya-drill',
+          cloner_coach_id: 'cloner-m-1',
+          cloner_org_id: 'prog-M1',
+          stuck_at: today,
+        },
+        {
+          drill_share_id: 'share-maya-drill',
+          cloner_coach_id: 'cloner-m-3',
+          cloner_org_id: 'prog-M2',
+          stuck_at: today,
+        },
+      ]),
+    );
+    // coaches batch read.
     mockFromFn.mockReturnValueOnce(
       buildChain([
         { id: 'cloner-s-1', org_id: 'prog-S1' },
@@ -270,26 +297,6 @@ describe('GET /api/practice-plan-shares/league — stick-rank extension (ticket 
         { id: 'cloner-m-1', org_id: 'prog-M1' },
         { id: 'cloner-m-2', org_id: 'prog-M1' },
         { id: 'cloner-m-3', org_id: 'prog-M2' },
-      ]),
-    );
-    // drill_clone_stick_signals — Maya stuck in 2 programs; Sarah
-    // stuck in zero.
-    mockFromFn.mockReturnValueOnce(
-      buildChain([
-        {
-          drill_share_id: 'share-maya-drill',
-          publisher_coach_id: MAYA,
-          cloner_coach_id: 'cloner-m-1',
-          cloner_org_id: 'prog-M1',
-          stuck_at: today,
-        },
-        {
-          drill_share_id: 'share-maya-drill',
-          publisher_coach_id: MAYA,
-          cloner_coach_id: 'cloner-m-3',
-          cloner_org_id: 'prog-M2',
-          stuck_at: today,
-        },
       ]),
     );
 
