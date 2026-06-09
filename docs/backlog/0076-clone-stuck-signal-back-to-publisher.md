@@ -1,7 +1,7 @@
 ---
 id: 0076
 title: When a coach who cloned another coach's drill thumbs it up after running it, tell the publishing coach by name — "your closeout drill landed for a coach in the Hornets program" — and weight 0073 reputation by clones that stuck, not clones that downloaded
-status: in-progress
+status: shipped
 priority: P1
 area: plans
 created: 2026-06-09
@@ -702,3 +702,8 @@ Files / patterns the dev should touch.
   identifier names before the COPPA banned-token sweep.
 - 2026-06-09 [impl-dev] Branch
   `feat/0076-clone-stick-signal` created off `main`.
+- 2026-06-09 [impl-dev] Shipped via PR #396 (squash-merged). All
+  three gating checks green (lint 1m29s, unit-tests 3m34s,
+  e2e-tests 4m23s). Local full-suite vitest: 6256/6257 pass; the
+  one fail is the well-known TZ environmental on
+  `player-of-match-utils.test.ts` (LESSONS#0036, not a regression).
