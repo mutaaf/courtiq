@@ -1,7 +1,7 @@
 ---
 id: 0077
 title: When a program director opens the weekly pulse, show ONE quiet line about what directors of two neighboring programs are working on this week — "Riverside and Westview are both on transitions" — and let them bring one of those directors onto SportsIQ with one tap
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-06-09
@@ -672,4 +672,44 @@ Files / patterns the dev should touch.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-09 [implementation-dev] Picked up at top of groomed P1 queue. Branched
+  `feat/0077-director-cross-program-peer-pulse`; flipped frontmatter +
+  README index row to `in-progress` in a tiny first commit so the rest of
+  the work is reviewable (LESSONS#0073/#0074 — file==index sync).
+- 2026-06-09 [implementation-dev] Reconciliation pass (schema-wins-over-prose,
+  LESSONS#0096):
+  * The AC names `from('organizations').select('id, name, sport_id')` but
+    `organizations` has NO `sport_id` column — sport_id lives on `teams`
+    (migration 001_schema.sql). Mirror the 0075 sport-emergent-focus
+    pattern: resolve the caller's sport via `teams.sport_id`, then list
+    OTHER orgs by reading teams in that sport and grouping by org_id.
+  * The AC names the mount as the "0028 program-pulse page" — at pickup
+    that surface is `src/app/(dashboard)/admin/page.tsx` (where
+    `<ProgramPulseSection>` and `<EmergentFocusSection>` mount). Add a
+    `<CrossProgramDirectorPulseSection>` BELOW those sections.
+  * The AC names `coach_director_contacts` as the source for the
+    neighbor director's first_name + email. At pickup that table stores
+    per-CALLER contacts (the COACH's own director), not a directory of
+    every program's director. The canonical director identity in this
+    repo is the org's admin coach (`coaches.role = 'admin'` for the
+    neighbor org_id), mirroring the 0028 / 0071 director-role contract.
+    Resolve neighbor director first_name + email from `coaches`,
+    optionally cross-referenced against `coach_director_contacts` for
+    the case where the caller-side coach already invited that director
+    in the past (the "warm" pre-filled flow). The director consent
+    posture is upheld: the route never returns the email when no
+    coach-admin row exists for the neighbor org.
+  * The Glob sweep the AC mandates (`tests/api/program*.test.ts`,
+    `tests/api/cross-program*.test.ts`, `tests/api/director*.test.ts`,
+    `tests/ai/program-pulse*.test.ts`) — LESSONS#0116: empty Glob is a
+    no-op. `tests/api/cross-program*` returns ZERO hits; the only
+    matching files are `tests/api/program-director-invites-*.test.ts`
+    (table-keyed `mockImplementation`, queue-shape-agnostic),
+    `tests/ai/program-pulse.test.ts` (table-keyed
+    `mockImplementation`), `tests/api/auth-setup-director-invite.test.ts`
+    (orthogonal). The new route adds NO from() calls to the existing
+    routes — it lives at a NEW path — so no sibling-queue update is
+    needed (LESSONS#0116 sweep documented; no extension required).
+  * No new tier feature key (AC explicit). The cross-program pulse rides
+    the existing `feature_program_pulse` gate that already covers 0028.
+  * No migration. No new env var. No new dep. No AI call.
