@@ -36,10 +36,18 @@ const ALL_KINDS: ReputationMilestone['kind'][] = [
   'programs_2',
   'programs_4',
   'programs_8',
+  // Ticket 0076 — new stuck-kind milestones.
+  'stuck_1',
+  'stuck_3',
+  'stuck_8',
 ];
 
-function ms(kind: ReputationMilestone['kind'], id = 'm-1'): ReputationMilestone {
-  return { id, kind, crossedAt: '2026-06-06T00:00:00Z' };
+function ms(
+  kind: ReputationMilestone['kind'],
+  id = 'm-1',
+  extras: Partial<ReputationMilestone> = {},
+): ReputationMilestone {
+  return { id, kind, crossedAt: '2026-06-06T00:00:00Z', ...extras };
 }
 
 describe('<CoachReputationMilestoneCard /> (ticket 0073)', () => {
@@ -112,5 +120,72 @@ describe('<CoachReputationMilestoneCard /> (ticket 0073)', () => {
       expect(text).not.toMatch(/@/);
       unmount();
     }
+  });
+
+  // ─── Ticket 0076 — stuck-kind copy + deep-link ─────────────────────────
+  //
+  // The three new stuck-kind milestones name the cloning PROGRAM (not the
+  // cloning coach) and deep-link the publishing coach to their drill-share
+  // admin surface (the 0064 share-card admin lives at
+  // /drills/<drillId>/share). For a drill-shaped milestone the card's
+  // primary button is "Open my drill" — distinct from the existing 0073
+  // "Open my plans" button.
+  it('stuck_1: renders program name + drill title and a deep-link to the drill-share admin', () => {
+    render(
+      <CoachReputationMilestoneCard
+        milestones={[
+          ms('stuck_1', 'm-stuck-1', {
+            drillTitle: 'Closeout Drill',
+            programNames: ['Hornets'],
+            drillId: 'drill-x',
+          }),
+        ]}
+        onConsume={() => {}}
+      />,
+    );
+    const card = screen.getByTestId('coach-reputation-milestone-card');
+    expect(card.textContent).toContain('Closeout Drill');
+    expect(card.textContent).toContain('Hornets');
+    const link = screen.getByTestId('coach-reputation-milestone-card-open-drill');
+    expect(link.tagName.toLowerCase()).toBe('a');
+    expect(link.getAttribute('href')).toContain('drill-x');
+  });
+
+  it('stuck_3: renders all three program names', () => {
+    render(
+      <CoachReputationMilestoneCard
+        milestones={[
+          ms('stuck_3', 'm-stuck-3', {
+            drillTitle: 'Closeout Drill',
+            programNames: ['Hornets', 'Falcons', 'Owls'],
+            drillId: 'drill-x',
+          }),
+        ]}
+        onConsume={() => {}}
+      />,
+    );
+    const card = screen.getByTestId('coach-reputation-milestone-card');
+    expect(card.textContent).toContain('Hornets');
+    expect(card.textContent).toContain('Falcons');
+    expect(card.textContent).toContain('Owls');
+  });
+
+  it('stuck_8: renders the eight-programs copy without naming any program (aggregate-only)', () => {
+    render(
+      <CoachReputationMilestoneCard
+        milestones={[
+          ms('stuck_8', 'm-stuck-8', {
+            drillTitle: 'Closeout Drill',
+            programNames: ['Hornets', 'Falcons', 'Owls', 'Hawks', 'Bears', 'Wolves', 'Lions', 'Eagles'],
+            drillId: 'drill-x',
+          }),
+        ]}
+        onConsume={() => {}}
+      />,
+    );
+    const card = screen.getByTestId('coach-reputation-milestone-card');
+    // Eight-program copy mentions "eight" (per LESSONS#0023 — numbers
+    // spelled out for the stuck-kind voice posture).
+    expect((card.textContent ?? '').toLowerCase()).toMatch(/eight|8/);
   });
 });
