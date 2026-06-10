@@ -2593,14 +2593,16 @@ values (
 on conflict (id) do nothing;
 
 -- The cross-program clone — a coach in the Hornets program cloned
--- Sarah's drill this week.
+-- Sarah's drill this week. NOTE: drill_share_clones does NOT carry
+-- the cloning org id directly (that lives on drill_clone_stick_signals
+-- per migration 067). The cron resolves the cloning org through the
+-- cloning coach's `coaches.org_id`.
 delete from drill_share_clones where id = '00000000-0000-4000-a000-000000000333';
-insert into drill_share_clones (id, drill_share_id, cloner_coach_id, cloner_org_id, cloned_at)
+insert into drill_share_clones (id, drill_share_id, cloner_coach_id, cloned_at)
 values (
   '00000000-0000-4000-a000-000000000333',
   '00000000-0000-4000-a000-000000000330',
   '00000000-0000-4000-a000-000000000332',
-  '00000000-0000-4000-a000-000000000331',
   now() - interval '2 hours'
 );
 

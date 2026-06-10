@@ -393,8 +393,11 @@ export async function POST(request: Request) {
           const candidateCoachIds = candidates.map((c) => c.published_coach_id);
           // Single allow-listed read on drill_shares — pulls the title
           // (caption) AND the per-share id we walk to find the cloning
-          // org. NEVER reads `cloner_coach_id` directly; the cloning
-          // program name comes from `drill_share_clones.cloner_org_id`.
+          // org. The cloning org is resolved THROUGH the cloning
+          // coach: drill_share_clones.cloner_coach_id → coaches.org_id
+          // → organizations.name. We never display the cloning coach's
+          // full_name on the rendered surface (allow-list select only
+          // pulls `id, org_id`).
           const { data: drillShareRows } = await admin
             .from('drill_shares')
             .select('id, coach_id, caption')
@@ -416,39 +419,60 @@ export async function POST(request: Request) {
           }
 
           // Resolve cloning program name: pick a recent clone on any
-          // share owned by the publishing coach → the cloner's org →
-          // organizations.name. We DO NOT join through to the cloner
-          // coach's full_name — the surface never names them.
+          // share owned by the publishing coach → the cloning coach's
+          // org → organizations.name. The cloning coach is resolved
+          // only as a structural foreign key — their `full_name` is
+          // NEVER on the rendered surface.
           const programNameByCoach = new Map<string, string>();
           if (shareIds.length > 0) {
             const { data: cloneRows } = await admin
               .from('drill_share_clones')
-              .select('drill_share_id, cloner_org_id, cloned_at')
+              .select('drill_share_id, cloner_coach_id, cloned_at')
               .in('drill_share_id', shareIds)
               .order('cloned_at', { ascending: false });
-            const orgIdByCoachId = new Map<string, string>();
+            const clonerCoachIdByShareCoach = new Map<string, string>();
             for (const row of (cloneRows ?? []) as Array<{
               drill_share_id: string;
-              cloner_org_id: string | null;
+              cloner_coach_id: string;
             }>) {
-              if (!row.cloner_org_id) continue;
-              const coachId = shareIdToCoachId.get(row.drill_share_id);
-              if (!coachId || orgIdByCoachId.has(coachId)) continue;
-              orgIdByCoachId.set(coachId, row.cloner_org_id);
+              const publisherCoachId = shareIdToCoachId.get(row.drill_share_id);
+              if (!publisherCoachId) continue;
+              if (clonerCoachIdByShareCoach.has(publisherCoachId)) continue;
+              clonerCoachIdByShareCoach.set(publisherCoachId, row.cloner_coach_id);
             }
-            const orgIds = Array.from(new Set(Array.from(orgIdByCoachId.values())));
-            if (orgIds.length > 0) {
-              const { data: orgRows } = await admin
-                .from('organizations')
-                .select('id, name')
-                .in('id', orgIds);
-              const orgNameById = new Map<string, string>();
-              for (const row of (orgRows ?? []) as Array<{ id: string; name: string }>) {
-                orgNameById.set(row.id, row.name);
+            const clonerCoachIds = Array.from(
+              new Set(Array.from(clonerCoachIdByShareCoach.values())),
+            );
+            if (clonerCoachIds.length > 0) {
+              // Resolve clonerCoachId → org_id. Allow-list: `id, org_id`
+              // only — never reads full_name.
+              const { data: clonerCoachRows } = await admin
+                .from('coaches')
+                .select('id, org_id')
+                .in('id', clonerCoachIds);
+              const orgIdByCoach = new Map<string, string>();
+              for (const row of (clonerCoachRows ?? []) as Array<{
+                id: string;
+                org_id: string | null;
+              }>) {
+                if (row.org_id) orgIdByCoach.set(row.id, row.org_id);
               }
-              for (const [coachId, orgId] of orgIdByCoachId) {
-                const name = orgNameById.get(orgId);
-                if (name) programNameByCoach.set(coachId, name);
+              const orgIds = Array.from(new Set(Array.from(orgIdByCoach.values())));
+              if (orgIds.length > 0) {
+                const { data: orgRows } = await admin
+                  .from('organizations')
+                  .select('id, name')
+                  .in('id', orgIds);
+                const orgNameById = new Map<string, string>();
+                for (const row of (orgRows ?? []) as Array<{ id: string; name: string }>) {
+                  orgNameById.set(row.id, row.name);
+                }
+                for (const [publisherCoachId, clonerCoachId] of clonerCoachIdByShareCoach) {
+                  const orgId = orgIdByCoach.get(clonerCoachId);
+                  if (!orgId) continue;
+                  const name = orgNameById.get(orgId);
+                  if (name) programNameByCoach.set(publisherCoachId, name);
+                }
               }
             }
           }

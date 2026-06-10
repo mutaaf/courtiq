@@ -138,14 +138,30 @@ interface WireOpts {
 function wire(opts: WireOpts = {}) {
   mockFromFn.mockImplementation((table: string) => {
     if (table === 'coaches') {
-      // Both the 0042 .range() read AND the 0078 .in() read return the
-      // same set of coaches — the publisher cohort + the dormant base.
+      // Both the 0042 .range() read AND the 0078 .in() reads (for
+      // publishers AND for cloner-coach org resolution) return the
+      // same coach set. The publisher cohort includes the dormant
+      // base; we also synthesize one cloner coach per drill share so
+      // the cron's cloner_coach_id → coaches.org_id lookup resolves.
       const list = opts.publishers ?? [PUBLISHER_COACH];
-      const resolved = { data: list, error: null };
+      const drillEntries = Object.entries(opts.drillSharesByCoach ?? {});
+      const clonerRows = drillEntries.map(([coachId]) => ({
+        id: 'cloner-of-' + coachId,
+        // synthesize an org id keyed off the cloner: matches what the
+        // organizations mock returns below.
+        org_id: 'org-of-' + coachId,
+        email: null,
+        full_name: null,
+        preferences: {},
+        paused_until: null,
+        last_active_at: null,
+      }));
+      const combined = [...list, ...clonerRows];
+      const resolved = { data: combined, error: null };
       const chain: Record<string, unknown> = {
         select: vi.fn().mockReturnThis(),
         order: vi.fn().mockReturnThis(),
-        range: vi.fn().mockResolvedValue(resolved),
+        range: vi.fn().mockResolvedValue({ data: list, error: null }),
         in: vi.fn().mockReturnThis(),
         update: vi.fn(() => ({
           eq: vi.fn().mockResolvedValue({ error: null }),
@@ -218,12 +234,14 @@ function wire(opts: WireOpts = {}) {
       return chain;
     }
     if (table === 'drill_share_clones') {
-      // Per-share clone — points at a cloning org (NEVER a cloning
-      // coach for display). Single row per share is enough.
+      // Per-share clone — points at the cloning coach id (NEVER an
+      // org id directly; the schema 059_drill_shares.sql doesn't carry
+      // one on this table). The route then resolves the cloning
+      // coach's org_id via a follow-up `coaches` read.
       const drillEntries = Object.entries(opts.drillSharesByCoach ?? {});
       const rows = drillEntries.map(([coachId]) => ({
         drill_share_id: 'ds-' + coachId,
-        cloner_org_id: 'org-of-' + coachId,
+        cloner_coach_id: 'cloner-of-' + coachId,
         cloned_at: daysAgoIso(0.5),
       }));
       const resolved = { data: rows, error: null };
