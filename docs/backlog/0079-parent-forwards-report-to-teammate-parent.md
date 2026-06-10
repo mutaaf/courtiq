@@ -1,7 +1,7 @@
 ---
 id: 0079
 title: When a parent opens their kid's report on the portal, give them one tap to forward this week's report to ONE other parent on the same team — "send this to Liam's mom too" — so the parent-portal acquisition graph finally has a parent → parent edge
-status: in-progress
+status: shipped
 priority: P2
 area: parent-portal
 created: 2026-06-09
