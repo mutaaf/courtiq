@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { Trophy, ArrowRight } from 'lucide-react';
@@ -226,10 +226,32 @@ export function CoachReputationMilestoneCard({
 /** Container that fetches the unconsumed milestones + handles consume.
  *  The /home page mounts this; it does the GET, calls the consume POST,
  *  and optimistically removes the consumed milestone from the local
- *  cache. */
+ *  cache.
+ *
+ *  Ticket 0078 — `?milestone=<id>` deep-link affordance. The 0078
+ *  reactivation email's CTA lands the publishing coach on /home with
+ *  the named milestone id in the query string; we read it once as a
+ *  SNAPSHOT (LESSONS#0027 — never put a set-controlled state value
+ *  into a useEffect dep list) and pin that milestone to the front of
+ *  the rendered cycle. The card mechanic stays byte-identical; only
+ *  the initial render index respects the query param. */
 export function CoachReputationMilestoneSection() {
   const queryClient = useQueryClient();
   const [isConsuming, setIsConsuming] = useState(false);
+
+  // Ticket 0078 — snapshot the deep-link param ONCE on mount. The
+  // empty deps `[]` mean a re-render never re-pins the milestone
+  // (the param is consumed; subsequent renders show the default
+  // most-recent order even before the URL is cleared).
+  const [deepLinkMilestoneId, setDeepLinkMilestoneId] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('milestone');
+    if (id) setDeepLinkMilestoneId(id);
+    // Intentionally empty deps — read as a snapshot exactly once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { data } = useQuery({
     queryKey: ['coach-reputation-milestones'],
@@ -242,7 +264,21 @@ export function CoachReputationMilestoneSection() {
     },
   });
 
-  const milestones = data?.milestones ?? [];
+  const milestonesRaw = data?.milestones ?? [];
+
+  // Ticket 0078 — if the deep-link id matches a fetched milestone,
+  // move it to the front of the array. The rest of the order is
+  // preserved (the existing 0073 most-recent-first default).
+  const milestones = useMemo(() => {
+    if (!deepLinkMilestoneId) return milestonesRaw;
+    const idx = milestonesRaw.findIndex((m) => m.id === deepLinkMilestoneId);
+    if (idx <= 0) return milestonesRaw;
+    const reordered = [...milestonesRaw];
+    const [picked] = reordered.splice(idx, 1);
+    reordered.unshift(picked);
+    return reordered;
+  }, [milestonesRaw, deepLinkMilestoneId]);
+
   if (milestones.length === 0) return null;
 
   async function handleConsume(milestoneId: string) {

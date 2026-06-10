@@ -122,6 +122,16 @@ export async function updateSession(request: NextRequest) {
     // e2e spec POST it directly, the proxy must not 401 it before the
     // route's own check runs (LESSONS#0104).
     '/api/cron/silent-player-nudge',
+    // Ticket 0042 / 0072 / 0078 — the polite "still coaching?" quiet-
+    // check-in cron PLUS its 0072 returning-parent reactivation branch
+    // and its 0078 dormant-publisher reactivation branch. CRON_SECRET-
+    // bearer self-enforced; Vercel Cron hits it in production; the 0078
+    // e2e spec POSTs it from Playwright with the same Bearer header.
+    // The supabase proxy MUST NOT short-circuit either with a 401 —
+    // the route's own CRON_SECRET check is the load-bearing gate
+    // (LESSONS#0058 — when a cron route an e2e POSTs is not in
+    // publicPaths, the proxy 401s every retry).
+    '/api/cron/coach-quiet-check-in',
     // Ticket 0064 — single-drill publish-and-clone surface. The page at
     // /drill/<token> + the public token GET at /api/drill-shares/<token>
     // are crawler-reachable without auth (cold visitors hit them before

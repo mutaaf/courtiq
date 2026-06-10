@@ -1126,6 +1126,23 @@ export interface CoachReputationMilestone {
   notified_at: string | null;
 }
 
+// Ticket 0078 — dormant-publisher reactivation dispatch primitive.
+// One row per (publishing coach, milestone) edge written when the
+// existing 0042 cron's new 0078 branch dispatches a reactivation
+// email to a dormant publishing coach whose 0073 / 0076 milestone
+// row was crossed in the last 24h. The cron's per-coach cooldown
+// lookup reads this table by (published_coach_id, dispatched_at
+// DESC) to enforce the 60-day anti-fatigue contract. The UNIQUE
+// (published_coach_id, milestone_id) constraint makes the dispatch
+// row idempotent across re-runs of the same cron in the same
+// window. COACH-TO-COACH only — no player or parent reference.
+export interface CoachCloneReactivationSignal {
+  id: string;
+  published_coach_id: string;
+  milestone_id: string;
+  dispatched_at: string;
+}
+
 // Ticket 0074 — referral credit grant primitive. One row per
 // (inviter coach, milestone kind) edge written by the apply-credit
 // route when the inviter's count of qualified converted coaches

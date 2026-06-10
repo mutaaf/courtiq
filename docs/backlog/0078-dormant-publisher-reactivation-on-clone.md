@@ -1,7 +1,7 @@
 ---
 id: 0078
 title: When a dormant coach who published a drill last season gets cloned by a coach in a new program this week, send ONE honest email — "Sarah, your closeout drill was cloned by a coach in the Hornets program today" — that brings them back into SportsIQ on the strongest possible signal
-status: groomed
+status: in-progress
 priority: P1
 area: onboarding
 created: 2026-06-09
@@ -870,4 +870,51 @@ touch.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-10 [implementation-dev] Picked up ticket; flipping to `in-progress`
+  on a fresh branch off `origin/main` (commit `b8842c90`). Confirmed at pickup:
+  - Next free migration prefix IS `068` — latest on `main` is `067_drill_clone_stick_signals.sql`
+    (per `ls supabase/migrations/`); the sentinel `tests/migrations/no-new-migration-0076.test.ts`
+    is pinned to 68 files and needs bumping to 69.
+  - The supabase auth proxy lives in `src/lib/supabase/middleware.ts` (NOT
+    `proxy.ts` per LESSONS#0058) — the existing 0042 cron path
+    `/api/cron/coach-quiet-check-in` is NOT currently in `publicPaths`,
+    but no e2e POSTs it today, so it has worked in production via Vercel
+    Cron. If we extend this route (preferred per LESSONS#0036 / #0066 /
+    #0112), no `publicPaths` change is needed; if we add a brand-new
+    sibling cron, we will need to mirror `/api/cron/sunday-plan-prompt`.
+  - **Consolidation point** = the existing 0042 cron route
+    `src/app/api/cron/coach-quiet-check-in/route.ts`. It ALREADY houses
+    the 0072 reactivation-email branch (a second top-level `try` block
+    after the 0042 quiet-check-in branch); adding the 0078 publisher-
+    reactivation branch as a THIRD top-level `try` block mirrors the
+    existing posture exactly (best-effort, table-keyed mock-friendly,
+    no `publicPaths` change). LESSONS#0036 / #0066 / #0112 prefer this
+    over a new sibling route.
+  - The 0042 email module exports `buildQuietCheckInSubject` / `buildQuietCheckInHtml`
+    from `src/lib/coach-quiet-check-in-utils.ts`; the 0072 email module is a
+    standalone file at `src/lib/coach-reactivation-email.ts`. We will
+    follow the 0072 pattern — a new standalone module at
+    `src/lib/dormant-publisher-clone-email.ts` — for cohesion with the
+    helper file at `src/lib/dormant-publisher-clone-utils.ts`.
+  - The /home page is at `src/app/(dashboard)/home/page.tsx` and renders
+    `<CoachReputationMilestoneSection />` at line 1461 (the 0073 card).
+    The card's `useQuery` reads `/api/coach/reputation-milestones`; we
+    extend the section to accept an initial `?milestone=<id>` snapshot
+    and pin that milestone first.
+  - Seed UUID family — used range stops at `0...032e` (after 0077); next
+    free range is `0...032f`+. We will use `0...032f`-`0...0334` for the
+    0078 fixture rows (dormant publishing coach reuse via 0072's
+    `...0d2`, plus new milestone + drill_share + cloning-org rows).
+  - Glob sweep (LESSONS#0049 / #0092 / #0100 / #0110 / #0116):
+    `tests/api/cron*` returns `coach-quiet-check-in.test.ts`,
+    `coach-quiet-check-in-reactivation.test.ts`,
+    `cron-pause-skip.test.ts`, `refresh-drill-sequences.test.ts`,
+    `silent-player-nudge.test.ts`, `sunday-plan-prompt.test.ts`,
+    `weekly-parent-rollup.test.ts`. The 0042 + 0072 tests are
+    table-keyed `mockImplementation((table) => ...)` whitelists —
+    per LESSONS#0118 we extend the whitelist to return empty chains
+    for the new tables (`coach_reputation_milestones`,
+    `coach_clone_reactivation_signals`, `drill_shares`, `drills`,
+    `organizations`, `team_coaches`, `teams`) so the existing
+    happy-paths stay byte-identical. `tests/api/dormant*` returns
+    EMPTY — documented as a no-op sweep per LESSONS#0116.

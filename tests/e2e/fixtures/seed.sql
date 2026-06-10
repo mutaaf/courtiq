@@ -2487,4 +2487,141 @@ values
    now() - interval '1 days')
 on conflict (id) do nothing;
 
+-- ════════════════════════════════════════════════════════════════════════
+-- Ticket 0078 — dormant-publisher reactivation on clone fixture
+-- ════════════════════════════════════════════════════════════════════════
+-- The 0078 cron branch sends ONE honest email per (dormant publishing
+-- coach, fresh 0073 milestone) tuple. This block seeds the fixture
+-- needed for an e2e/vitest-cron pass:
+--   * REUSES the EXISTING 0072 dormant Sarah Hawkes coach (...0d2)
+--     whose last_active_at = 45 days ago — Sarah is the publishing
+--     coach who shipped a drill in spring and has not opened the
+--     app since.
+--   * ONE more drill row owned by Sarah ("Sarah's closeout drill")
+--     so the 0078 cron resolves a drill title for the email body.
+--   * ONE more drill_shares row owned by Sarah, active, with a
+--     deterministic share_token.
+--   * ONE more drill_share_clones row pointing at the SEEDED cloning
+--     org (the "Hornets" program — ...032f) — a coach in the Hornets
+--     program "cloned Sarah's drill this week".
+--   * ONE more organizations row for the Hornets program (...032f)
+--     so the cron's program-name lookup resolves to "Hornets".
+--   * ONE more coach_reputation_milestones row of kind 'clones_3'
+--     with notified_at IS NULL — the unconsumed milestone the
+--     0078 cron branch reads.
+--   * NO coach_clone_reactivation_signals row yet — the cron writes
+--     one when it fires; an idempotency re-run is a no-op via the
+--     UNIQUE constraint.
+--
+-- UUID family `00000000-0000-4000-a000-00000000032f`+ — the 0077
+-- family stops at 0...032e; 032f+ is unused.
+-- LESSONS#0084 — no new auth.users rows needed; Sarah is reused
+-- from the 0072 seed (...0d2).
+-- LESSONS#0085 — no jsonb string values added here; just structured
+-- DDL rows.
+-- LESSONS#0101 — UUID range confirmed clean.
+--
+-- COPPA: the fixture is coach-level + org-level only. NO new
+-- player, NO observation, NO parent_*, NO DOB, NO medical_notes.
+
+-- New drill — Sarah's closeout drill.
+insert into drills (id, sport_id, name, description, category, age_groups,
+                    duration_minutes, player_count_min, player_count_max,
+                    equipment, teaching_cues, setup_instructions, source)
+select
+  '00000000-0000-4000-a000-00000000032f',
+  (select id from sports where slug = 'basketball' limit 1),
+  '0078 E2E Sarah Closeout Drill',
+  'Sarah''s closeout drill — the drill that gets cloned by a coach in another program in the fall.',
+  'Defense',
+  '{"8-10","11-13"}',
+  10, 2, 12,
+  '{"basketballs","cones"}',
+  '{"Stay low on the close-out","Chest to the ball-handler","Hands up at the end"}',
+  'Players close out on the shooter from the elbow.',
+  'seeded'
+on conflict (id) do nothing;
+
+-- New drill_shares row — Sarah's published drill, active.
+insert into drill_shares (id, coach_id, drill_id, share_token, caption, is_active)
+values (
+  '00000000-0000-4000-a000-000000000330',
+  '00000000-0000-4000-a000-0000000000d2',
+  '00000000-0000-4000-a000-00000000032f',
+  'test-pub-react-drill-token-e2e-0078-001',
+  'Live closeout 1-on-1',
+  true
+)
+on conflict (id) do nothing;
+
+-- New cloning organization — the "Hornets" program. NOT the existing
+-- E2E org (...010); a SEPARATE program so the publish-graph edge is
+-- "cross-program" by construction. Free tier — no entitlement gate
+-- on the reactivation pull.
+insert into organizations (id, name, slug, tier)
+values (
+  '00000000-0000-4000-a000-000000000331',
+  'Hornets',
+  'hornets-e2e-0078',
+  'free'
+)
+on conflict (id) do nothing;
+
+-- New cloner-coach in the Hornets program. Needs an auth.users row
+-- first per LESSONS#0084.
+insert into auth.users (id, instance_id, aud, role, email,
+                        email_confirmed_at, created_at, updated_at)
+values (
+  '00000000-0000-4000-a000-000000000332',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated', 'authenticated',
+  'hornets-cloner-e2e@test.com', now(), now(), now()
+)
+on conflict (id) do nothing;
+
+insert into coaches (
+  id, org_id, full_name, email, role, onboarding_complete, last_active_at
+)
+values (
+  '00000000-0000-4000-a000-000000000332',
+  '00000000-0000-4000-a000-000000000331',
+  'Hornets Cloner',
+  'hornets-cloner-e2e@test.com',
+  'coach', true,
+  now() - interval '1 days'
+)
+on conflict (id) do nothing;
+
+-- The cross-program clone — a coach in the Hornets program cloned
+-- Sarah's drill this week. NOTE: drill_share_clones does NOT carry
+-- the cloning org id directly (that lives on drill_clone_stick_signals
+-- per migration 067). The cron resolves the cloning org through the
+-- cloning coach's `coaches.org_id`.
+delete from drill_share_clones where id = '00000000-0000-4000-a000-000000000333';
+insert into drill_share_clones (id, drill_share_id, cloner_coach_id, cloned_at)
+values (
+  '00000000-0000-4000-a000-000000000333',
+  '00000000-0000-4000-a000-000000000330',
+  '00000000-0000-4000-a000-000000000332',
+  now() - interval '2 hours'
+);
+
+-- The fresh 0073 milestone Sarah crossed when the Hornets clone fired.
+-- crossed_at within the 24h window the 0078 cron reads; notified_at
+-- IS NULL so the email can still go out.
+delete from coach_reputation_milestones
+  where published_coach_id = '00000000-0000-4000-a000-0000000000d2'
+    and milestone_kind = 'clones_3';
+insert into coach_reputation_milestones (
+  id, published_coach_id, milestone_kind, crossed_at, notified_at
+)
+values (
+  '00000000-0000-4000-a000-000000000334',
+  '00000000-0000-4000-a000-0000000000d2',
+  'clones_3',
+  now() - interval '2 hours',
+  null
+)
+on conflict (published_coach_id, milestone_kind) do nothing;
+
 commit;

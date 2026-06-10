@@ -36,6 +36,8 @@ import {
   buildReturningParentReactivationSubject,
   buildReturningParentReactivationHtml,
 } from '@/lib/coach-reactivation-email';
+import { selectDormantPublishersForClones } from '@/lib/dormant-publisher-clone-utils';
+import { buildDormantPublisherCloneEmail } from '@/lib/dormant-publisher-clone-email';
 import type { Json } from '@/types/database';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.youthsportsiq.com';
@@ -291,8 +293,273 @@ export async function POST(request: Request) {
     console.error('[coach-quiet-check-in] reactivation branch unexpected error:', msg);
   }
 
+  // ─── Ticket 0078 — dormant-PUBLISHER reactivation email branch ─────────
+  // Walk every `coach_reputation_milestones` row crossed in the last 24h
+  // with `notified_at IS NULL`. For each such milestone whose published
+  // coach has been dormant ≥ 21 days AND has not received a reactivation
+  // email in the last 60 days, send ONE email naming the cloning PROGRAM
+  // (never the cloning coach) and the cloned drill/plan title, then
+  // write a `coach_clone_reactivation_signals` row so the same edge is
+  // never re-emailed (UNIQUE constraint + cooldown helper).
+  //
+  // Best-effort posture (LESSONS#0036): a mail failure on one batch
+  // item does not block the next; a duplicate-key write on the signal
+  // row is logged and the next item still processes.
+  //
+  // COPPA: the branch reads ONLY adult-only entities
+  // (coach_reputation_milestones, coaches, coach_clone_reactivation_
+  // signals, drill_shares, drills, drill_share_clones, organizations).
+  // It NEVER reads `players`, `observations`, `parent_email`, DOB,
+  // jersey_number, medical_notes, photo URLs.
+  let totalPubSent = 0;
+  let totalPubSkipped = 0;
+  let totalPubErrors = 0;
+
+  try {
+    const twentyFourHoursAgoIso = new Date(now.getTime() - 1 * DAY_MS).toISOString();
+    const { data: milestoneRows, error: milestoneErr } = await admin
+      .from('coach_reputation_milestones')
+      .select('id, published_coach_id, milestone_kind, crossed_at, notified_at')
+      .is('notified_at', null)
+      .gte('crossed_at', twentyFourHoursAgoIso)
+      .order('crossed_at', { ascending: false });
+
+    if (milestoneErr) {
+      console.error(
+        '[coach-quiet-check-in] publisher milestone read error:',
+        milestoneErr.message,
+      );
+    } else {
+      const milestones = (milestoneRows ?? []) as Array<{
+        id: string;
+        published_coach_id: string;
+        milestone_kind: string;
+        crossed_at: string;
+        notified_at: string | null;
+      }>;
+
+      if (milestones.length > 0) {
+        // Load each unique publishing coach once (allow-list).
+        const publisherIds = Array.from(new Set(milestones.map((m) => m.published_coach_id)));
+        const { data: publisherRows } = await admin
+          .from('coaches')
+          .select('id, email, full_name, preferences, paused_until, last_active_at')
+          .in('id', publisherIds);
+        const publishersById = new Map<string, CoachRow>();
+        const coachLastSeen = new Map<string, string>();
+        for (const c of (publisherRows ?? []) as CoachRow[]) {
+          publishersById.set(c.id, c);
+          if (c.last_active_at) coachLastSeen.set(c.id, c.last_active_at);
+        }
+
+        // Cooldown lookup — most-recent dispatched_at per publishing coach.
+        const { data: cooldownRows } = await admin
+          .from('coach_clone_reactivation_signals')
+          .select('published_coach_id, dispatched_at')
+          .in('published_coach_id', publisherIds)
+          .order('dispatched_at', { ascending: false });
+        const reactivationSignals = new Map<string, string>();
+        for (const row of (cooldownRows ?? []) as Array<{
+          published_coach_id: string;
+          dispatched_at: string;
+        }>) {
+          // Order is DESC, so the FIRST entry per coach is the most recent;
+          // skip subsequent entries.
+          if (!reactivationSignals.has(row.published_coach_id)) {
+            reactivationSignals.set(row.published_coach_id, row.dispatched_at);
+          }
+        }
+
+        // The pure helper picks the most-recent qualifying milestone per
+        // dormant publishing coach.
+        const candidates = selectDormantPublishersForClones({
+          milestones,
+          coachLastSeen,
+          reactivationSignals,
+          nowMs: now.getTime(),
+        });
+
+        if (candidates.length > 0) {
+          // Resolve drill / plan title + cloning program name per
+          // candidate. The lookups are allow-listed reads:
+          //   • drill_shares.caption (the published "drill" title)
+          //   • drill_share_clones.cloner_org_id (NEVER cloner_coach_id
+          //     for display; the coach id is structurally not in the
+          //     rendered surface)
+          //   • organizations.name (the cloning PROGRAM name)
+          //
+          // Best-effort: a missing title or program name falls back to
+          // a generic copy variant in the email template.
+          const candidateCoachIds = candidates.map((c) => c.published_coach_id);
+          // Single allow-listed read on drill_shares — pulls the title
+          // (caption) AND the per-share id we walk to find the cloning
+          // org. The cloning org is resolved THROUGH the cloning
+          // coach: drill_share_clones.cloner_coach_id → coaches.org_id
+          // → organizations.name. We never display the cloning coach's
+          // full_name on the rendered surface (allow-list select only
+          // pulls `id, org_id`).
+          const { data: drillShareRows } = await admin
+            .from('drill_shares')
+            .select('id, coach_id, caption')
+            .in('coach_id', candidateCoachIds)
+            .order('created_at', { ascending: false });
+          const drillTitleByCoach = new Map<string, string>();
+          const shareIdToCoachId = new Map<string, string>();
+          const shareIds: string[] = [];
+          for (const row of (drillShareRows ?? []) as Array<{
+            id: string;
+            coach_id: string;
+            caption: string | null;
+          }>) {
+            if (!drillTitleByCoach.has(row.coach_id) && row.caption) {
+              drillTitleByCoach.set(row.coach_id, row.caption);
+            }
+            shareIdToCoachId.set(row.id, row.coach_id);
+            shareIds.push(row.id);
+          }
+
+          // Resolve cloning program name: pick a recent clone on any
+          // share owned by the publishing coach → the cloning coach's
+          // org → organizations.name. The cloning coach is resolved
+          // only as a structural foreign key — their `full_name` is
+          // NEVER on the rendered surface.
+          const programNameByCoach = new Map<string, string>();
+          if (shareIds.length > 0) {
+            const { data: cloneRows } = await admin
+              .from('drill_share_clones')
+              .select('drill_share_id, cloner_coach_id, cloned_at')
+              .in('drill_share_id', shareIds)
+              .order('cloned_at', { ascending: false });
+            const clonerCoachIdByShareCoach = new Map<string, string>();
+            for (const row of (cloneRows ?? []) as Array<{
+              drill_share_id: string;
+              cloner_coach_id: string;
+            }>) {
+              const publisherCoachId = shareIdToCoachId.get(row.drill_share_id);
+              if (!publisherCoachId) continue;
+              if (clonerCoachIdByShareCoach.has(publisherCoachId)) continue;
+              clonerCoachIdByShareCoach.set(publisherCoachId, row.cloner_coach_id);
+            }
+            const clonerCoachIds = Array.from(
+              new Set(Array.from(clonerCoachIdByShareCoach.values())),
+            );
+            if (clonerCoachIds.length > 0) {
+              // Resolve clonerCoachId → org_id. Allow-list: `id, org_id`
+              // only — never reads full_name.
+              const { data: clonerCoachRows } = await admin
+                .from('coaches')
+                .select('id, org_id')
+                .in('id', clonerCoachIds);
+              const orgIdByCoach = new Map<string, string>();
+              for (const row of (clonerCoachRows ?? []) as Array<{
+                id: string;
+                org_id: string | null;
+              }>) {
+                if (row.org_id) orgIdByCoach.set(row.id, row.org_id);
+              }
+              const orgIds = Array.from(new Set(Array.from(orgIdByCoach.values())));
+              if (orgIds.length > 0) {
+                const { data: orgRows } = await admin
+                  .from('organizations')
+                  .select('id, name')
+                  .in('id', orgIds);
+                const orgNameById = new Map<string, string>();
+                for (const row of (orgRows ?? []) as Array<{ id: string; name: string }>) {
+                  orgNameById.set(row.id, row.name);
+                }
+                for (const [publisherCoachId, clonerCoachId] of clonerCoachIdByShareCoach) {
+                  const orgId = orgIdByCoach.get(clonerCoachId);
+                  if (!orgId) continue;
+                  const name = orgNameById.get(orgId);
+                  if (name) programNameByCoach.set(publisherCoachId, name);
+                }
+              }
+            }
+          }
+
+          for (const candidate of candidates) {
+            try {
+              const publisher = publishersById.get(candidate.published_coach_id);
+              if (!publisher || !publisher.email) {
+                totalPubSkipped++;
+                continue;
+              }
+              // Respect the 0042 pause flag (mirrors 0072).
+              if (isCoachPaused(publisher, now)) {
+                totalPubSkipped++;
+                continue;
+              }
+
+              const drillOrPlanTitle =
+                drillTitleByCoach.get(candidate.published_coach_id) ?? 'practice plan';
+              const programName =
+                programNameByCoach.get(candidate.published_coach_id) ?? 'another program';
+
+              const built = buildDormantPublisherCloneEmail({
+                publisherFirstName: (publisher.full_name ?? 'Coach').split(' ')[0],
+                milestoneKind: candidate.milestone_kind,
+                programName,
+                drillOrPlanTitle,
+                appUrl: APP_URL,
+                milestoneId: candidate.milestone_id,
+              });
+
+              const result = await sendEmail({
+                to: publisher.email,
+                subject: built.subject,
+                html: built.html,
+              });
+              if (!result.success) {
+                console.error(
+                  '[coach-quiet-check-in] publisher reactivation send failed:',
+                  publisher.email,
+                  result.error,
+                );
+                totalPubErrors++;
+                continue;
+              }
+
+              // Best-effort signal write. The UNIQUE (published_coach_id,
+              // milestone_id) makes a duplicate insert a no-op on the
+              // DB side; here we just log and move on if the insert
+              // surfaces an error.
+              const insertRes = await admin
+                .from('coach_clone_reactivation_signals')
+                .insert({
+                  published_coach_id: candidate.published_coach_id,
+                  milestone_id: candidate.milestone_id,
+                  dispatched_at: new Date().toISOString(),
+                });
+              if (insertRes.error) {
+                console.error(
+                  '[coach-quiet-check-in] publisher reactivation signal insert error:',
+                  insertRes.error.message,
+                );
+              }
+              totalPubSent++;
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              console.error(
+                '[coach-quiet-check-in] publisher reactivation unexpected error for milestone',
+                candidate.milestone_id,
+                msg,
+              );
+              totalPubErrors++;
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(
+      '[coach-quiet-check-in] publisher reactivation branch unexpected error:',
+      msg,
+    );
+  }
+
   console.log(
-    `[coach-quiet-check-in] done — sent=${totalSent} skipped=${totalSkipped} errors=${totalErrors} reactSent=${totalReactSent} reactSkipped=${totalReactSkipped} reactErrors=${totalReactErrors}`,
+    `[coach-quiet-check-in] done — sent=${totalSent} skipped=${totalSkipped} errors=${totalErrors} reactSent=${totalReactSent} reactSkipped=${totalReactSkipped} reactErrors=${totalReactErrors} pubSent=${totalPubSent} pubSkipped=${totalPubSkipped} pubErrors=${totalPubErrors}`,
   );
   return NextResponse.json({
     sent: totalSent,
@@ -301,5 +568,8 @@ export async function POST(request: Request) {
     reactivationSent: totalReactSent,
     reactivationSkipped: totalReactSkipped,
     reactivationErrors: totalReactErrors,
+    publisherSent: totalPubSent,
+    publisherSkipped: totalPubSkipped,
+    publisherErrors: totalPubErrors,
   });
 }
