@@ -1,7 +1,7 @@
 ---
 id: 0078
 title: When a dormant coach who published a drill last season gets cloned by a coach in a new program this week, send ONE honest email — "Sarah, your closeout drill was cloned by a coach in the Hornets program today" — that brings them back into SportsIQ on the strongest possible signal
-status: in-progress
+status: shipped
 priority: P1
 area: onboarding
 created: 2026-06-09
