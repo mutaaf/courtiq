@@ -1,7 +1,7 @@
 ---
 id: 0077
 title: When a program director opens the weekly pulse, show ONE quiet line about what directors of two neighboring programs are working on this week — "Riverside and Westview are both on transitions" — and let them bring one of those directors onto SportsIQ with one tap
-status: in-progress
+status: shipped
 priority: P1
 area: growth
 created: 2026-06-09
