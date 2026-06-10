@@ -154,6 +154,20 @@ function wire(opts: WireOpts = {}) {
     if (table === 'teams') {
       return buildChain(opts.priorTeams ?? []);
     }
+    // Ticket 0078 — the cron's publisher-reactivation branch reads these
+    // tables. In the 0072 tests the publisher branch is a silent no-op:
+    // empty milestone rows means the branch never selects a candidate.
+    // Per LESSONS#0118 — broaden the whitelist to drop the noisy
+    // console.error from the new branch.
+    if (
+      table === 'coach_reputation_milestones' ||
+      table === 'coach_clone_reactivation_signals' ||
+      table === 'drill_shares' ||
+      table === 'drill_share_clones' ||
+      table === 'organizations'
+    ) {
+      return buildChain([]);
+    }
     throw new Error(`unexpected table read: ${table}`);
   });
 }

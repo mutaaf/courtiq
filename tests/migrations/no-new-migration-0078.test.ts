@@ -1,9 +1,9 @@
 /**
- * Ticket 0076 — pin the migration count after the new
- * drill_clone_stick_signals migration lands.
+ * Ticket 0078 — pin the migration count after the new
+ * coach_clone_reactivation_signals migration lands.
  *
  * This guard freezes the migration count at the value present after
- * 0076 ships so a future drift surfaces on the PR's `unit-tests` gate
+ * 0078 ships so a future drift surfaces on the PR's `unit-tests` gate
  * rather than as a CI seed-step regression weeks later (cf.
  * LESSONS#0006: the seed step runs under `ON_ERROR_STOP=1` against
  * EVERY tracked migration, so a stray migration lands as a latent
@@ -17,8 +17,8 @@ import { join } from 'node:path';
 
 const MIGRATIONS_DIR = join(process.cwd(), 'supabase', 'migrations');
 
-describe('Ticket 0076 — no new migration files (regression)', () => {
-  it('the supabase/migrations directory has exactly the count pinned at 0076', () => {
+describe('Ticket 0078 — no new migration files (regression)', () => {
+  it('the supabase/migrations directory has exactly the count pinned at 0078', () => {
     const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql'));
     // Pinned at the count present when 0066 was implemented. If a sibling
     // ticket legitimately adds a migration in the same window, bump this
@@ -33,7 +33,9 @@ describe('Ticket 0076 — no new migration files (regression)', () => {
     // (coach_reputation_milestones landed at prefix 065). Bumped
     // 66 → 67 by ticket 0074 (referral_credit_grants landed at
     // prefix 066). Bumped 67 → 68 by ticket 0076
-    // (drill_clone_stick_signals landed at prefix 067).
-    expect(files.length).toBe(68);
+    // (drill_clone_stick_signals landed at prefix 067). Bumped
+    // 68 → 69 by ticket 0078 (coach_clone_reactivation_signals
+    // landed at prefix 068).
+    expect(files.length).toBe(69);
   });
 });

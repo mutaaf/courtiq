@@ -121,10 +121,20 @@ beforeEach(() => {
     // Ticket 0072 — the cron's reactivation branch reads these tables.
     // The default in this base file: every read resolves empty so the
     // reactivation branch is a silent no-op for the 0042 tests.
+    // Ticket 0078 — additionally broaden the whitelist for the new
+    // publisher-reactivation branch's reads (LESSONS#0118 — when a
+    // route is guarded by a strict-whitelist mockImplementation, the
+    // sibling tests must widen it in the same PR to drop the noisy
+    // console.error output while preserving the existing assertions).
     if (
       table === 'coach_reactivation_signals' ||
       table === 'players' ||
-      table === 'teams'
+      table === 'teams' ||
+      table === 'coach_reputation_milestones' ||
+      table === 'coach_clone_reactivation_signals' ||
+      table === 'drill_shares' ||
+      table === 'drill_share_clones' ||
+      table === 'organizations'
     ) {
       return buildEmptyChain();
     }
