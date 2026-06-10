@@ -2321,4 +2321,170 @@ values (
 )
 on conflict (published_coach_id, milestone_kind) do nothing;
 
+-- ────────────────────────────────────────────────────────────────────────
+-- Ticket 0077 — director-side cross-program peer pulse
+-- ────────────────────────────────────────────────────────────────────────
+-- The director-side cross-program pulse line on /admin renders ONLY when
+-- TWO+ neighboring programs in the SAME SPORT (basketball, here) match
+-- the caller program's TOP skill emphasis in the 14-day window. The
+-- existing Organization-tier program (...110) is the caller; this block
+-- seeds TWO neighboring basketball programs with admin coaches and 3+
+-- plans EACH on `skills_targeted = '{transitions}'`.
+--
+-- To guarantee the caller program's TOP skill is ALSO transitions
+-- (otherwise the cross-program signal is empty), this block also seeds
+-- THREE plans on the existing program's teams (...120/...121/...191)
+-- with `skills_targeted = '{transitions}'` and a created_at inside the
+-- window. The 0071 seed already added "closeouts" plans to those teams —
+-- transitions will outweigh closeouts (3 vs 1 per team) so the caller
+-- top skill flips to transitions for the 0077 check.
+--
+-- UUID family `00000000-0000-4000-a000-000000000320`+ — verified unused
+-- via grep before commit (the 0076 family stops at 0...0317).
+-- LESSONS#0084: every new coaches row carries a matching auth.users row.
+-- LESSONS#0085: the plans' `skills_targeted` column is text[] (not jsonb);
+-- the SQL literal is `'{transitions}'` per the 0071 seed posture above.
+-- LESSONS#0101: UUID range confirmed clean.
+--
+-- COPPA: this fixture seeds ONLY org-level + coach-level + plan-level
+-- rows. No new players, no observations, no parent_*, no DOB, no
+-- medical_notes. Plans are team-level (player_id null), so even the
+-- existing `players.parent_email` allow-list is untouched.
+
+-- Two new auth.users rows for the two neighboring program directors.
+insert into auth.users (id, instance_id, aud, role, email,
+                        email_confirmed_at, created_at, updated_at)
+values
+  ('00000000-0000-4000-a000-000000000320',
+   '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated',
+   'anna-riverside-e2e@test.com', now(), now(), now()),
+  ('00000000-0000-4000-a000-000000000321',
+   '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated',
+   'ben-westview-e2e@test.com', now(), now(), now())
+on conflict (id) do nothing;
+
+-- Two new organizations — both Organization-tier basketball programs.
+-- These ride alongside (NOT inside) the existing E2E Program Org
+-- (...110); the pulse comparison is BETWEEN orgs in the same sport.
+insert into organizations (id, name, slug, tier)
+values
+  ('00000000-0000-4000-a000-000000000322',
+   'Riverside Basketball', 'riverside-basketball-e2e', 'organization'),
+  ('00000000-0000-4000-a000-000000000323',
+   'Westview Hoops', 'westview-hoops-e2e', 'organization')
+on conflict (id) do nothing;
+
+-- One admin coach per neighbor org (the canonical director identity
+-- the cross-program-pulse route reads as the source for
+-- director_first_name + director_contact_email).
+insert into coaches (id, org_id, full_name, email, role, onboarding_complete)
+values
+  ('00000000-0000-4000-a000-000000000320',
+   '00000000-0000-4000-a000-000000000322',
+   'Anna Reyes', 'anna-riverside-e2e@test.com', 'admin', true),
+  ('00000000-0000-4000-a000-000000000321',
+   '00000000-0000-4000-a000-000000000323',
+   'Ben Park', 'ben-westview-e2e@test.com', 'admin', true)
+on conflict (id) do nothing;
+
+-- One team per neighbor org — basketball. The teams live so the
+-- cross-program route can derive the org's sport via teams.sport_id
+-- (mirrors the 0075 pattern; the organizations table has no sport_id
+-- column).
+insert into teams (id, org_id, sport_id, name, age_group, season, season_weeks, current_week, is_active)
+select
+  '00000000-0000-4000-a000-000000000324',
+  '00000000-0000-4000-a000-000000000322',
+  (select id from sports where slug = 'basketball' limit 1),
+  'Riverside U12s', '11-13', 'Spring 2026', 10, 3, true
+on conflict (id) do nothing;
+insert into teams (id, org_id, sport_id, name, age_group, season, season_weeks, current_week, is_active)
+select
+  '00000000-0000-4000-a000-000000000325',
+  '00000000-0000-4000-a000-000000000323',
+  (select id from sports where slug = 'basketball' limit 1),
+  'Westview U12s', '11-13', 'Spring 2026', 10, 3, true
+on conflict (id) do nothing;
+
+-- Wire each director admin onto their own team via team_coaches
+-- (LESSONS#0057 — team_coaches is the join, not teams.coach_id).
+insert into team_coaches (team_id, coach_id, role)
+values
+  ('00000000-0000-4000-a000-000000000324',
+   '00000000-0000-4000-a000-000000000320',
+   'head_coach'),
+  ('00000000-0000-4000-a000-000000000325',
+   '00000000-0000-4000-a000-000000000321',
+   'head_coach')
+on conflict (team_id, coach_id) do nothing;
+
+-- The converging practice plans: 3 plans per neighbor team on
+-- transitions, AND 3 plans per existing E2E Program Org team on
+-- transitions (so the caller program's top skill is also transitions).
+-- All created_at inside the 14-day window. text[] literal per the 0071
+-- seed posture (LESSONS#0085).
+insert into plans (id, team_id, coach_id, player_id, type, title, content, skills_targeted, content_structured, created_at)
+values
+  -- Riverside (neighbor) — 3 transitions plans.
+  ('00000000-0000-4000-a000-000000000326',
+   '00000000-0000-4000-a000-000000000324',
+   '00000000-0000-4000-a000-000000000320',
+   null, 'practice', 'Riverside transitions session 1',
+   '{}', '{transitions}', '{"drills":[]}'::jsonb,
+   now() - interval '2 days'),
+  ('00000000-0000-4000-a000-000000000327',
+   '00000000-0000-4000-a000-000000000324',
+   '00000000-0000-4000-a000-000000000320',
+   null, 'practice', 'Riverside transitions session 2',
+   '{}', '{transitions}', '{"drills":[]}'::jsonb,
+   now() - interval '3 days'),
+  ('00000000-0000-4000-a000-000000000328',
+   '00000000-0000-4000-a000-000000000324',
+   '00000000-0000-4000-a000-000000000320',
+   null, 'practice', 'Riverside transitions session 3',
+   '{}', '{transitions}', '{"drills":[]}'::jsonb,
+   now() - interval '4 days'),
+  -- Westview (neighbor) — 3 transitions plans.
+  ('00000000-0000-4000-a000-000000000329',
+   '00000000-0000-4000-a000-000000000325',
+   '00000000-0000-4000-a000-000000000321',
+   null, 'practice', 'Westview transitions session 1',
+   '{}', '{transitions}', '{"drills":[]}'::jsonb,
+   now() - interval '2 days'),
+  ('00000000-0000-4000-a000-00000000032a',
+   '00000000-0000-4000-a000-000000000325',
+   '00000000-0000-4000-a000-000000000321',
+   null, 'practice', 'Westview transitions session 2',
+   '{}', '{transitions}', '{"drills":[]}'::jsonb,
+   now() - interval '3 days'),
+  ('00000000-0000-4000-a000-00000000032b',
+   '00000000-0000-4000-a000-000000000325',
+   '00000000-0000-4000-a000-000000000321',
+   null, 'practice', 'Westview transitions session 3',
+   '{}', '{transitions}', '{"drills":[]}'::jsonb,
+   now() - interval '4 days'),
+  -- E2E Program Org caller — 3 transitions plans across its 3 teams so
+  -- the caller's top skill matches the neighbors'.
+  ('00000000-0000-4000-a000-00000000032c',
+   '00000000-0000-4000-a000-000000000120',
+   '00000000-0000-4000-a000-000000000101',
+   null, 'practice', 'Caller U10s transitions session',
+   '{}', '{transitions}', '{"drills":[]}'::jsonb,
+   now() - interval '1 days'),
+  ('00000000-0000-4000-a000-00000000032d',
+   '00000000-0000-4000-a000-000000000121',
+   '00000000-0000-4000-a000-000000000102',
+   null, 'practice', 'Caller U12s transitions session',
+   '{}', '{transitions}', '{"drills":[]}'::jsonb,
+   now() - interval '1 days'),
+  ('00000000-0000-4000-a000-00000000032e',
+   '00000000-0000-4000-a000-000000000191',
+   '00000000-0000-4000-a000-000000000190',
+   null, 'practice', 'Caller U14s transitions session',
+   '{}', '{transitions}', '{"drills":[]}'::jsonb,
+   now() - interval '1 days')
+on conflict (id) do nothing;
+
 commit;
