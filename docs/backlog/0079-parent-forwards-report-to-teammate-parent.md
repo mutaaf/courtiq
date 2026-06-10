@@ -1,7 +1,7 @@
 ---
 id: 0079
 title: When a parent opens their kid's report on the portal, give them one tap to forward this week's report to ONE other parent on the same team — "send this to Liam's mom too" — so the parent-portal acquisition graph finally has a parent → parent edge
-status: groomed
+status: in-progress
 priority: P2
 area: parent-portal
 created: 2026-06-09
@@ -1213,4 +1213,21 @@ should touch.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-10 [implementation-dev] Picked up. Confirmed migration prefix 069 is
+  the next free integer (068 is taken by `coach_clone_reactivation_signals`
+  from ticket 0078). Existing parent-portal share-token mint lives at
+  `src/app/api/share/create/route.ts` (random 16-byte hex inserted into
+  `parent_shares`) — the new route mints a recipient token the same way.
+  The middleware `publicPaths` already lists `'/api/share/'` (the entire
+  prefix is public), so the new `/api/share/parent-forward` is reachable
+  without a separate allow-list entry; LESSONS#0058 still satisfied.
+  Reconciled the ticket prose against the schema:
+    * "the existing parent-portal GET" is `/api/share/[token]/route.ts`; we
+      widen it to return `teamMates: Array<{ player_id, first_name }>` per
+      LESSONS#0112 (no new from() call beyond the team-mates read).
+    * "the existing 0050/0056 share-sheet shape" — the closest analog is
+      the 0060 `SiblingInviteCard` / `SiblingInviteLoader`; we mirror that
+      shape (a client loader + a card with a sheet, data-testid scoped).
+    * "mail pipeline" is `src/lib/email.ts`'s `sendEmail({to, subject, html})`
+      with `RESEND_API_KEY` gating; mirrors 0060's posture.
+  No new dependency. No tier-feature key. Migration 069 added.
