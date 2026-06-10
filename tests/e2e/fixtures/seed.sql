@@ -2624,4 +2624,42 @@ values (
 )
 on conflict (published_coach_id, milestone_kind) do nothing;
 
+-- ────────────────────────────────────────────────────────────────────────
+-- Ticket 0079 — parent → parent on-team forward
+-- ────────────────────────────────────────────────────────────────────────
+-- The new ParentForwardOnTeamButton mounts on /share/[token] and lists
+-- the OTHER players on the SAME team whose parent_email is set. To
+-- exercise the candidate list + the send POST against a real seeded
+-- DB we need:
+--
+--   * Alice (...030) already has parent_email = 'sarah@walker-family.test'
+--     (set above for ticket 0056 — line ~1083). She is the SENDER (her
+--     parent is reading the report on the existing E2E share token).
+--   * Bob Carter (...031) already exists on the same team but with NULL
+--     parent_email — set it to a fixture value so the route can resolve
+--     a recipient through the same-team contract.
+--   * ONE NEW player ("Kai") on the same team with its own
+--     parent_email so the candidate list shows TWO entries.
+--
+-- UUIDs in the 0...0335+ range — verified non-colliding with the
+-- existing 0...000* family (LESSONS#0101 / #0043 — a colliding id would
+-- silently no-op under `on conflict (id) do nothing`).
+
+-- Set Bob's parent_email so he is a forward-eligible recipient.
+update players
+  set parent_email = 'liam-parent@e2e.test'
+  where id = '00000000-0000-4000-a000-000000000031'
+    and (parent_email is null or parent_email = '');
+
+-- New teammate "Kai" — the third roster slot for the candidate list.
+insert into players (id, team_id, name, nickname, name_variants, age_group,
+                     position, parent_name, parent_email, is_active)
+values (
+  '00000000-0000-4000-a000-000000000335',
+  '00000000-0000-4000-a000-000000000020',
+  'Kai Other', null, null, '11-13', 'Forward',
+  'Other Family', 'kai-parent@e2e.test', true
+)
+on conflict (id) do nothing;
+
 commit;

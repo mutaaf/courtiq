@@ -10,6 +10,10 @@ import { ProgramReferralForm } from '@/components/share/program-referral-form';
 // existing 0011 "Share with your other coach" CTA and decides its own
 // rendered state via the candidate-lookup route fetched client-side.
 import { SiblingInviteLoader } from '@/components/share/sibling-invite-loader';
+// Ticket 0079 — the on-team parent → parent forward. Mounts BELOW every
+// existing CTA (per the AC's ordering contract) and renders nothing
+// when the team has no other parent_email-bearing teammates.
+import { ParentForwardOnTeamButton } from '@/components/share/parent-forward-on-team-button';
 import { ShareReportButton } from '@/components/share/share-report-button';
 import { ProgressTrendChart } from '@/components/share/progress-trend-chart';
 import { CalendarDays, Megaphone, MessageCircle } from 'lucide-react';
@@ -484,6 +488,7 @@ export default async function SharePage({
     hasParentContact,
     playerSpotlight,
     referralCode,
+    teamMates,
   } = data;
 
   const safeStarred: any[] = starredObservations ?? [];
@@ -1402,6 +1407,21 @@ export default async function SharePage({
             </a>
           </div>
         )}
+
+        {/* ─── Ticket 0079 — on-team parent → parent forward ─── */}
+        {/* Sits BELOW every existing parent-portal CTA (0009 reaction,
+            0011 viral CTA, 0019 self-signup, 0050 program-referral,
+            0060 sibling-invite, 0072 returning-parent surfaces).
+            Renders nothing when the team has no other teammates with a
+            parent_email on file — silence beats a dead button per the
+            existing 0060 posture. Per AC: one import + one JSX entry
+            (LESSONS#0065 / #0066 / #0162 — smallest possible touch on
+            the parent-portal hotspot). */}
+        <ParentForwardOnTeamButton
+          shareToken={token}
+          teamMates={Array.isArray(teamMates) ? teamMates : []}
+          myKidFirstName={firstName}
+        />
 
         {/* ─── Footer ─── */}
         <div className="mt-6 text-center">

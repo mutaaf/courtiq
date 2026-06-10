@@ -507,6 +507,21 @@ export interface ParentShare {
 // name. The candidate-lookup route resolves the sibling's first name from
 // `players.name.split(' ')[0]` and surfaces it as a pre-fill the parent can
 // edit before sending; what is persisted here is parent-authored. The
+// Parent → parent on-team forward attribution edge (ticket 0079). One row
+// per (sender_player, recipient_player) edge written when a parent on the
+// team forwards this week's report to another parent on the SAME team via
+// the new POST /api/share/parent-forward. COPPA: no names, no emails, no
+// note text — only opaque ids and a team scope. UNIQUE on
+// (sender_player_id, recipient_player_id) is the durable idempotency gate.
+export interface ParentForwardSignal {
+  id: string;
+  sender_player_id: string;
+  recipient_player_id: string;
+  team_id: string;
+  dispatched_at: string;
+  opened_at: string | null;
+}
+
 // referral_code is stamped from `makeReferralCode(programId)` so the program
 // owns the referral (the parent never receives a referral credit per AC).
 export interface ParentInitiatedInvite {
