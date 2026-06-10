@@ -64,9 +64,12 @@ describe('buildParentForwardEmail (ticket 0079)', () => {
   it('renders the sanitized note inside a blockquote in the HTML body', () => {
     const { html, text } = buildParentForwardEmail(DEFAULT_ARGS);
     expect(html).toContain('<blockquote');
-    expect(html).toContain(DEFAULT_ARGS.note);
-    // Plain text variant carries the note too.
+    // Plain text variant carries the note verbatim (no HTML encoding).
     expect(text).toContain(DEFAULT_ARGS.note);
+    // HTML body carries an encoded-apostrophe version of the note (per
+    // the escapeHtml step); assert on a stable substring with no
+    // entities so we don't conflate intent with encoding.
+    expect(html).toContain('Maya and Liam are on the same team');
   });
 
   it('strips inline HTML tags from the rendered note (defense in depth)', () => {

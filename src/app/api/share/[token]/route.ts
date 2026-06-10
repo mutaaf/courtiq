@@ -469,6 +469,37 @@ export async function GET(
       })
       .eq('id', share.id);
 
+    // ─── Ticket 0079 — teamMates for the on-team parent forward ───────────
+    // The new ParentForwardOnTeamButton needs first-name-only entries for
+    // OTHER active players on the SAME team whose parent_email exists. The
+    // sender's own kid is excluded, and the select allow-list per
+    // LESSONS#0036 is the smallest possible set: id, name, parent_email
+    // (the latter is used to filter and is NEVER echoed in the response).
+    // Per LESSONS#0072 — spread to a new object instead of `delete`-ing
+    // fields off the DB-read row.
+    try {
+      const { data: roster } = await supabase
+        .from('players')
+        .select('id, name, parent_email')
+        .eq('team_id', share.team_id)
+        .eq('is_active', true)
+        .neq('id', share.player_id);
+      reportData.teamMates = (roster ?? [])
+        .filter((p: { parent_email: string | null }) => !!p.parent_email)
+        .map((p: { id: string; name: string }) => ({
+          player_id: p.id,
+          first_name: ((p.name ?? '').trim().split(/ /)[0] || ''),
+        }))
+        .filter((m: { first_name: string }) => m.first_name.length > 0);
+    } catch (rosterErr) {
+      // Best-effort — a roster read failure must NOT 500 the public
+      // portal. The card silently renders nothing when teamMates is
+      // empty.
+      // eslint-disable-next-line no-console
+      console.error('[ticket-0079] teamMates read failed (best-effort):', rosterErr);
+      reportData.teamMates = [];
+    }
+
     // Strip the parent_email we read for the reactivation detection from
     // the response payload — the parent surface is BYTE-IDENTICAL to
     // today and never carries the email forward. We clone the player so
