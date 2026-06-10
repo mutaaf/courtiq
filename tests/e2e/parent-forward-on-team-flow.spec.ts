@@ -42,32 +42,43 @@ test.describe('Parent forward on team flow (ticket 0079)', () => {
     const sheet = page.getByTestId('parent-forward-on-team-sheet');
     await expect(sheet).toBeVisible();
 
-    // The candidate list contains the two seeded teammate FIRST NAMES.
-    await expect(sheet).toContainText(/Liam/);
+    // The candidate list contains seeded teammate FIRST NAMES. The
+    // visiting parent's player is Alice (...030) — the existing
+    // E2E share token. The OTHER players on team ...020 carrying
+    // a parent_email are Bob (...031), Maya Reactive (...0d5) and
+    // the new Kai (...0335 — added by this ticket's seed extension).
+    // We assert on Kai (this ticket's own seeded teammate) and Bob
+    // (the existing teammate whose parent_email was set here).
+    await expect(sheet).toContainText(/Bob/);
     await expect(sheet).toContainText(/Kai/);
-    // Defense — no surnames anywhere in the sheet.
+    // Defense — no surnames anywhere in the sheet (Walker, Carter,
+    // Other, Reactive are the surnames in the seed; none should
+    // render).
     const sheetText = (await sheet.textContent()) ?? '';
-    expect(sheetText).not.toMatch(/\b(Walker|Carter|Other)\b/);
+    expect(sheetText).not.toMatch(/\b(Walker|Carter|Reactive)\b/);
+    expect(sheetText).not.toMatch(/\bOther\b/);
     // Defense — no email shape in the sheet either.
     expect(sheetText).not.toMatch(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
 
-    // Type the sender's first name and pick Liam (the seeded Bob row,
-    // first-name "Bob" — but our seed extension renames Bob's parent
-    // recipient via the email; the FIRST NAME the candidate row shows
-    // is the kid's first name. The seed sets Bob's parent_email but
-    // the kid is still Bob — so we scope by the testid pattern).
+    // Type the sender's first name and pick the first candidate
+    // (whichever first name renders first under the .first() locator
+    // — the candidate list testid pattern lets us scope without
+    // depending on which seeded teammate happens to be first).
     await sheet.getByTestId('parent-forward-on-team-sender-first-name').fill('Sarah');
 
-    // The first candidate carries Bob's player_id (...031) — the
-    // candidate list testid pattern is `parent-forward-on-team-candidate-<id>`.
-    const liamCandidate = sheet.locator(
-      '[data-testid^="parent-forward-on-team-candidate-"]',
-    ).first();
-    await liamCandidate.click();
+    // Pick the seeded Kai candidate explicitly by his player id so the
+    // same recipient is chosen on both sends (the 429 dedupe is keyed
+    // on (sender_player_id, recipient_player_id)).
+    const KAI_PLAYER_ID = '00000000-0000-4000-a000-000000000335';
+    const kaiCandidate = sheet.getByTestId(
+      `parent-forward-on-team-candidate-${KAI_PLAYER_ID}`,
+    );
+    await kaiCandidate.click();
 
     // The note textarea pre-fills with the templated copy.
     const note = sheet.getByTestId('parent-forward-on-team-note');
     await expect(note).toHaveValue(/Sarah/);
+    await expect(note).toHaveValue(/Kai/);
 
     await sheet.getByTestId('parent-forward-on-team-send').click();
 
@@ -84,9 +95,9 @@ test.describe('Parent forward on team flow (ticket 0079)', () => {
     const sheet2 = page.getByTestId('parent-forward-on-team-sheet');
     await expect(sheet2).toBeVisible();
     await sheet2.getByTestId('parent-forward-on-team-sender-first-name').fill('Sarah');
-    await sheet2.locator(
-      '[data-testid^="parent-forward-on-team-candidate-"]',
-    ).first().click();
+    await sheet2.getByTestId(
+      `parent-forward-on-team-candidate-${KAI_PLAYER_ID}`,
+    ).click();
     await sheet2.getByTestId('parent-forward-on-team-send').click();
 
     // 429 path: the already-sent toast renders.
