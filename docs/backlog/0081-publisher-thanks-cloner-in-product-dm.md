@@ -1,7 +1,7 @@
 ---
 id: 0081
 title: When the 0076 stick-signal fires and a cloner ran the publisher's drill at a real practice and thumbed it up, give the publishing coach one tap to send ONE in-product line back to that cloner — "thanks for running my closeout drill, glad it landed for your Hornets" — so the publish-to-clone-to-stick loop finally closes with a real coach-to-coach human exchange WITHOUT exposing either side's email
-status: groomed
+status: in-progress
 priority: P0
 area: plans
 created: 2026-06-11
@@ -932,4 +932,7 @@ Files / patterns the dev should touch.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-11 [implementation-dev] Picked up on branch `feat/0081-publisher-thanks-cloner-in-product-dm`. Schema-vs-prose deviations confirmed at pickup (LESSONS#0096):
+  - Migration prefix: ticket prose said `071`, but `ls supabase/migrations/` shows the last existing prefix is `069_parent_forward_signals.sql` (070 was never minted — the `no-new-migration-0079` sentinel counts 70 files but no prefix 070 exists on disk). So the next free prefix is **070**, not 071. Renaming the migration to `070_coach_thank_messages.sql` and bumping the sentinel test to `71`.
+  - `/api/coach/reputation-milestones` currently surfaces only `{id, kind, crossedAt}`; the card's `drillTitle / programNames / drillId` are optional and not populated server-side today. To resolve the cloner for the 0076 stuck milestone the route looks them up SERVER-side from the linked `drill_clone_stick_signals` row by published_coach_id → drill_shares → drill_clone_stick_signals (the cloner_coach_id is the recipient). No new field needs to thread through the milestone GET — the thank-cloner route resolves the cloner from the milestone row + drill_share lookup.
+  - Inbox surface: ticket prose says it can live as a /home expansion OR a separate route. Going with the /home expansion (one nav entry + one expandable panel) per the smallest-touch posture in the ticket itself.
