@@ -76,7 +76,7 @@ export async function GET() {
         r.milestone_kind === 'stuck_8',
     );
 
-    let stuckContextByMilestoneId = new Map<
+    const stuckContextByMilestoneId = new Map<
       string,
       {
         drillTitle: string | null;
