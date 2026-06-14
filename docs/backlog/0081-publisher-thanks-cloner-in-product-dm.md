@@ -1,7 +1,7 @@
 ---
 id: 0081
 title: When the 0076 stick-signal fires and a cloner ran the publisher's drill at a real practice and thumbed it up, give the publishing coach one tap to send ONE in-product line back to that cloner — "thanks for running my closeout drill, glad it landed for your Hornets" — so the publish-to-clone-to-stick loop finally closes with a real coach-to-coach human exchange WITHOUT exposing either side's email
-status: in-progress
+status: shipped
 priority: P0
 area: plans
 created: 2026-06-11
