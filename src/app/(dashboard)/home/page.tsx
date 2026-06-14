@@ -81,6 +81,7 @@ import { SeasonOpenerCard } from '@/components/home/season-opener-card';
 import { ReturningParentSection } from '@/components/home/returning-parent-card';
 import { CoachReputationMilestoneSection } from '@/components/home/coach-reputation-milestone-card';
 import { ReferralCreditSection } from '@/components/home/referral-credit-card';
+import { CoachInbox } from '@/components/coach/coach-inbox';
 import { useTier } from '@/hooks/use-tier';
 
 // ─── Live capture feed helper ──────────────────────────────────────────────────
@@ -1454,11 +1455,19 @@ export default function HomePage() {
       {/* season-wrap card; renders nothing when no unconsumed signal. */}
       {!practiceActive && <ReturningParentSection />}
 
+      {/* Ticket 0081 — in-product inbox surface. The receiving cloning */}
+      {/* coach lands here when the publishing coach taps "Thank this */}
+      {/* coach" on a stuck milestone card. Smallest possible touch per */}
+      {/* LESSONS#0065 / #0066 / #0162 — one import + one JSX entry. */}
+      {!practiceActive && <CoachInbox />}
+
       {/* Ticket 0073 — coach reputation milestone: the publishing coach's */}
       {/* clone count crossed a threshold this month. Renders nothing when */}
       {/* no unconsumed milestone. Smallest possible touch per */}
       {/* LESSONS#0065 / #0066 / #0162 — one import + one JSX entry. */}
-      {!practiceActive && <CoachReputationMilestoneSection />}
+      {!practiceActive && (
+        <CoachReputationMilestoneSection publisherFirstName={coachFirstName} />
+      )}
 
       {/* Ticket 0074 — referral credit: the inviter coach's count of */}
       {/* qualified converted coaches crossed a threshold. Renders nothing */}
