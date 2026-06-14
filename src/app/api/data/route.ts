@@ -96,6 +96,17 @@ const ALLOWED_TABLES = [
   // direct write path. The mutate allow-list intentionally OMITS this
   // table.
   'drill_clone_stick_signals',
+  // Ticket 0081 — READS only on the inbox surface (the recipient's own
+  // unread + read messages list). The /api/coach/inbox route is the
+  // canonical reader; this generic-data allow-list entry is for the
+  // home page's small fetch helpers that may surface a per-message
+  // detail in v2 (e.g. "open the drill" deep-link enrichment). Inserts
+  // and updates flow ONLY through the dedicated /api/coach/thank-cloner
+  // (write) and /api/coach/inbox/mark-read (update) routes; the
+  // mutate allow-list intentionally OMITS this table. A re-tap on the
+  // same milestone returns the existing row id silent-success per the
+  // UNIQUE (sender, recipient, share) anti-spam contract.
+  'coach_thank_messages',
 ];
 
 // ─── GET handler (query params) ──────────────────────────────────────────────

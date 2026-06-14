@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { Trophy, ArrowRight } from 'lucide-react';
+import { ThankClonerButton } from '@/components/coach/thank-cloner-button';
 
 // ─── Ticket 0073 — coach reputation milestone card ──────────────────────────
 //
@@ -65,6 +66,12 @@ interface CardProps {
   milestones: ReputationMilestone[];
   onConsume: (milestoneId: string) => void;
   isConsuming?: boolean;
+  /** Ticket 0081 — the publisher's own first name. When present AND
+   *  the current milestone is a stuck_* kind, the card mounts a
+   *  small "Thank this coach" button + sheet that lets the publisher
+   *  send ONE in-product thank-you message to the cloning coach
+   *  without exposing either side's email. */
+  publisherFirstName?: string | null;
 }
 
 /** Per-kind copy line. Each variant instructs positively and never
@@ -149,6 +156,7 @@ export function CoachReputationMilestoneCard({
   milestones,
   onConsume,
   isConsuming,
+  publisherFirstName,
 }: CardProps) {
   if (!milestones || milestones.length === 0) return null;
 
@@ -217,6 +225,25 @@ export function CoachReputationMilestoneCard({
               Got it
             </button>
           </div>
+          {/* Ticket 0081 — the thank-back surface. Mounts ONLY on
+              stuck_* milestones where the cloning program is
+              resolvable from the linked stick signal AND the
+              publisher's first name is available. The button is
+              the smallest possible touch on the existing 0073 /
+              0076 card (LESSONS#0065 / #0066 / #0162). */}
+          {isStuckKind &&
+            publisherFirstName &&
+            current.drillTitle &&
+            (current.programNames?.[0] ?? null) && (
+              <div className="mt-3">
+                <ThankClonerButton
+                  milestoneId={current.id}
+                  publisherFirstName={publisherFirstName}
+                  drillTitle={current.drillTitle}
+                  clonerProgramName={current.programNames![0]}
+                />
+              </div>
+            )}
         </div>
       </div>
     </div>
@@ -235,7 +262,14 @@ export function CoachReputationMilestoneCard({
  *  into a useEffect dep list) and pin that milestone to the front of
  *  the rendered cycle. The card mechanic stays byte-identical; only
  *  the initial render index respects the query param. */
-export function CoachReputationMilestoneSection() {
+export function CoachReputationMilestoneSection({
+  publisherFirstName,
+}: {
+  /** Ticket 0081 — forwarded to <ThankClonerButton /> as the
+   *  "thank-this-coach" pre-fill signature. The home page passes
+   *  `coach?.full_name?.split(' ')[0]`. */
+  publisherFirstName?: string | null;
+} = {}) {
   const queryClient = useQueryClient();
   const [isConsuming, setIsConsuming] = useState(false);
 
@@ -311,6 +345,7 @@ export function CoachReputationMilestoneSection() {
       milestones={milestones}
       onConsume={handleConsume}
       isConsuming={isConsuming}
+      publisherFirstName={publisherFirstName}
     />
   );
 }

@@ -1158,6 +1158,32 @@ export interface CoachCloneReactivationSignal {
   dispatched_at: string;
 }
 
+// Ticket 0081 — in-product DM primitive. ONE row per (sender_coach,
+// recipient_coach, drill_share | plan_share) edge written when the
+// publishing coach taps "Thank this coach" on a 0076 stuck milestone
+// card. The receiving coach reads the row from /home's new Inbox
+// surface; the row is the ENDPOINT of the publish-clone-stick loop,
+// NOT the start of a chat (no thread, no reply). The schema-level
+// UNIQUE on (sender, recipient, share) is the load-bearing anti-spam
+// contract — ONE message per edge FOREVER.
+//
+// COPPA: this row carries the publisher's free text (sanitized to
+// <= 280 chars + an anti-email-leak scan at the route layer) and
+// the FK keys for sender/recipient/share/milestone. NO email, NO
+// surname, NO phone, NO team name, NO player id, NO observation id,
+// NO kid data is persisted on this row.
+export interface CoachThankMessage {
+  id: string;
+  sender_coach_id: string;
+  recipient_coach_id: string;
+  drill_share_id: string | null;
+  plan_share_id: string | null;
+  milestone_id: string | null;
+  body: string;
+  sent_at: string;
+  read_at: string | null;
+}
+
 // Ticket 0074 — referral credit grant primitive. One row per
 // (inviter coach, milestone kind) edge written by the apply-credit
 // route when the inviter's count of qualified converted coaches
