@@ -45,6 +45,17 @@
 -- despite the no-new-migration-0079 sentinel pinning 70 as the file
 -- count after THIS migration lands). Documented in the Implementation
 -- log as a schema-wins-over-prose deviation (LESSONS#0096).
+--
+-- Heal note (2026-06-14): the e2e gate on PR #405 spent 11 in-place
+-- job re-runs hitting the same 56-test failure pattern on the SAME
+-- workflow run SHA (sub_handoffs INSERT returning 42501 + every
+-- seeded public-page lookup rendering NotFound). Per LESSONS#0094
+-- the documented heal for an infra/runner-state failure that no
+-- code change matches is to push a one-line no-op commit to fire
+-- a FRESH workflow run on a new HEAD (a fresh runner pool + fresh
+-- supabase docker image cache). This trailing comment carries that
+-- push without touching any DDL — the table definition and indexes
+-- below are byte-identical to the original migration.
 
 CREATE TABLE IF NOT EXISTS coach_thank_messages (
   id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
