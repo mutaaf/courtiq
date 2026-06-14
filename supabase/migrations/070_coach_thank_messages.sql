@@ -75,3 +75,39 @@ CREATE TABLE IF NOT EXISTS coach_thank_messages (
 -- Recipient-side inbox lookup — unread rows first, then most-recent.
 CREATE INDEX IF NOT EXISTS idx_coach_thank_messages_recipient
   ON coach_thank_messages (recipient_coach_id, read_at NULLS FIRST, sent_at DESC);
+
+-- ---------------------------------------------------------------------------
+-- Heal (2026-06-14, attempt 2): backfill the service_role grants every
+-- public table needs.
+--
+-- The e2e gate on PR #405 failed identically on 2026-06-11 13:11 (cc57675a)
+-- and 2026-06-14 12:15 (7fb51e5a). Smoking gun in the playwright output:
+--
+--   sub_handoffs insert failed: 403 {"code":"42501", ...
+--    "hint":"Grant the required privileges to the current role with:
+--           GRANT INSERT ON public.sub_handoffs TO service_role;",
+--    "message":"permission denied for table sub_handoffs"}
+--
+-- And every seeded public-page render (coach-card, coach-handle, drill-share,
+-- recap, plan, week, opener, observer, programs, etc.) returns NotFound
+-- because the dev server's `createServiceSupabase().from(...).select(...)`
+-- comes back empty under the same root cause — service_role lost SELECT
+-- on the migrated tables.
+--
+-- Main is green at f8b0c235 but its last e2e ran 2026-06-11 05:43; in
+-- the window since, the supabase CLI release pulled by `setup-cli@v1`
+-- (version: latest) started skipping the auto-grant on public tables.
+-- The grant below is idempotent and restores the default posture every
+-- prior migration relied on. No DDL on the new table changes — only
+-- role privileges. This is the explicit-grant pattern AGENTS.md
+-- "hard NOs" already imply (no test weakening, fix the root cause).
+GRANT USAGE ON SCHEMA public TO service_role, authenticated, anon;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO service_role;
+GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT ALL ON TABLES TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT ALL ON SEQUENCES TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT ALL ON FUNCTIONS TO service_role;
