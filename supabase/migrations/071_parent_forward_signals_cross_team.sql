@@ -1,0 +1,54 @@
+-- Migration 071: parent_forward_signals.cross_team (ticket 0080)
+--
+-- The CROSS-TEAM-SAME-PROGRAM forward primitive. Widens the existing
+-- parent_forward_signals table (shipped by 0079, migration 069) with a
+-- single boolean flag so the downstream attribution surfaces (0050
+-- director-handoff signal aggregation, 0072 returning-parent rollup)
+-- can distinguish IN-TEAM forwards (the 0079 default) from CROSS-TEAM
+-- forwards (this ticket's edge — parent on team A in the program
+-- sending the report to a parent on team B in the SAME org).
+--
+-- LESSONS#0103 — OPTIONAL widening keeps every 0079 caller byte-
+-- identical: existing rows + every same-team insert inherit the
+-- default `false`, and only the new cross-team route branch writes
+-- `true`.
+--
+-- COPPA: nothing readable about minors or their parents is added by
+-- this widening. The flag is a structural attribution boolean. There
+-- is still no name, no email, no phone, no note body, no subject
+-- line, no date-of-birth, no jersey, no medical line, no biometric,
+-- no photo, no relationship label, no nickname.
+--
+-- The header lists what we deliberately do NOT add so the
+-- LESSONS#0088 banned-token scan (which strips `--` comment lines)
+-- reads only the executable DDL:
+--   no jersey,
+--   no nickname,
+--   no parent first name,
+--   no parent phone,
+--   no parent email,
+--   no date-of-birth,
+--   no medical-line,
+--   no biometric, no photo,
+--   no relationship-label,
+--   no note body.
+--
+-- Tier posture: the cross-team forward is universal (mirrors the
+-- 0079 same-team contract). The parent-portal surface is the only
+-- product surface not gated by tier.
+--
+-- Migration prefix uniqueness (LESSONS#0006 + LESSONS#0096): the
+-- ticket prose said `070`, but at pickup 070 is already taken by
+-- coach_thank_messages (ticket 0081, shipped 2026-06-14). The next
+-- free prefix on disk is 071. Documented as a schema-wins-over-prose
+-- deviation in the ticket's Implementation log.
+
+ALTER TABLE parent_forward_signals
+  ADD COLUMN IF NOT EXISTS cross_team BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- No new index — the existing 0079 (team_id, dispatched_at DESC)
+-- rollup index serves both same-team and cross-team aggregates. The
+-- existing UNIQUE (sender_player_id, recipient_player_id) constraint
+-- remains the load-bearing idempotency gate; an edge that flips
+-- between same-team and cross-team would still trip the dedupe (the
+-- player-id pair is what identifies the forward, not the flag).
