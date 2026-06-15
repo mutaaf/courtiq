@@ -1,7 +1,7 @@
 ---
 id: 0082
 title: When a parent leaves a reaction on the portal naming a specific thing about their kid — "thank you for sticking with him on his shooting" — show that one line back to the coach at the TOP of next Tuesday's Capture for THAT kid as a seed — "Sarah said his shooting carried last week — what did you see today?" — so the parent's reaction stops being a Monday rollup artifact and becomes the kid's first observation of the next session
-status: groomed
+status: in-progress
 priority: P1
 area: capture
 created: 2026-06-11
@@ -649,3 +649,14 @@ Files / patterns the dev should touch.
 ## Implementation log
 
 (Appended by the implementation-dev agent during execution.)
+
+- 2026-06-15 [dev/0082] Pickup. Read AGENTS.md + LESSONS.md (#0009/#0023/#0027/#0036/#0049/#0057/#0061/#0072/#0078/#0084/#0096/#0101/#0103/#0112/#0118/#0121). Schema reconciliation per LESSONS#0096 — the ticket prose names `parent_first_name` and `note` on `parent_reactions`, but migration 023 actually uses `parent_name` and `message`. The helper's typed shape will keep the ticket-named field names externally (`parent_first_name`, `note`) for clarity and let the route normalize the schema columns into them; the explicit `.select()` allow-list on the read is `player_id, parent_name, message, created_at` (the existing schema columns) per LESSONS#0036, NEVER `share_token`, `team_id`, `coach_id`, `reaction`, `is_read`, `coach_reply_at`, `coach_reply_id`. Branch: `feat/0082-parent-reaction-becomes-capture-seed`.
+- 2026-06-15 [dev/0082] Surface confirmation — the Capture per-player surface is `src/app/(dashboard)/capture/page.tsx` reading from `/api/capture/player-memory` (the route added by ticket 0025) into the `PlayerMemoryLine` component (`src/components/capture/player-memory-line.tsx`). The 0062 "silent-player nudge" referenced by the ticket brief is a CRON / email, NOT a Capture surface — there is no nudge line on the Capture page to coexist with. The new reaction-seed line will render ABOVE the existing 0025 memory line, inside the same `data-testid="player-memory-line"` neighborhood, and will be removed from the surface the moment the next observation lands (the existing player-memory query is keyed on `focusedPlayerId` so a new observation invalidates it via cache-bust at review time).
+- 2026-06-15 [dev/0082] Scope reconciliation — the existing player-memory route uses ORG scope (`coaches.org_id === teams.org_id`), not `team_coaches`. The ticket's AC says "honors the same coach-scope the existing Capture surface honors" — which IS the org-scope here. Honoring it (org-scope) preserves the "byte-identical except for additive `reaction_seed`" promise. Team-coaches scope would be stricter and would change the existing behavior for non-head-coach team members — out of scope for this ticket.
+- 2026-06-15 [dev/0082] Glob sweep per LESSONS#0049 / #0092 / #0100 / #0110 / #0118:
+  - `tests/capture/*.test.ts` → only `tests/capture/player-memory.test.ts` (the direct mock of the route — extend `wireTables` and broaden the table whitelist for the new `parent_reactions` read).
+  - `tests/api/capture*.test.ts` → empty (no-op per LESSONS#0116).
+  - `tests/api/player*.test.ts` → handoff tests; none touch the player-memory route.
+  - `tests/api/observation*.test.ts` → empty (no-op per LESSONS#0116).
+  - `tests/components/capture*.test.tsx` → empty; player-memory-line test lives at `tests/components/player-memory-line.test.tsx` (presentational only — unaffected by route widening).
+- 2026-06-15 [dev/0082] E2E seed reuse per LESSONS#0084 / #0096 / #0121 — the existing 0056 seed at line ~1063 already inserts the exact Sarah / "thank you for sticking with him on his shooting" reaction on Alice Walker (`...030`) on the E2E team. The `created_at` defaults to NOW() so the row is always inside the 14-day lookback window. No new seed row needed; the e2e spec asserts on the existing 0056 fixture.

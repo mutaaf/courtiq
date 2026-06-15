@@ -13,6 +13,8 @@ import { AIUsageMeter, type AIUsageStatus } from '@/components/capture/ai-usage-
 import { CarryoverStrip } from '@/components/capture/carryover-strip';
 import { ArcContinuityLine } from '@/components/capture/arc-continuity-line';
 import { PlayerMemoryLine } from '@/components/capture/player-memory-line';
+import { ReactionSeedLine } from '@/components/capture/reaction-seed-line';
+import type { ReactionSeed } from '@/lib/reaction-seed-utils';
 import { ProgramFocusLine } from '@/components/capture/program-focus-line';
 import { CrossProgramFocusLine } from '@/components/capture/cross-program-focus-line';
 import type { ActiveArcResponse } from '@/app/api/ai/practice-arc/active/route';
@@ -259,7 +261,17 @@ export default function CapturePage() {
   // record button's `disabled` state does not depend on it.
   const focusedPlayerId =
     urlPlayerId && urlPlayerId.includes('-') && urlPlayerId.length > 20 ? urlPlayerId : null;
-  const { data: playerMemory } = useQuery<{ lastNeedsWork: string | null; lastPositive: string | null } | undefined>({
+  // Ticket 0082 widened this response with an additive optional `reaction_seed`
+  // field per LESSONS#0103 — the existing callers stay byte-identical because
+  // the new field is optional and absent when no qualifying reaction exists.
+  const { data: playerMemory } = useQuery<
+    | {
+        lastNeedsWork: string | null;
+        lastPositive: string | null;
+        reaction_seed?: ReactionSeed | null;
+      }
+    | undefined
+  >({
     queryKey: ['capture-player-memory', focusedPlayerId, activeTeam?.id],
     queryFn: async () => {
       if (!focusedPlayerId || !activeTeam?.id) return undefined;
@@ -268,7 +280,11 @@ export default function CapturePage() {
           `/api/capture/player-memory?playerId=${focusedPlayerId}&teamId=${activeTeam.id}`
         );
         if (!res.ok) return undefined;
-        return (await res.json()) as { lastNeedsWork: string | null; lastPositive: string | null };
+        return (await res.json()) as {
+          lastNeedsWork: string | null;
+          lastPositive: string | null;
+          reaction_seed?: ReactionSeed | null;
+        };
       } catch {
         return undefined; // degrade silently — capture must never be blocked by this read
       }
@@ -297,6 +313,41 @@ export default function CapturePage() {
     enabled: !!urlPlayerId && urlPlayerId.includes('-') && urlPlayerId.length > 20,
     staleTime: 5 * 60_000,
   });
+
+  // Ticket 0082 — the per-player reaction-seed line is a ONE-SHOT prompt for
+  // this session. The moment the coach writes the next observation for the
+  // focused player, the seed has done its job and we hide it from the
+  // surface (the existing 0025 memory line slides up to take its place).
+  // Per LESSONS#0027 / #0059 — the seed-removal effect reads the observation
+  // count as a SNAPSHOT (the ref baseline), not as its own dep — we just
+  // gate render on a session-scoped flag here.
+  const [seedDismissedFor, setSeedDismissedFor] = useState<string | null>(null);
+  const obsCountForFocus = playerRecentObs?.length ?? 0;
+  const baselineObsCountRef = useRef<{ playerId: string | null; count: number }>({
+    playerId: null,
+    count: 0,
+  });
+  useEffect(() => {
+    if (!focusedPlayerId) return;
+    // First render for this player — capture the baseline observation count.
+    if (baselineObsCountRef.current.playerId !== focusedPlayerId) {
+      baselineObsCountRef.current = { playerId: focusedPlayerId, count: obsCountForFocus };
+      return;
+    }
+    // Same player; if the count has grown, dismiss the seed for this player.
+    if (obsCountForFocus > baselineObsCountRef.current.count) {
+      setSeedDismissedFor(focusedPlayerId);
+    }
+    // Deps intentionally exclude `seedDismissedFor` per LESSONS#0027 / #0059 —
+    // we set it inside the effect; including it would re-fire the effect and
+    // re-evaluate the snapshot.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusedPlayerId, obsCountForFocus]);
+
+  const reactionSeedForFocus =
+    focusedPlayerId && seedDismissedFor !== focusedPlayerId
+      ? playerMemory?.reaction_seed ?? null
+      : null;
 
   // Derive coaching brief from recent observations
   const playerCoachingBrief = useMemo(() => {
@@ -1122,6 +1173,17 @@ export default function CapturePage() {
                 session; never gates the record button. */}
             {captureState !== 'recording' && (
               <ArcContinuityLine arc={activeArc} />
+            )}
+
+            {/* Parent-reaction seed line (ticket 0082): when a parent left a
+                qualifying reaction on the portal in the last 14 days, surface
+                ONE quiet line ABOVE the 0025 memory line so the coach's first
+                observation of the kid is seeded by the parent's exact words.
+                Best-effort: absent when no qualifying reaction, the read
+                failed, or the coach already wrote an observation for this
+                player this session. Never gates the record button. */}
+            {captureState !== 'recording' && (
+              <ReactionSeedLine seed={reactionSeedForFocus} />
             )}
 
             {/* Per-player memory line (ticket 0025): when a player is focused,
