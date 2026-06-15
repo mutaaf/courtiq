@@ -513,6 +513,13 @@ export interface ParentShare {
 // the new POST /api/share/parent-forward. COPPA: no names, no emails, no
 // note text — only opaque ids and a team scope. UNIQUE on
 // (sender_player_id, recipient_player_id) is the durable idempotency gate.
+//
+// Ticket 0080 widens the row with `cross_team` so attribution surfaces can
+// distinguish in-team forwards (the 0079 default — `cross_team = false`)
+// from cross-team-same-program forwards (`cross_team = true`). Per
+// LESSONS#0103 — declaring the field non-optional here is fine because
+// migration 071 stamps NOT NULL DEFAULT FALSE; every existing 0079 caller
+// still byte-identical inherits the default.
 export interface ParentForwardSignal {
   id: string;
   sender_player_id: string;
@@ -520,6 +527,7 @@ export interface ParentForwardSignal {
   team_id: string;
   dispatched_at: string;
   opened_at: string | null;
+  cross_team: boolean;
 }
 
 // referral_code is stamped from `makeReferralCode(programId)` so the program

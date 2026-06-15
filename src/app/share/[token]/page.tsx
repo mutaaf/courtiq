@@ -489,6 +489,7 @@ export default async function SharePage({
     playerSpotlight,
     referralCode,
     teamMates,
+    programMates,
   } = data;
 
   const safeStarred: any[] = starredObservations ?? [];
@@ -1409,17 +1410,19 @@ export default async function SharePage({
         )}
 
         {/* ─── Ticket 0079 — on-team parent → parent forward ─── */}
-        {/* Sits BELOW every existing parent-portal CTA (0009 reaction,
-            0011 viral CTA, 0019 self-signup, 0050 program-referral,
-            0060 sibling-invite, 0072 returning-parent surfaces).
-            Renders nothing when the team has no other teammates with a
-            parent_email on file — silence beats a dead button per the
-            existing 0060 posture. Per AC: one import + one JSX entry
-            (LESSONS#0065 / #0066 / #0162 — smallest possible touch on
-            the parent-portal hotspot). */}
+        {/* Ticket 0080 — extended with the in-program (cross-team-
+            same-program) tab. Sits BELOW every existing parent-portal
+            CTA (0009 reaction, 0011 viral CTA, 0019 self-signup, 0050
+            program-referral, 0060 sibling-invite, 0072 returning-
+            parent surfaces). Renders nothing when neither tab has
+            candidates — silence beats a dead button per the existing
+            0060 posture. Per AC: one prop addition for the program
+            tab (LESSONS#0065 / #0066 / #0162 — smallest possible
+            touch on the parent-portal hotspot). */}
         <ParentForwardOnTeamButton
           shareToken={token}
           teamMates={Array.isArray(teamMates) ? teamMates : []}
+          programMates={Array.isArray(programMates) ? programMates : []}
           myKidFirstName={firstName}
         />
 

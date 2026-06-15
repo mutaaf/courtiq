@@ -146,3 +146,129 @@ ${senderFirstName.trim()} on your ${sportPhrase} (${teamName.trim()}) sent you t
 
   return { subject, html, text };
 }
+
+// ─── Ticket 0080 — cross-team-same-program variant ──────────────────────────
+//
+// When the recipient is on a DIFFERENT team in the SAME program (same
+// org_id), the email's framing changes: the subject names the
+// "neighboring team in your program" shape, and the body labels the
+// sender's team + program name so the receiving parent knows BOTH
+// where the forward came from AND that her own coach (on her own team)
+// is the one writing the report she's about to read.
+//
+// The deep-link CTA still points at the RECIPIENT's portal URL — minted
+// against HER OWN coach by the route. Per LESSONS#0023, this template
+// is positively instructed and avoids the banned-token landing-page
+// voice.
+
+export interface ParentForwardCrossTeamEmailArgs {
+  senderFirstName: string;
+  /** The sender's team name (e.g. "Hawks U10"). Required so the body
+   *  can label which team the sender's kid is on — the program-scope
+   *  context the receiving parent needs to place the sender. */
+  senderTeamName: string;
+  /** The program name (org's name — e.g. "Riverside"). Required so
+   *  the body can identify the program both teams belong to. */
+  programName: string;
+  recipientKidFirstName: string;
+  note: string;
+  recipientPortalUrl: string;
+  /** Sport string (e.g. "basketball") — used in the body sentence to
+   *  anchor the team context. Falls back to a generic phrase if blank. */
+  teamSport: string;
+}
+
+/**
+ * Build the subject + HTML + plain-text body of the cross-team email
+ * the receiving parent gets.
+ *
+ * Template preconditions: `senderTeamName` AND `programName` MUST both
+ * be non-empty — the entire framing depends on naming them. The route
+ * is the single caller and resolves both before calling; throwing on
+ * an empty value here is the schema-tight contract that surfaces a
+ * bad upstream join early.
+ */
+export function buildParentForwardCrossTeamEmail(
+  args: ParentForwardCrossTeamEmailArgs,
+): ParentForwardEmailBody {
+  const {
+    senderFirstName,
+    senderTeamName,
+    programName,
+    recipientKidFirstName,
+    note,
+    recipientPortalUrl,
+    teamSport,
+  } = args;
+
+  if (!senderTeamName.trim()) {
+    throw new Error('buildParentForwardCrossTeamEmail: senderTeamName is required');
+  }
+  if (!programName.trim()) {
+    throw new Error('buildParentForwardCrossTeamEmail: programName is required');
+  }
+
+  const safeSender = escapeHtml(senderFirstName.trim());
+  const safeSenderTeam = escapeHtml(senderTeamName.trim());
+  const safeProgram = escapeHtml(programName.trim());
+  const safeKid = escapeHtml(recipientKidFirstName.trim());
+  const safeUrl = escapeHtml(recipientPortalUrl);
+  const sanitizedNote = stripTags(note).trim();
+  const safeNote = escapeHtml(sanitizedNote);
+  const sportPhrase = teamSport && teamSport.trim()
+    ? `${teamSport.trim()} team`
+    : 'team';
+  const safeSportPhrase = escapeHtml(sportPhrase);
+
+  // Subject — the cross-team framing the AC names verbatim:
+  // "<senderFirstName> on a neighboring team in your program sent
+  // you this week's SportsIQ report."
+  const subject = `${senderFirstName.trim()} on a neighboring team in your program sent you this week's SportsIQ report`;
+
+  // Header — two short sentences in the cardboard voice. The first
+  // sentence places the sender's team in the program; the second
+  // names the receiving kid so the receiving parent immediately sees
+  // this is about HER kid.
+  const headerHtml = `<p>Hi,</p>
+<p><strong>${safeSender}</strong>'s family is on the <strong>${safeSenderTeam}</strong> ${safeSportPhrase} in the <strong>${safeProgram}</strong> program.</p>
+<p>She thought you'd want to read this week's report about <strong>${safeKid}</strong>.</p>`;
+  const headerText = `Hi,
+
+${senderFirstName.trim()}'s family is on the ${senderTeamName.trim()} ${sportPhrase} in the ${programName.trim()} program.
+
+She thought you'd want to read this week's report about ${recipientKidFirstName.trim()}.`;
+
+  // Sender's note — rendered in a blockquote in the HTML body.
+  const noteBlockHtml = safeNote
+    ? `<blockquote style="margin:16px 0;padding:12px 16px;border-left:3px solid #F97316;background:#fafafa;color:#27272a;font-style:italic;">${safeNote}</blockquote>`
+    : '';
+  const noteBlockText = sanitizedNote ? `\n\n"${sanitizedNote}"\n` : '';
+
+  // Primary CTA — deep-links to the RECIPIENT's portal URL. The
+  // receiving parent lands on HER OWN kid's portal session under HER
+  // OWN coach per the COPPA contract.
+  const ctaHtml = `<p style="margin:24px 0;"><a href="${safeUrl}" style="display:inline-block;background:#F97316;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600;">Read ${safeKid}'s report</a></p>`;
+  const ctaText = `\nRead ${recipientKidFirstName.trim()}'s report: ${recipientPortalUrl}\n`;
+
+  // Fineprint — mirrors the 0079 same-team fineprint shape but names
+  // the program-scope context so the receiving parent understands
+  // where the forward originated.
+  const fineprintHtml = `<p style="color:#71717a;font-size:12px;margin-top:24px;">${safeSender} sent this from her family's SportsIQ portal &mdash; she did not share your email beyond this forward.</p>`;
+  const fineprintText = `\n${senderFirstName.trim()} sent this from her family's SportsIQ portal — she did not share your email beyond this forward.`;
+
+  const unsubscribeHtml = `<p style="color:#94a3b8;font-size:11px;margin-top:16px;">Sent by SportsIQ &middot; <a href="https://youthsportsiq.com" style="color:#94a3b8;">youthsportsiq.com</a></p>`;
+  const unsubscribeText = `\nSent by SportsIQ · youthsportsiq.com`;
+
+  const html = `<!doctype html>
+<html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#27272a;line-height:1.55;max-width:560px;margin:0 auto;padding:24px;">
+  ${headerHtml}
+  ${noteBlockHtml}
+  ${ctaHtml}
+  ${fineprintHtml}
+  ${unsubscribeHtml}
+</body></html>`;
+
+  const text = `${headerText}${noteBlockText}${ctaText}${fineprintText}${unsubscribeText}`;
+
+  return { subject, html, text };
+}

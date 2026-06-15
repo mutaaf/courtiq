@@ -271,18 +271,25 @@ describe('POST /api/share/parent-forward (ticket 0079)', () => {
 
   // ─── Same-team contract ───────────────────────────────────────────────────
 
-  it('returns 400 not_on_same_team when the recipient lives on a different team', async () => {
+  it('returns 400 not_in_same_program when the recipient lives on a different team and a different program (cross-team widening, ticket 0080)', async () => {
+    // The route's 0079 prose said "not_on_same_team" — ticket 0080
+    // widens it: same `org_id` is now allowed (the cross-team-same-
+    // program contract). When the orgs differ, the route returns
+    // `not_in_same_program` instead. The OFF_TEAM_PLAYER fixture
+    // lives in a DIFFERENT org so the new error reads.
     mockFromFn
       .mockReturnValueOnce(buildChain(SHARE_ROW))         // parent_shares
       .mockReturnValueOnce(buildChain(SENDER_PLAYER))     // players (sender)
-      .mockReturnValueOnce(buildChain(OFF_TEAM_PLAYER));  // players (recipient — off team)
+      .mockReturnValueOnce(buildChain(OFF_TEAM_PLAYER))   // players (recipient — off team)
+      .mockReturnValueOnce(buildChain({ id: TEAM_ID, name: 'Hawks U10', sport_id: null, org_id: 'org-A' }))    // teams (sender full)
+      .mockReturnValueOnce(buildChain({ id: '00000000-0000-4000-a000-0000000000ff', name: 'Wolves', sport_id: null, org_id: 'org-B' })); // teams (recipient full, different org)
 
     const res = await POST(
       makeRequest(defaultBody({ recipientPlayerId: OFF_TEAM_PLAYER_ID })),
     );
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toBe('not_on_same_team');
+    expect(json.error).toBe('not_in_same_program');
     expect(mockSendEmail).not.toHaveBeenCalled();
   });
 
@@ -311,15 +318,20 @@ describe('POST /api/share/parent-forward (ticket 0079)', () => {
     expect(json.ok).toBe(true);
 
     // Exactly one signal row written with the documented allow-list of columns.
+    // Ticket 0080 widened the allow-list with `cross_team` (boolean
+    // flag) per LESSONS#0103 — every 0079 caller stays byte-identical
+    // EXCEPT the new flag, which is `false` on the same-team path.
     const signalInserts = signalChain._calls as unknown[];
     expect(signalInserts).toHaveLength(1);
     const signalPayload = signalInserts[0] as Record<string, unknown>;
     expect(Object.keys(signalPayload).sort()).toEqual(
-      ['recipient_player_id', 'sender_player_id', 'team_id'].sort(),
+      ['cross_team', 'recipient_player_id', 'sender_player_id', 'team_id'].sort(),
     );
     expect(signalPayload.sender_player_id).toBe(SENDER_PLAYER_ID);
     expect(signalPayload.recipient_player_id).toBe(RECIPIENT_PLAYER_ID);
     expect(signalPayload.team_id).toBe(TEAM_ID);
+    // Same-team forward inherits the default `false` (LESSONS#0103).
+    expect(signalPayload.cross_team).toBe(false);
 
     // A recipient parent_shares token was minted. The mint payload references
     // the RECIPIENT's player_id (NOT the sender's) — the receiving parent

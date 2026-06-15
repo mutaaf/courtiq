@@ -2662,4 +2662,90 @@ values (
 )
 on conflict (id) do nothing;
 
+-- ────────────────────────────────────────────────────────────────────────
+-- Ticket 0080 — parent → parent CROSS-TEAM-SAME-PROGRAM forward
+-- ────────────────────────────────────────────────────────────────────────
+-- The new "In your program" tab on the ParentForwardOnTeamButton lists
+-- OTHER players on DIFFERENT teams in the SAME `org_id` whose
+-- parent_email is set AND whose team has at least one row in
+-- team_coaches. To exercise the candidate list + the cross-team send
+-- POST against a real seeded DB we need:
+--
+--   * A SECOND TEAM ('E2E Program Bears U12') in the SAME org as the
+--     default E2E team (...020 — Hawks U10 in 'E2E Test Org' / org
+--     ...010). Per LESSONS#0057 the head-coach row lives on
+--     `team_coaches`, NEVER `teams.coach_id` — confirmed.
+--
+--   * A NEW HEAD COACH for the Bears team (auth.users row first per
+--     LESSONS#0084 — coaches.id has an FK to auth.users(id)).
+--
+--   * TWO new players on the Bears team, each carrying a parent_email
+--     so the candidate list shows two entries.
+--
+-- UUIDs in the 0...0340+ range — verified non-colliding with the
+-- existing 0...0335 family (LESSONS#0101 / #0043: a colliding id
+-- silently no-ops under `on conflict (id) do nothing`).
+-- Per LESSONS#0121: the e2e spec asserts on names that ARE seeded
+-- ("Bear" + "Cub" below) — grep tests/e2e/fixtures/seed.sql for
+-- "Bear " before writing the spec assertion.
+
+-- Head-coach auth.users row for the Bears team — coaches.id FK to
+-- auth.users(id) requires this to land FIRST.
+insert into auth.users (id, instance_id, aud, role, email,
+                        email_confirmed_at, created_at, updated_at)
+values (
+  '00000000-0000-4000-a000-000000000340',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated', 'authenticated',
+  'bears-coach-e2e@test.com',
+  now(), now(), now()
+)
+on conflict (id) do nothing;
+
+-- The Bears coach. Same org as the Hawks coach so the cross-team-
+-- same-program forward resolves the program.
+insert into coaches (id, org_id, full_name, email, role, onboarding_complete)
+values (
+  '00000000-0000-4000-a000-000000000340',
+  '00000000-0000-4000-a000-000000000010',
+  'Bears Coach', 'bears-coach-e2e@test.com', 'coach', true
+)
+on conflict (id) do nothing;
+
+-- The Bears team in the SAME org as the default E2E team.
+insert into teams (id, org_id, sport_id, name, age_group, season, season_weeks, current_week, is_active)
+select
+  '00000000-0000-4000-a000-000000000341',
+  '00000000-0000-4000-a000-000000000010',
+  (select id from sports where slug = 'basketball' limit 1),
+  'E2E Bears U12', '11-13', 'Spring 2026', 10, 3, true
+on conflict (id) do nothing;
+
+-- The head-coach row on team_coaches (LESSONS#0057 — team-coach
+-- ownership lives on this table, NEVER `teams.coach_id`).
+insert into team_coaches (team_id, coach_id, role)
+values (
+  '00000000-0000-4000-a000-000000000341',
+  '00000000-0000-4000-a000-000000000340',
+  'head_coach'
+)
+on conflict (team_id, coach_id) do nothing;
+
+-- Two players on the Bears team with parent_email — both appear in
+-- the cross-team candidate list. First names "Bear" and "Cub" are
+-- what the e2e spec asserts on (LESSONS#0121 — grep the seed for
+-- the names BEFORE writing the assertion).
+insert into players (id, team_id, name, nickname, name_variants, age_group,
+                     position, parent_name, parent_email, is_active)
+values
+  ('00000000-0000-4000-a000-000000000342',
+   '00000000-0000-4000-a000-000000000341',
+   'Bear Family', null, null, '11-13', 'Forward',
+   'Bear Mom', 'bear-mom-1@e2e.test', true),
+  ('00000000-0000-4000-a000-000000000343',
+   '00000000-0000-4000-a000-000000000341',
+   'Cub Family', null, null, '11-13', 'Guard',
+   'Cub Mom', 'bear-mom-2@e2e.test', true)
+on conflict (id) do nothing;
+
 commit;

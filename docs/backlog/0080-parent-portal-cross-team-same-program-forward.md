@@ -1,7 +1,7 @@
 ---
 id: 0080
 title: When a parent opens their kid's report on the portal and another team in the SAME program is also on SportsIQ, give them one tap to forward this week's report to one parent on the neighboring team — "send this to Liam's mom on the U10 Hornets too" — so the parent → parent edge crosses the team boundary
-status: groomed
+status: in-progress
 priority: P1
 area: parent-portal
 created: 2026-06-11
@@ -668,4 +668,13 @@ Files / patterns the dev should touch.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-14 [implementation-dev] Picked up at the top of the queue
+  (only groomed P1 with no in-flight PR). Branch
+  `feat/0080-parent-portal-cross-team-same-program-forward`.
+  Schema-wins-over-prose reconciliation (LESSONS#0096): the ticket
+  prose said the new migration prefix is `070`, but at pickup `ls
+  supabase/migrations/` shows 070 is already taken by
+  `070_coach_thank_messages.sql` (ticket 0081, shipped 2026-06-14)
+  — so the next free prefix is `071`. The migration filename
+  becomes `071_parent_forward_signals_cross_team.sql` and the
+  no-new-migration sentinel pins file count at 72.
