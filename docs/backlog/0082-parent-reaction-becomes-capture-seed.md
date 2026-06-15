@@ -1,7 +1,7 @@
 ---
 id: 0082
 title: When a parent leaves a reaction on the portal naming a specific thing about their kid — "thank you for sticking with him on his shooting" — show that one line back to the coach at the TOP of next Tuesday's Capture for THAT kid as a seed — "Sarah said his shooting carried last week — what did you see today?" — so the parent's reaction stops being a Monday rollup artifact and becomes the kid's first observation of the next session
-status: in-progress
+status: shipped
 priority: P1
 area: capture
 created: 2026-06-11
