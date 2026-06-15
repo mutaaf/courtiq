@@ -73,6 +73,7 @@ import {
 } from '@/components/plans/practice-plan-rollover-line';
 import { NextPracticeFirstDrillBanner } from '@/components/plans/next-practice-first-drill-banner';
 import { PublishPlanButton } from '@/components/plans/publish-plan-button';
+import { ProgramArcHistoryHint } from '@/components/plans/program-arc-history-hint';
 import { LeaguePlansSection } from '@/components/plan/league-plans-section';
 import { FromCoachesYouFollowSection } from '@/components/plan/from-coaches-you-follow-section';
 
@@ -707,6 +708,41 @@ export default function PlansPage() {
     },
     enabled: !!activeTeam,
   });
+
+  // Ticket 0083 — program-scoped Practice Arc memory. Read the program's
+  // last-season arc shape when the active team has org/age/sport metadata;
+  // the surface uses it to render a quiet hint above the empty Practice
+  // Arc state. Per LESSONS#0036 — best-effort; a read failure resolves to
+  // the surface staying byte-identical (the hint is absent).
+  const { data: programArcHistory } = useQuery({
+    queryKey: ['program-arc-history', activeTeam?.id],
+    queryFn: async () => {
+      if (!activeTeam) return null;
+      const orgId = (activeTeam as { org_id?: string }).org_id;
+      const ageGroup = (activeTeam as { age_group?: string }).age_group;
+      const sportId = (activeTeam as { sport_id?: string }).sport_id;
+      if (!orgId || !ageGroup || !sportId) return null;
+      try {
+        const url = `/api/program/arc-history?orgId=${encodeURIComponent(orgId)}&ageGroup=${encodeURIComponent(ageGroup)}&sportId=${encodeURIComponent(sportId)}`;
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        return await res.json();
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!activeTeam,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // The Practice Arc empty-state condition the hint reads — true when no
+  // practice_arc plan exists for the active team yet (the same condition
+  // the existing 0018 surface already uses to decide whether to render
+  // the active-arc banner).
+  const arcIsEmpty = useMemo(
+    () => !plans?.some((p) => p.type === 'practice_arc'),
+    [plans],
+  );
 
   // Available plan types from existing plans (for filter chips)
   const planTypeOptions = useMemo(() => {
@@ -4479,17 +4515,33 @@ export default function PlansPage() {
             ))}
           </div>
         ) : plans?.length === 0 ? (
-          <Card className="border-dashed border-zinc-700">
-            <CardContent className="flex flex-col items-center justify-center py-16">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-800/50 mb-5">
-                <ClipboardList className="h-8 w-8 text-zinc-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-zinc-300">No plans yet</h3>
-              <p className="text-zinc-500 text-sm mt-2 max-w-xs text-center">
-                Describe what you need above and AI will generate a plan tailored to your roster and curriculum.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="space-y-3">
+            {/* Ticket 0083 — quiet program-scoped Practice Arc memory hint
+                above the empty-state card. Renders only when arc is empty
+                AND program coverage is sufficient. */}
+            {activeTeam && (
+              <ProgramArcHistoryHint
+                arcIsEmpty={arcIsEmpty}
+                data={programArcHistory ?? null}
+                teamId={activeTeam.id}
+                orgId={(activeTeam as { org_id?: string }).org_id ?? ''}
+                ageGroup={(activeTeam as { age_group?: string }).age_group ?? ''}
+                sportId={(activeTeam as { sport_id?: string }).sport_id ?? ''}
+                onAdopted={() => refetchPlans()}
+              />
+            )}
+            <Card className="border-dashed border-zinc-700">
+              <CardContent className="flex flex-col items-center justify-center py-16">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-800/50 mb-5">
+                  <ClipboardList className="h-8 w-8 text-zinc-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-zinc-300">No plans yet</h3>
+                <p className="text-zinc-500 text-sm mt-2 max-w-xs text-center">
+                  Describe what you need above and AI will generate a plan tailored to your roster and curriculum.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         ) : filteredPlans.length === 0 ? (
           <Card className="border-dashed border-zinc-700">
             <CardContent className="flex flex-col items-center justify-center py-10">

@@ -1,7 +1,7 @@
 ---
 id: 0083
 title: When a brand-new fall coach takes over a U10 team in a program where LAST year's U10 coach ran the season on SportsIQ, surface "the arc that worked for last year's U10 in this same program" to the new coach on their first Practice Arc — "last year's U10 boys spent weeks 2-4 on closeouts and weeks 5-7 on transition; the program's arc carried" — so the Practice Arc cross-coach memory finally crosses the coach boundary at the program scope
-status: groomed
+status: in-progress
 priority: P1
 area: plans
 created: 2026-06-11
@@ -704,4 +704,60 @@ Files / patterns the dev should touch.
 
 ## Implementation log
 
-(Appended by the implementation-dev agent during execution.)
+- 2026-06-15 [implementation-dev] Picked up. Branch `feat/0083-program-arc-history`. Status → in-progress (file + index).
+
+### Pickup-time schema reconciliation (LESSONS#0096 — schema wins over prose)
+
+The ticket prose talks as if `plans` rows directly carry `org_id`, `age_group`,
+`sport_id`, and `season_week`. Reading the real schema (`src/types/database.ts`):
+
+- `plans` carries `team_id, coach_id, type, title, content, content_structured,
+  curriculum_week, skills_targeted, is_shared, share_token, share_expires_at,
+  completed_drill_ids, source_plan_id, created_at`. NO `org_id`, NO
+  `age_group`, NO `sport_id`, NO `season_week`.
+- `teams` carries `org_id, sport_id, age_group, season, season_weeks,
+  current_week`. The aggregation join is `plans` → `teams` → (org_id,
+  age_group, sport_id).
+- Existing 0071 precedent (`src/app/api/org/emergent-focus/route.ts`,
+  `src/lib/emergent-focus-utils.ts`): the pure helper takes a `PlanRow` whose
+  shape is `{ team_id, skills_targeted, created_at }`, and the ROUTE is
+  responsible for the team→org join.
+
+Reconciliation:
+- The helper `computeProgramArcShape` is shaped per the ticket but the input
+  rows carry only `team_id, skills_targeted, created_at, curriculum_week`
+  (curriculum_week is the real `season_week` equivalent on the plans table —
+  the existing column name per the schema). The route is responsible for
+  joining team→(org_id, age_group, sport_id) and pre-filtering before
+  calling the helper. The opts struct still carries `orgId`, `ageGroup`,
+  `sportId`, `seasonLookback`, etc. — the helper enforces every filter on
+  the FILTERED ROW SET it's handed.
+- Per LESSONS#0066 — favor widening over a new `from()`. The route does ONE
+  `teams` read (id, org_id, age_group, sport_id) filtered by the program +
+  age_group + sport_id, then ONE `plans` read (team_id, skills_targeted,
+  created_at, curriculum_week) `.in('team_id', programTeamIds)`. Both reads
+  use explicit allow-list selects per LESSONS#0036.
+
+### Practice Arc surface reconciliation
+
+The "0018 / 0020 Practice Arc surface" is the practice-arc generator card
+inside `src/app/(dashboard)/plans/page.tsx`. The "empty state" the ticket
+references is "this team has no `practice_arc` plans yet" — i.e. the coach
+has not generated their own arc. The component renders only when:
+- `activeTeam` is set
+- the team has zero plans of type `practice_arc`
+- the GET returns `coverage: 'sufficient'`
+
+The "adopt arc" write is the SAME `plans.insert({ type: 'practice_arc',
+content_structured: <arc> })` the existing 0018 generator route fires. The
+adopt POST mirrors that insert deterministically (no AI call).
+
+### Mock-queue + whitelist sweep (LESSONS#0049 / #0092 / #0110 / #0118)
+
+Glob `tests/api/program*.test.ts` returns 3 files: the two
+program-director-invites tests (don't touch plans) and
+`tests/api/program-cross-program-pulse.test.ts` (a `mockImplementation`
+table-keyed whitelist — extension is N/A since the new route is its own).
+Glob `tests/api/arc*.test.ts` returns 0 files (LESSONS#0116 — empty Glob is
+a no-op). Glob `tests/api/plans*.test.ts` returns 0 files. No mock-queue
+extension required.

@@ -2748,4 +2748,209 @@ values
    'Cub Mom', 'bear-mom-2@e2e.test', true)
 on conflict (id) do nothing;
 
+-- ────────────────────────────────────────────────────────────────────────
+-- Ticket 0083 — program-scoped Practice Arc memory
+-- ────────────────────────────────────────────────────────────────────────
+-- The new <ProgramArcHistoryHint /> renders above the empty-state Practice
+-- Arc card on /plans when:
+--   (a) the E2E sign-in coach's active team has NO practice_arc plan yet
+--       (default — no seed touches it), AND
+--   (b) the program (same org_id + age_group + sport_id) has at least one
+--       OTHER team with 12+ plans last season carrying skills_targeted.
+--
+-- The seed extension below pre-mints:
+--   * A NEW HEAD COACH ("Last-Year U10 Coach") with their own auth.users
+--     row (LESSONS#0084 — coaches.id FK to auth.users(id)) and a
+--     team_coaches row owning the new "Last Year U10 Hawks" team.
+--   * A NEW TEAM in the SAME org (...010), SAME age_group ('11-13'), SAME
+--     sport (basketball), but for last season — DIFFERENT team_id from
+--     the E2E sign-in coach's team. Per LESSONS#0057 — head-coach lives
+--     on team_coaches, NEVER teams.coach_id.
+--   * 14 PLANS for that team across 8 weeks of last season, weeks 2-4
+--     emphasising "closeouts" and weeks 5-7 emphasising "transitions" so
+--     the composer renders a deterministic two-range sentence. Each plan
+--     has skills_targeted populated; created_at set ~200 days ago so the
+--     1-season-lookback window catches them.
+--
+-- UUIDs in the 0...0344+ range — verified non-colliding with the 0...0343
+-- ceiling from ticket 0080 (LESSONS#0101 / #0043 — a colliding id would
+-- silently no-op under `on conflict (id) do nothing`).
+--
+-- Per LESSONS#0121: the spec asserts on the program name "E2E Test Org"
+-- + the skill names "closeouts" and "transitions" — both ARE seeded
+-- below. grep this file for those strings before changing the assertion.
+
+-- Last-year coach's auth.users row (FK requirement per LESSONS#0084).
+insert into auth.users (id, instance_id, aud, role, email,
+                        email_confirmed_at, created_at, updated_at)
+values (
+  '00000000-0000-4000-a000-000000000350',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated', 'authenticated',
+  'last-year-u10-coach-e2e@test.com',
+  now() - interval '400 days',
+  now() - interval '400 days',
+  now() - interval '400 days'
+)
+on conflict (id) do nothing;
+
+-- The last-year U10 head coach. Same org (...010) as the E2E sign-in
+-- coach, but a DIFFERENT coach_id — that's the cross-coach boundary
+-- ticket 0083 surfaces across.
+insert into coaches (id, org_id, full_name, email, role, onboarding_complete)
+values (
+  '00000000-0000-4000-a000-000000000350',
+  '00000000-0000-4000-a000-000000000010',
+  'Last Year U10 Coach', 'last-year-u10-coach-e2e@test.com', 'coach', true
+)
+on conflict (id) do nothing;
+
+-- The last-year U10 team — SAME org, SAME age_group ('11-13') and SAME
+-- sport (basketball) as the E2E sign-in coach's team (...020). Last
+-- season's season label so the GET's seasonLookback=1 window includes
+-- the plans below.
+insert into teams (id, org_id, sport_id, name, age_group, season, season_weeks, current_week, is_active)
+select
+  '00000000-0000-4000-a000-000000000351',
+  '00000000-0000-4000-a000-000000000010',
+  (select id from sports where slug = 'basketball' limit 1),
+  'Last Year U10 Hawks', '11-13', 'Fall 2025', 10, 10, false
+on conflict (id) do nothing;
+
+-- The last-year coach owns the last-year team (team_coaches row per
+-- LESSONS#0057).
+insert into team_coaches (team_id, coach_id, role)
+values (
+  '00000000-0000-4000-a000-000000000351',
+  '00000000-0000-4000-a000-000000000350',
+  'head_coach'
+)
+on conflict (team_id, coach_id) do nothing;
+
+-- 14 plans for the last-year team across 8 weeks of last season, with
+-- skills_targeted populated. Weeks 2-4 emphasise "closeouts" (6 plans),
+-- weeks 5-7 emphasise "transitions" (6 plans), plus filler weeks 1 + 8
+-- (2 plans). Plan ids in 0...0352..035f range; the type is `practice`
+-- (not practice_arc — these are last-year practice plans the program
+-- arc memory aggregates, NOT a literal arc). curriculum_week carries
+-- the week index the helper reads as season_week. created_at is ~200
+-- days ago so the default 1-season lookback (365 days) includes them.
+insert into plans (id, team_id, coach_id, player_id, type, title, content, skills_targeted, content_structured, created_at)
+values
+  -- Week 1 (filler): 1 plan
+  ('00000000-0000-4000-a000-000000000352',
+   '00000000-0000-4000-a000-000000000351',
+   '00000000-0000-4000-a000-000000000350',
+   null, 'practice', 'Week 1: Warmup', '{}',
+   array['warmup', 'spacing'],
+   '{}'::jsonb,
+   now() - interval '230 days'),
+  -- Weeks 2-4: closeouts (2 plans each = 6 total)
+  ('00000000-0000-4000-a000-000000000353',
+   '00000000-0000-4000-a000-000000000351',
+   '00000000-0000-4000-a000-000000000350',
+   null, 'practice', 'Week 2 closeouts A', '{}',
+   array['closeouts', 'defense'],
+   '{}'::jsonb,
+   now() - interval '220 days'),
+  ('00000000-0000-4000-a000-000000000354',
+   '00000000-0000-4000-a000-000000000351',
+   '00000000-0000-4000-a000-000000000350',
+   null, 'practice', 'Week 2 closeouts B', '{}',
+   array['closeouts'],
+   '{}'::jsonb,
+   now() - interval '218 days'),
+  ('00000000-0000-4000-a000-000000000355',
+   '00000000-0000-4000-a000-000000000351',
+   '00000000-0000-4000-a000-000000000350',
+   null, 'practice', 'Week 3 closeouts A', '{}',
+   array['closeouts'],
+   '{}'::jsonb,
+   now() - interval '213 days'),
+  ('00000000-0000-4000-a000-000000000356',
+   '00000000-0000-4000-a000-000000000351',
+   '00000000-0000-4000-a000-000000000350',
+   null, 'practice', 'Week 3 closeouts B', '{}',
+   array['closeouts'],
+   '{}'::jsonb,
+   now() - interval '211 days'),
+  ('00000000-0000-4000-a000-000000000357',
+   '00000000-0000-4000-a000-000000000351',
+   '00000000-0000-4000-a000-000000000350',
+   null, 'practice', 'Week 4 closeouts A', '{}',
+   array['closeouts'],
+   '{}'::jsonb,
+   now() - interval '206 days'),
+  ('00000000-0000-4000-a000-000000000358',
+   '00000000-0000-4000-a000-000000000351',
+   '00000000-0000-4000-a000-000000000350',
+   null, 'practice', 'Week 4 closeouts B', '{}',
+   array['closeouts'],
+   '{}'::jsonb,
+   now() - interval '204 days'),
+  -- Weeks 5-7: transitions (2 plans each = 6 total)
+  ('00000000-0000-4000-a000-000000000359',
+   '00000000-0000-4000-a000-000000000351',
+   '00000000-0000-4000-a000-000000000350',
+   null, 'practice', 'Week 5 transitions A', '{}',
+   array['transitions', 'spacing'],
+   '{}'::jsonb,
+   now() - interval '199 days'),
+  ('00000000-0000-4000-a000-00000000035a',
+   '00000000-0000-4000-a000-000000000351',
+   '00000000-0000-4000-a000-000000000350',
+   null, 'practice', 'Week 5 transitions B', '{}',
+   array['transitions'],
+   '{}'::jsonb,
+   now() - interval '197 days'),
+  ('00000000-0000-4000-a000-00000000035b',
+   '00000000-0000-4000-a000-000000000351',
+   '00000000-0000-4000-a000-000000000350',
+   null, 'practice', 'Week 6 transitions A', '{}',
+   array['transitions'],
+   '{}'::jsonb,
+   now() - interval '192 days'),
+  ('00000000-0000-4000-a000-00000000035c',
+   '00000000-0000-4000-a000-000000000351',
+   '00000000-0000-4000-a000-000000000350',
+   null, 'practice', 'Week 6 transitions B', '{}',
+   array['transitions'],
+   '{}'::jsonb,
+   now() - interval '190 days'),
+  ('00000000-0000-4000-a000-00000000035d',
+   '00000000-0000-4000-a000-000000000351',
+   '00000000-0000-4000-a000-000000000350',
+   null, 'practice', 'Week 7 transitions A', '{}',
+   array['transitions'],
+   '{}'::jsonb,
+   now() - interval '185 days'),
+  ('00000000-0000-4000-a000-00000000035e',
+   '00000000-0000-4000-a000-000000000351',
+   '00000000-0000-4000-a000-000000000350',
+   null, 'practice', 'Week 7 transitions B', '{}',
+   array['transitions'],
+   '{}'::jsonb,
+   now() - interval '183 days'),
+  -- Week 8 (filler): 1 plan, brings total to 14.
+  ('00000000-0000-4000-a000-00000000035f',
+   '00000000-0000-4000-a000-000000000351',
+   '00000000-0000-4000-a000-000000000350',
+   null, 'practice', 'Week 8: Cooldown', '{}',
+   array['cooldown'],
+   '{}'::jsonb,
+   now() - interval '178 days')
+on conflict (id) do nothing;
+
+-- Update the 14 plans' curriculum_week values so the aggregator can
+-- place them on the arc shape. Idempotent — on re-seed the existing
+-- value is preserved.
+update plans set curriculum_week = 1 where id = '00000000-0000-4000-a000-000000000352';
+update plans set curriculum_week = 2 where id in ('00000000-0000-4000-a000-000000000353', '00000000-0000-4000-a000-000000000354');
+update plans set curriculum_week = 3 where id in ('00000000-0000-4000-a000-000000000355', '00000000-0000-4000-a000-000000000356');
+update plans set curriculum_week = 4 where id in ('00000000-0000-4000-a000-000000000357', '00000000-0000-4000-a000-000000000358');
+update plans set curriculum_week = 5 where id in ('00000000-0000-4000-a000-000000000359', '00000000-0000-4000-a000-00000000035a');
+update plans set curriculum_week = 6 where id in ('00000000-0000-4000-a000-00000000035b', '00000000-0000-4000-a000-00000000035c');
+update plans set curriculum_week = 7 where id in ('00000000-0000-4000-a000-00000000035d', '00000000-0000-4000-a000-00000000035e');
+update plans set curriculum_week = 8 where id = '00000000-0000-4000-a000-00000000035f';
+
 commit;
