@@ -1,7 +1,7 @@
 ---
 id: 0080
 title: When a parent opens their kid's report on the portal and another team in the SAME program is also on SportsIQ, give them one tap to forward this week's report to one parent on the neighboring team — "send this to Liam's mom on the U10 Hornets too" — so the parent → parent edge crosses the team boundary
-status: in-progress
+status: shipped
 priority: P1
 area: parent-portal
 created: 2026-06-11
