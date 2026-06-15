@@ -238,7 +238,7 @@ interface SetupOpts {
 }
 
 function setupHappyPath(opts: SetupOpts = {}) {
-  const share = opts.share ?? SHARE_ROW;
+  const share = (opts.share ?? SHARE_ROW) as typeof SHARE_ROW;
   const senderPlayer = opts.senderPlayer ?? SENDER_PLAYER;
   const teamOrg = opts.teamOrg === undefined ? TEAM_ORG : opts.teamOrg;
   const programPlayers = opts.programPlayers ?? PROGRAM_PLAYERS;
@@ -312,7 +312,9 @@ function setupHappyPath(opts: SetupOpts = {}) {
 /**
  * The players chain has TWO modes:
  *   - `.single()` after `.eq('id', <senderId>)` → the sender player.
- *   - default await → the multi-row program/team-mate roster.
+ *   - default await → the multi-row program/team-mate roster (applies
+ *     the captured `.in('team_id', ...)` filter so the route's
+ *     downstream join logic is honoured).
  */
 function buildPlayersChain(
   sender: typeof SENDER_PLAYER,
@@ -329,13 +331,28 @@ function buildPlayersChain(
       is_active: true,
     })),
   ];
+  // Captures the `.in('team_id', [...])` filter so the awaited result
+  // honours it (the route uses the filter to scope the program-mate
+  // roster to teams that have a team_coaches row).
+  const inFilters: Array<{ column: string; values: string[] }> = [];
+  const eqFilters: Array<{ column: string; value: unknown }> = [];
+  const neqFilters: Array<{ column: string; value: unknown }> = [];
   const chain: Record<string, unknown> = {
     select: vi.fn().mockReturnThis(),
     insert: vi.fn().mockReturnThis(),
     update: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    neq: vi.fn().mockReturnThis(),
-    in: vi.fn().mockReturnThis(),
+    eq: vi.fn((column: string, value: unknown) => {
+      eqFilters.push({ column, value });
+      return chain;
+    }),
+    neq: vi.fn((column: string, value: unknown) => {
+      neqFilters.push({ column, value });
+      return chain;
+    }),
+    in: vi.fn((column: string, values: string[]) => {
+      inFilters.push({ column, values });
+      return chain;
+    }),
     ilike: vi.fn().mockReturnThis(),
     is: vi.fn().mockReturnThis(),
     gte: vi.fn().mockReturnThis(),
@@ -344,8 +361,20 @@ function buildPlayersChain(
     limit: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({ data: sender, error: null }),
     maybeSingle: vi.fn().mockResolvedValue({ data: sender, error: null }),
-    then: (onFulfilled: (v: { data: unknown; error: unknown }) => unknown) =>
-      Promise.resolve({ data: rosterUnion, error: null }).then(onFulfilled),
+    then: (onFulfilled: (v: { data: unknown; error: unknown }) => unknown) => {
+      let filtered = rosterUnion as Array<{ team_id: string; id: string }>;
+      for (const inFilter of inFilters) {
+        if (inFilter.column === 'team_id') {
+          filtered = filtered.filter((p) => inFilter.values.includes(p.team_id));
+        }
+      }
+      for (const neqFilter of neqFilters) {
+        if (neqFilter.column === 'id') {
+          filtered = filtered.filter((p) => p.id !== neqFilter.value);
+        }
+      }
+      return Promise.resolve({ data: filtered, error: null }).then(onFulfilled);
+    },
   };
   return chain;
 }

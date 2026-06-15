@@ -500,6 +500,93 @@ export async function GET(
       reportData.teamMates = [];
     }
 
+    // ─── Ticket 0080 — programMates for the cross-team parent forward ─────
+    // The ParentForwardOnTeamButton's new "In your program" tab needs
+    // first-name + team-name labelled entries for OTHER active players on
+    // DIFFERENT teams in the SAME `org_id` whose parent_email exists AND
+    // whose team has at least one row in `team_coaches` (LESSONS#0057 —
+    // team-coach lives on `team_coaches`, NEVER `teams.coach_id`). Per
+    // LESSONS#0036 the allow-list select is the smallest possible set:
+    // id, name, team_id, parent_email on players; id, name, org_id on
+    // teams; team_id, coach_id on team_coaches. NEVER reads DOB / jersey
+    // / medical_notes / photo_url / parent_phone / nickname.
+    //
+    // Tier-agnostic per the parent-portal contract (LESSONS#0096): the
+    // existence of a team_coaches row is the gate — never a tier check.
+    // A free-tier neighbor coach's team appears in the candidate list.
+    //
+    // Cap at 50 entries per program (a 600-player program would
+    // otherwise inflate the portal server-render); LESSONS-style
+    // smallest-reasonable-cap.
+    //
+    // Best-effort per LESSONS#0036: a derivation failure renders the
+    // tab silently empty.
+    try {
+      const senderOrgId = (teamFull?.org_id as string | undefined) ?? null;
+      if (senderOrgId) {
+        // 1) Find every OTHER team in the SAME org.
+        const { data: orgTeams } = await supabase
+          .from('teams')
+          .select('id, name, org_id')
+          .eq('org_id', senderOrgId)
+          .neq('id', share.team_id);
+        const orgTeamIds = (orgTeams ?? []).map(
+          (t: { id: string }) => t.id,
+        );
+        if (orgTeamIds.length > 0) {
+          // 2) Find which of those teams have at least one row in
+          //    team_coaches (any role — the candidate's coach is on
+          //    SportsIQ regardless of tier).
+          const { data: teamCoachJoins } = await supabase
+            .from('team_coaches')
+            .select('team_id, coach_id')
+            .in('team_id', orgTeamIds);
+          const coachedTeamIds = new Set<string>(
+            (teamCoachJoins ?? []).map((j: { team_id: string }) => j.team_id),
+          );
+          // 3) Find every active player on those coached teams whose
+          //    parent_email is set. The allow-list is the smallest
+          //    possible set.
+          const coachedTeamIdList = Array.from(coachedTeamIds);
+          if (coachedTeamIdList.length > 0) {
+            const { data: programRoster } = await supabase
+              .from('players')
+              .select('id, name, team_id, parent_email')
+              .in('team_id', coachedTeamIdList)
+              .eq('is_active', true);
+            const teamNameById = new Map<string, string>();
+            for (const t of (orgTeams ?? []) as Array<{ id: string; name: string }>) {
+              if (t?.id && t?.name) teamNameById.set(t.id, t.name);
+            }
+            const allCandidates = (programRoster ?? [])
+              .filter((p: { parent_email: string | null }) => !!p.parent_email)
+              .map((p: { id: string; name: string; team_id: string }) => ({
+                player_id: p.id,
+                first_name: ((p.name ?? '').trim().split(/ /)[0] || ''),
+                team_name: teamNameById.get(p.team_id) ?? '',
+              }))
+              .filter(
+                (m: { first_name: string; team_name: string }) =>
+                  m.first_name.length > 0 && m.team_name.length > 0,
+              );
+            // Cap at 50 to keep the portal-page server-render small.
+            reportData.programMates = allCandidates.slice(0, 50);
+          } else {
+            reportData.programMates = [];
+          }
+        } else {
+          reportData.programMates = [];
+        }
+      } else {
+        reportData.programMates = [];
+      }
+    } catch (programErr) {
+      // Best-effort — silent no-op on failure.
+      // eslint-disable-next-line no-console
+      console.error('[ticket-0080] programMates read failed (best-effort):', programErr);
+      reportData.programMates = [];
+    }
+
     // Strip the parent_email we read for the reactivation detection from
     // the response payload — the parent surface is BYTE-IDENTICAL to
     // today and never carries the email forward. We clone the player so

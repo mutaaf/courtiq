@@ -199,7 +199,7 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    recipientTeamRow = recipientTeamFull as typeof recipientTeamRow;
+    recipientTeamRow = recipientTeamFull as unknown as typeof recipientTeamRow;
 
     // Resolve the recipient team's head coach via team_coaches per
     // LESSONS#0057 (NEVER `teams.coach_id`). Mint the recipient's
@@ -319,10 +319,11 @@ export async function POST(request: Request) {
   // signal).
   let programName = '';
   if (isCrossTeam && recipientTeamRow) {
+    const teamRow = recipientTeamRow as { org_id: string };
     const { data: org } = await admin
       .from('organizations')
       .select('name')
-      .eq('id', recipientTeamRow.org_id)
+      .eq('id', teamRow.org_id)
       .maybeSingle();
     programName = (org?.name as string | undefined) ?? '';
   }
