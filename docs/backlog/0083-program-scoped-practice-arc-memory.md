@@ -1,7 +1,7 @@
 ---
 id: 0083
 title: When a brand-new fall coach takes over a U10 team in a program where LAST year's U10 coach ran the season on SportsIQ, surface "the arc that worked for last year's U10 in this same program" to the new coach on their first Practice Arc — "last year's U10 boys spent weeks 2-4 on closeouts and weeks 5-7 on transition; the program's arc carried" — so the Practice Arc cross-coach memory finally crosses the coach boundary at the program scope
-status: in-progress
+status: shipped
 priority: P1
 area: plans
 created: 2026-06-11
