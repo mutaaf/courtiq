@@ -76,7 +76,7 @@ Used in frontmatter `area:` field. Keep it short and scoped:
 
 | id | title | priority | status | area |
 |----|-------|----------|--------|------|
-| 0084 | When a free coach hits the AI quota wall on the artifact a parent just forwarded or a coach just cloned, name THAT event in the upgrade prompt — not the generic limit copy | P1 | in-progress | tier |
+| 0084 | When a free coach hits the AI quota wall on the artifact a parent just forwarded or a coach just cloned, name THAT event in the upgrade prompt — not the generic limit copy | P1 | shipped | tier |
 | 0085 | When a paid coach is two qualified referrals away from another free month, show them the stack — "one more invited coach who ships and your next month is on us too" | P1 | groomed | billing |
 | 0086 | When a free coach is invited to a second team and hits the 1-team limit, turn the error into a contextual "you're a multi-team coach now — Coach is $9.99" upgrade moment that knows which team they were trying to join | P1 | groomed | tier |
 | 0087 | When a program director sees 3+ Coach-tier coaches actively shipping in their program this month, surface a contextual Organization-tier upgrade — "your program is on SportsIQ already; one upgrade unlocks the staff view" | P1 | groomed | tier |
