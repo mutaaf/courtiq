@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { teamName, ageGroup, season } = await request.json();
+  const { teamName, ageGroup, season, inviteCoachId } = await request.json();
   if (!teamName) return NextResponse.json({ error: 'teamName required' }, { status: 400 });
 
   const admin = await createServiceSupabase();
@@ -34,10 +34,53 @@ export async function POST(request: Request) {
     .is('archived_at', null);
 
   if ((existingTeamCount || 0) >= tierLimits.maxTeams) {
-    return NextResponse.json({
+    // Ticket 0086 — structured tier-limit body so the client can render the
+    // contextual `<TeamLimitUpgradeSheet />` instead of the flat error toast.
+    // The legacy `error` string + `upgrade: true` are BYTE-IDENTICAL so every
+    // unmodified caller keeps degrading to the toast (LESSONS#0103).
+    //
+    // Privacy: the inviter `.select()` is the narrow allow-list
+    // `id, org_id, full_name` (LESSONS#0036) — never email/phone/DOB. Only the
+    // inviter's first name (literal-space split per LESSONS#0061) ever leaves
+    // the route. A cross-org `inviteCoachId` (different `org_id`) omits the
+    // entire block — we never leak another org's coach name.
+    let invitedBy: { firstName: string; role: 'head_coach' | 'assistant_coach' } | undefined;
+    if (typeof inviteCoachId === 'string' && inviteCoachId.length > 0) {
+      const { data: inviter } = await admin
+        .from('coaches')
+        .select('id, org_id, full_name')
+        .eq('id', inviteCoachId)
+        .maybeSingle();
+      if (inviter && (inviter as any).org_id === coach.org_id) {
+        const fullName = ((inviter as any).full_name || '') as string;
+        // Literal space split per LESSONS#0061 — surname never leaves the route.
+        const firstName = fullName.split(' ')[0] || '';
+        // Derive role from the inviter's team_coaches row for any team they're
+        // on; default to assistant_coach when no row exists (the ticket's
+        // documented deviation — schema wins over invite-token prose per
+        // LESSONS#0096 / Implementation log).
+        const { data: tcRow } = await admin
+          .from('team_coaches')
+          .select('role')
+          .eq('coach_id', inviteCoachId)
+          .maybeSingle();
+        const role = (tcRow as any)?.role === 'head_coach' ? 'head_coach' : 'assistant_coach';
+        if (firstName) {
+          invitedBy = { firstName, role };
+        }
+      }
+    }
+    const body: Record<string, unknown> = {
       error: `Your ${orgTier.replace('_', ' ')} plan allows up to ${tierLimits.maxTeams} team${tierLimits.maxTeams === 1 ? '' : 's'}. Please upgrade to add more teams.`,
       upgrade: true,
-    }, { status: 403 });
+      code: 'tier_limit_max_teams',
+      currentCount: existingTeamCount || 0,
+      maxCount: tierLimits.maxTeams,
+      attemptedTeamName: typeof teamName === 'string' ? teamName : null,
+      currentTier: orgTier,
+    };
+    if (invitedBy) body.invitedBy = invitedBy;
+    return NextResponse.json(body, { status: 403 });
   }
   const sportSlug = (org?.sport_config as any)?.default_sport_slug || 'basketball';
 

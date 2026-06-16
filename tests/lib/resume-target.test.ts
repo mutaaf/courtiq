@@ -40,9 +40,12 @@ const OWNED_TEAMS = [TEAM_A];
 const OWNED_PLAYERS = [PLAYER_A];
 
 describe('parseResumeTarget — allow-list of action kinds (ticket 0035)', () => {
-  it('exposes exactly the five closed action kinds', () => {
+  it('exposes the closed action kinds (the original five plus 0086\'s join_team)', () => {
+    // Ticket 0086 additively widened the enum with `join_team` (LESSONS#0103);
+    // every existing kind stays byte-identical and the new kind rides through
+    // the same UUID + ownership validation as the team-scoped siblings.
     expect([...RESUME_KINDS].sort()).toEqual(
-      ['game_recap', 'parent_report', 'practice_plan', 'session_debrief', 'weekly_star'].sort()
+      ['game_recap', 'join_team', 'parent_report', 'practice_plan', 'session_debrief', 'weekly_star'].sort()
     );
   });
 

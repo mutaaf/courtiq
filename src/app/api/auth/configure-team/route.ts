@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { sportSlug, teamName, ageGroup, season } = await request.json();
+  const { sportSlug, teamName, ageGroup, season, inviteCoachId } = await request.json();
   if (!sportSlug) return NextResponse.json({ error: 'sportSlug required' }, { status: 400 });
   if (!teamName?.trim()) return NextResponse.json({ error: 'teamName required' }, { status: 400 });
 
@@ -46,13 +46,43 @@ export async function POST(request: Request) {
   const orgTier = ((orgRes.data as any)?.tier || 'free') as Tier;
   const tierLimits = TIER_LIMITS[orgTier];
   if ((teamCountRes.count || 0) >= tierLimits.maxTeams) {
-    return NextResponse.json(
-      {
-        error: `Your ${orgTier.replace('_', ' ')} plan allows up to ${tierLimits.maxTeams} team${tierLimits.maxTeams === 1 ? '' : 's'}. Please upgrade to add more teams.`,
-        upgrade: true,
-      },
-      { status: 403 },
-    );
+    // Ticket 0086 — structured tier-limit body (same shape as create-team).
+    // Legacy `error` + `upgrade: true` stay byte-identical; the new `code` is
+    // the client switch for `<TeamLimitUpgradeSheet />`. Privacy: narrow
+    // inviter `.select()` per LESSONS#0036; first-name-only per LESSONS#0061;
+    // cross-org inviter resolves to OMITTED invitedBy (no leak).
+    let invitedBy: { firstName: string; role: 'head_coach' | 'assistant_coach' } | undefined;
+    if (typeof inviteCoachId === 'string' && inviteCoachId.length > 0) {
+      const { data: inviter } = await admin
+        .from('coaches')
+        .select('id, org_id, full_name')
+        .eq('id', inviteCoachId)
+        .maybeSingle();
+      if (inviter && (inviter as any).org_id === coach.org_id) {
+        const fullName = ((inviter as any).full_name || '') as string;
+        const firstName = fullName.split(' ')[0] || '';
+        const { data: tcRow } = await admin
+          .from('team_coaches')
+          .select('role')
+          .eq('coach_id', inviteCoachId)
+          .maybeSingle();
+        const role = (tcRow as any)?.role === 'head_coach' ? 'head_coach' : 'assistant_coach';
+        if (firstName) {
+          invitedBy = { firstName, role };
+        }
+      }
+    }
+    const body: Record<string, unknown> = {
+      error: `Your ${orgTier.replace('_', ' ')} plan allows up to ${tierLimits.maxTeams} team${tierLimits.maxTeams === 1 ? '' : 's'}. Please upgrade to add more teams.`,
+      upgrade: true,
+      code: 'tier_limit_max_teams',
+      currentCount: teamCountRes.count || 0,
+      maxCount: tierLimits.maxTeams,
+      attemptedTeamName: typeof teamName === 'string' ? teamName.trim() : null,
+      currentTier: orgTier,
+    };
+    if (invitedBy) body.invitedBy = invitedBy;
+    return NextResponse.json(body, { status: 403 });
   }
 
   // Persist sport selection on the org (matches legacy select-sport behavior)

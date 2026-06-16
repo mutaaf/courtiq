@@ -6,6 +6,8 @@ import { ChevronDown, Plus, Loader2 } from 'lucide-react';
 import { useActiveTeam } from '@/hooks/use-active-team';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query/keys';
+import { useTeamLimitUpgradeSheet } from '@/hooks/use-team-limit-upgrade-sheet';
+import { TeamLimitUpgradeSheet } from '@/components/team/team-limit-upgrade-sheet';
 
 export function TeamSwitcher({ compact }: { compact?: boolean }) {
   const router = useRouter();
@@ -15,32 +17,35 @@ export function TeamSwitcher({ compact }: { compact?: boolean }) {
   const [newTeamName, setNewTeamName] = useState('');
   const [newAgeGroup, setNewAgeGroup] = useState('8-10');
   const [creating, setCreating] = useState(false);
+  // Ticket 0086 — surface the contextual sheet when the org hits its maxTeams
+  // tier limit instead of the silent no-op the legacy path swallowed.
+  const { submit, sheetBody, closeSheet } = useTeamLimitUpgradeSheet();
 
   async function handleCreate() {
     if (!newTeamName.trim()) return;
     setCreating(true);
-    try {
-      const res = await fetch('/api/auth/create-team', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          teamName: newTeamName.trim(),
-          ageGroup: newAgeGroup,
-          season: 'Spring 2026',
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        qc.invalidateQueries({ queryKey: queryKeys.teams.all() });
-        setActiveTeamId(data.teamId);
-        setShowCreate(false);
-        setNewTeamName('');
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setCreating(false);
+    const result = await submit({
+      endpoint: '/api/auth/create-team',
+      body: {
+        teamName: newTeamName.trim(),
+        ageGroup: newAgeGroup,
+        season: 'Spring 2026',
+      },
+    });
+    if (result.ok) {
+      qc.invalidateQueries({ queryKey: queryKeys.teams.all() });
+      setActiveTeamId(result.data.teamId);
+      setShowCreate(false);
+      setNewTeamName('');
+    } else if ('sheet' in result) {
+      // Tier-limit sheet now mounted; close the inline create form so the
+      // sheet has the visual stage.
+      setShowCreate(false);
     }
+    setCreating(false);
+    // `router` retained for legacy navigation parity (e.g. future route on
+    // create-success) — referenced here to keep the symbol live.
+    void router;
   }
 
   return (
@@ -162,6 +167,7 @@ export function TeamSwitcher({ compact }: { compact?: boolean }) {
           </div>
         </>
       )}
+      {sheetBody && <TeamLimitUpgradeSheet body={sheetBody} onClose={closeSheet} />}
     </div>
   );
 }

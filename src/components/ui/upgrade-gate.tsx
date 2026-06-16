@@ -28,7 +28,13 @@ const TIER_LABEL: Record<Exclude<Tier, 'free'>, string> = {
   organization: 'Organization',
 };
 
-const FEATURE_CONFIG: Record<string, FeatureConfig> = {
+/**
+ * Ticket 0086 — exported so the cross-team `<TeamLimitUpgradeSheet />` can
+ * reuse the Coach / Organization benefit copy without re-copying the strings
+ * (DRY: import the entries by key, never duplicate the benefit list). Every
+ * existing `<UpgradeGate>` render is byte-identical (LESSONS#0103).
+ */
+export const FEATURE_CONFIG: Record<string, FeatureConfig> = {
   analytics: {
     icon: BarChart3,
     headline: 'Unlock Team Analytics',
