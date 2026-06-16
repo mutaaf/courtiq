@@ -41,6 +41,7 @@ import { localDB } from '@/lib/storage/local-db';
 import { trackEvent } from '@/lib/analytics';
 import type { Sentiment, ObservationSource } from '@/types/database';
 import { AIUpgradePrompt } from '@/components/ui/ai-upgrade-prompt';
+import { useViralSocialProof } from '@/hooks/use-viral-social-proof';
 
 interface ParsedObservation {
   id: string;
@@ -97,6 +98,11 @@ export default function ReviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiUpgrade, setAiUpgrade] = useState<{ message: string } | null>(null);
+  // Ticket 0084 — fetch the social-proof line the FIRST time the 402
+  // surfaces in a session. Debounced + cached in the hook so a second
+  // quota-wall mount in the same session does NOT refetch. On timeout
+  // or `{ line: null }` the prompt renders without the line.
+  const viralSocialProof = useViralSocialProof(aiUpgrade !== null);
   const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [parentUpdateShared, setParentUpdateShared] = useState(false);
@@ -448,6 +454,7 @@ export default function ReviewPage() {
         <AIUpgradePrompt
           message={aiUpgrade.message}
           feature="Observation AI Processing"
+          socialProof={viralSocialProof ?? undefined}
         />
       </div>
     );

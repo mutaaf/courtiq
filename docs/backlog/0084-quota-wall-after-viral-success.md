@@ -1,7 +1,7 @@
 ---
 id: 0084
 title: When a free coach hits the AI quota wall on the artifact a parent just forwarded or a coach just cloned, name THAT event in the upgrade prompt — not the generic limit copy
-status: groomed
+status: in-progress
 priority: P1
 area: tier
 created: 2026-06-15
@@ -394,7 +394,8 @@ rows), 0079 / 0080 (shipped — parent forward rows).
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0084-quota-wall-after-viral-success` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-06-16 — branch `feat/0084-quota-wall-after-viral-success` opened off main; status flipped groomed → in-progress in both the ticket frontmatter AND the docs/backlog/README.md index row (LESSONS#0042/#0074).
+- 2026-06-16 — Schema reconciliations at pickup (LESSONS#0078/#0096 — schema wins over prose): (1) `parent_forward_signals` (migration 069) does NOT have a `forwarder_parent_email_hash` column — it carries `(sender_player_id, recipient_player_id, team_id, dispatched_at, opened_at, cross_team)` only, with a UNIQUE on the sender/recipient player pair as the durable idempotency key. So the route counts DISTINCT `sender_player_id` per (team_id, plan-author) and the rendered string "<N> parents on the <team_name> forwarded your last report" reads N as the distinct-sender count — same intent as the ticket prose, but anchored on the real schema. (2) Authorship attribution: the route resolves "this coach's reports / drills" via `plans.coach_id = user.id` (parent reports) and `drill_shares.coach_id = user.id` (drills); team_id is derived from the plan, not the forward signal directly. (3) `drill_share_clones` has NO `cloner_org_id` — that lives on `drill_clone_stick_signals` (LESSONS#0078 exactly). To get the cloning program for a clone, the route joins `drill_share_clones.cloner_coach_id → coaches.org_id → organizations.name`.
+- 2026-06-16 — Caller-surface scope (LESSONS#0096 — read the actual wiring at pickup): the only LIVE `<AIUpgradePrompt>` caller in the tree is `src/app/(dashboard)/capture/review/page.tsx` (verified via `grep -rn "AIUpgradePrompt"`). 0035's Implementation log named `roster/[playerId]` and `plans` as candidates but documented they gate via `<UpgradeGate>`, not the runtime 402 prompt, so they stay byte-identical. The fetch + threading lives in ONE shared client hook `src/hooks/use-viral-social-proof.ts` per the ticket's engineering notes; the capture/review page consumes it and passes the result through `socialProof`.
+- 2026-06-16 — Mock-queue extension sweep at pickup (LESSONS#0049/#0092/#0100/#0110/#0116): Globbed `tests/api/*forward*.test.ts` (2 files), `tests/api/*drill*.test.ts` (10 files), `tests/api/*reputation*.test.ts` (5 files). None target the routes I edit (I am ADDING a new route + a new pure helper + an additive optional prop on `<AIUpgradePrompt>`, NOT editing any existing route's `from()` queue). Per LESSONS#0116 an empty-applicable sweep is a no-op; documented here so the next ship run does not re-relitigate it.
+- 2026-06-16 — Tests-first: `tests/lib/viral-social-proof.test.ts` (pure helper — empty/older/in-window/priority/banned-words/surname-guard/coach-name-guard/determinism/length cap), `tests/api/coach-viral-social-proof.test.ts` (no-events → null, stale-only → null, fresh forward → on-team line, clone + stick → stick wins, milestone beats all, COPPA reads contain no banned columns, cloning-coach full_name is NEVER read, 401 unauthed, paid tier → null), `tests/components/ai-upgrade-prompt-social-proof.test.tsx` (prop absent → no DOM change, prop supplied → line renders inside the data-testid container, banned-word matrix, existing resume/resumeLabel props still behave), `tests/hooks/use-viral-social-proof.test.ts` (fires once on first 402, no re-fetch on remount in same session, timeout → null, no fetch when not on quota wall), and `tests/e2e/quota-wall-social-proof-flow.spec.ts` (skipped without E2E creds — seed-backed real-render asserts the data-testid container contains the stick-signal line). Seed extension adds three new rows (drill_share_clones, drill_clone_stick_signals, parent_forward_signals) in the 0...0360+ UUID range.

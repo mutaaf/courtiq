@@ -2953,4 +2953,113 @@ update plans set curriculum_week = 6 where id in ('00000000-0000-4000-a000-00000
 update plans set curriculum_week = 7 where id in ('00000000-0000-4000-a000-00000000035d', '00000000-0000-4000-a000-00000000035e');
 update plans set curriculum_week = 8 where id = '00000000-0000-4000-a000-00000000035f';
 
+-- ════════════════════════════════════════════════════════════════════════
+-- Ticket 0084 — quota-wall viral social-proof seed
+-- ════════════════════════════════════════════════════════════════════════
+-- Pre-mints THREE viral-event rows on the existing E2E coach (...001):
+--   * ONE drill_share_clones row on the existing 0064 drill_shares
+--     row (...0111), cloned 3 days ago by the existing 0064 cloner
+--     coach (...0112). Existing 0064 cloner is in the SAME org as
+--     the E2E coach (...010), so the rendered clone line would
+--     attribute "a coach in the E2E Test Org program" — but this
+--     row is dominated by the stick_signal below regardless.
+--   * ONE drill_clone_stick_signals row on the same share, stuck
+--     1 day ago, with cloner_org_id pointing at a NEW seeded
+--     organization "Hornets U10" (id 0...0362). The stick signal
+--     beats the clone in priority — the rendered line would read
+--     "a coach who cloned your 0064 E2E Closeout Drill thumbed
+--     it up after running it".
+--   * ONE parent_forward_signals row on the existing E2E team
+--     (...020) — sender = Bob (...031), recipient = a NEW seeded
+--     player Casey (...0363) on the same team. The recipient must
+--     exist as a real players row (FK), so we add Casey here. The
+--     forward dispatched 5 days ago. NO parent_email/phone/DOB on
+--     Casey — only the FK-required name/age_group/team_id.
+--
+-- COPPA: every new row is structural attribution only. NO new
+-- parent_email/phone/DOB/medical_notes — Casey carries only the
+-- minimal name + position columns the existing seeded players use.
+-- The new org "Hornets U10" has NO seeded org_branding and NO
+-- coaches (it exists ONLY so the stick_signal row can attribute
+-- the cloning side by program name per LESSONS#0078).
+--
+-- UUIDs in the 0...0360+ family — verified unused above per
+-- LESSONS#0101 (the 0064 / 0050 / 0083 ranges stop at 0...035f).
+-- LESSONS#0084 — no new auth.users rows are needed (the cloner
+-- coach reuses the existing 0064 cloner ...0112, who already has
+-- their auth.users row).
+--
+-- Idempotent: every insert is ON CONFLICT DO NOTHING.
+
+-- The cloning program name the stick_signal line attributes to.
+-- No coaches, no players in this org — it exists only as the
+-- target of cloner_org_id on the stick signal row.
+insert into organizations (id, name, slug, tier)
+values ('00000000-0000-4000-a000-000000000362', 'Hornets U10', 'hornets-u10-0084', 'free')
+on conflict (id) do nothing;
+
+-- ONE drill_share_clones row — the structural clone edge. The
+-- existing 0064 cloner coach (...0112) cloned the E2E coach's
+-- drill (...0111) 3 days ago. The UNIQUE constraint on
+-- (drill_share_id, cloner_coach_id) makes re-seeding idempotent.
+insert into drill_share_clones (id, drill_share_id, cloner_coach_id, cloned_at)
+values (
+  '00000000-0000-4000-a000-000000000360',
+  '00000000-0000-4000-a000-000000000111',
+  '00000000-0000-4000-a000-000000000112',
+  now() - interval '3 days'
+)
+on conflict (drill_share_id, cloner_coach_id) do nothing;
+
+-- ONE drill_clone_stick_signals row — the cloner thumbed-up the
+-- cloned drill 1 day ago. cloner_org_id points at the Hornets U10
+-- org so the rendered social-proof line attributes the cloning
+-- side by program name (LESSONS#0078).
+insert into drill_clone_stick_signals
+  (id, drill_share_id, cloner_coach_id, cloner_org_id, stuck_at)
+values (
+  '00000000-0000-4000-a000-000000000361',
+  '00000000-0000-4000-a000-000000000111',
+  '00000000-0000-4000-a000-000000000112',
+  '00000000-0000-4000-a000-000000000362',
+  now() - interval '1 day'
+)
+on conflict (drill_share_id, cloner_coach_id) do nothing;
+
+-- The recipient player for the parent_forward_signals row below.
+-- A NEW player on the existing E2E team (...020) so the UNIQUE
+-- (sender_player_id, recipient_player_id) on parent_forward_signals
+-- has a distinct recipient from Bob (the sender). NO parent_email
+-- / parent_phone / DOB / medical_notes — only the minimal
+-- FK-required shape.
+insert into players (id, team_id, name, nickname, name_variants, age_group, position, jersey_number, parent_name, is_active)
+values
+  ('00000000-0000-4000-a000-000000000363',
+   '00000000-0000-4000-a000-000000000020',
+   'Casey Morgan', null, null, '11-13', 'Guard', 11, null, true)
+on conflict (id) do nothing;
+
+-- ONE parent_forward_signals row — Bob's parent forwarded this
+-- week's report to Casey's parent (on-team), 5 days ago. team_id
+-- == the E2E coach's team (...020). cross_team = false (the
+-- 0079 default). The route's parent_forward_on_team event reads
+-- distinct sender_player_id per team in window; with one sender
+-- the rendered line would read "1 parent on the E2E Test Team
+-- forwarded your last report this week" if the coach were free
+-- tier. The E2E org is pro_coach, so the route returns
+-- { line: null } for the seeded coach — which is what the e2e
+-- spec asserts (paid tier → no line; LESSONS#0036 graceful
+-- degrade posture).
+insert into parent_forward_signals
+  (id, sender_player_id, recipient_player_id, team_id, dispatched_at, cross_team)
+values (
+  '00000000-0000-4000-a000-000000000364',
+  '00000000-0000-4000-a000-000000000031',
+  '00000000-0000-4000-a000-000000000363',
+  '00000000-0000-4000-a000-000000000020',
+  now() - interval '5 days',
+  false
+)
+on conflict (sender_player_id, recipient_player_id) do nothing;
+
 commit;
