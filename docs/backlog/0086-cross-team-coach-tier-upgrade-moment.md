@@ -1,7 +1,7 @@
 ---
 id: 0086
 title: When a free coach is invited to a second team and hits the 1-team limit, turn the error into a contextual "you're a multi-team coach now — Coach is $9.99" upgrade moment that knows which team they were trying to join
-status: groomed
+status: in-progress
 priority: P1
 area: tier
 created: 2026-06-15
@@ -557,7 +557,9 @@ free coaches toward this wall).
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0086-cross-team-coach-tier-upgrade-moment` opened
+- 2026-06-16 — branch `feat/0086-cross-team-coach-tier-upgrade-moment` opened; ticket flipped to `in-progress`.
+- 2026-06-16 — deviation: the ticket prose references an "invite token (0015/0024 invite-link signature)" on `create-team` / `configure-team`. Schema wins (LESSONS#0096): 0015's referral path is a `?ref=<code>` on `/signup` (no token rides on `create-team`); the closest signed invite primitive is 0065's `verifyDirectorInviteRef`, which binds coach+team+invite+sentAt and is irrelevant to a paid-coach landing here. Real-world wiring: an OPTIONAL `inviteCoachId` field on the request body, validated server-side to be a `coaches.id` in the SAME org as the caller — when present and resolves, populate `invitedBy: { firstName, role }`; otherwise OMIT the field. The role is derived from the inviter's `team_coaches.role` for the attempted team (head_coach / assistant_coach); if no team_coaches row exists for that pair, default to `assistant_coach`. Documented here per LESSONS#0096 / #0002 / #0039.
+- 2026-06-16 — Reused the existing 0035 `parseResumeTarget` / `buildResumePath` enum: added `join_team` to `RESUME_KINDS`. Team-scoped only — no playerId.
 - YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
 - YYYY-MM-DD — PR #N opened, CI [state]
 - YYYY-MM-DD — merged to main
