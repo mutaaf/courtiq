@@ -25,13 +25,24 @@ interface AIUpgradePromptProps {
    * is used. Speak like a clipboard, never a marketing page (AGENTS.md banned words).
    */
   resumeLabel?: string;
+  /**
+   * Optional ticket-0084 social-proof block — a short factual line describing
+   * a recent viral event attributable to the calling coach (a parent forward,
+   * a drill clone, a stick signal, or a reputation milestone). When supplied,
+   * the line renders inside a stable `data-testid="upgrade-prompt-social-proof"`
+   * container under the headline; when absent, the component DOM is byte-
+   * identical to the 0035 baseline (LESSONS#0103 — optional widening). The
+   * line is built server-side from durable persisted rows (never an LLM
+   * hallucination) and is expected to be a clipboard-tone statement.
+   */
+  socialProof?: { line: string; eventKind: string };
 }
 
 /**
  * Shown in place of an AI feature card when the server returns status 402
  * with `upgrade: true` — meaning the free-tier monthly AI quota is exhausted.
  */
-export function AIUpgradePrompt({ message, feature, resume, resumeLabel }: AIUpgradePromptProps) {
+export function AIUpgradePrompt({ message, feature, resume, resumeLabel, socialProof }: AIUpgradePromptProps) {
   // Carry the validated-at-checkout resume token through the upgrade round-trip.
   const upgradeHref = resume
     ? `/settings/upgrade?resume=${encodeURIComponent(resume)}`
@@ -53,6 +64,21 @@ export function AIUpgradePrompt({ message, feature, resume, resumeLabel }: AIUpg
 
       {feature && (
         <p className="mt-0.5 text-xs text-zinc-500">{feature}</p>
+      )}
+
+      {socialProof && (
+        // Ticket 0084 — one short factual line under the headline. The
+        // data-testid lets e2e specs scope a strict assertion to this
+        // surface (LESSONS#0029 / #0082). No icon, no button — pure
+        // factual statement. The line is built server-side from
+        // durable persisted rows; never a generated string.
+        <p
+          data-testid="upgrade-prompt-social-proof"
+          data-event-kind={socialProof.eventKind}
+          className="mt-2 text-[13px] text-zinc-400 leading-snug max-w-xs mx-auto"
+        >
+          {socialProof.line}
+        </p>
       )}
 
       <p className="mt-2 text-sm text-zinc-400 leading-relaxed max-w-xs mx-auto">
