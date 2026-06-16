@@ -1,7 +1,7 @@
 ---
 id: 0085
 title: When a paid coach is two qualified referrals away from another free month, show them the stack — "one more invited coach who ships and your next month is on us too"
-status: groomed
+status: in-progress
 priority: P1
 area: billing
 created: 2026-06-15
@@ -475,7 +475,5 @@ view in parallel).
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0085-referral-credit-stacking-progress` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-06-16 — branch `feat/0085-referral-credit-stacking-progress` opened; status flipped to `in-progress` (file + README index in the same commit per LESSONS#73/#74).
+- 2026-06-16 — pickup reconciliation: the existing `GET /api/coach/referral-credit-status` route's converted-coach `.select()` ALREADY pulls `id, full_name, created_at`, so per LESSONS#0066 the route widening is response-shape-only (no new `from()` call, no mock-queue churn for the existing 0074 test). Glob for sibling test files keying on the route shape: `tests/api/coach*referral*.test.ts` and `tests/api/coach-referral*.test.ts` resolve to `tests/api/coach-referral-credit-status.test.ts` and `tests/api/coach-referral-credit-consume.test.ts` — neither needs queue extension (consume is a different route; status's existing queue shape is unchanged). The seed has NO existing `referred_by_code` rows (the 0074 e2e mocks via `page.route`), so this PR seeds two pending coach rows in the next free UUID range starting at `0000000000365` (highest currently in use is `...364`) per LESSONS#0101.
