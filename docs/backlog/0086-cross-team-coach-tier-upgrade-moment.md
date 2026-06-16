@@ -1,7 +1,7 @@
 ---
 id: 0086
 title: When a free coach is invited to a second team and hits the 1-team limit, turn the error into a contextual "you're a multi-team coach now — Coach is $9.99" upgrade moment that knows which team they were trying to join
-status: in-progress
+status: shipped
 priority: P1
 area: tier
 created: 2026-06-15
