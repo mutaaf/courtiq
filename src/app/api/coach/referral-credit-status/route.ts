@@ -43,6 +43,7 @@ import {
   extractFirstName,
   milestoneForCount,
   QUALIFYING_ARTIFACT_TYPES,
+  summarizePendingReferrals,
 } from '@/lib/referral-credit-utils';
 
 /** The pending-credit-cents value the GET route returns is the COACH
@@ -174,12 +175,35 @@ export async function GET() {
     // exact credit value).
     const pendingCreditCents = tierMonthlyCents('coach');
 
+    // 7) Ticket 0085 — forward-looking stacking-progress payload.
+    // Reuses the SAME `converted` rows already loaded above; per
+    // LESSONS#0066 the existing .select() already pulls
+    // `id, full_name, created_at`, so no new from() call is needed.
+    // The helper does the pending filter + next-milestone math.
+    // Per LESSONS#0061 — first names are stripped on a literal space
+    // (the existing extractFirstName posture).
+    const pendingSummary = summarizePendingReferrals({
+      convertedCoachRows: converted.map((c) => ({
+        id: c.id,
+        first_name: extractFirstName(c.full_name),
+        signed_up_at: c.created_at ?? '',
+        shipped_artifact_count: c.shipped_artifact_count,
+        head_coached_observation_count: c.head_coached_observation_count,
+      })),
+      nowMs: Date.now(),
+    });
+
     return NextResponse.json({
+      // 0074-baseline fields, byte-identical.
       qualifiedCount,
       qualifiedCoachFirstNames: qualifiedFirstNames,
       currentMilestone,
       pendingCreditCents,
       alreadyGranted,
+      // 0085 additive fields — a strict superset of the 0074 shape.
+      pendingReferrals: pendingSummary.pending,
+      nextMilestoneIn: pendingSummary.nextMilestoneIn,
+      nextMilestoneKind: pendingSummary.nextMilestoneKind,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';

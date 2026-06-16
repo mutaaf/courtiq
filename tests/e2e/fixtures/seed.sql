@@ -3062,4 +3062,53 @@ values (
 )
 on conflict (sender_player_id, recipient_player_id) do nothing;
 
+-- ── ticket 0085 — two PENDING referred coaches for the on-deck card ───
+-- Two converted-but-not-yet-qualifying referred coaches whose
+-- `preferences.referred_by_code = 'AAAAAA'` matches the E2E coach's
+-- deterministic referral code (the first 12 hex bytes of the E2E
+-- coach UUID are 0x00 → CHARS[0]='A' six times). Each has ZERO shipped
+-- artifacts (no plans row) and ZERO observations — the "signed up but
+-- hasn't crossed the bar" shape. The 0085 GET status route returns
+-- them under `pendingReferrals`, which the on-deck sub-section on
+-- /home renders by first name + a "Text them a nudge" button.
+--
+-- Per LESSONS#0084 — auth.users + coaches in the SAME idempotent
+-- block (coaches.id FK references auth.users(id) on delete cascade).
+-- Per LESSONS#0085 — preferences.referred_by_code seeded as
+-- explicitly-quoted JSON ('{"referred_by_code": "AAAAAA"}'::jsonb).
+-- Per LESSONS#0101 — UUIDs in the next free range starting at
+-- 0000000000365 (the prior highest used was 0000000000364).
+insert into auth.users (id, instance_id, aud, role, email,
+                        email_confirmed_at, created_at, updated_at)
+values
+  ('00000000-0000-4000-a000-000000000365',
+   '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated',
+   'pending-james@test.com',
+   now() - interval '6 days',
+   now() - interval '6 days',
+   now() - interval '6 days'),
+  ('00000000-0000-4000-a000-000000000366',
+   '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated',
+   'pending-lin@test.com',
+   now() - interval '4 days',
+   now() - interval '4 days',
+   now() - interval '4 days')
+on conflict (id) do nothing;
+
+insert into coaches (id, org_id, full_name, email, role, onboarding_complete, preferences, created_at)
+values
+  ('00000000-0000-4000-a000-000000000365',
+   '00000000-0000-4000-a000-000000000010',
+   'James Pending', 'pending-james@test.com', 'coach', true,
+   '{"referred_by_code": "AAAAAA"}'::jsonb,
+   now() - interval '6 days'),
+  ('00000000-0000-4000-a000-000000000366',
+   '00000000-0000-4000-a000-000000000010',
+   'Lin Pending', 'pending-lin@test.com', 'coach', true,
+   '{"referred_by_code": "AAAAAA"}'::jsonb,
+   now() - interval '4 days')
+on conflict (id) do nothing;
+
 commit;
