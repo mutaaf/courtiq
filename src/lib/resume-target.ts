@@ -28,6 +28,14 @@ export const RESUME_KINDS = [
   'weekly_star',
   'game_recap',
   'session_debrief',
+  // Ticket 0086 — cross-team upgrade moment. After a free coach hits the 1-team
+  // limit on a second team, the contextual sheet routes through Stripe with
+  // `resume=join_team:<teamId>`; the settings/upgrade resume handler finishes
+  // the originally-blocked join once the tier has flipped. Team-scoped only
+  // (the JOIN itself is to the team — no playerId rides on this kind). The
+  // additive widening is per LESSONS#0103: every existing kind / call site
+  // stays byte-identical.
+  'join_team',
 ] as const;
 
 export type ResumeKind = (typeof RESUME_KINDS)[number];
@@ -114,5 +122,9 @@ export function buildResumePath(target: ResumeTarget): string {
       return `/sessions?resume=game_recap&team=${target.teamId}`;
     case 'session_debrief':
       return `/sessions?resume=session_debrief&team=${target.teamId}`;
+    case 'join_team':
+      // Land directly on the now-joined team's home so the coach sees the
+      // membership reflected on the first reload after Stripe (ticket 0086).
+      return `/team/${target.teamId}`;
   }
 }

@@ -3111,4 +3111,52 @@ values
    now() - interval '4 days')
 on conflict (id) do nothing;
 
+-- ── Ticket 0086 — cross-team upgrade moment ────────────────────────────────
+-- A SECOND team in the SAME org as the E2E coach's U10, plus a SECOND
+-- inviting coach. The E2E coach is NOT yet on team_coaches for this U12, so
+-- a configure-team / create-team POST hits the free maxTeams=1 ceiling. The
+-- 4xx body resolves the inviting coach's first name from same-org coaches
+-- with `inviteCoachId` in the body.
+-- UUIDs in the next free range (LESSONS#0101 — prior highest used was 0366).
+-- auth.users + coaches in the SAME idempotent block (LESSONS#0084 — coaches.id
+-- references auth.users(id), every coach row needs its FK).
+insert into auth.users (id, instance_id, aud, role, email,
+                        email_confirmed_at, created_at, updated_at)
+values
+  ('00000000-0000-4000-a000-000000000368',
+   '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated',
+   'mike-inviter@test.com',
+   now() - interval '5 days',
+   now() - interval '5 days',
+   now() - interval '5 days')
+on conflict (id) do nothing;
+
+insert into coaches (id, org_id, full_name, email, role, onboarding_complete, preferences, created_at)
+values
+  ('00000000-0000-4000-a000-000000000368',
+   '00000000-0000-4000-a000-000000000010',
+   'Mike Inviter', 'mike-inviter@test.com', 'coach', true,
+   '{}'::jsonb,
+   now() - interval '5 days')
+on conflict (id) do nothing;
+
+-- The U12 team that the E2E coach is being invited to.
+insert into teams (id, org_id, sport_id, name, age_group, season, season_weeks, current_week, is_active)
+select
+  '00000000-0000-4000-a000-000000000367',
+  '00000000-0000-4000-a000-000000000010',
+  (select id from sports where slug = 'basketball' limit 1),
+  'Hawks U12', '11-13', 'Spring 2026', 10, 3, true
+on conflict (id) do nothing;
+
+-- The inviting coach is the head coach of the U12 (drives invitedBy.role).
+insert into team_coaches (team_id, coach_id, role)
+values (
+  '00000000-0000-4000-a000-000000000367',
+  '00000000-0000-4000-a000-000000000368',
+  'head_coach'
+)
+on conflict (team_id, coach_id) do nothing;
+
 commit;

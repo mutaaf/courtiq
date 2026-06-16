@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
+import { useTeamLimitUpgradeSheet } from '@/hooks/use-team-limit-upgrade-sheet';
+import { TeamLimitUpgradeSheet } from '@/components/team/team-limit-upgrade-sheet';
 
 const SPORTS = [
   { slug: 'basketball', name: 'Basketball', icon: '🏀' },
@@ -44,6 +46,10 @@ export default function CombinedSetupPage() {
   const [season, setSeason] = useState(defaultSeason());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // Ticket 0086 — intercept the structured tier_limit_max_teams 4xx so the
+  // contextual sheet renders instead of the flat error toast. The hook
+  // surfaces the sheet body; any OTHER 4xx falls back to the existing toast.
+  const { submit, sheetBody, closeSheet } = useTeamLimitUpgradeSheet();
 
   useEffect(() => {
     trackEvent('onboarding_started', { step: 'setup' });
@@ -54,35 +60,32 @@ export default function CombinedSetupPage() {
     setLoading(true);
     setError('');
 
-    try {
-      const res = await fetch('/api/auth/configure-team', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sportSlug: sport,
-          teamName: teamName.trim(),
-          ageGroup,
-          season,
-        }),
-      });
+    const result = await submit({
+      endpoint: '/api/auth/configure-team',
+      body: {
+        sportSlug: sport,
+        teamName: teamName.trim(),
+        ageGroup,
+        season,
+      },
+    });
 
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || 'Failed to create team');
-        trackEvent('onboarding_setup_failed', { reason: data.error || 'unknown' });
-        setLoading(false);
-        return;
-      }
-
-      trackEvent('onboarding_setup_submitted', {
-        sport,
-        age_group: ageGroup,
-      });
+    if (result.ok) {
+      trackEvent('onboarding_setup_submitted', { sport, age_group: ageGroup });
       router.push('/onboarding/roster');
-    } catch {
-      setError('Something went wrong');
-      setLoading(false);
+      return;
     }
+
+    // Tier-limit case: the sheet is now mounted via the hook's state.
+    if ('sheet' in result) {
+      trackEvent('onboarding_setup_failed', { reason: 'tier_limit_max_teams' });
+      setLoading(false);
+      return;
+    }
+
+    setError(result.error || 'Failed to create team');
+    trackEvent('onboarding_setup_failed', { reason: result.error || 'unknown' });
+    setLoading(false);
   }
 
   const canSubmit = !!sport && teamName.trim().length > 0;
@@ -172,6 +175,7 @@ export default function CombinedSetupPage() {
           </Button>
         </CardContent>
       </Card>
+      {sheetBody && <TeamLimitUpgradeSheet body={sheetBody} onClose={closeSheet} />}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 ---
 id: 0086
 title: When a free coach is invited to a second team and hits the 1-team limit, turn the error into a contextual "you're a multi-team coach now — Coach is $9.99" upgrade moment that knows which team they were trying to join
-status: groomed
+status: in-progress
 priority: P1
 area: tier
 created: 2026-06-15
@@ -557,7 +557,10 @@ free coaches toward this wall).
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0086-cross-team-coach-tier-upgrade-moment` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-06-16 — branch `feat/0086-cross-team-coach-tier-upgrade-moment` opened; ticket flipped to `in-progress`.
+- 2026-06-16 — deviation: the ticket prose references an "invite token (0015/0024 invite-link signature)" on `create-team` / `configure-team`. Schema wins (LESSONS#0096): 0015's referral path is a `?ref=<code>` on `/signup` (no token rides on `create-team`); the closest signed invite primitive is 0065's `verifyDirectorInviteRef`, which binds coach+team+invite+sentAt and is irrelevant to a paid-coach landing here. Real-world wiring: an OPTIONAL `inviteCoachId` field on the request body, validated server-side to be a `coaches.id` in the SAME org as the caller — when present and resolves, populate `invitedBy: { firstName, role }`; otherwise OMIT the field. The role is derived from the inviter's `team_coaches.role` for the attempted team (head_coach / assistant_coach); if no team_coaches row exists for that pair, default to `assistant_coach`. Documented here per LESSONS#0096 / #0002 / #0039.
+- 2026-06-16 — Reused the existing 0035 `parseResumeTarget` / `buildResumePath` enum: added `join_team` to `RESUME_KINDS`. Team-scoped only — no playerId.
+- 2026-06-16 — Inherited test mock chain in `tests/api/auth-{create,configure}-team-tier-limit.test.ts` overwrote the `state.op = 'insert'` set by `.insert()` when `.select()` was then called on the same chain. Fixed in the mock helper to preserve insert op (smallest-blast-radius — the route's behavior is unchanged). Also updated `tests/lib/resume-target.test.ts` to assert the new 6-kind closed allow-list (was hard-coded to the 5 0035 kinds; additive widening per LESSONS#0103).
+- 2026-06-16 — Component fixture `FREE_TO_COACH_NAMED_INVITER` updated to carry `inviteCoachId` so the CTA's `inviteCoachId=` query-param assertion (test v.b) has a value to assert on. Test (iii) tightened: `.not.toContain('$9.99')` instead of `'9.99'` to avoid the substring collision with `'$49.99'` (LESSONS#0082 family).
+- 2026-06-16 — Implementation: structured tier-limit body added to both routes (the `error` string is BYTE-IDENTICAL, the new fields are additive). `TeamLimitUpgradeSheet` imports `FEATURE_CONFIG` from the existing `<UpgradeGate>` so the benefit copy stays DRY. `useTeamLimitUpgradeSheet` wires the two callers (onboarding/setup + team-switcher) with the smallest possible touch. Settings/upgrade resume handler extended with the new `join_team` branch. Seed.sql extended with the U12 team (`...367`) + the inviting coach (`...368`) in the SAME idempotent `auth.users` + `coaches` block (LESSONS#0084).
+- 2026-06-16 — Local gate green: 58 vitest tests across 8 new/updated files; lint 0 errors; tsc 0 errors. Backlog parity gate passes.

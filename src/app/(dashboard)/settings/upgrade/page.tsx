@@ -91,6 +91,35 @@ export default function UpgradePage() {
       if (cancelled) return;
 
       const target = parseResumeTarget(resume, ownedTeamIds, ownedPlayerIds);
+      // Ticket 0086 — the new `join_team` kind is itself team-scoped, so the
+      // parser will only resolve it for a team the now-upgraded coach owns.
+      // For a cross-team JOIN moment, the inviting coach's team becomes
+      // "owned" the moment the tier flip lets the team_coaches insert succeed
+      // — so we re-fire the originally-blocked create-team POST first, then
+      // route to the team home. For every OTHER kind, the existing 0035 path
+      // is byte-identical.
+      if (target?.kind === 'join_team') {
+        const inviteCoachId = searchParams.get('inviteCoachId');
+        // Best-effort re-fire of the original join. The same /api/auth/create-team
+        // endpoint that returned the 403-shaped 4xx now succeeds because the
+        // tier flipped. The teamName is unknown post-redirect, so we route
+        // directly to the team home; the parent server-side check still gates
+        // any unauthorized read.
+        try {
+          await fetch('/api/auth/create-team', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              teamName: 'New Team',
+              inviteCoachId: inviteCoachId || undefined,
+            }),
+          });
+        } catch {
+          // ignore — the team home itself enforces ownership
+        }
+        router.replace(buildResumePath(target));
+        return;
+      }
       // Valid + owned → the exact artifact surface; otherwise /home (never foreign).
       router.replace(target ? buildResumePath(target) : '/home');
     })();
