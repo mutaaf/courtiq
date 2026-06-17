@@ -1,7 +1,7 @@
 ---
 id: 0087
 title: When a program director sees 3+ Coach-tier coaches actively shipping in their program this month, surface a contextual Organization-tier upgrade — "your program is on SportsIQ already; one upgrade unlocks the staff view"
-status: in-progress
+status: shipped
 priority: P1
 area: tier
 created: 2026-06-15
@@ -632,3 +632,4 @@ the qualifying-artifact const reused for the
 - 2026-06-16 — Schema-wins-over-prose deviations (LESSONS#0096): the ticket prose names `src/app/api/director/program-pulse/route.ts` and `src/app/(dashboard)/director/page.tsx`, but the actual program-pulse route is `src/app/api/ai/program-pulse/route.ts` and the director surface is `src/app/(dashboard)/admin/page.tsx`. The preview page therefore lands at `src/app/(dashboard)/admin/preview-organization/page.tsx` and the snooze route at `src/app/api/admin/program-org-tier-card/snooze/route.ts` (mirrors the existing `/api/admin/*` shape). The settings/upgrade page is at `src/app/(dashboard)/settings/upgrade/page.tsx` (existing). The director-role gate is `coach.role === 'admin'`, not `coaches.is_admin` — the column does not exist; the route's existing `role !== 'admin'` check is the reference.
 - 2026-06-16 — Migration prefix uniqueness (LESSONS#0006): `ls supabase/migrations/` confirms 071 is the latest on disk; 072 is the next free prefix.
 - 2026-06-16 — Resume kind `adopt_org_tier` added to the closed enum in `src/lib/resume-target.ts` (additive widening per LESSONS#0103); `buildResumePath` routes it to `/admin` (the director home — there is no `/director` route in this repo).
+- 2026-06-17 — PR #420 opened, two CI heals: (1) partial-index `WHERE NOW()` predicate rejected by Postgres SQLSTATE 42P17 — replaced with a regular `(org_id, card_kind, snoozed_until DESC)` index; (2) seed step caught `plans.content NOT NULL` constraint — added a placeholder body to the three seeded program-tier qualifying rows. CI green, merged to main as `a3114ad1`.
