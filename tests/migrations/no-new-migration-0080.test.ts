@@ -24,6 +24,11 @@ describe('Ticket 0080 — no new migration files (regression)', () => {
     // at prefix 071 — the next free prefix after 070_coach_thank_messages.
     // Per LESSONS#0096 the ticket's `070` prose was reconciled to the
     // schema's actual next-free integer).
-    expect(files.length).toBe(72);
+    //
+    // Bumped 72 → 73 by ticket 0087 (the org_card_snoozes table backs
+    // the new program-org-tier upgrade card's "Maybe later" button; the
+    // migration lands at prefix 072 — the next free prefix after the
+    // 0080 widening at 071).
+    expect(files.length).toBe(73);
   });
 });
