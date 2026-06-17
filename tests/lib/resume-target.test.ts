@@ -40,12 +40,21 @@ const OWNED_TEAMS = [TEAM_A];
 const OWNED_PLAYERS = [PLAYER_A];
 
 describe('parseResumeTarget — allow-list of action kinds (ticket 0035)', () => {
-  it('exposes the closed action kinds (the original five plus 0086\'s join_team)', () => {
+  it('exposes the closed action kinds (the original five plus 0086\'s join_team plus 0087\'s adopt_org_tier)', () => {
     // Ticket 0086 additively widened the enum with `join_team` (LESSONS#0103);
-    // every existing kind stays byte-identical and the new kind rides through
-    // the same UUID + ownership validation as the team-scoped siblings.
+    // ticket 0087 added `adopt_org_tier` for the director-tier upgrade moment.
+    // Every existing kind stays byte-identical and each new kind rides through
+    // the same UUID + ownership validation as its siblings.
     expect([...RESUME_KINDS].sort()).toEqual(
-      ['game_recap', 'join_team', 'parent_report', 'practice_plan', 'session_debrief', 'weekly_star'].sort()
+      [
+        'adopt_org_tier',
+        'game_recap',
+        'join_team',
+        'parent_report',
+        'practice_plan',
+        'session_debrief',
+        'weekly_star',
+      ].sort()
     );
   });
 

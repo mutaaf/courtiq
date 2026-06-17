@@ -5,6 +5,12 @@ import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { programPulseSchema, type ProgramPulse } from '@/lib/ai/schemas';
 import { handleAIError } from '@/lib/ai/error';
 import { canAccess, type Tier } from '@/lib/tier';
+import {
+  summarizeProgramTierState,
+  type ProgramTierCoachRow,
+  type ProgramTierState,
+} from '@/lib/program-tier-state';
+import { QUALIFYING_ARTIFACT_TYPES } from '@/lib/referral-credit-utils';
 
 // ─── POST /api/ai/program-pulse ───────────────────────────────────────────────
 // Ticket 0028 — the director-private weekly "program pulse".
@@ -80,12 +86,29 @@ export async function POST(request: Request) {
     }
 
     // Role gate: the program pulse is a director surface (mirrors the
-    // /admin/org-analytics admin gate).
+    // /admin/org-analytics admin gate). The new ticket 0087 widening also
+    // rides under this role gate — only an admin sees `programTierState`.
     if (role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    // Tier gate: Organization tier only.
+    // Ticket 0087 — when the org is on the FREE tier, the AI pulse itself
+    // is still Organization-only (the existing 0028 contract), but the
+    // route ALSO returns `programTierState` so the new
+    // `<ProgramOrgTierCard />` can fire on the director's home. This is
+    // the structural inversion the upgrade moment depends on: a FREE org
+    // has no pulse to render, but it DOES have a paid-coach count worth
+    // surfacing. The widening returns `{ pulse: null, programTierState }`
+    // for the free-tier branch; the existing `pulse !== null` branches
+    // continue to require Organization tier.
+    if (tier === 'free') {
+      const programTierState = await computeProgramTierState(admin, orgId, user.id, tier);
+      return NextResponse.json({ pulse: null, programTierState });
+    }
+
+    // Tier gate: Organization tier only for the AI pulse itself. Coach-
+    // tier / Pro-tier directors continue to see no pulse (the existing
+    // 0028 contract).
     if (!canAccess(tier, 'feature_program_pulse')) {
       return NextResponse.json(
         { error: 'The program pulse is an Organization plan feature.' },
@@ -228,8 +251,203 @@ export async function POST(request: Request) {
       pulse = result.parsed as ProgramPulse;
     }
 
-    return NextResponse.json({ pulse, interactionId: result.interactionId });
+    // Ticket 0087 — additive widening: every pulse response also carries
+    // `programTierState`. On an Organization-tier org the eligibility flag
+    // is always false (the org is already on the right tier), so the
+    // additive field is a no-op for the card render — but the response
+    // shape stays uniform.
+    const programTierState = await computeProgramTierState(admin, orgId, user.id, tier);
+
+    return NextResponse.json({ pulse, programTierState, interactionId: result.interactionId });
   } catch (error: unknown) {
     return handleAIError(error, 'Program pulse generation');
   }
+}
+
+// ─── Ticket 0087 — programTierState computation ─────────────────────────────
+//
+// Resolve the per-coach paying-tier + 30-day shipped-artifact counts that
+// the pure `summarizeProgramTierState` helper folds into the card state.
+// Service-role reads only (`admin` is `createServiceSupabase()`); the
+// `.select()` allow-lists are minimal (LESSONS#0036 — never reads email /
+// phone / DOB on any coach). The query shape mirrors the existing 0028
+// coach-roster read above.
+async function computeProgramTierState(
+  admin: Awaited<ReturnType<typeof createServiceSupabase>>,
+  orgId: string,
+  callerCoachId: string,
+  callingTier: Tier,
+): Promise<ProgramTierState> {
+  // Active-snooze short-circuit (LESSONS#0066 — widen-existing-read posture
+  // doesn't apply here: snoozes are a separate table the existing 0028 path
+  // never touched). If the org has an active snooze, the card stays silent.
+  const nowIso = new Date().toISOString();
+  const { data: snoozeRows } = await admin
+    .from('org_card_snoozes')
+    .select('id, snoozed_until')
+    .eq('org_id', orgId)
+    .eq('card_kind', 'program_org_tier');
+  const activeSnooze = (snoozeRows ?? []).some(
+    (r) => typeof r?.snoozed_until === 'string' && r.snoozed_until > nowIso,
+  );
+
+  // Coaches in the PROGRAM. LESSONS#0057 — "the program staff" is the
+  // team_coaches → coaches graph, NOT the coaches.org_id filter, because
+  // an individually-paying coach's `coaches.org_id` points at her OWN
+  // org row (the schema models individual subscriptions as a per-coach
+  // organizations row whose tier flips on upgrade). So we list the
+  // teams in the calling org, find all team_coaches for those teams,
+  // and dedupe the coach ids.
+  const { data: teamRowsForProgram } = await admin
+    .from('teams')
+    .select('id')
+    .eq('org_id', orgId);
+  const teamIds = ((teamRowsForProgram ?? []) as Array<{ id: string }>).map((t) => t.id);
+
+  if (teamIds.length === 0) {
+    return summarizeProgramTierState({
+      coachRows: [],
+      currentOrgTier: callingTier,
+      nowMs: Date.now(),
+    });
+  }
+
+  const { data: tcRows } = await admin
+    .from('team_coaches')
+    .select('coach_id')
+    .in('team_id', teamIds);
+  const teamCoachIds = Array.from(
+    new Set(
+      ((tcRows ?? []) as Array<{ coach_id: string }>)
+        .map((r) => r.coach_id)
+        .filter((id) => typeof id === 'string' && id !== callerCoachId),
+    ),
+  );
+
+  if (teamCoachIds.length === 0) {
+    return summarizeProgramTierState({
+      coachRows: [],
+      currentOrgTier: callingTier,
+      nowMs: Date.now(),
+    });
+  }
+
+  // Resolve each candidate coach's first name + org_id. The org_id rides
+  // through to the per-coach tier lookup. Allow-list minimal — no email
+  // / phone / DOB / surname read (the route splits full_name on a literal
+  // space for the first-name only, LESSONS#0061).
+  const { data: coachRows } = await admin
+    .from('coaches')
+    .select('id, full_name, role, org_id')
+    .in('id', teamCoachIds);
+  const coaches = ((coachRows ?? []) as Array<{
+    id: string;
+    full_name: string | null;
+    role: string;
+    org_id: string;
+  }>);
+  // Drop any director (admin) rows — only "regular coaches" count toward
+  // the paying-coach signal this card surfaces.
+  const paidCandidates = coaches.filter((c) => c.role !== 'admin');
+  if (paidCandidates.length === 0) {
+    return summarizeProgramTierState({
+      coachRows: [],
+      currentOrgTier: 'free',
+      nowMs: Date.now(),
+    });
+  }
+
+  // Each candidate coach's individual subscription lives on the coaches
+  // table via `org_id → organizations.tier` — BUT a coach who personally
+  // upgraded to a paid tier is on their OWN organizations row (a tier
+  // upgrade flips the coach's org's tier). The route therefore reads
+  // each candidate's org tier via the coaches table's `coach_org_tier`
+  // self-resolution (the `coach_org_tier` is the tier on the candidate's
+  // own organizations row, distinct from the calling org's tier).
+  //
+  // For v1 we read each candidate's tier through a per-candidate
+  // organizations lookup (one round-trip via `.in()` on the candidates'
+  // org_ids — but for THIS org the candidates are all under the SAME
+  // free-tier org. In the multi-org seed (where each paying coach has
+  // their OWN org row), the lookup widens correctly via the supabase-js
+  // chain.) The lookup falls back to `'free'` for any row whose tier is
+  // not resolvable so the eligibility check stays conservative.
+  //
+  // The 30-day shipped-artifact count is a single `.in()` query against
+  // `plans` filtered to the qualifying types — counted per coach in JS.
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const candidateIds = paidCandidates.map((c) => c.id);
+
+  const { data: planRows } = await admin
+    .from('plans')
+    .select('id, coach_id, type, created_at')
+    .in('coach_id', candidateIds.length > 0 ? candidateIds : ['none'])
+    .in('type', [...QUALIFYING_ARTIFACT_TYPES])
+    .gte('created_at', since);
+  const plans = ((planRows ?? []) as Array<{ id: string; coach_id: string }>);
+  const shippedCountByCoach = new Map<string, number>();
+  for (const p of plans) {
+    if (!p || typeof p.coach_id !== 'string') continue;
+    shippedCountByCoach.set(p.coach_id, (shippedCountByCoach.get(p.coach_id) ?? 0) + 1);
+  }
+
+  // Each candidate's INDIVIDUAL tier — resolved by looking up the org
+  // their `coaches.org_id` points at (in this schema, an individually-
+  // paying coach has her OWN organizations row whose tier flips on
+  // upgrade). A candidate whose org row is not resolvable defaults to
+  // `'free'` (conservative: never count an unproven paying tier).
+  const candidateOrgIds = Array.from(
+    new Set(paidCandidates.map((c) => c.org_id).filter((v): v is string => typeof v === 'string')),
+  );
+  const { data: orgTierRows } = await admin
+    .from('organizations')
+    .select('id, tier')
+    .in('id', candidateOrgIds.length > 0 ? candidateOrgIds : ['none']);
+  const tierByOrgId = new Map<string, string>();
+  for (const r of (orgTierRows ?? []) as Array<{ id: string; tier: string }>) {
+    if (r && typeof r.id === 'string' && typeof r.tier === 'string') {
+      tierByOrgId.set(r.id, r.tier);
+    }
+  }
+  const builtRows: ProgramTierCoachRow[] = paidCandidates.map((c) => {
+    const first = extractFirstName(c.full_name);
+    const resolvedTier =
+      (tierByOrgId.get(c.org_id) as 'free' | 'coach' | 'pro_coach' | 'organization' | undefined) ??
+      'free';
+    return {
+      id: c.id,
+      first_name: first,
+      org_tier: resolvedTier,
+      recent_shipped_artifact_count: shippedCountByCoach.get(c.id) ?? 0,
+    };
+  });
+
+  // The calling org's tier is threaded in from the route's earlier
+  // caller-row read (avoids a second `from('organizations')` round-trip
+  // — LESSONS#0066: don't add a new `from()` call when an existing read
+  // already produced the value).
+  const summary = summarizeProgramTierState({
+    coachRows: builtRows,
+    currentOrgTier: callingTier,
+    nowMs: Date.now(),
+  });
+
+  // The snooze suppresses eligibility — the card never re-fires inside
+  // the 14-day window. The other numbers ride through untouched (for
+  // observability — the route's consumer can render a different message
+  // if needed; v1 just hides the card).
+  if (activeSnooze) {
+    return { ...summary, eligibleForOrgUpgrade: false };
+  }
+  return summary;
+}
+
+/** Extract a coach's first name from `full_name` (literal-space split per
+ *  LESSONS#0061). Returns the empty string for nullish / blank input. */
+function extractFirstName(fullName: string | null | undefined): string {
+  if (!fullName) return '';
+  const trimmed = fullName.trim();
+  if (!trimmed) return '';
+  const idx = trimmed.indexOf(' ');
+  return idx === -1 ? trimmed : trimmed.slice(0, idx);
 }

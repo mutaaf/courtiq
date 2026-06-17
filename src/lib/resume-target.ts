@@ -36,6 +36,15 @@ export const RESUME_KINDS = [
   // additive widening is per LESSONS#0103: every existing kind / call site
   // stays byte-identical.
   'join_team',
+  // Ticket 0087 — program-tier upgrade moment. After a director on a free org
+  // taps "Upgrade to Organization" on the preview overlay, Stripe redirects
+  // back with `resume=adopt_org_tier:<orgId>`; the settings/upgrade resume
+  // handler routes the now-Organization-tier director onto the admin home
+  // with a small success banner. Org-scoped (the `teamId` slot on
+  // ResumeTarget carries the orgId — mirrors how 0086 `join_team` reuses
+  // the same slot for the team being joined). Additive widening per
+  // LESSONS#0103: every existing kind / call site stays byte-identical.
+  'adopt_org_tier',
 ] as const;
 
 export type ResumeKind = (typeof RESUME_KINDS)[number];
@@ -126,5 +135,13 @@ export function buildResumePath(target: ResumeTarget): string {
       // Land directly on the now-joined team's home so the coach sees the
       // membership reflected on the first reload after Stripe (ticket 0086).
       return `/team/${target.teamId}`;
+    case 'adopt_org_tier':
+      // Ticket 0087 — land on the admin home (the director surface). The
+      // post-checkout banner on /settings/upgrade carries the success
+      // confirmation; the resume just routes to the right home. The
+      // `?resume=adopt_org_tier` query param marks the surface so the
+      // admin page can show its own "Organization plan active" banner
+      // without re-validating the resume token client-side.
+      return `/admin?resume=adopt_org_tier`;
   }
 }
