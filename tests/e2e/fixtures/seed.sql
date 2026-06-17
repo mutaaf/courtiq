@@ -3159,4 +3159,140 @@ values (
 )
 on conflict (team_id, coach_id) do nothing;
 
+-- ── Ticket 0087 — program-org-tier upgrade moment fixture ──────────────────
+-- A SEPARATE free-tier org with an admin director + three Coach-tier coaches
+-- (each on their OWN organizations row at the `coach` tier), each with one
+-- qualifying recent plans row. The director surface's program-org-tier card
+-- fires for this org because:
+--   (a) the calling org is free-tier
+--   (b) 3 of its coaches resolve to coach-tier (on their OWN org rows — the
+--       schema models individual subscriptions as an organizations row per
+--       coach when she upgrades alone)
+--   (c) each has a recent shipped artifact in the last 30 days
+--
+-- Deterministic first names per LESSONS#0079: "Maya", "James", "Lin" — the
+-- exact strings the ticket prose names.
+--
+-- Per LESSONS#0084 — auth.users + coaches in the SAME idempotent block
+-- (coaches.id FK references auth.users(id) on delete cascade).
+-- Per LESSONS#0101 — UUIDs in the next free range starting at 00000000037x
+-- (the prior highest used was 0368).
+-- Per LESSONS#0085 — jsonb seed values quoted as needed (no jsonb columns
+-- in this block, so no quoting required).
+-- Per LESSONS#0094 — the new 072 migration restores service-role grants.
+
+-- Auth users for the director + the three paying coaches.
+insert into auth.users (id, instance_id, aud, role, email,
+                        email_confirmed_at, created_at, updated_at)
+values
+  ('00000000-0000-4000-a000-000000000370',
+   '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated',
+   'free-program-director-e2e@test.com',
+   now() - interval '30 days', now() - interval '30 days', now() - interval '30 days'),
+  ('00000000-0000-4000-a000-000000000371',
+   '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated',
+   'coach-maya-e2e@test.com',
+   now() - interval '25 days', now() - interval '25 days', now() - interval '25 days'),
+  ('00000000-0000-4000-a000-000000000372',
+   '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated',
+   'coach-james-e2e@test.com',
+   now() - interval '20 days', now() - interval '20 days', now() - interval '20 days'),
+  ('00000000-0000-4000-a000-000000000373',
+   '00000000-0000-0000-0000-000000000000',
+   'authenticated', 'authenticated',
+   'coach-lin-e2e@test.com',
+   now() - interval '15 days', now() - interval '15 days', now() - interval '15 days')
+on conflict (id) do nothing;
+
+-- The free-tier calling org (director's org).
+insert into organizations (id, name, slug, tier)
+values ('00000000-0000-4000-a000-000000000374',
+        'E2E Free Program', 'e2e-free-program', 'free')
+on conflict (id) do nothing;
+
+-- Each paying coach gets her OWN coach-tier organizations row — the
+-- individual-subscription shape the route reads via `organizations.tier`
+-- joined per coach.
+insert into organizations (id, name, slug, tier)
+values
+  ('00000000-0000-4000-a000-000000000371',
+   'Maya Solo Coach', 'maya-solo-coach-e2e', 'coach'),
+  ('00000000-0000-4000-a000-000000000372',
+   'James Solo Coach', 'james-solo-coach-e2e', 'coach'),
+  ('00000000-0000-4000-a000-000000000373',
+   'Lin Solo Coach', 'lin-solo-coach-e2e', 'coach')
+on conflict (id) do nothing;
+
+-- Director + the three Coach-tier coaches.
+-- The director's coach row sits on the FREE calling org; each paying coach's
+-- coach row points at her OWN coach-tier org (the route resolves tier via
+-- `coaches.org_id → organizations.tier`).
+insert into coaches (id, org_id, full_name, email, role, onboarding_complete)
+values
+  ('00000000-0000-4000-a000-000000000370',
+   '00000000-0000-4000-a000-000000000374',
+   'Free Program Director', 'free-program-director-e2e@test.com', 'admin', true),
+  ('00000000-0000-4000-a000-000000000371',
+   '00000000-0000-4000-a000-000000000371',
+   'Maya Paying', 'coach-maya-e2e@test.com', 'coach', true),
+  ('00000000-0000-4000-a000-000000000372',
+   '00000000-0000-4000-a000-000000000372',
+   'James Paying', 'coach-james-e2e@test.com', 'coach', true),
+  ('00000000-0000-4000-a000-000000000373',
+   '00000000-0000-4000-a000-000000000373',
+   'Lin Paying', 'coach-lin-e2e@test.com', 'coach', true)
+on conflict (id) do nothing;
+
+-- A team per paying coach on the FREE calling org (the director's program
+-- contains all three teams; each paying coach head-coaches one).
+insert into teams (id, org_id, sport_id, name, age_group, season, season_weeks, current_week, is_active)
+select
+  '00000000-0000-4000-a000-000000000375',
+  '00000000-0000-4000-a000-000000000374',
+  (select id from sports where slug = 'basketball' limit 1),
+  'Maya U10', '9-10', 'Spring 2026', 10, 3, true
+on conflict (id) do nothing;
+insert into teams (id, org_id, sport_id, name, age_group, season, season_weeks, current_week, is_active)
+select
+  '00000000-0000-4000-a000-000000000376',
+  '00000000-0000-4000-a000-000000000374',
+  (select id from sports where slug = 'basketball' limit 1),
+  'James U11', '11-13', 'Spring 2026', 10, 3, true
+on conflict (id) do nothing;
+insert into teams (id, org_id, sport_id, name, age_group, season, season_weeks, current_week, is_active)
+select
+  '00000000-0000-4000-a000-000000000377',
+  '00000000-0000-4000-a000-000000000374',
+  (select id from sports where slug = 'basketball' limit 1),
+  'Lin U13', '11-13', 'Spring 2026', 10, 3, true
+on conflict (id) do nothing;
+
+-- One qualifying recent plans row per paying coach (parent_report — the
+-- 0074 QUALIFYING_ARTIFACT_TYPES set). created_at within the last 30 days
+-- so the route's activity filter picks them up.
+insert into plans (id, team_id, coach_id, type, content_structured, created_at)
+values
+  ('00000000-0000-4000-a000-000000000378',
+   '00000000-0000-4000-a000-000000000375',
+   '00000000-0000-4000-a000-000000000371',
+   'parent_report',
+   '{}'::jsonb,
+   now() - interval '5 days'),
+  ('00000000-0000-4000-a000-000000000379',
+   '00000000-0000-4000-a000-000000000376',
+   '00000000-0000-4000-a000-000000000372',
+   'parent_report',
+   '{}'::jsonb,
+   now() - interval '4 days'),
+  ('00000000-0000-4000-a000-00000000037a',
+   '00000000-0000-4000-a000-000000000377',
+   '00000000-0000-4000-a000-000000000373',
+   'parent_report',
+   '{}'::jsonb,
+   now() - interval '3 days')
+on conflict (id) do nothing;
+
 commit;

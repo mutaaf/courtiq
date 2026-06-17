@@ -73,7 +73,13 @@ export default function UpgradePage() {
         select: 'id',
         filters: { org_id: orgId },
       });
-      const ownedTeamIds = (teams ?? []).map((t) => t.id);
+      // Ticket 0087 — `adopt_org_tier` is org-scoped (the `teamId` slot on
+      // ResumeTarget carries the orgId). Extend the owned-team set with the
+      // caller's own orgId so a validated `adopt_org_tier:<orgId>` token
+      // passes the closed-allow-list check without widening the parser's
+      // foreign-id rejection. The same widening keeps every other kind
+      // byte-identical (no team carries the org's UUID as its id).
+      const ownedTeamIds = [...((teams ?? []).map((t) => t.id)), orgId];
       let ownedPlayerIds: string[] = [];
       if (ownedTeamIds.length > 0) {
         // query() filters are equality-only; fetch players per owned team and flatten.

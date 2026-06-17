@@ -1218,3 +1218,19 @@ export interface ReferralCreditGrant {
   redeemed_period_end: string | null;
   notified_at: string | null;
 }
+
+// Ticket 0087 — director-side snooze row backing the "Maybe later" button
+// on the new program-org-tier upgrade card. One row per (org_id, card_kind)
+// edge; the program-pulse route reads the row and suppresses the card
+// while `snoozed_until` is in the future. The CHECK enum on `card_kind`
+// is intentionally narrow — v1 carries only `program_org_tier`.
+export type OrgCardKind = 'program_org_tier';
+
+export interface OrgCardSnooze {
+  id: string;
+  org_id: string;
+  card_kind: OrgCardKind;
+  snoozed_until: string;
+  snoozed_by_coach_id: string;
+  snoozed_at: string;
+}

@@ -21,6 +21,7 @@ import type { CoachRole } from '@/types/database';
 import { ProgramPulseSection } from '@/components/admin/program-pulse-card';
 import { EmergentFocusSection } from '@/components/admin/emergent-focus-card';
 import { CrossProgramDirectorPulseSection } from '@/components/programs/cross-program-director-pulse-line';
+import { ProgramOrgTierCardSection } from '@/components/director/program-org-tier-card';
 
 interface OrgCoach {
   id: string;
@@ -149,16 +150,26 @@ export default function AdminPage() {
 
   if (!isAdminUser || !isOrg) {
     return (
-      <div className="flex items-center justify-center p-8 min-h-[60vh]">
-        <Card className="max-w-md text-center">
-          <CardContent className="p-8">
-            <ShieldCheck className="mx-auto h-10 w-10 text-zinc-600 mb-4" />
-            <h3 className="text-lg font-semibold">Admin Access Required</h3>
-            <p className="text-sm text-zinc-400 mt-2">
-              This page is only available to organization administrators.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="mx-auto max-w-4xl space-y-6 p-4 lg:p-8 pb-8">
+        {/* Ticket 0087 — the program-org-tier upgrade moment card. Rises
+            above the access gate for an admin on a free-tier org with 3+
+            paying coaches; renders nothing otherwise. Defense-in-depth:
+            the server gate on /api/ai/program-pulse only returns
+            `eligibleForOrgUpgrade: true` for the right shape. */}
+        {isAdminUser && (
+          <ProgramOrgTierCardSection orgId={coach?.org_id} isAdmin={isAdminUser} />
+        )}
+        <div className="flex items-center justify-center p-8 min-h-[40vh]">
+          <Card className="max-w-md text-center">
+            <CardContent className="p-8">
+              <ShieldCheck className="mx-auto h-10 w-10 text-zinc-600 mb-4" />
+              <h3 className="text-lg font-semibold">Admin Access Required</h3>
+              <p className="text-sm text-zinc-400 mt-2">
+                This page is only available to organization administrators.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -178,6 +189,12 @@ export default function AdminPage() {
       {/* Ticket 0028 — the director-private weekly program pulse. Best-effort:
           renders nothing while loading, on failure, or on a quiet program week. */}
       <ProgramPulseSection orgId={coach?.org_id} isAdmin={isAdminUser} />
+
+      {/* Ticket 0087 — the program-org-tier upgrade moment card. Renders only
+          on a free-tier org with 3+ active paying coaches (the server gate
+          on /api/ai/program-pulse decides eligibility). Silence beats nag —
+          for any Organization-tier admin this is a no-op. */}
+      <ProgramOrgTierCardSection orgId={coach?.org_id} isAdmin={isAdminUser} />
 
       {/* Ticket 0071 — bottom-up "your program is rallying around X" card.
           Surfaces when 3+ coaches independently target the same skill this
