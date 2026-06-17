@@ -3272,25 +3272,29 @@ on conflict (id) do nothing;
 
 -- One qualifying recent plans row per paying coach (parent_report — the
 -- 0074 QUALIFYING_ARTIFACT_TYPES set). created_at within the last 30 days
--- so the route's activity filter picks them up.
-insert into plans (id, team_id, coach_id, type, content_structured, created_at)
+-- so the route's activity filter picks them up. `content` is NOT NULL on
+-- the plans table (see 001_schema.sql), so we set a placeholder body.
+insert into plans (id, team_id, coach_id, type, content, content_structured, created_at)
 values
   ('00000000-0000-4000-a000-000000000378',
    '00000000-0000-4000-a000-000000000375',
    '00000000-0000-4000-a000-000000000371',
    'parent_report',
+   'E2E seed: program-tier-state qualifying artifact',
    '{}'::jsonb,
    now() - interval '5 days'),
   ('00000000-0000-4000-a000-000000000379',
    '00000000-0000-4000-a000-000000000376',
    '00000000-0000-4000-a000-000000000372',
    'parent_report',
+   'E2E seed: program-tier-state qualifying artifact',
    '{}'::jsonb,
    now() - interval '4 days'),
   ('00000000-0000-4000-a000-00000000037a',
    '00000000-0000-4000-a000-000000000377',
    '00000000-0000-4000-a000-000000000373',
    'parent_report',
+   'E2E seed: program-tier-state qualifying artifact',
    '{}'::jsonb,
    now() - interval '3 days')
 on conflict (id) do nothing;
