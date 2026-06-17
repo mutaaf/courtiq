@@ -50,12 +50,17 @@ CREATE TABLE IF NOT EXISTS org_card_snoozes (
   UNIQUE (org_id, card_kind)
 );
 
--- Active-snooze lookup. Partial — only rows where the snooze hasn't
--- expired yet; the program-pulse route's read is a simple "is there an
--- active snooze for this (org_id, card_kind)?" question.
-CREATE INDEX IF NOT EXISTS idx_org_card_snoozes_active
-  ON org_card_snoozes (org_id, card_kind)
-  WHERE snoozed_until > NOW();
+-- Active-snooze lookup. We can NOT use a partial `WHERE snoozed_until >
+-- NOW()` predicate here: postgres rejects partial-index predicates that
+-- reference STABLE functions (NOW() is STABLE, not IMMUTABLE) with
+-- SQLSTATE 42P17. Index instead on `snoozed_until DESC` so the route's
+-- typical "is there an unexpired snooze for this (org_id, card_kind)?"
+-- query — `WHERE org_id = $1 AND card_kind = $2 AND snoozed_until >
+-- now()` — is satisfied by the index ordering. The UNIQUE constraint on
+-- (org_id, card_kind) already gives a fast equality lookup; this index
+-- is the secondary path the route relies on.
+CREATE INDEX IF NOT EXISTS idx_org_card_snoozes_until
+  ON org_card_snoozes (org_id, card_kind, snoozed_until DESC);
 
 -- ---------------------------------------------------------------------------
 -- Service-role grants (LESSONS#0094). The Supabase CLI version pulled by

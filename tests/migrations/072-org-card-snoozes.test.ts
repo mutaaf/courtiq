@@ -75,8 +75,15 @@ describe('migration 072_org_card_snoozes.sql (ticket 0087)', () => {
     expect(ddlWithoutComments).toMatch(/unique\s*\(\s*org_id\s*,\s*card_kind\s*\)/i);
   });
 
-  it('adds a partial index on (org_id, card_kind) WHERE snoozed_until > NOW() for fast active lookups', () => {
-    expect(ddlWithoutComments).toMatch(/create\s+index[\s\S]*?on\s+org_card_snoozes[\s\S]*?\(org_id[\s\S]*?card_kind[\s\S]*?\)[\s\S]*?where\s+snoozed_until\s*>\s*now\s*\(\s*\)/i);
+  it('adds an index on (org_id, card_kind, snoozed_until DESC) for fast active-snooze lookups', () => {
+    // Postgres rejects partial-index predicates referencing STABLE
+    // functions (NOW() is STABLE, not IMMUTABLE) with SQLSTATE 42P17,
+    // so the active-snooze index uses (org_id, card_kind, snoozed_until
+    // DESC) instead — the UNIQUE (org_id, card_kind) gives equality
+    // lookup; this index is the secondary path the route's "WHERE
+    // org_id = $1 AND card_kind = $2 AND snoozed_until > now()" query
+    // relies on.
+    expect(ddlWithoutComments).toMatch(/create\s+index[\s\S]*?on\s+org_card_snoozes[\s\S]*?\(org_id[\s\S]*?card_kind[\s\S]*?snoozed_until[\s\S]*?desc\)/i);
   });
 
   it('never adds a column to a sacred table (coaches / players / teams / observations / plans / organizations)', () => {
