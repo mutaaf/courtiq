@@ -81,6 +81,7 @@ import { SeasonOpenerCard } from '@/components/home/season-opener-card';
 import { ReturningParentSection } from '@/components/home/returning-parent-card';
 import { CoachReputationMilestoneSection } from '@/components/home/coach-reputation-milestone-card';
 import { FirstCrossCoachSignalSection } from '@/components/home/first-cross-coach-signal-card';
+import { PaidCoachReceiptsSection } from '@/components/home/paid-coach-receipts-card';
 import { ReferralCreditSection } from '@/components/home/referral-credit-card';
 import { CoachInbox } from '@/components/coach/coach-inbox';
 import { useTier } from '@/hooks/use-tier';
@@ -1032,6 +1033,13 @@ export default function HomePage() {
       {/* dismissed. Smallest possible touch per LESSONS#0065 / #0066 / */}
       {/* #0162 — one import + one JSX entry. */}
       {!practiceActive && <FirstCrossCoachSignalSection />}
+
+      {/* Ticket 0089 — day-60 paid-coach receipts card. Renders the */}
+      {/* day-56-to-day-90 retention surface ONLY for paid coaches who */}
+      {/* haven't dismissed it. Quiet zinc-500 stroke, NO orange — this */}
+      {/* is a receipt, not a sales surface. Smallest possible touch on */}
+      {/* the home surface per LESSONS#0065 / #0066 / #0162. */}
+      {!practiceActive && <PaidCoachReceiptsSection />}
 
       <BirthdayCard teamId={activeTeam.id} teamName={activeTeam.name} />
 

@@ -1,7 +1,7 @@
 ---
 id: 0089
 title: When a Coach-tier coach hits day 60 since their first paid month and the platform has the receipts — N captured observations, M generated artifacts, K parents reading, J coaches who cloned their work — surface ONE "here is what you've built on SportsIQ" card that names the named numbers AND names month 3's compounding effect, so the renewal moment lands as an earned receipt instead of a silent invoice
-status: groomed
+status: in-progress
 priority: P1
 area: billing
 created: 2026-06-18
@@ -628,7 +628,6 @@ Implementation log per LESSONS#0096).
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0089-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-06-18 — branch `feat/0089-paid-coach-day-60-moat-receipt` opened off main; status flipped to in-progress in both the ticket file and the README index row.
+- 2026-06-18 — Schema-wins-over-prose deviation #1 (LESSONS#0096): `stripe_webhook_events` (migration 028) is a minimal idempotency log — `event_id, event_type, livemode, received_at, processed_at, status, error_message` — with NO org link and NO `event_data`/`created_at` columns. The ticket prose said the route would read `stripe_webhook_events.event_data` to derive `paidSinceMs`, which is impossible against the real schema. The route therefore reads `organizations.paid_since_at`, a new TIMESTAMPTZ column added in migration 074 alongside the CHECK enum widen, and self-backfilled for already-active orgs by the same migration via `COALESCE(current_period_end - INTERVAL '30 days', created_at)`. New customers post-migration get `paid_since_at` set by a `BEFORE UPDATE` trigger that fires the FIRST time `subscription_status` transitions to a paid-grace status (`active` / `past_due` / `trialing`) — keeps the Stripe webhook handler byte-identical per the AC. Documented here per LESSONS#0096; this is a one-column additive widen on `organizations`, not a "new table" — the AC's "no new persistence" prose meant no new dedup table beyond reusing 0088's, which still holds.
+- 2026-06-18 — Schema-wins-over-prose deviation #2: the AC lists `reaction_cross_team` in the widened CHECK enum, but ticket 0088 ships the BASE enum as `IN ('clone', 'thank', 'parent_forward', 'parent_forward_cross_team', 'reaction_cross_team')`. The widen therefore APPENDS exactly one literal — `'paid_receipts_d60'` — and the migration test asserts the SUPERSET as `IN (... 'paid_receipts_d60')` — six entries, not the AC's prose-only count.
