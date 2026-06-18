@@ -1,7 +1,7 @@
 ---
 id: 0089
 title: When a Coach-tier coach hits day 60 since their first paid month and the platform has the receipts — N captured observations, M generated artifacts, K parents reading, J coaches who cloned their work — surface ONE "here is what you've built on SportsIQ" card that names the named numbers AND names month 3's compounding effect, so the renewal moment lands as an earned receipt instead of a silent invoice
-status: in-progress
+status: shipped
 priority: P1
 area: billing
 created: 2026-06-18
