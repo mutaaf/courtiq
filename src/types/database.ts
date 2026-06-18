@@ -1247,7 +1247,9 @@ export type CoachFirstSignalKind =
   | 'thank'
   | 'parent_forward'
   | 'parent_forward_cross_team'
-  | 'reaction_cross_team';
+  | 'reaction_cross_team'
+  | 'paid_receipts_d60'
+  | 'program_canon_inherited';
 
 export interface CoachFirstSignalCelebration {
   id: string;
@@ -1256,4 +1258,23 @@ export interface CoachFirstSignalCelebration {
   fired_at: string;
   celebrated_at: string;
   dismissed_at: string | null;
+}
+
+// ─── Ticket 0090 — program_drill_canon ──────────────────────────────────────
+//
+// The institutional artifact a director publishes ONCE per program: the top
+// 5-10 drills 3+ of the program's coaches have thumbed up via the existing
+// 0039 cross-team `coach_drill_signals` persistence. Every new coach who
+// joins the program post-publish inherits the canon's drill_ids into their
+// own coach_drill_signals on day one (the "inheritance edge" extension to
+// the existing staff-invite flow). superseded_at NULL = the active canon
+// for that org; a re-publish stamps the old row's superseded_at and writes
+// a new one. drill_ids is a JSONB array of UUID strings.
+export interface ProgramDrillCanon {
+  id: string;
+  org_id: string;
+  published_by_coach_id: string;
+  drill_ids: string[];
+  published_at: string;
+  superseded_at: string | null;
 }
