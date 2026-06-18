@@ -3299,4 +3299,65 @@ values
    now() - interval '3 days')
 on conflict (id) do nothing;
 
+-- ────────────────────────────────────────────────────────────────────────
+-- Ticket 0088 — first cross-coach signal activation card
+-- ────────────────────────────────────────────────────────────────────────
+-- The /home first-cross-coach-signal card names the moment a coach
+-- crosses from "user of SportsIQ" to "person other coaches learn
+-- from." For the E2E coach (...001), the existing 0064 seed already
+-- pre-mints a drill_shares row (...0111, "0064 E2E Closeout Drill")
+-- AND a drill_share_clones row (...0360) from cloner ...0112 in
+-- the SAME org — but the AC's example names "Maya" in "Hornets,"
+-- so this seed extension adds an EARLIER clone from a NEW
+-- "Maya Reactive" coach in the existing Hornets U10 org (added
+-- by ticket 0084 at ...362).
+--
+-- The earlier cloned_at timestamp (15 days ago) makes Maya the
+-- chronologically EARLIEST signal in the helper's scan, so the
+-- rendered card names Maya + Hornets + the closeout drill.
+--
+-- COPPA: no players, no parent data — coach-to-coach attribution
+-- only. Per LESSONS#0084 auth.users + coaches go in the same
+-- idempotent block. Per LESSONS#0079 the first name is
+-- deterministic ('Maya'). Per LESSONS#0101 UUIDs in the next
+-- free range starting at 0...037b.
+
+insert into auth.users (id, instance_id, aud, role, email,
+                        email_confirmed_at, created_at, updated_at)
+values (
+  '00000000-0000-4000-a000-00000000037b',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated', 'authenticated',
+  'maya-hornets-e2e@test.com',
+  now() - interval '30 days',
+  now() - interval '30 days',
+  now() - interval '30 days'
+)
+on conflict (id) do nothing;
+
+insert into coaches (id, org_id, full_name, email, role, onboarding_complete, preferences, created_at)
+values (
+  '00000000-0000-4000-a000-00000000037b',
+  '00000000-0000-4000-a000-000000000362',
+  'Maya Reactive', 'maya-hornets-e2e@test.com', 'coach', true,
+  '{}'::jsonb,
+  now() - interval '30 days'
+)
+on conflict (id) do nothing;
+
+-- Earlier clone — Maya cloned the E2E coach's drill 15 days ago,
+-- well before the in-org clone (3 days ago) the existing 0084
+-- seed already added. The helper's chronological sort returns
+-- Maya's clone as the EARLIEST cross-coach signal of any kind for
+-- the E2E coach, so the rendered card names Maya + Hornets U10
+-- + the closeout drill.
+insert into drill_share_clones (id, drill_share_id, cloner_coach_id, cloned_at)
+values (
+  '00000000-0000-4000-a000-00000000037c',
+  '00000000-0000-4000-a000-000000000111',
+  '00000000-0000-4000-a000-00000000037b',
+  now() - interval '15 days'
+)
+on conflict (drill_share_id, cloner_coach_id) do nothing;
+
 commit;

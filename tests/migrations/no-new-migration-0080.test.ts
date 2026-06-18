@@ -29,6 +29,11 @@ describe('Ticket 0080 — no new migration files (regression)', () => {
     // the new program-org-tier upgrade card's "Maybe later" button; the
     // migration lands at prefix 072 — the next free prefix after the
     // 0080 widening at 071).
-    expect(files.length).toBe(73);
+    //
+    // Bumped 73 → 74 by ticket 0088 (the coach_first_signal_celebrations
+    // table backs the new first-cross-coach-signal activation card's
+    // per-(coach, kind) dedup; the migration lands at prefix 073 — the
+    // next free prefix after 072_org_card_snoozes).
+    expect(files.length).toBe(74);
   });
 });
