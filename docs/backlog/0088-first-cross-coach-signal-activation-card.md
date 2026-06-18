@@ -1,7 +1,7 @@
 ---
 id: 0088
 title: When a coach gets the FIRST cross-coach signal of their life on SportsIQ — first clone of one of their drills, first parent reaction crossing teams, first thank-message back, first program-pulse forward — name that one moment on /home with "you matter to other coaches now" so the first viral signal becomes the activation event the product currently lets slip past
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-06-18
@@ -628,7 +628,27 @@ signals when reactor is on a different team).
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0088-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-06-18 — branch `feat/0088-first-cross-coach-signal` opened; status → in-progress.
+- 2026-06-18 — schema-wins-over-prose (LESSONS#0096): the home page does NOT
+  have a single unified home-feed route — each card calls its own
+  `/api/coach/...` route (e.g. CoachReputationMilestoneSection calls
+  `/api/coach/reputation-milestones`). The smallest-blast-radius "extension"
+  per the AC is therefore a NEW dedicated GET route
+  `/api/home/first-cross-coach-signal` (mirroring the existing per-card
+  pattern), plus the POST dismiss route the AC already names. The card
+  component fetches the GET endpoint via useQuery. No "extend the existing
+  home-feed route" sweep is required — the empty-Glob no-op (LESSONS#0116)
+  applies to `tests/api/home*.test.ts` / `tests/api/me*.test.ts` /
+  `tests/app/home*.test.ts`; documented here so the next ship run does
+  not re-look.
+- 2026-06-18 — schema-wins-over-prose (LESSONS#0096) #2: the ticket
+  enumerates six signal tables, but on disk only FIVE exist —
+  `parent_forward_signals_cross_team` is NOT a separate table; migration
+  071 ADDED a `cross_team BOOLEAN` column to the existing
+  `parent_forward_signals` table. The helper still distinguishes both
+  kinds (`parent_forward` vs `parent_forward_cross_team`); the route reads
+  the single `parent_forward_signals` table once and filters
+  `cross_team = false` vs `cross_team = true` for the two kinds. Similarly
+  there is no "reactions_cross_team" table — the existing
+  `parent_reactions` table is filtered by team boundary (the reactor's
+  player belongs to a different team than the receiving coach's teams).
