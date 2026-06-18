@@ -1,7 +1,7 @@
 ---
 id: 0088
 title: When a coach gets the FIRST cross-coach signal of their life on SportsIQ — first clone of one of their drills, first parent reaction crossing teams, first thank-message back, first program-pulse forward — name that one moment on /home with "you matter to other coaches now" so the first viral signal becomes the activation event the product currently lets slip past
-status: in-progress
+status: shipped
 priority: P1
 area: growth
 created: 2026-06-18
@@ -652,3 +652,8 @@ signals when reactor is on a different team).
   there is no "reactions_cross_team" table — the existing
   `parent_reactions` table is filtered by team boundary (the reactor's
   player belongs to a different team than the receiving coach's teams).
+- 2026-06-18 — PR #423 opened, CI green (lint 1m32s, unit-tests 4m0s,
+  e2e-tests 4m19s), auto-merged to main.
+- 2026-06-18 — chore/0088-mark-shipped opens to flip ticket + index
+  row to shipped (LESSONS#0075 follow-up; the feature PR auto-merged
+  before the status flip could land on the feature branch).
