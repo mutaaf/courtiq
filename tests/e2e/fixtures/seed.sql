@@ -3360,4 +3360,32 @@ values (
 )
 on conflict (drill_share_id, cloner_coach_id) do nothing;
 
+-- ────────────────────────────────────────────────────────────────────────
+-- Ticket 0089 — day-60 paid-coach receipts card
+-- ────────────────────────────────────────────────────────────────────────
+-- The /home day-60 receipts card fires when the caller's org is on a
+-- paid tier AND `subscription_status IN ('active','past_due','trialing')`
+-- AND `paid_since_at` is between 56 and 90 days ago.
+--
+-- The E2E Test Org (...010) is seeded at line 54 as tier 'pro_coach'
+-- but with the default subscription_status 'none' and no paid_since_at.
+-- This block stamps both so the receipts card fires for the E2E coach
+-- on /home — `subscription_status: 'active'` and `paid_since_at: 60
+-- days ago`.
+--
+-- LESSONS#0094: no migration grants needed here; the columns being
+-- updated are pre-existing (subscription_status from 025, paid_since_at
+-- from 074). The migration itself sets the trigger that would
+-- auto-stamp paid_since_at on first activation, but for the seed we
+-- set it directly so the test gets a deterministic day count.
+--
+-- COPPA: this block touches NO minor data — only billing-state
+-- timestamps on the org row.
+
+update organizations
+set subscription_status = 'active',
+    paid_since_at = now() - interval '60 days',
+    current_period_end = now() + interval '4 days'
+where id = '00000000-0000-4000-a000-000000000010';
+
 commit;
