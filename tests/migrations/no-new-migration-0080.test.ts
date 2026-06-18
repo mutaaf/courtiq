@@ -34,6 +34,12 @@ describe('Ticket 0080 — no new migration files (regression)', () => {
     // table backs the new first-cross-coach-signal activation card's
     // per-(coach, kind) dedup; the migration lands at prefix 073 — the
     // next free prefix after 072_org_card_snoozes).
-    expect(files.length).toBe(74);
+    //
+    // Bumped 74 → 75 by ticket 0089 (the paid_receipts_dedup_kind
+    // migration widens the 0088 CHECK enum to add 'paid_receipts_d60'
+    // AND adds organizations.paid_since_at with a one-time backfill
+    // and a BEFORE UPDATE trigger; the migration lands at prefix 074
+    // — the next free prefix after 073_coach_first_signal_celebrations).
+    expect(files.length).toBe(75);
   });
 });
