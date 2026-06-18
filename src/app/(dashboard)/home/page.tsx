@@ -80,6 +80,7 @@ import { SidelineCheatSheetCard } from '@/components/home/sideline-cheat-sheet-c
 import { SeasonOpenerCard } from '@/components/home/season-opener-card';
 import { ReturningParentSection } from '@/components/home/returning-parent-card';
 import { CoachReputationMilestoneSection } from '@/components/home/coach-reputation-milestone-card';
+import { FirstCrossCoachSignalSection } from '@/components/home/first-cross-coach-signal-card';
 import { ReferralCreditSection } from '@/components/home/referral-credit-card';
 import { CoachInbox } from '@/components/coach/coach-inbox';
 import { useTier } from '@/hooks/use-tier';
@@ -1024,6 +1025,13 @@ export default function HomePage() {
           </p>
         )}
       </div>
+
+      {/* Ticket 0088 — first cross-coach signal activation card. Mounts */}
+      {/* at the TOP of the feed; renders nothing unless a first-of- */}
+      {/* its-kind cross-coach signal has fired and not yet been */}
+      {/* dismissed. Smallest possible touch per LESSONS#0065 / #0066 / */}
+      {/* #0162 — one import + one JSX entry. */}
+      {!practiceActive && <FirstCrossCoachSignalSection />}
 
       <BirthdayCard teamId={activeTeam.id} teamName={activeTeam.name} />
 

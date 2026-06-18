@@ -1234,3 +1234,26 @@ export interface OrgCardSnooze {
   snoozed_by_coach_id: string;
   snoozed_at: string;
 }
+
+// ─── Ticket 0088 — coach_first_signal_celebrations ─────────────────────────
+//
+// Per-(coach, signal-kind) dedup row so the /home first-cross-coach-signal
+// activation card fires EXACTLY ONCE per coach per kind. The card names
+// the moment a coach crosses from "user of SportsIQ" to "person other
+// coaches learn from"; the row's existence + dismissed_at = the
+// activation moment has already been shown and dismissed.
+export type CoachFirstSignalKind =
+  | 'clone'
+  | 'thank'
+  | 'parent_forward'
+  | 'parent_forward_cross_team'
+  | 'reaction_cross_team';
+
+export interface CoachFirstSignalCelebration {
+  id: string;
+  coach_id: string;
+  kind: CoachFirstSignalKind;
+  fired_at: string;
+  celebrated_at: string;
+  dismissed_at: string | null;
+}
