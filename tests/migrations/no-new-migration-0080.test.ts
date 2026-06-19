@@ -47,6 +47,14 @@ describe('Ticket 0080 — no new migration files (regression)', () => {
     // 'program_canon_inherited' for the /plans inheritance banner's
     // dedup; the migration lands at prefix 075 — the next free prefix
     // after 074_paid_receipts_dedup_kind).
-    expect(files.length).toBe(76);
+    //
+    // Bumped 76 → 77 by ticket 0091 (the organizations
+    // opted_out_of_sport_pulse boolean backs the director's
+    // program-scoped opt-out from the sport-wide convergence pulse's
+    // named-program list AND widens the 0088 CHECK enum to add
+    // 'sport_pulse_named' for the director-side celebration when their
+    // program is named on the sport-wide pulse; the migration lands at
+    // prefix 076 — the next free prefix after 075_program_drill_canon).
+    expect(files.length).toBe(77);
   });
 });
