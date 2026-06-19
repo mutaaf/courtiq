@@ -1,7 +1,7 @@
 ---
 id: 0091
 title: When a coach opens Capture for a skill they're working this week and 25+ programs across the entire sport are converging on the same skill — beyond their own program and the 3-coach 0075 cross-program signal — surface ONE line naming the TWO most-shipped programs working it ("Hawks Basketball and Riverside U10 published 6 closeout plans this week") with the named program-director first names, so the cross-PROGRAM moat (0075 / 0077 / 0083) widens to a cross-LEAGUE / cross-REGION moat and "what's happening in my sport right now" becomes the line only SportsIQ can produce
-status: in-progress
+status: shipped
 priority: P1
 area: capture
 created: 2026-06-18
