@@ -46,7 +46,7 @@ export async function POST(request: Request) {
   if (!orgIdParam || !drillIdsParam || drillIdsParam.length === 0) {
     return NextResponse.json({ error: 'orgId and a non-empty drillIds array are required' }, { status: 400 });
   }
-  const requestedDrillIds = drillIdsParam.filter((d): d is string => typeof d === 'string');
+  const requestedDrillIds = drillIdsParam.filter((d: unknown): d is string => typeof d === 'string');
   if (requestedDrillIds.length === 0) {
     return NextResponse.json({ error: 'drillIds must contain strings' }, { status: 400 });
   }

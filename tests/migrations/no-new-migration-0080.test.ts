@@ -40,6 +40,13 @@ describe('Ticket 0080 — no new migration files (regression)', () => {
     // AND adds organizations.paid_since_at with a one-time backfill
     // and a BEFORE UPDATE trigger; the migration lands at prefix 074
     // — the next free prefix after 073_coach_first_signal_celebrations).
-    expect(files.length).toBe(75);
+    //
+    // Bumped 75 → 76 by ticket 0090 (the program_drill_canon table
+    // backs the new institutional drill-canon artifact a director
+    // publishes once per program AND widens the 0088 CHECK enum to add
+    // 'program_canon_inherited' for the /plans inheritance banner's
+    // dedup; the migration lands at prefix 075 — the next free prefix
+    // after 074_paid_receipts_dedup_kind).
+    expect(files.length).toBe(76);
   });
 });

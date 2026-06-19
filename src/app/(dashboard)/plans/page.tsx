@@ -76,6 +76,7 @@ import { PublishPlanButton } from '@/components/plans/publish-plan-button';
 import { ProgramArcHistoryHint } from '@/components/plans/program-arc-history-hint';
 import { LeaguePlansSection } from '@/components/plan/league-plans-section';
 import { FromCoachesYouFollowSection } from '@/components/plan/from-coaches-you-follow-section';
+import { ProgramCanonInheritedBannerSection } from '@/components/plans/program-canon-inherited-banner';
 
 const PLAN_TYPE_CONFIG: Record<
   string,
@@ -3531,6 +3532,16 @@ export default function PlansPage() {
         <h1 className="text-2xl font-bold">Plans</h1>
         <p className="text-zinc-400 text-sm">Describe what you need and AI will generate it</p>
       </div>
+
+      {/*
+        Ticket 0090 — quiet banner naming the drills the new coach
+        inherited from their Org-tier program's drill canon. Renders
+        ONLY for a coach who joined an Org-tier program in the last
+        14 days with a published canon AND has not dismissed the
+        banner yet. Silence beats nag — for any other state this is
+        a no-op (the server gate decides).
+      */}
+      <ProgramCanonInheritedBannerSection />
 
       {/*
         Ticket 0063 — practice plans recently published by COACHES THE

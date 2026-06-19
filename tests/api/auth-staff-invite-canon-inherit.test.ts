@@ -97,7 +97,7 @@ function wire(
     /** Whether the route should find the org by slug (staff-invite path). */
     foundOrgBySlug: boolean;
     orgTier?: string;
-    orgSubStatus?: string;
+    orgSubStatus?: string | null;
     existingCoach?: { id: string } | null;
     canon?: { id: string; drill_ids: string[] } | null;
   },

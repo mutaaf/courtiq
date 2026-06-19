@@ -22,6 +22,7 @@ import { ProgramPulseSection } from '@/components/admin/program-pulse-card';
 import { EmergentFocusSection } from '@/components/admin/emergent-focus-card';
 import { CrossProgramDirectorPulseSection } from '@/components/programs/cross-program-director-pulse-line';
 import { ProgramOrgTierCardSection } from '@/components/director/program-org-tier-card';
+import { ProgramDrillCanonCardSection } from '@/components/director/program-drill-canon-card';
 
 interface OrgCoach {
   id: string;
@@ -195,6 +196,12 @@ export default function AdminPage() {
           on /api/ai/program-pulse decides eligibility). Silence beats nag —
           for any Organization-tier admin this is a no-op. */}
       <ProgramOrgTierCardSection orgId={coach?.org_id} isAdmin={isAdminUser} />
+
+      {/* Ticket 0090 — the program drill canon card. Renders only on an
+          Org-tier program with 3+ qualifying drills (the server gate on
+          /api/admin/program-drill-canon decides eligibility). Silence
+          beats nag — for any other state this is a no-op. */}
+      <ProgramDrillCanonCardSection orgId={coach?.org_id} isAdmin={isAdminUser} />
 
       {/* Ticket 0071 — bottom-up "your program is rallying around X" card.
           Surfaces when 3+ coaches independently target the same skill this
