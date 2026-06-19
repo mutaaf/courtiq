@@ -280,15 +280,16 @@ describe('GET /api/sport-wide-convergence (ticket 0091)', () => {
     const selectArgs: Record<string, string> = {};
     const forbidden = ['email', 'phone', 'content', 'content_structured', 'parent_email', 'date_of_birth'];
     mockFromFn.mockImplementation((table: string) => {
-      const rows = table === 'organizations'
-        ? generatePrograms(2)
-        : table === 'teams'
-        ? generateTeams(['org-0000', 'org-0001'])
-        : table === 'plans'
-        ? generatePlans(['team-0000'])
-        : table === 'coaches'
-        ? generateDirectors(['org-0000'], ['Riya'])
-        : [];
+      const rows: Array<Record<string, unknown>> =
+        table === 'organizations'
+          ? (generatePrograms(2) as Array<Record<string, unknown>>)
+          : table === 'teams'
+          ? (generateTeams(['org-0000', 'org-0001']) as Array<Record<string, unknown>>)
+          : table === 'plans'
+          ? (generatePlans(['team-0000']) as Array<Record<string, unknown>>)
+          : table === 'coaches'
+          ? (generateDirectors(['org-0000'], ['Riya']) as Array<Record<string, unknown>>)
+          : [];
       const c = chain(rows, {
         inFilterField:
           table === 'organizations'

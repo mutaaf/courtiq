@@ -23,6 +23,7 @@ import { EmergentFocusSection } from '@/components/admin/emergent-focus-card';
 import { CrossProgramDirectorPulseSection } from '@/components/programs/cross-program-director-pulse-line';
 import { ProgramOrgTierCardSection } from '@/components/director/program-org-tier-card';
 import { ProgramDrillCanonCardSection } from '@/components/director/program-drill-canon-card';
+import { SportPulseOptOutToggleSection } from '@/components/admin/sport-pulse-opt-out-toggle';
 
 interface OrgCoach {
   id: string;
@@ -216,6 +217,14 @@ export default function AdminPage() {
           than two neighbors converge, on a read failure, or below the
           per-program practice threshold. */}
       <CrossProgramDirectorPulseSection orgId={coach?.org_id} isAdmin={isAdminUser} />
+
+      {/* Ticket 0091 — sport-pulse opt-out toggle. The director can opt
+          their program out of the NAMED list on the sport-wide
+          convergence pulse (the count still includes them — the
+          quantity signal is honest, only the named-program signal is
+          private when the toggle is on). FREE for every tier; privacy
+          trumps growth. */}
+      <SportPulseOptOutToggleSection orgId={coach?.org_id} isAdmin={isAdminUser} />
 
       {/* Org Tier */}
       <Card>
