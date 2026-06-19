@@ -1,7 +1,7 @@
 ---
 id: 0090
 title: When a program has gone Organization-tier (post-0087) and 3+ of its coaches have thumbed up the same drill across the season, surface the emergent "program drill canon" — the 5-10 drills the program's coaches keep coming back to — as a one-tap one-shared library every new coach in the program inherits on day one, so the institutional knowledge that today lives in 6 coaches' heads becomes the program's actual library and the Org-tier subscription is structurally churn-proof
-status: groomed
+status: in-progress
 priority: P1
 area: plans
 created: 2026-06-18
@@ -718,7 +718,8 @@ table is the same, two ordering matters).
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0090-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-06-18 — branch `feat/0090-program-drill-canon` opened; status flipped to in-progress
+- Schema-wins-over-prose (LESSONS#0096): ticket prose refers to `drill_thumbs` but the actual cross-team drill-thumb persistence (shipped in 0039) is `coach_drill_signals` (migration 040), keyed `(coach_id, drill_id, rating)`. The route reads `coach_drill_signals` filtered by `rating = 'up'` to derive the per-program canon.
+- The director-role check is `coaches.role === 'admin'` (LESSONS#0087). The `team_coaches` join (LESSONS#0057) resolves the org's full coach set via `coaches.org_id`.
+- Migration prefix: 075 confirmed free at pickup (074_paid_receipts_dedup_kind is the latest on disk).
+- Helper API: `computeProgramDrillCanon` per the ticket's pure-helper shape — no DB reads, deterministic, never mutates inputs (LESSONS#0070).

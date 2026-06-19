@@ -101,6 +101,76 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to create coach record' }, { status: 500 });
   }
 
+  // ── Ticket 0090 — program drill canon inheritance edge ─────────────────
+  //
+  // When the new coach joined an EXISTING program (the 0024 staff-invite
+  // path) AND that program is on the live Org-tier AND it has published
+  // a `program_drill_canon`, we silently inherit the canon's drill_ids
+  // into the new coach's `coach_drill_signals` (the existing 0039 cross-
+  // team thumb persistence). This is the smallest write that makes the
+  // next /plans render carry the program's institutional drills for the
+  // new coach on day one.
+  //
+  // Additive — for any non-Org-tier program (or an Org-tier program with
+  // no canon yet) the existing onboarding flow is BYTE-IDENTICAL. The
+  // canon read uses a narrow allow-list (id, drill_ids only); no
+  // player / parent / observation data is touched (COPPA boundary).
+  //
+  // The inheritance write uses `upsert` with `ignoreDuplicates: true` so
+  // a re-run (or a coach who somehow already has a row for one of the
+  // canon's drill_ids) never crashes on the (coach_id, drill_id) PK
+  // (LESSONS#0072 — never mutate a DB-read row; the upsert respects
+  // existing thumb state).
+  if (joinedExistingOrg) {
+    try {
+      const { data: orgGateRow } = await adminSupabase
+        .from('organizations')
+        .select('id, tier, subscription_status')
+        .eq('id', org.id)
+        .maybeSingle();
+      const orgTier = (orgGateRow as { tier?: string | null } | null)?.tier ?? 'free';
+      const orgSubStatus =
+        (orgGateRow as { subscription_status?: string | null } | null)?.subscription_status ?? 'none';
+      const PAID_GRACE = new Set(['active', 'past_due', 'trialing']);
+      if (orgTier === 'organization' && PAID_GRACE.has(orgSubStatus)) {
+        const { data: canonRowsRaw } = await adminSupabase
+          .from('program_drill_canon')
+          .select('id, drill_ids')
+          .eq('org_id', org.id)
+          .is('superseded_at', null)
+          .order('published_at', { ascending: false })
+          .limit(1);
+        const canonRows = (canonRowsRaw ?? []) as Array<{
+          id: string;
+          drill_ids: string[];
+        }>;
+        const activeCanon = canonRows[0];
+        if (activeCanon && Array.isArray(activeCanon.drill_ids) && activeCanon.drill_ids.length > 0) {
+          const nowIso = new Date().toISOString();
+          const rows = activeCanon.drill_ids
+            .filter((id): id is string => typeof id === 'string')
+            .map((drillId) => ({
+              coach_id: user.id,
+              drill_id: drillId,
+              rating: 'up',
+              run_count: 0,
+              last_rated_at: nowIso,
+            }));
+          if (rows.length > 0) {
+            await adminSupabase
+              .from('coach_drill_signals')
+              .upsert(rows, { onConflict: 'coach_id,drill_id', ignoreDuplicates: true });
+          }
+        }
+      }
+    } catch (err) {
+      // Best-effort — the inheritance is silent and never blocks
+      // onboarding. The coach can still thumb drills the normal way
+      // and the program's director can re-publish if needed.
+      console.error('[auth/setup] program_drill_canon inheritance failed (ignored):', err);
+    }
+  }
+
   // Per-team claim path (ticket 0033): the org-landing per-team CTA deep-links to
   // /signup?org=<slug>&team=<teamId>, so a cold-inbound coach lands associated
   // with the EXACT team they coach. We only honor `team` when it BELONGS to the
