@@ -1,7 +1,7 @@
 ---
 id: 0091
 title: When a coach opens Capture for a skill they're working this week and 25+ programs across the entire sport are converging on the same skill — beyond their own program and the 3-coach 0075 cross-program signal — surface ONE line naming the TWO most-shipped programs working it ("Hawks Basketball and Riverside U10 published 6 closeout plans this week") with the named program-director first names, so the cross-PROGRAM moat (0075 / 0077 / 0083) widens to a cross-LEAGUE / cross-REGION moat and "what's happening in my sport right now" becomes the line only SportsIQ can produce
-status: groomed
+status: in-progress
 priority: P1
 area: capture
 created: 2026-06-18
@@ -667,7 +667,17 @@ Implementation log).
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0091-...` opened
-- YYYY-MM-DD — failing test added in `tests/...` or `e2e/...`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-06-19 — branch `feat/0091-sport-wide-skill-convergence` opened
+- 2026-06-19 — schema-wins-over-prose (LESSONS#0096) at pickup: the
+  `plans` table has NO `sport_id`, `org_id`, or `age_groups` column
+  (migration 001_schema.sql:277). Sport / org / age_group ALL come from
+  the `teams` row via `plans.team_id`. The helper signature in the
+  ticket prose is preserved literally (`planRows: { id, org_id,
+  created_at, skills_targeted, sport_id, age_groups }`) — the route is
+  responsible for the team→{org_id, sport_id, age_groups} join and
+  hands the pre-shaped rows to the pure helper. 0075's
+  `/api/sport/emergent-focus/route.ts` uses the same posture.
+- 2026-06-19 — 0088 has shipped (status:shipped on the celebrations
+  table migration 073). The CHECK enum DROP+ADD widen for
+  `sport_pulse_named` is included in this migration per LESSONS#0009 /
+  #0054. The celebration write AC is in scope.

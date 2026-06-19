@@ -79,6 +79,11 @@ export interface Organization {
   subscription_status?: string | null;
   current_period_end?: string | null;
   cancel_at_period_end?: boolean | null;
+  // Program-scoped opt-out switch for the sport-wide convergence pulse
+  // (ticket 0091). When TRUE, the program is honored in the count
+  // aggregate but excluded from the rendered named list. Default FALSE;
+  // additive on the existing Organization shape per LESSONS#0103.
+  opted_out_of_sport_pulse?: boolean | null;
   created_at: string;
   updated_at: string;
 }

@@ -17,8 +17,10 @@ import { ReactionSeedLine } from '@/components/capture/reaction-seed-line';
 import type { ReactionSeed } from '@/lib/reaction-seed-utils';
 import { ProgramFocusLine } from '@/components/capture/program-focus-line';
 import { CrossProgramFocusLine } from '@/components/capture/cross-program-focus-line';
+import { SportWideConvergenceLine } from '@/components/capture/sport-wide-convergence-line';
 import type { ActiveArcResponse } from '@/app/api/ai/practice-arc/active/route';
 import type { CrossProgramFocusResponse } from '@/app/api/sport/emergent-focus/route';
+import type { SportWideConvergenceResponse } from '@/app/api/sport-wide-convergence/route';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Send, Keyboard, Mic, AlertCircle, Sparkles, Upload, FileAudio, Camera, Lock } from 'lucide-react';
 import { generateId } from '@/lib/utils';
@@ -220,6 +222,40 @@ export default function CapturePage() {
       }
     },
     enabled: !!((activeTeam as any)?.sport_id) && !!(activeTeam?.org_id),
+    retry: false,
+    staleTime: 10 * 60_000,
+  });
+
+  // Best-effort sport-wide skill convergence read (ticket 0091): ONE quiet
+  // additional line UNDER the 0075 line when 25+ DISTINCT programs across
+  // the sport have shipped the same skill in the last 7 days. The skill
+  // we query for is the 0075 focus.skill (the controlled-vocabulary skill
+  // string is the id; same string the existing 0075 line resolved). The
+  // line is byte-identical-absent below the 25-program bar, and the read
+  // NEVER gates capture (best-effort posture; on failure / timeout / no
+  // convergence the line renders nothing). NOT a direct Supabase call.
+  const sportWideSkillId =
+    crossProgramFocus && crossProgramFocus.focus ? crossProgramFocus.focus.skill : null;
+  const { data: sportWideConvergence } = useQuery<SportWideConvergenceResponse | undefined>({
+    queryKey: [
+      'capture-sport-wide-convergence',
+      (activeTeam as any)?.sport_id,
+      sportWideSkillId,
+    ],
+    queryFn: async () => {
+      const sportId = (activeTeam as any)?.sport_id as string | undefined;
+      if (!sportId || !sportWideSkillId) return undefined;
+      try {
+        const res = await fetch(
+          `/api/sport-wide-convergence?sportId=${encodeURIComponent(sportId)}&skillId=${encodeURIComponent(sportWideSkillId)}`,
+        );
+        if (!res.ok) return undefined;
+        return (await res.json()) as SportWideConvergenceResponse;
+      } catch {
+        return undefined; // degrade silently — capture must never be blocked
+      }
+    },
+    enabled: !!((activeTeam as any)?.sport_id) && !!sportWideSkillId,
     retry: false,
     staleTime: 10 * 60_000,
   });
@@ -1166,6 +1202,23 @@ export default function CapturePage() {
                 sportName={sportSlug || 'your sport'}
               />
             )}
+
+            {/* Sport-wide convergence line (ticket 0091): mounted UNDER the
+                0075 cross-program focus line. Fires only when 25+ DISTINCT
+                programs across the sport have shipped the same skill in the
+                last 7 days; below that bar, silence. Best-effort posture;
+                never gates capture. The skill we surface convergence for is
+                the 0075 focus.skill (the controlled-vocabulary skill string
+                is the id). The line is byte-identical-absent when 0075 has
+                no focus to surface — the two signals fire in a strict order
+                (0075 first; 0091 widens). */}
+            {captureState !== 'recording' && sportWideSkillId ? (
+              <SportWideConvergenceLine
+                data={sportWideConvergence}
+                sportName={sportSlug || 'your sport'}
+                skillName={sportWideSkillId}
+              />
+            ) : null}
 
             {/* Active Practice Arc continuity line (ticket 0020): "Defense Arc ·
                 session 2 of 3 · today: build on closeouts". Best-effort: absent
