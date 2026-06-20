@@ -1,7 +1,7 @@
 ---
 id: 0092
 title: When the same observer-link from 0029 has been opened by 2+ different helpers across 2+ practices for the SAME team, surface ONE quiet card on the regular coach's /home naming "you have a real co-coach now — Aisha opened your observer link 3 times and ran a drill on Tuesday — bring her on as a Coach-tier teammate, free until your next renewal" so the observer-to-coach conversion finally fires on STRUCTURAL evidence of a recurring helper rather than the cold one-tap upgrade prompt the 0029 primitive currently leaves at the door
-status: in-progress
+status: shipped
 priority: P1
 area: growth
 created: 2026-06-20
