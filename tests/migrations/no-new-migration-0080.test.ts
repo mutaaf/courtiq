@@ -55,6 +55,15 @@ describe('Ticket 0080 — no new migration files (regression)', () => {
     // 'sport_pulse_named' for the director-side celebration when their
     // program is named on the sport-wide pulse; the migration lands at
     // prefix 076 — the next free prefix after 075_program_drill_canon).
-    expect(files.length).toBe(77);
+    //
+    // Bumped 77 → 78 by ticket 0092 (the recurring_observer_dismissals
+    // table is the per-(coach, helper_identifier, team) dedup primitive
+    // for the /home real-co-coach card's "Not yet" button. A NEW small
+    // table beats reusing the 0088 coach_first_signal_celebrations
+    // widen because that table's UNIQUE (coach_id, kind) cannot encode
+    // the helper-team composite key without breaking the 0088 dedup
+    // contract; the migration lands at prefix 077 — the next free
+    // prefix after 076_organizations_opt_out_sport_pulse).
+    expect(files.length).toBe(78);
   });
 });

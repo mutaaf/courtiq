@@ -82,6 +82,7 @@ import { ReturningParentSection } from '@/components/home/returning-parent-card'
 import { CoachReputationMilestoneSection } from '@/components/home/coach-reputation-milestone-card';
 import { FirstCrossCoachSignalSection } from '@/components/home/first-cross-coach-signal-card';
 import { PaidCoachReceiptsSection } from '@/components/home/paid-coach-receipts-card';
+import { RealCoCoachSection } from '@/components/home/real-co-coach-card';
 import { ReferralCreditSection } from '@/components/home/referral-credit-card';
 import { CoachInbox } from '@/components/coach/coach-inbox';
 import { useTier } from '@/hooks/use-tier';
@@ -94,6 +95,22 @@ import { useTier } from '@/hooks/use-tier';
 function ReferralCreditSectionForTier() {
   const { tier } = useTier();
   return <ReferralCreditSection tier={tier} />;
+}
+
+// Ticket 0092 — small wrapper that pulls the caller's tier +
+// subscription_status from useTier() and forwards them to the
+// RealCoCoachSection. Kept tiny + colocated so the home-page diff stays
+// minimal (LESSONS#0065 / #0066 / #0162). The "free until your next
+// renewal" sub-line on the primary button depends on the paid grace
+// status the hook already exposes.
+function RealCoCoachSectionForTier() {
+  const { tier, subscriptionStatus } = useTier();
+  return (
+    <RealCoCoachSection
+      tier={tier}
+      subscriptionStatus={subscriptionStatus}
+    />
+  );
 }
 
 function formatLiveTimeAgo(iso: string): string {
@@ -1040,6 +1057,16 @@ export default function HomePage() {
       {/* is a receipt, not a sales surface. Smallest possible touch on */}
       {/* the home surface per LESSONS#0065 / #0066 / #0162. */}
       {!practiceActive && <PaidCoachReceiptsSection />}
+
+      {/* Ticket 0092 — real-co-coach observer-to-coach conversion card. */}
+      {/* Surfaces when a recurring observer (the same helper across 2+ */}
+      {/* practices in 14 days, derived from the existing 0067 */}
+      {/* sub_handoffs primitive) has not been dismissed for that */}
+      {/* helper-team pair. Quiet zinc-500 stroke; orange action button. */}
+      {/* The card converts the lived relationship into a one-tap warm */}
+      {/* invite without inventing a colder one. Smallest possible touch */}
+      {/* on the home surface per LESSONS#0065 / #0066 / #0162. */}
+      {!practiceActive && <RealCoCoachSectionForTier />}
 
       <BirthdayCard teamId={activeTeam.id} teamName={activeTeam.name} />
 

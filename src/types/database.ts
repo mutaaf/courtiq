@@ -1283,3 +1283,20 @@ export interface ProgramDrillCanon {
   published_at: string;
   superseded_at: string | null;
 }
+
+// ─── Ticket 0092 — recurring_observer_dismissals ────────────────────────────
+//
+// Per-(coach, helper_identifier, team) dedup row for the /home real-co-coach
+// card's "Not yet" dismiss button. The card surfaces when a recurring
+// observer has helped the coach 2+ times across 2+ distinct practices in
+// the last 14 days; the coach can dismiss the prompt for a specific
+// helper-team pair without dismissing it for OTHER helpers. The presence
+// of a row keys the 30-day cooldown the GET route applies via the pure
+// helper's `invitesAlreadySent` parameter.
+export interface RecurringObserverDismissal {
+  id: string;
+  coach_id: string;
+  helper_identifier: string;
+  team_id: string;
+  dismissed_at: string;
+}

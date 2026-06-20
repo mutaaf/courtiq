@@ -1,7 +1,7 @@
 ---
 id: 0092
 title: When the same observer-link from 0029 has been opened by 2+ different helpers across 2+ practices for the SAME team, surface ONE quiet card on the regular coach's /home naming "you have a real co-coach now — Aisha opened your observer link 3 times and ran a drill on Tuesday — bring her on as a Coach-tier teammate, free until your next renewal" so the observer-to-coach conversion finally fires on STRUCTURAL evidence of a recurring helper rather than the cold one-tap upgrade prompt the 0029 primitive currently leaves at the door
-status: groomed
+status: in-progress
 priority: P1
 area: growth
 created: 2026-06-20
@@ -746,7 +746,6 @@ this card mounts alongside them).
 
 (Appended by the implementation-dev agent during execution.)
 
-- YYYY-MM-DD — branch `feat/0092-real-co-coach` opened
-- YYYY-MM-DD — failing test added in `tests/lib/recurring-observer-helpers.test.ts`
-- YYYY-MM-DD — PR #N opened, CI [state]
-- YYYY-MM-DD — merged to main
+- 2026-06-20 — branch `feat/0092-real-co-coach-conversion` opened. Frontmatter + README index flipped to `in-progress` in lockstep per LESSONS#0042/#0074.
+- 2026-06-20 — Schema-wins-over-prose (LESSONS#0096): the ticket prose names `observer_link_opens` (helper_identifier + display_name + ran_drill). No such table exists on disk. The 0029 ship is a stateless HMAC token primitive (`src/lib/observer-utils.ts` + `/api/observer-link` + `/api/observe/[token]`) with NO open-event telemetry persisted. The recurring-helper signal we DO have is `sub_handoffs` (migration 061, ticket 0067): each row carries `session_id`, `coach_id`, `sub_first_name` (the helper's name as the regular coach typed it when issuing the handoff), `sub_note_text` / `sub_note_at` (presence = "the helper actually ran the practice and sent a note back" — the `ran_drill: true` analog), `created_at`. A regular coach who issued 2+ distinct handoffs naming the same `sub_first_name` for the same team = the recurring helper the card names. The dismiss dedup posture uses a SEPARATE small table (`recurring_observer_dismissals`) because the existing `coach_first_signal_celebrations.UNIQUE (coach_id, kind)` cannot encode the helper-team composite key without breaking the 0088 dedup contract. Per LESSONS#0066 — widen-existing-select beat add-new-column on the field side; per LESSONS#0103 — the small new table is the smallest-blast-radius dedup primitive. Also: the ticket prose says "reuses the existing 0015 invite-coach modal pre-filled with the helper's name" but the 0015 ship is the `InviteCoachCard` (a share-the-referral-URL card on /home), NOT a modal — the primary button on this card therefore opens the same share path with the helper's first name carried through the share message.
+- 2026-06-20 — Failing tests added; minimum code shipped; full local gate green.
