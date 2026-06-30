@@ -34,6 +34,10 @@
     {
       "path": "/api/cron/silent-player-nudge",
       "schedule": "0 19 * * 4"
+    },
+    {
+      "path": "/api/cron/coach-quiet-check-in",
+      "schedule": "0 16 * * *"
     }
   ]
 }
