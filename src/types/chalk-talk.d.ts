@@ -34,3 +34,20 @@ declare module 'chalk-talk' {
   }
   export function mount(el: HTMLElement, options?: ChalkTalkOptions): ChalkTalkBoard;
 }
+
+// The server side: the same requests the free API runs, for CourtIQ's own AI route.
+declare module 'chalk-talk/server' {
+  export interface ChalkTalkRequest {
+    sys: string;
+    schema: object;
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+    check: (raw: unknown) => { ok: boolean; errors: string[] };
+  }
+  export const TASKS: string[];
+  export const LITE: { play: boolean; smart: boolean; brain: boolean; tutor: boolean; analyst: boolean };
+  export function requestFor(task: string, body: unknown): ChalkTalkRequest;
+  export function solve(
+    req: ChalkTalkRequest,
+    ask: (sys: string, messages: Array<{ role: 'user' | 'assistant'; content: string }>, schema: object) => Promise<string>
+  ): Promise<any>;
+}
