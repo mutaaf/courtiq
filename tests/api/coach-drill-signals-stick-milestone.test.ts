@@ -15,7 +15,7 @@
  *
  * .test.ts NOT .spec.ts (LESSONS#0020 / #38).
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const { mockGetUser, mockFromFn } = vi.hoisted(() => ({
   mockGetUser: vi.fn(),
@@ -34,6 +34,11 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 import { PATCH } from '@/app/api/coach-drill-signals/route';
+
+// The fixtures are dated June 2026 and the route works in a recent-activity window: pin the clock to the
+// fixtures' date so these don't start failing as the real calendar moves on (only Date is faked).
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-06-10T12:00:00Z')); });
+afterEach(() => { vi.useRealTimers(); });
 
 function buildChain(data: unknown = null, error: unknown = null) {
   const resolved = { data, error };
