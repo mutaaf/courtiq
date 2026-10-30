@@ -16,6 +16,8 @@ declare module 'chalk-talk' {
     onSport?: (id: string) => void;
     /** Set false to skip the first-run tour and first-sketch walkthrough. */
     tour?: boolean;
+    /** Anonymous, cookieless usage counts to Chalk Talk's API (default on); false turns them off. */
+    analytics?: boolean;
     /** The host's AI subscription, offered when the AI isn't connected. */
     upgrade?: { label?: string; note?: string; href?: string; onClick?: () => void } | null;
   }
