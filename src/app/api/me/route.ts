@@ -13,7 +13,7 @@ export async function GET() {
     const [{ data: coach }, { data: teamCoaches }] = await Promise.all([
       admin
         .from('coaches')
-        .select('*, organizations(id, name, slug, tier, sport_config, subscription_status, current_period_end, cancel_at_period_end, settings)')
+        .select('*, organizations(id, name, slug, tier, sport_config, subscription_status, current_period_end, cancel_at_period_end, settings, chalk_talk_ai_status)')
         .eq('id', user.id)
         .single(),
       admin

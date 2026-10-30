@@ -64,6 +64,10 @@ describe('Ticket 0080 — no new migration files (regression)', () => {
     // the helper-team composite key without breaking the 0088 dedup
     // contract; the migration lands at prefix 077 — the next free
     // prefix after 076_organizations_opt_out_sport_pulse).
-    expect(files.length).toBe(78);
+    //
+    // Bumped 78 → 79 by Chalk Talk AI (078_chalk_talk_ai: the org's own AI-plan
+    // subscription columns, kept apart from the main plan's so the webhook can never
+    // cross them, and the append-only ai_ledger every resold AI call is audited in).
+    expect(files.length).toBe(79);
   });
 });

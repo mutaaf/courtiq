@@ -114,3 +114,35 @@ Enforcement lives in `src/lib/ai/quota.ts` (`enforceAIQuota`), called both
 by the AI client wrapper (`callAI`) and by direct-vision endpoints like
 `/api/ai/import-roster`. When changing the cap, only that table needs to
 update — the runtime reads the limit dynamically.
+
+## Chalk Talk AI (resold AI subscription)
+
+CourtIQ resells Chalk Talk's AI. Plans and caps live in `src/lib/chalk-talk-ai.ts`:
+
+- **Chalk Talk AI** (`ai_plan`): its own Stripe subscription on the org, $9.99/mo list, $4.99 launch price via a forever coupon. Fair-use cap: $3 of AI cost a month.
+- **Included** (`included`): any paid CourtIQ tier, $1 of AI cost a month.
+- Over a cap the board silently falls back to Chalk Talk's free open-model API until the 1st (UTC).
+
+Every call writes an append-only row to `ai_ledger` (migration 078): org, coach, plan, task, model, tokens in/out/cache, `cost_micros` at `price_version`, the Anthropic request ids, latency, status. Month-to-date spend is `ai_spend_since(org, month_start)`.
+
+**Audit a month:**
+
+```sql
+select org_id, plan, count(*), sum(cost_micros)/1e6 usd
+from ai_ledger
+where created_at >= date_trunc('month', now())
+group by 1, 2
+order by usd desc;
+```
+
+The Stripe webhook routes Chalk Talk AI events by price id or by `metadata.product = chalk_talk_ai` to the `chalk_talk_ai_*` columns. They never touch `tier` or `stripe_subscription_id`.
+
+**Setup**, in this order:
+
+1. Apply migration 078 (`npx supabase db push`).
+2. Create the Stripe objects with `STRIPE_SECRET_KEY=… node scripts/stripe-chalk-talk-ai.mjs`. It is idempotent: run it with the test key first, then the live key.
+3. Set these Vercel env vars:
+   - `STRIPE_PRICE_CHALK_TALK_AI`
+   - `STRIPE_COUPON_CHALK_TALK_LAUNCH`. Remove it to end the launch offer; subscribers who already have it keep it.
+   - `CHALK_TALK_LINK_SECRET`, any long random string. It signs the tokens that link mutaafaziz.com/chalktalk to a CourtIQ account.
+   - `ANTHROPIC_API_KEY`. It is already used by CourtIQ's AI.

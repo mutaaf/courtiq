@@ -4,8 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ExternalLink } from 'lucide-react';
 import { useActiveTeam } from '@/hooks/use-active-team';
-import { useTier } from '@/hooks/use-tier';
-import { canAccess } from '@/lib/tier';
+import { planFor } from '@/lib/chalk-talk-ai';
 import { chalkTalkSportFor } from '@/lib/labs-sport-utils';
 import type { ChalkTalkBoard } from 'chalk-talk';
 
@@ -13,12 +12,11 @@ import type { ChalkTalkBoard } from 'chalk-talk';
 // It's browser-only, so it loads after mount and is destroyed on the way out.
 export default function ChalkTalkPage() {
   const ref = useRef<HTMLDivElement>(null);
-  const { sportSlug, activeTeamId } = useActiveTeam();
+  const { sportSlug, activeTeamId, coach } = useActiveTeam();
   const sport = chalkTalkSportFor(sportSlug);
   // paid plans run Chalk Talk's AI on CourtIQ (no key needed); free plans keep the free daily AI and
   // see the upgrade wherever the AI isn't available (film room, AI settings, a play it can't draw)
-  const { tier } = useTier();
-  const paid = canAccess(tier, 'labs_chalk_talk_ai');
+  const paid = !!planFor((coach as any)?.organizations);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -34,7 +32,7 @@ export default function ChalkTalkPage() {
           team: activeTeamId || 'default',
           ...(paid
             ? { api: '/api/labs/chalk-talk' }
-            : { upgrade: { label: 'Unlock Chalk Talk AI with CourtIQ', href: '/settings/upgrade', note: 'Included with every paid CourtIQ plan. No key needed.' } }),
+            : { upgrade: { label: 'Get Chalk Talk AI · $4.99/mo', href: '/labs/chalk-talk/ai', note: 'Launch price (regularly $9.99). Also included with every CourtIQ plan.' } }),
         });
       })
       .catch(() => setFailed(true));
