@@ -11,7 +11,7 @@ import type { ChalkTalkBoard } from 'chalk-talk';
 // It's browser-only, so it loads after mount and is destroyed on the way out.
 export default function ChalkTalkPage() {
   const ref = useRef<HTMLDivElement>(null);
-  const { sportSlug } = useActiveTeam();
+  const { sportSlug, activeTeamId } = useActiveTeam();
   const sport = chalkTalkSportFor(sportSlug);
   const [failed, setFailed] = useState(false);
 
@@ -21,7 +21,8 @@ export default function ChalkTalkPage() {
     import('chalk-talk')
       .then(({ mount }) => {
         if (cancelled || !ref.current) return;
-        board = mount(ref.current, { sport, title: false });
+        // team: player names (saved on this device only) are kept per team
+        board = mount(ref.current, { sport, title: false, team: activeTeamId || 'default' });
       })
       .catch(() => setFailed(true));
     return () => {

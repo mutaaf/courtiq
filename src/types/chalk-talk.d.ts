@@ -1,6 +1,10 @@
 // chalk-talk ships plain ES modules (github:mutaaf/chalk-talk); this is the slice CourtIQ uses.
 declare module 'chalk-talk' {
   export interface ChalkTalkOptions {
+    /** Names are stored per team, on this device only. */
+    team?: string;
+    /** Free open-model API base (defaults to digitalcraftai.com). */
+    api?: string;
     sport?: string;
     sports?: string[];
     play?: string;
