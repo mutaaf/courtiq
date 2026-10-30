@@ -51,3 +51,8 @@ declare module 'chalk-talk/server' {
     ask: (sys: string, messages: Array<{ role: 'user' | 'assistant'; content: string }>, schema: object) => Promise<string>
   ): Promise<any>;
 }
+
+declare module 'chalk-talk/sports' {
+  export function getSport(id: string): { id: string; name: string; plays: Array<{ key: string; title: string; [k: string]: unknown }>; [k: string]: unknown };
+  export function sports(): Array<{ id: string; name: string }>;
+}
