@@ -14,6 +14,11 @@ describe('chalkTalkSportFor', () => {
     expect(chalkTalkSportFor('flag-football-7v7')).toBe('flag7');
     expect(chalkTalkSportFor('7v7 flag')).toBe('flag7');
   });
+  it('opens soccer teams on the soccer board (9v9 when the team says so)', () => {
+    expect(chalkTalkSportFor('soccer')).toBe('soccer7');
+    expect(chalkTalkSportFor('Youth Soccer 7v7')).toBe('soccer7');
+    expect(chalkTalkSportFor('soccer-9v9')).toBe('soccer9');
+  });
   it('falls back to basketball for sports the board does not know', () => {
     expect(chalkTalkSportFor('volleyball')).toBe('basketball');
     expect(chalkTalkSportFor('')).toBe('basketball');
