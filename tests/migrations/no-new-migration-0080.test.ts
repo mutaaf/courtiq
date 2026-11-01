@@ -68,6 +68,9 @@ describe('Ticket 0080 — no new migration files (regression)', () => {
     // Bumped 78 → 79 by Chalk Talk AI (078_chalk_talk_ai: the org's own AI-plan
     // subscription columns, kept apart from the main plan's so the webhook can never
     // cross them, and the append-only ai_ledger every resold AI call is audited in).
-    expect(files.length).toBe(79);
+    //
+    // Bumped 79 → 80 by 079_coaches_rls_no_recursion (coaches_select_org read coaches inside its own policy:
+    // 42P17 infinite recursion; the caller's org now comes from a SECURITY DEFINER function).
+    expect(files.length).toBe(80);
   });
 });
