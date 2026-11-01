@@ -71,6 +71,7 @@ describe('Ticket 0080 — no new migration files (regression)', () => {
     //
     // Bumped 79 → 80 by 079_coaches_rls_no_recursion (coaches_select_org read coaches inside its own policy:
     // 42P17 infinite recursion; the caller's org now comes from a SECURITY DEFINER function).
-    expect(files.length).toBe(80);
+    // Bumped 80 → 81 by 080_team_coaches_rls_no_recursion (team_coaches_select had the same self-reference).
+    expect(files.length).toBe(81);
   });
 });
