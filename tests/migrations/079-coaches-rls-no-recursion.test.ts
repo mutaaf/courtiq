@@ -25,3 +25,19 @@ describe('migration 079_coaches_rls_no_recursion.sql', () => {
     expect(code).not.toMatch(/\b(alter table|create table|drop table|insert into|update |delete from|truncate)\b/i);
   });
 });
+
+const sql80 = readFileSync(join(process.cwd(), 'supabase', 'migrations', '080_team_coaches_rls_no_recursion.sql'), 'utf8').replace(/--.*$/gm, '');
+describe('migration 080_team_coaches_rls_no_recursion.sql', () => {
+  it('reads the caller’s teams in a SECURITY DEFINER function', () => {
+    expect(sql80).toMatch(/create or replace function public\.current_coach_team_ids\(\)/i);
+    expect(sql80).toMatch(/security definer/i); expect(sql80).toMatch(/set search_path = public/i);
+  });
+  it('recreates team_coaches_select with no subquery on team_coaches', () => {
+    const policy = sql80.match(/create policy "team_coaches_select"[\s\S]*?;/i)?.[0] ?? '';
+    expect(policy).toMatch(/coach_id = auth\.uid\(\) or team_id in \(select public\.current_coach_team_ids\(\)\)/i);
+    expect(policy).not.toMatch(/from\s+(public\.)?team_coaches/i);
+  });
+  it('changes no tables, columns or data', () => {
+    expect(sql80).not.toMatch(/\b(alter table|create table|drop table|insert into|update |delete from|truncate)\b/i);
+  });
+});
