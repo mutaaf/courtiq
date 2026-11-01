@@ -1,4 +1,4 @@
--- 031_long_session_audio_v2.sql
+-- 0310_long_session_audio_v2.sql (was 031_; renamed 2026-10-31 so it sorts before 0315_ in the CLI's history check)
 -- Efficiency pass on the long-session pipeline:
 --   1. Cache segmentation result on the recording row so /capture/review is instant.
 --   2. Add the recordings table to the Realtime publication for live status updates.
