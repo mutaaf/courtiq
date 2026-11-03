@@ -241,6 +241,7 @@ documented quirks. The living version is `docs/LESSONS.md`.)
   - `lint`
   - `unit-tests`
   - `e2e-tests`
+  - `review-gate` — the fleet reviewer's `FLEET-VERDICT` on the head commit (agent-fleet ticket 0070)
 - **Agent branch prefixes**: `feat/` (features, ship), `chore/gtm-` (backlog
   refresh, groom).
 - **Local gate command** (heal/dev runs this before pushing; all must pass):
