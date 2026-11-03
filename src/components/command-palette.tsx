@@ -17,6 +17,7 @@ import {
   ArrowRight,
   Loader2,
   Eye,
+  FlaskConical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
@@ -56,6 +57,7 @@ const QUICK_ACTIONS: CommandItem[] = [
   { id: 'action-plans',        label: 'View Plans',            group: 'actions', href: '/plans',        icon: ClipboardList },
   { id: 'action-analytics',    label: 'View Analytics',        group: 'actions', href: '/analytics',    icon: BarChart3 },
   { id: 'action-drills',   label: 'Drill Library',       group: 'actions', href: '/drills',   icon: Dumbbell },
+  { id: 'action-labs',     label: 'Labs: Chalk Talk',    group: 'actions', href: '/labs/chalk-talk', icon: FlaskConical, keywords: 'chalk talk play board whiteboard x o labs diagram' },
   { id: 'action-settings', label: 'Settings',            group: 'actions', href: '/settings', icon: Settings },
 ];
 

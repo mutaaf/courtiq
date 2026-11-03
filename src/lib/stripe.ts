@@ -45,3 +45,9 @@ export function tierFromPriceId(priceId: string): PaidTier | null {
   }
   return null;
 }
+
+// Chalk Talk AI, its own subscription on the same org (src/lib/chalk-talk-ai.ts). $9.99 list; the launch
+// coupon ($5 off, forever) keeps early subscribers at $4.99 for as long as they stay.
+export const CHALK_TALK_AI_PRICE = () => process.env.STRIPE_PRICE_CHALK_TALK_AI ?? '';
+export const CHALK_TALK_AI_LAUNCH_COUPON = () => process.env.STRIPE_COUPON_CHALK_TALK_LAUNCH ?? '';
+export const isChalkTalkAIPrice = (priceId: string | null | undefined) => !!priceId && priceId === CHALK_TALK_AI_PRICE();

@@ -1,7 +1,7 @@
 export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
-import { getStripe, tierFromPriceId } from '@/lib/stripe';
+import { getStripe, tierFromPriceId, isChalkTalkAIPrice } from '@/lib/stripe';
 import { createServiceSupabase } from '@/lib/supabase/server';
 import { memBust } from '@/lib/cache/memory';
 
@@ -71,6 +71,11 @@ export async function POST(request: Request) {
   const admin = await createServiceSupabase();
 
   try {
+    // Chalk Talk AI is its own subscription on the org: its events update only the chalk_talk_ai_* columns
+    // and never reach the tier logic below (which would read an unknown price as 'free' and overwrite the
+    // org's main subscription).
+    if (await handleChalkTalkAI(event, admin)) return NextResponse.json({ received: true });
+
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
@@ -244,4 +249,43 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ received: true });
+}
+
+const AI_TERMINAL = new Set(['canceled', 'unpaid', 'incomplete_expired']);
+async function handleChalkTalkAI(event: any, admin: any): Promise<boolean> {
+  const t = event.type, o = event.data.object;
+  if (t === 'checkout.session.completed') {
+    if (o.metadata?.product !== 'chalk_talk_ai') return false;
+    if (o.metadata?.org_id) {
+      await admin.from('organizations').update({ chalk_talk_ai_subscription_id: o.subscription, chalk_talk_ai_status: 'active', stripe_customer_id: o.customer }).eq('id', o.metadata.org_id);
+      await bustOrgMeCache(admin, o.metadata.org_id);
+    }
+    return true;
+  }
+  if (t === 'customer.subscription.created' || t === 'customer.subscription.updated' || t === 'customer.subscription.deleted') {
+    const item = o.items?.data?.[0];
+    if (!isChalkTalkAIPrice(item?.price?.id) && o.metadata?.product !== 'chalk_talk_ai') return false;
+    let orgId: string | null = o.metadata?.org_id || null;
+    if (!orgId) { const { data } = await admin.from('organizations').select('id').eq('chalk_talk_ai_subscription_id', o.id).single(); orgId = data?.id || null; }
+    if (!orgId) return true;   // ours, but no org to update: acknowledge
+    const dead = t === 'customer.subscription.deleted' || AI_TERMINAL.has(o.status);
+    await admin.from('organizations').update({
+      chalk_talk_ai_subscription_id: dead ? null : o.id,
+      chalk_talk_ai_status: dead ? 'canceled' : o.status,
+      chalk_talk_ai_period_end: item?.current_period_end ? new Date(item.current_period_end * 1000).toISOString() : null,
+      chalk_talk_ai_cancel_at_period_end: !dead && !!o.cancel_at_period_end,
+    }).eq('id', orgId);
+    await bustOrgMeCache(admin, orgId);
+    return true;
+  }
+  if (t === 'invoice.payment_failed') {
+    const subId = typeof o.subscription === 'string' ? o.subscription : o.parent?.subscription_details?.subscription;
+    if (!subId) return false;
+    const { data } = await admin.from('organizations').select('id').eq('chalk_talk_ai_subscription_id', subId).single();
+    if (!data) return false;   // the main plan's invoice: the existing handler
+    await admin.from('organizations').update({ chalk_talk_ai_status: 'past_due' }).eq('id', data.id);
+    await bustOrgMeCache(admin, data.id);
+    return true;
+  }
+  return false;
 }

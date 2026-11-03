@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Home, Mic, Users, ClipboardList, Settings, Calendar, Sparkles, Sun, Moon, LineChart, LogOut, Search, X, Square, ChevronLeft, CheckCircle2, AlertCircle, MoreHorizontal, Dumbbell, BookOpen, ShieldCheck, Eye } from 'lucide-react';
+import { Home, Mic, Users, ClipboardList, Settings, Calendar, Sparkles, Sun, Moon, LineChart, LogOut, Search, X, Square, ChevronLeft, CheckCircle2, AlertCircle, MoreHorizontal, Dumbbell, BookOpen, ShieldCheck, Eye, FlaskConical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NotificationBell } from '@/components/layout/notification-bell';
 import { TeamSwitcher } from '@/components/layout/team-switcher';
@@ -56,6 +56,7 @@ const dockItems = [
   { href: '/sessions', label: 'Sessions', icon: Calendar },
   { href: '/observations', label: 'Observations', icon: Eye },
   { href: '/analytics', label: 'Analytics', icon: LineChart },
+  { href: '/labs', label: 'Labs', icon: FlaskConical },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -67,7 +68,7 @@ interface Props {
 // Pages that manage their own bottom spacing (chat-style input pinned to viewport bottom).
 // Skipping the shell's bottom padding lets the input bar sit directly above the mobile nav,
 // while the page itself adds enough internal padding to clear the FAB.
-const FULL_BLEED_PATHS = ['/assistant'];
+const FULL_BLEED_PATHS = ['/assistant', '/labs/chalk-talk'];
 
 export function DashboardShell({ coach, children }: Props) {
   const pathname = usePathname();
@@ -663,6 +664,7 @@ export function DashboardShell({ coach, children }: Props) {
                   { href: '/analytics', label: 'Analytics', icon: LineChart },
                   { href: '/drills', label: 'Drills', icon: Dumbbell },
                   { href: '/curriculum', label: 'Curriculum', icon: BookOpen },
+                  { href: '/labs', label: 'Labs', icon: FlaskConical },
                   { href: '/settings', label: 'Settings', icon: Settings },
                   { href: '/admin', label: 'Admin', icon: ShieldCheck },
                 ].map((item) => (

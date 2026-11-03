@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabase, createServiceSupabase } from '@/lib/supabase/server';
-import { getStripe, getPriceId, type PaidTier, type BillingInterval } from '@/lib/stripe';
+import { getStripe, getPriceId, type PaidTier, type BillingInterval, CHALK_TALK_AI_PRICE, CHALK_TALK_AI_LAUNCH_COUPON } from '@/lib/stripe';
 import { parseResumeTarget } from '@/lib/resume-target';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -13,12 +13,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { tier, interval, resume } = (await request.json()) as {
+    const { tier, interval, resume, product } = (await request.json()) as {
       tier: PaidTier;
       interval: BillingInterval;
       /** Optional opaque resume token describing the blocked action (ticket 0035). */
       resume?: string;
+      /** 'chalk_talk_ai': the standalone Chalk Talk AI subscription instead of a CourtIQ tier. */
+      product?: string;
     };
+
+    if (product === 'chalk_talk_ai') return chalkTalkAICheckout(user);
 
     if (!tier || !interval) {
       return NextResponse.json({ error: 'Missing tier or interval' }, { status: 400 });
@@ -129,4 +133,32 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+// Chalk Talk AI: a second subscription on the coach's org, never touching the main plan (the webhook routes
+// its events by price id). The launch coupon, while it's configured, locks in $4.99.
+async function chalkTalkAICheckout(user: { id: string; email?: string | null }) {
+  const price = CHALK_TALK_AI_PRICE();
+  if (!price) return NextResponse.json({ error: 'Chalk Talk AI isn’t on sale yet.' }, { status: 503 });
+  const admin = await createServiceSupabase();
+  const { data: coach } = await admin.from('coaches').select('org_id').eq('id', user.id).single();
+  if (!coach) return NextResponse.json({ error: 'Coach not found' }, { status: 404 });
+  const { data: org } = await admin.from('organizations').select('id, stripe_customer_id, chalk_talk_ai_status').eq('id', coach.org_id).single();
+  if (!org) return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
+  if (org.chalk_talk_ai_status && ['active', 'trialing', 'past_due'].includes(org.chalk_talk_ai_status)) {
+    return NextResponse.json({ error: 'You already have Chalk Talk AI. Manage it from billing.' }, { status: 409 });
+  }
+  const coupon = CHALK_TALK_AI_LAUNCH_COUPON();
+  const meta = { org_id: org.id, product: 'chalk_talk_ai' };
+  const session = await getStripe().checkout.sessions.create({
+    mode: 'subscription',
+    ...(org.stripe_customer_id ? { customer: org.stripe_customer_id } : { customer_email: user.email || undefined }),
+    line_items: [{ price, quantity: 1 }],
+    ...(coupon ? { discounts: [{ coupon }] } : { allow_promotion_codes: true }),
+    success_url: `${APP_URL}/labs/chalk-talk/ai?success=true`,
+    cancel_url: `${APP_URL}/labs/chalk-talk/ai?canceled=true`,
+    metadata: meta,
+    subscription_data: { metadata: meta },
+  });
+  return NextResponse.json({ url: session.url });
 }
