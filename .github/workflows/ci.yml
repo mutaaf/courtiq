@@ -42,7 +42,7 @@ jobs:
           retention-days: 7
 
   e2e-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # Playwright has no chromium build for ubuntu 26.04 yet (ubuntu-latest moved, 2026-11)
     needs: [unit-tests]
     # GATING (ticket 0006): runs against a REAL local Supabase seeded with
     # tests/e2e/fixtures/seed.sql. No `|| true` — a red Playwright run fails the
